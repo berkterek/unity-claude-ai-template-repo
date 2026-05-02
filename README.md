@@ -8,10 +8,10 @@ A personal Claude Code configuration template for Unity 6 projects. Drop the `.c
 
 Claude Code reads the `.claude/` folder when it opens a project. This template pre-loads it with:
 
-- **Rules** — architecture, naming, testing, ECS, serialization standards that Claude follows automatically
+- **Rules** — architecture, naming, testing, ECS, serialization, addressables standards that Claude follows automatically
 - **Hooks** — shell scripts that run on every file write, blocking bad patterns before they land
-- **Commands** — slash commands for common workflows (`/new-module`, `/setup-project`, `/review-code`, etc.)
-- **Agents** — specialized AI agent roles (coder, tester, reviewer, unity-setup)
+- **Commands** — slash commands for common workflows (`/new-module`, `/setup-project`, `/debug-session`, etc.)
+- **Agents** — specialized AI agent roles (coder, tester, reviewer, debugger, migrator, unity-setup)
 
 ---
 
@@ -24,6 +24,7 @@ This template assumes the following packages are (or will be) installed in your 
 | **VContainer** | Dependency injection |
 | **UniTask** | Async/await (replaces coroutines) |
 | **New Input System** | Input handling |
+| **Addressables** | Runtime asset loading (Resources.Load forbidden) |
 | **NSubstitute** | Test mocking (manual DLL install) |
 | **Unity ECS DOTS** | Optional — hooks and rules are active if you use it |
 
@@ -65,7 +66,7 @@ This generates project-specific boilerplate: assembly definition files (with you
 
 Hooks run silently in the background every time Claude writes or edits a C# file.
 
-### Blocking (stops the write)
+### Blocking (stops the write, runs before write)
 
 | Hook | What it blocks |
 |------|---------------|
@@ -73,6 +74,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `guard-editor-runtime` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `check-pure-csharp` | `using UnityEngine` inside `_Framework/` or service classes in `Abstracts/Concretes/` |
 | `check-input-system` | Legacy `Input.GetKey` / `Input.GetAxis` API |
+| `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
 
 ### Warnings (logged to stderr, does not block)
 
@@ -89,6 +91,9 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-namespace-format` | Namespace not in `Layer.Module` format (e.g. `Game.Concretes`) |
 | `check-event-naming` | `IEvent` struct without `Event` suffix or not past tense |
 | `check-ecs-structural-changes` | `EntityManager.AddComponent/DestroyEntity` inside ECS system (use ECB) |
+| `check-async-void` | `async void` outside Unity lifecycle methods (swallows exceptions) |
+| `check-unitask-cancellation` | `async UniTask` methods missing `CancellationToken` parameter |
+| `check-null-propagation` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
 
 ---
 
@@ -123,6 +128,9 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/clean-slop` | Remove AI-generated bloat (dead code, useless abstractions) |
 | `/learn` | Extract project-specific patterns into `.claude/skills/learned/` |
 | `/catch-up` | Generate a human-readable codebase guide |
+| `/generate-tests` | Write missing tests for an existing class |
+| `/performance-audit` | Audit files for allocations and hot-path violations |
+| `/debug-session` | Structured root cause analysis for a bug |
 
 ---
 
@@ -149,9 +157,11 @@ _GameFolders/Scripts/Games/
 - Each module is 5 files: `IService`, `Service`, `Configuration`, `Installer`, `Events`
 - `AppScope` never changes — add modules via `AppInstaller.asset`
 - `IEventBus` for cross-module communication — no direct cross-module calls
+- `EventBusAccessor` static bridge for ECS ↔ Mono communication (only approved static accessor)
 - Provider pattern — Unity API stays in `Concretes/<Module>/`, never in service classes
 - New Input System only — `InputView` owns `PlayerControls`
-- UniTask everywhere — no coroutines
+- UniTask everywhere — no coroutines, no `async void`, always pass `CancellationToken`
+- Addressables for all runtime asset loading — no `Resources.Load`
 - NSubstitute + AAA pattern for tests — only interfaces mocked
 
 ---
@@ -176,6 +186,11 @@ Install via Unity Package Manager — add by git URL from the UniTask repository
 2. Edit → Project Settings → Player → Active Input Handling → `Input System Package (New)`
 3. Create `Assets/Input/[ProjectName]Controls.inputactions`
 4. Enable "Generate C# Class" in the `.inputactions` inspector
+
+**Addressables**
+1. Install via Package Manager: `com.unity.addressables`
+2. Mark runtime assets as Addressable in the Inspector
+3. Use `AssetAddresses` constants class for address strings — no hardcoded strings
 
 **AppScope (Bootstrap scene)**
 1. Create a `Bootstrap` scene (Build index 0)
