@@ -1,0 +1,186 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash",
+      "Glob",
+      "Grep",
+      "Agent",
+      "WebSearch",
+      "WebFetch"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-scene-edit.sh",
+            "timeout": 3000,
+            "statusMessage": "Checking for scene/prefab edits..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/guard-editor-runtime.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking UnityEditor guard..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-pure-csharp.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking pure C# constraint..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-naming-conventions.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking naming conventions..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-no-linq-hotpath.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking LINQ on hot paths..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-no-runtime-instantiate.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking runtime instantiation..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-input-system.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking Input System patterns..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-test-exists.sh",
+            "timeout": 10000,
+            "statusMessage": "Checking test coverage..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-compile.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking syntax..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/warn-serialization.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking serialization safety..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/warn-filename.sh",
+            "timeout": 3000,
+            "statusMessage": "Checking filename matches class..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-unused-code.sh",
+            "timeout": 10000,
+            "statusMessage": "Checking for unused code..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-namespace-format.sh",
+            "timeout": 3000,
+            "statusMessage": "Checking namespace format..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-event-naming.sh",
+            "timeout": 3000,
+            "statusMessage": "Checking IEvent naming..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-ecs-structural-changes.sh",
+            "timeout": 3000,
+            "statusMessage": "Checking ECS structural changes..."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,91 @@
+# Unity AI Template — Claude Code Configuration
+
+This is a personal Unity development template for Claude Code. It enforces architecture, coding standards, and quality rules automatically through hooks and provides slash commands for common workflows.
+
+## Rules (auto-loaded)
+
+Detailed coding standards in `.claude/rules/`:
+
+| File | Covers |
+|------|--------|
+| `architecture.md` | VContainer DI, module structure, IEventBus, Provider pattern, InputView, AppScope |
+| `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation |
+| `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas |
+| `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
+| `unity-specifics.md` | Editor guards, platform defines, lifecycle order, no coroutines |
+| `testing.md` | NSubstitute, AAA pattern, test naming, assembly setup |
+| `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
+
+## Hooks (auto-enforced on every Write/Edit)
+
+### Blocking (exit 2 — stops the write)
+
+| Hook | Blocks |
+|------|--------|
+| `block-scene-edit.sh` | Direct editing of `.unity`, `.prefab`, `.asset` files |
+| `guard-editor-runtime.sh` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
+| `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` or `Games/Abstracts/` / `Games/Concretes/` (non-provider) |
+| `check-input-system.sh` | Legacy `Input.GetKey` / `Input.GetAxis` API |
+
+### Warning (exit 0 — logs to stderr, does not block)
+
+| Hook | Warns |
+|------|-------|
+| `check-naming-conventions.sh` | Non-PascalCase types, wrong field naming |
+| `check-no-linq-hotpath.sh` | LINQ in Update/FixedUpdate/LateUpdate |
+| `check-no-runtime-instantiate.sh` | `Instantiate()`, `new GameObject()`, `Destroy()` |
+| `check-test-exists.sh` | Logic class with no corresponding test file |
+| `check-compile.sh` | Basic C# syntax (braces, namespace, type declaration) |
+| `warn-serialization.sh` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
+| `warn-filename.sh` | C# filename doesn't match primary class name |
+| `check-unused-code.sh` | Unused private members, unused imports |
+| `check-namespace-format.sh` | Namespace not in `Layer.Module` format |
+| `check-event-naming.sh` | `IEvent` struct without `Event` suffix or not past tense |
+| `check-ecs-structural-changes.sh` | `EntityManager.AddComponent/RemoveComponent/DestroyEntity` inside ECS system (use ECB) |
+
+## Commands (slash commands)
+
+### Project Setup
+- `/setup-project` — Initialize a new project: folder structure, .asmdef files, base framework classes, NSubstitute setup, manual checklist
+
+### Design & Architecture
+- `/game-idea` — Refine a raw game idea into a GDD
+- `/architect` — Create a Technical Design Document from a GDD
+- `/refine-gdd` — Iterate on an existing GDD
+- `/refine-tdd` — Iterate on an existing TDD
+
+### Development
+- `/plan-workflow` — Create a phased execution plan from a TDD
+- `/new-module` — Generate the 5-file module structure (Interface, Service, Config, Installer, Events)
+- `/add-feature` — Incrementally extend an existing game
+
+### Quality
+- `/review-code` — Code review on specific files
+- `/validate` — Validate a completed phase
+- `/check-portability` — Audit a module for copy-paste portability
+- `/clean-slop` — Remove AI-generated bloat (dead code, useless abstractions)
+- `/learn` — Extract project-specific patterns into `.claude/skills/learned/`
+
+### Documentation
+- `/catch-up` — Generate a human-readable codebase guide (`docs/CATCH_UP.md`)
+
+## Key Architecture Rules (summary)
+
+- **No singletons** — VContainer only. Register in AppScope (global) or scene scopes.
+- **No GameContext / service locator** — each class declares only its own dependencies.
+- **No coroutines** — UniTask everywhere. `async UniTask`, not `async void`.
+- **No legacy Input** — New Input System only. InputView owns PlayerControls.
+- **No concrete cross-module deps** — only interfaces consumed across modules.
+- **No UnityEngine in services** — Provider pattern. Unity API lives in `Concretes/<Module>/`.
+- **No direct EntityManager structural changes** — use `EntityCommandBuffer` in ECS systems.
+- **Tests are mandatory** — NSubstitute + AAA. Only interfaces mocked. Test file per class.
+
+## Project-Specific Setup
+
+When first adding this template to a new project, run `/setup-project` to generate:
+- Assembly definition files with correct project name
+- Base framework classes (IEventBus, ModuleInstaller, AppScope)
+- NSubstitute test assembly configuration
+- Sample test templates
+
+Then follow the **Manual Setup Checklist** it prints (NSubstitute DLL, VContainer, UniTask, Input System, AppScope scene wiring).
