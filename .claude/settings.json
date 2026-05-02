@@ -35,11 +35,9 @@
             "statusMessage": "Checking UnityEditor guard..."
           }
         ]
-      }
-    ],
-    "PostToolUse": [
+      },
       {
-        "matcher": "Write|Edit",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
@@ -49,6 +47,30 @@
           }
         ]
       },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-input-system.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking Input System patterns..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-vcontainer-singleton.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking for singleton patterns..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
       {
         "matcher": "Write|Edit",
         "hooks": [
@@ -79,17 +101,6 @@
             "command": ".claude/hooks/check-no-runtime-instantiate.sh",
             "timeout": 5000,
             "statusMessage": "Checking runtime instantiation..."
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/check-input-system.sh",
-            "timeout": 5000,
-            "statusMessage": "Checking Input System patterns..."
           }
         ]
       },
@@ -178,6 +189,50 @@
             "command": ".claude/hooks/check-ecs-structural-changes.sh",
             "timeout": 3000,
             "statusMessage": "Checking ECS structural changes..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-async-void.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking async void usage..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-unitask-cancellation.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking UniTask cancellation tokens..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-null-propagation.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking null propagation on Unity objects..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-vcontainer-singleton.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking for singleton patterns..."
           }
         ]
       }

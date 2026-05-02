@@ -8,13 +8,14 @@ Detailed coding standards in `.claude/rules/`:
 
 | File | Covers |
 |------|--------|
-| `architecture.md` | VContainer DI, module structure, IEventBus, Provider pattern, InputView, AppScope |
+| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope |
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation |
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-specifics.md` | Editor guards, platform defines, lifecycle order, no coroutines |
 | `testing.md` | NSubstitute, AAA pattern, test naming, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
+| `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 
 ## Hooks (auto-enforced on every Write/Edit)
 
@@ -26,6 +27,7 @@ Detailed coding standards in `.claude/rules/`:
 | `guard-editor-runtime.sh` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` or `Games/Abstracts/` / `Games/Concretes/` (non-provider) |
 | `check-input-system.sh` | Legacy `Input.GetKey` / `Input.GetAxis` API |
+| `check-vcontainer-singleton.sh` | Static singleton patterns outside of `EventBusAccessor` |
 
 ### Warning (exit 0 — logs to stderr, does not block)
 
@@ -42,6 +44,9 @@ Detailed coding standards in `.claude/rules/`:
 | `check-namespace-format.sh` | Namespace not in `Layer.Module` format |
 | `check-event-naming.sh` | `IEvent` struct without `Event` suffix or not past tense |
 | `check-ecs-structural-changes.sh` | `EntityManager.AddComponent/RemoveComponent/DestroyEntity` inside ECS system (use ECB) |
+| `check-async-void.sh` | `async void` outside Unity lifecycle methods (swallows exceptions) |
+| `check-unitask-cancellation.sh` | `async UniTask` methods without `CancellationToken` parameter |
+| `check-null-propagation.sh` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
 
 ## Commands (slash commands)
 
@@ -65,6 +70,9 @@ Detailed coding standards in `.claude/rules/`:
 - `/check-portability` — Audit a module for copy-paste portability
 - `/clean-slop` — Remove AI-generated bloat (dead code, useless abstractions)
 - `/learn` — Extract project-specific patterns into `.claude/skills/learned/`
+- `/generate-tests` — Write missing tests for an existing class
+- `/performance-audit` — Audit files for allocations and hot-path violations
+- `/debug-session` — Structured root cause analysis for a bug
 
 ### Documentation
 - `/catch-up` — Generate a human-readable codebase guide (`docs/CATCH_UP.md`)

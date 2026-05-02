@@ -304,3 +304,52 @@ VContainer replaces all singleton patterns.
 - App-wide → register in `AppScope`
 - Per-scene → register in `MenuScope` / `GameScope`
 - No `Instance`, no `static` mutable state, no `FindObjectOfType`
+
+---
+
+## EventBusAccessor — ECS ↔ Mono Static Bridge (APPROVED EXCEPTION)
+
+ECS systems (`ISystem`, `SystemBase`) cannot receive VContainer injection. The only approved static accessor is `EventBusAccessor` in `_Framework/Events/`.
+
+```csharp
+// _Framework/Events/EventBusAccessor.cs — pure C#, no UnityEngine
+public static class EventBusAccessor
+{
+    private static IEventBus _instance;
+    public static IEventBus Instance => _instance
+        ?? throw new InvalidOperationException("EventBusAccessor not initialized. Call Initialize() in AppScope.");
+
+    public static void Initialize(IEventBus bus) => _instance = bus;
+}
+```
+
+```csharp
+// AppScope.cs — initialize the accessor after VContainer resolves
+protected override void Configure(IContainerBuilder builder)
+{
+    // ... other registrations
+    builder.RegisterBuildCallback(container =>
+    {
+        EventBusAccessor.Initialize(container.Resolve<IEventBus>());
+    });
+}
+```
+
+```csharp
+// ECS System — uses static accessor
+public partial class EnemyDeathSystem : SystemBase
+{
+    protected override void OnUpdate()
+    {
+        // VContainer injection not available here — accessor is the bridge
+        EventBusAccessor.Instance.Publish(new EnemyDiedEvent { ... });
+    }
+}
+```
+
+**Rules:**
+- Only `EventBusAccessor` is an approved static accessor — no new ones without explicit design decision
+- `EventBusAccessor` lives in `_Framework/Events/` — pure C#, no UnityEngine import
+- MonoBehaviours and services always receive `IEventBus` via VContainer constructor injection
+- ECS systems use `EventBusAccessor.Instance` directly
+- `check-vcontainer-singleton.sh` hook blocks all other static singleton patterns
