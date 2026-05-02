@@ -11,7 +11,7 @@ Claude Code reads the `.claude/` folder when it opens a project. This template p
 - **Rules** — architecture, naming, testing, ECS, serialization, addressables standards that Claude follows automatically
 - **Hooks** — shell scripts that run on every file write, blocking bad patterns before they land
 - **Commands** — slash commands for common workflows (`/new-module`, `/setup-project`, `/debug-session`, etc.)
-- **Agents** — specialized AI agent roles (coder, tester, reviewer, debugger, migrator, unity-setup)
+- **Agents** — specialized AI agent roles (coder, tester, reviewer, debugger, migrator, silent-failure-hunter, unity-setup)
 
 ---
 
@@ -75,6 +75,8 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-pure-csharp` | `using UnityEngine` inside `_Framework/` or service classes in `Abstracts/Concretes/` |
 | `check-input-system` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
+| `guard-critical-files` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation |
+| `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` |
 
 ### Warnings (logged to stderr, does not block)
 

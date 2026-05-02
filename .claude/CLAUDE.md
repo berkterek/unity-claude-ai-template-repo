@@ -28,6 +28,8 @@ Detailed coding standards in `.claude/rules/`:
 | `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` or `Games/Abstracts/` / `Games/Concretes/` (non-provider) |
 | `check-input-system.sh` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-vcontainer-singleton.sh` | Static singleton patterns outside of `EventBusAccessor` |
+| `guard-critical-files.sh` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation |
+| `check-config-protection.sh` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` |
 
 ### Warning (exit 0 — logs to stderr, does not block)
 
@@ -73,6 +75,7 @@ Detailed coding standards in `.claude/rules/`:
 - `/generate-tests` — Write missing tests for an existing class
 - `/performance-audit` — Audit files for allocations and hot-path violations
 - `/debug-session` — Structured root cause analysis for a bug
+- `/silent-failure-hunt` — Audit files for swallowed exceptions and silent error patterns
 
 ### Documentation
 - `/catch-up` — Generate a human-readable codebase guide (`docs/CATCH_UP.md`)

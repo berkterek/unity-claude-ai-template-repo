@@ -68,6 +68,28 @@
             "statusMessage": "Checking for singleton patterns..."
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/guard-critical-files.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking critical architecture files..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-config-protection.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking config file protection..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
