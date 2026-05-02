@@ -133,6 +133,24 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/generate-tests` | Write missing tests for an existing class |
 | `/performance-audit` | Audit files for allocations and hot-path violations |
 | `/debug-session` | Structured root cause analysis for a bug |
+| `/silent-failure-hunt` | Audit files for swallowed exceptions and silent error patterns |
+
+---
+
+## Agents
+
+Specialized AI roles invoked automatically by commands or directly by name.
+
+| Agent | Role |
+|-------|------|
+| `coder` | Pure C# implementation — follows TDD spec exactly |
+| `tester` | NUnit + NSubstitute test writer — AAA pattern, interface-only mocks |
+| `reviewer` | Principal-level code review — architecture, naming, performance |
+| `committer` | Smart phase commit manager — semantic git commits |
+| `unity-setup` | Scene, prefab, ScriptableObject configuration via Unity MCP |
+| `debugger` | Root cause analysis — VContainer, ECS, UniTask, Input bug patterns |
+| `migrator` | Legacy pattern migration — coroutine→UniTask, singleton→VContainer, legacy input |
+| `silent-failure-hunter` | Swallowed exception audit — empty catch, `.Forget()` without handler, dangerous fallbacks |
 
 ---
 
