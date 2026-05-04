@@ -1,4 +1,22 @@
 #!/usr/bin/env bash
+
+# --- Hook Audit Logging ---
+_hook_log() {
+    local code=$1
+    local log="${HOME}/.claude/hook-audit.log"
+    local ts; ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local proj; proj=$(git rev-parse --show-toplevel 2>/dev/null | xargs basename 2>/dev/null || echo "unknown")
+    local file="${FILE_PATH:-}"
+    local status
+    if [ "$code" -eq 2 ]; then status="BLOCKED"
+    elif [ "$code" -eq 0 ]; then status="OK"
+    else status="WARN"; fi
+    printf '{"ts":"%s","hook":"%s","status":"%s","file":"%s","project":"%s"}\n' "$ts" "guard-editor-runtime" "$status" "$file" "$proj" >> "$log"
+    local lines; lines=$(wc -l < "$log" 2>/dev/null || echo 0)
+    if [ "$lines" -gt 5000 ]; then tail -n 5000 "$log" > "${log}.tmp" && mv "${log}.tmp" "$log"; fi
+}
+trap '_hook_log $?' EXIT
+# --- End Hook Audit Logging ---
 # ============================================================================
 # guard-editor-runtime.sh — BLOCKING HOOK
 # Blocks usage of UnityEditor namespace in runtime code without #if guard.

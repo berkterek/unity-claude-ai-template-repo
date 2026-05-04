@@ -230,6 +230,34 @@ _GameFolders/Scripts/Games/
 
 ---
 
+## Hook Audit Log
+
+Every hook execution is logged to `~/.claude/hook-audit.log` as newline-delimited JSON. Use this to see what was blocked, warned, or passed on any file.
+
+```jsonc
+{"ts":"2026-05-04T10:22:01Z","hook":"check-vcontainer-singleton","status":"BLOCKED","file":"Games/Concretes/GameManager.cs","project":"my-game"}
+{"ts":"2026-05-04T10:22:02Z","hook":"check-naming-conventions","status":"OK","file":"Games/Concretes/GameManager.cs","project":"my-game"}
+```
+
+**Status values:** `OK` — passed, `BLOCKED` — write was stopped (exit 2), `WARN` — warning logged (exit 0 with output)
+
+**Useful queries:**
+
+```bash
+# See all blocked writes today
+grep BLOCKED ~/.claude/hook-audit.log | tail -20
+
+# See which hooks fired on a specific file
+grep "GameManager.cs" ~/.claude/hook-audit.log
+
+# Count blocks per hook (which rule fires most)
+grep BLOCKED ~/.claude/hook-audit.log | jq -r '.hook' | sort | uniq -c | sort -rn
+```
+
+The log is capped at 5000 lines and rotates automatically. It is global across all projects — the `project` field identifies which project each entry came from.
+
+---
+
 ## Manual Setup (Required After `/setup-project`)
 
 Some things Claude cannot do inside Unity Editor — you do these once per project:

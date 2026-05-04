@@ -1,4 +1,22 @@
 #!/bin/bash
+
+# --- Hook Audit Logging ---
+_hook_log() {
+    local code=$1
+    local log="${HOME}/.claude/hook-audit.log"
+    local ts; ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local proj; proj=$(git rev-parse --show-toplevel 2>/dev/null | xargs basename 2>/dev/null || echo "unknown")
+    local file="${FILE_PATH:-}"
+    local status
+    if [ "$code" -eq 2 ]; then status="BLOCKED"
+    elif [ "$code" -eq 0 ]; then status="OK"
+    else status="WARN"; fi
+    printf '{"ts":"%s","hook":"%s","status":"%s","file":"%s","project":"%s"}\n' "$ts" "check-namespace-format" "$status" "$file" "$proj" >> "$log"
+    local lines; lines=$(wc -l < "$log" 2>/dev/null || echo 0)
+    if [ "$lines" -gt 5000 ]; then tail -n 5000 "$log" > "${log}.tmp" && mv "${log}.tmp" "$log"; fi
+}
+trap '_hook_log $?' EXIT
+# --- End Hook Audit Logging ---
 # Hook: Warns if C# namespace doesn't follow Layer.Module format
 # Expected: Framework.Events, Game.Abstracts, Game.Concretes, Game.Ecs, etc.
 # Receives JSON on stdin with tool_input.file_path
