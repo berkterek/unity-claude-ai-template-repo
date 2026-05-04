@@ -23,6 +23,7 @@ Detailed coding standards in `.claude/rules/`:
 
 | Hook | Blocks |
 |------|--------|
+| `block-git-push.sh` | `git push` — Claude cannot push; user always pushes manually |
 | `block-scene-edit.sh` | Direct editing of `.unity`, `.prefab`, `.asset` files |
 | `guard-editor-runtime.sh` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` or `Games/Abstracts/` / `Games/Concretes/` (non-provider) |

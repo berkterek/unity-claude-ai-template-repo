@@ -114,6 +114,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 
 | Hook | What it blocks |
 |------|---------------|
+| `block-git-push` | `git push` — Claude cannot push; user always pushes manually |
 | `block-scene-edit` | Direct editing of `.unity`, `.prefab`, `.asset` YAML |
 | `guard-editor-runtime` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `check-pure-csharp` | `using UnityEngine` inside `_Framework/` or service classes in `Abstracts/Concretes/` |
