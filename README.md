@@ -30,6 +30,50 @@ This template assumes the following packages are (or will be) installed in your 
 
 ---
 
+## Usage Modes
+
+This template works in two modes:
+
+| Mode | When to use |
+|------|-------------|
+| **New project** | Run `/setup-project` to generate the full folder structure, assembly definitions, and base classes from scratch |
+| **Existing project** | Copy `.claude/` only — hooks and commands work immediately. Migrate code gradually, module by module |
+
+---
+
+## Adding to an Existing Project
+
+You do **not** need to start from scratch. The `.claude/` folder is self-contained and can be dropped into any existing Unity project.
+
+### What works immediately (zero migration needed)
+
+- All slash commands (`/debug-session`, `/review-code`, `/performance-audit`, etc.)
+- All warning hooks — they log issues but never block writes
+- Rules — Claude follows the architecture standards when writing new code
+
+### What will block existing code
+
+The blocking hooks enforce patterns that legacy code likely violates. Before adding this template to an existing project, decide how to handle each:
+
+| Hook | What it blocks | Migration path |
+|------|---------------|----------------|
+| `check-vcontainer-singleton` | Static singletons | Migrate to VContainer registration — or temporarily disable the hook |
+| `check-input-system` | `Input.GetKey` / `Input.GetAxis` | Replace with New Input System + `InputView` |
+| `check-pure-csharp` | `using UnityEngine` in `_Framework/` | Move Unity calls to provider classes |
+| `guard-editor-runtime` | Unguarded `UnityEditor` in runtime code | Wrap with `#if UNITY_EDITOR` |
+
+### Recommended migration approach
+
+1. **Copy `.claude/` into your project** — commands and warnings are active immediately
+2. **Temporarily disable blocking hooks** you're not ready for: comment out the relevant `[[hooks]]` entry in `.claude/settings.json`
+3. **Run `/check-portability` on existing modules** to see what needs to change
+4. **Migrate module by module** — new code follows the template, legacy code migrates on touch
+5. **Re-enable hooks** as each area of the codebase is migrated
+
+> **Note:** If VContainer, UniTask, or the New Input System are not yet installed, add them via Package Manager before enabling the hooks that depend on them. The hooks will block writes that use the old patterns, but Claude will still help you write the migration code correctly.
+
+---
+
 ## Quick Start
 
 ### 1. Copy into your project
