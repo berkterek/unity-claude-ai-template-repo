@@ -74,6 +74,16 @@ Detailed coding standards in `.claude/rules/`:
 
 ## Commands (slash commands)
 
+### Pipelines (multi-agent)
+- `/implement <task>` — coder → reviewer → committer
+- `/fix <bug>` — debugger → coder → reviewer → committer
+- `/scene-setup <description>` — coder + unity-setup → reviewer → committer
+- `/migrate <pattern> in <scope>` — migrator → reviewer → committer
+- `/update-plan <file> <change>` — analyzer → planner (opus) → reviewer → save
+- `/smart-commit` — analyze dirty working tree → group into logical commits → commit
+
+> Reviewer tries Codex first; falls back to Claude reviewer agent if unavailable.
+
 ### Project Setup
 - `/setup-project` — Initialize a new project: folder structure, .asmdef files, base framework classes, NSubstitute setup, manual checklist
 

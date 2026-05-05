@@ -198,12 +198,24 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/refine-tdd` | Iterate on an existing TDD |
 | `/plan-workflow` | Create a phased execution plan from a TDD |
 
+### Pipelines (multi-agent)
+| Command | Description |
+|---------|-------------|
+| `/implement <task>` | Coder → Reviewer (loop) → Committer — implement any task end-to-end |
+| `/fix <bug>` | Debugger → Coder → Reviewer (loop) → Committer — root cause first, then fix |
+| `/migrate <pattern> in <scope>` | Migrator → Reviewer (loop) → Committer — coroutine→UniTask, singleton→VContainer, etc. |
+| `/scene-setup <description>` | Coder + Unity-Setup → Reviewer (loop) → Committer — scripts and scene wiring together |
+| `/update-plan <file> <change>` | Analyzer → Planner → Reviewer (loop) → Save → optional Implementer |
+| `/smart-commit` | Analyze dirty working tree → group into logical atomic commits → commit |
+| `/orchestrate` | Read `WORKFLOW.md` → execute every task automatically (coder → reviewer loop → committer per task), phase gate between phases |
+
+> All pipeline reviewer steps loop automatically: CHANGES NEEDED → coder fixes → reviewer re-checks → repeat until APPROVED (max 3 passes). Only asks the user if 3 passes fail.
+
 ### Development
 | Command | Description |
 |---------|-------------|
 | `/new-module` | Generate the 5-file module structure (Interface, Service, Config, Installer, Events) |
 | `/add-feature` | Incrementally extend an existing game |
-| `/orchestrate` | Read a `WORKFLOW.md` plan and execute every task automatically — one fresh subagent per task, phase-by-phase with a gate between phases |
 
 ### Quality
 | Command | Description |
