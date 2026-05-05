@@ -1,0 +1,48 @@
+---
+name: five
+description: 5 Whys root cause analysis — systematically drill down to the true cause of a bug or architectural problem
+user-invocable: true
+---
+
+# Five — 5 Whys Root Cause Analysis
+
+A focused, disciplined technique for finding the root cause of a problem. Complements `/debug-session` — use `/debug-session` for broad investigation, use `/five` when you already know the symptom and need to trace the cause chain.
+
+## Process
+
+Ask the user to state the problem clearly in one sentence. Then:
+
+**Why 1:** Why did this problem occur?
+→ State the immediate cause. Ask the user to confirm or correct.
+
+**Why 2:** Why did [Why 1 answer] happen?
+→ Go one level deeper.
+
+**Why 3:** Why did [Why 2 answer] happen?
+→ Keep drilling.
+
+**Why 4:** Why did [Why 3 answer] happen?
+→ Usually approaching the systemic cause now.
+
+**Why 5:** Why did [Why 4 answer] happen?
+→ Root cause. This is what actually needs fixing.
+
+## Rules
+
+- Stop before Why 5 if you reach a true root cause (sometimes it's Why 2 or Why 3)
+- If an answer branches into multiple causes, pick the most impactful branch
+- Do NOT jump to solutions until the root cause is confirmed
+- Each "why" answer must be a factual statement, not a guess — if you're guessing, read the relevant code or logs first
+
+## Output
+
+After reaching root cause, produce:
+
+```
+PROBLEM:    <original symptom>
+ROOT CAUSE: <final why answer>
+FIX:        <single targeted fix that addresses the root cause>
+PREVENTION: <what process/rule/test would catch this earlier next time>
+```
+
+If the fix requires a code change, proceed only after the user confirms the root cause analysis is correct.

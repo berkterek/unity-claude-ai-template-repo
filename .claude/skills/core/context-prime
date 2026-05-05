@@ -1,0 +1,29 @@
+---
+name: context-prime
+description: Brief Claude on project context at the start of a session — reads key files and summarizes current state before any work begins
+user-invocable: true
+---
+
+# Context Prime
+
+Use this at the start of a new session to get Claude up to speed quickly.
+
+## Steps
+
+1. Read `.claude/CLAUDE.md` for architecture rules and available commands
+2. Read `.claude/rules/architecture.md` for module structure and DI patterns
+3. If `docs/CATCH_UP.md` exists, read it for the human-readable codebase overview
+4. Run `git log --oneline -10` to see recent commits
+5. Run `git status` to see any in-progress changes
+6. If the user mentioned a specific module or feature, find and read its source files
+
+## Output
+
+After reading, produce a short summary (5–8 bullet points) covering:
+- What the project is and its current state
+- Key architecture patterns in use (VContainer, UniTask, ECS, etc.)
+- Recent git activity — what was last worked on
+- Any uncommitted changes
+- What the user likely wants to work on next (infer from context)
+
+Keep it concise. The goal is to orient Claude, not produce a report for the user.

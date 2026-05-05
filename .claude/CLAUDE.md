@@ -2,6 +2,15 @@
 
 This is a personal Unity development template for Claude Code. It enforces architecture, coding standards, and quality rules automatically through hooks and provides slash commands for common workflows.
 
+## Session Start
+
+When starting a new conversation on this project, read these files first:
+- `.claude/CLAUDE.md` (this file — already loaded)
+- `.claude/rules/architecture.md` — module structure, VContainer, IEventBus patterns
+- `docs/CATCH_UP.md` if it exists — human-readable codebase guide
+
+If the user asks to continue work on a specific module, also read its source files before making any changes.
+
 ## Rules (auto-loaded)
 
 Detailed coding standards in `.claude/rules/`:
@@ -77,6 +86,17 @@ Detailed coding standards in `.claude/rules/`:
 - `/performance-audit` — Audit files for allocations and hot-path violations
 - `/debug-session` — Structured root cause analysis for a bug
 - `/silent-failure-hunt` — Audit files for swallowed exceptions and silent error patterns
+
+### Session & Context
+- `/context-prime` — Brief Claude on project context at the start of a session
+- `/dump` — Save current session notes to `.claude/logs/` as markdown
+- `/five` — 5 Whys root cause analysis for a bug or architectural problem
+
+### Changelog
+- `/create-changelog` — Create or update `CHANGELOG.md` with recent changes
+
+### Diagrams
+- `/mermaid` — Generate a Mermaid architecture diagram for a module or system
 
 ### Documentation
 - `/catch-up` — Generate a human-readable codebase guide (`docs/CATCH_UP.md`)

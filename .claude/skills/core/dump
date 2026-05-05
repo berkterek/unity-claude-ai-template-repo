@@ -1,0 +1,41 @@
+---
+name: dump
+description: Save current session notes, decisions, and context to .claude/logs/ as a markdown file for future reference
+user-invocable: true
+---
+
+# Dump — Session Log Saver
+
+Saves a summary of the current session to `.claude/logs/YYYY-MM-DD-<topic>.md`.
+
+## Steps
+
+1. Ask the user (or infer from conversation): what was the main topic of this session?
+2. Create `.claude/logs/` if it doesn't exist
+3. Write a markdown file named `YYYY-MM-DD-<topic>.md` (use today's date)
+4. Populate it with:
+
+```markdown
+# Session: <topic>
+Date: YYYY-MM-DD
+
+## What We Did
+- <bullet summary of work completed>
+
+## Decisions Made
+- <architectural or design decisions, with rationale>
+
+## Files Changed
+- <list of files written or edited>
+
+## Open Questions / Next Steps
+- <anything left unresolved or planned for next session>
+```
+
+5. Confirm the file path to the user
+
+## Notes
+
+- Keep entries factual and brief — this is a reference log, not a story
+- If nothing significant happened, say so and skip writing the file
+- `.claude/logs/` should be in `.gitignore` unless the user wants to commit session logs

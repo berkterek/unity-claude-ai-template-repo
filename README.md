@@ -180,6 +180,19 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/debug-session` | Structured root cause analysis for a bug |
 | `/silent-failure-hunt` | Audit files for swallowed exceptions and silent error patterns |
 
+### Session & Context
+| Command | Description |
+|---------|-------------|
+| `/context-prime` | Brief Claude on project context at the start of a session (reads git log + key files) |
+| `/dump` | Save current session notes and decisions to `.claude/logs/` as markdown |
+| `/five` | 5 Whys root cause analysis — drill down from symptom to root cause |
+
+### Changelog & Diagrams
+| Command | Description |
+|---------|-------------|
+| `/create-changelog` | Create or update `CHANGELOG.md` from recent git commits |
+| `/mermaid` | Generate a Mermaid architecture diagram for a module or system |
+
 ---
 
 ## Agents
