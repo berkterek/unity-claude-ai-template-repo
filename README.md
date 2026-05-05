@@ -344,6 +344,29 @@ Install via Unity Package Manager — add by git URL from the UniTask repository
 
 ---
 
+## Writing New Skills
+
+When adding a new skill under `.claude/skills/`, always include `model-tier` in the frontmatter:
+
+```markdown
+---
+name: my-skill
+description: What this skill does
+user-invocable: true
+model-tier: light   # light | normal | heavy
+---
+```
+
+| Tier | Model | Use when |
+|------|-------|----------|
+| `light` | Haiku | Read-only tasks, formatting, quick summaries |
+| `normal` | Sonnet | Code generation, review, debugging |
+| `heavy` | Opus | Architecture, planning, creative design |
+
+This keeps the tier system consistent across all project skills and makes it easy to pick the right `claude-light` / `claude-normal` / `claude-heavy` alias when opening a session.
+
+---
+
 ## Project-Specific Files (Not in This Template)
 
 These are generated per-project and should NOT be committed back to this template:
