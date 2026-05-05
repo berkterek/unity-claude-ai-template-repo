@@ -1,6 +1,6 @@
 # Orchestrate — Automated WORKFLOW.md Executor
 
-You are an orchestration agent. Your job is to read `docs/WORKFLOW.md` and execute every task automatically, one phase at a time. You dispatch a fresh subagent per task. After each phase you pause and ask the developer before moving on.
+You are an orchestration agent. Your job is to read `docs/WORKFLOW.md` and execute every task automatically, one phase at a time. Each task runs a three-step pipeline: **coder → reviewer → committer**. After each phase you pause and ask the developer before moving on.
 
 ## Initialization
 
@@ -15,6 +15,8 @@ You are an orchestration agent. Your job is to read `docs/WORKFLOW.md` and execu
    Total phases: X | Total tasks: Y
    Resuming from: [Phase N, Task P or "beginning"]
    ```
+
+---
 
 ## Execution Loop
 
@@ -32,11 +34,11 @@ Tasks: [count]
 ---
 ```
 
+---
+
 ### Task Execution (for each task in the phase, in order)
 
-For each task:
-
-**1. Announce the task:**
+**Announce the task:**
 ```
 ### [P{phase}.T{task}] [Task Title]
 Type: [type] | Agent: [agent type] | Complexity: [S/M/L/XL]
@@ -44,69 +46,195 @@ Inputs: [list]
 Outputs: [list]
 ```
 
-**2. Dispatch a fresh subagent** with this exact prompt structure:
+Each task runs three steps in sequence. A failure at any step stops the pipeline.
 
+---
+
+#### Step 1 — Coder (or Unity Setup)
+
+If `Agent: unity-setup` → spawn a **unity-setup** subagent.
+Otherwise → spawn a **coder** subagent.
+
+**Coder prompt:**
 ```
-You are a [agent type] agent implementing a specific task in a Unity project.
+You are a senior C# Unity developer implementing a specific task.
 
-## Your Task
-Task ID: [P{phase}.T{task}]
+## Task
+ID: [P{phase}.T{task}]
 Title: [task title]
-Type: [type]
-
-## What You Must Build
-[task description from WORKFLOW.md — full text]
+Description: [full task description from WORKFLOW.md]
 
 ## Input Files (read these first)
 [list every input file path]
 
-## Output Files (you must produce exactly these)
+## Output Files (produce exactly these)
 [list every output file path]
 
-## Acceptance Criteria (all must pass)
-[list every acceptance criterion]
+## Acceptance Criteria
+[list every criterion from WORKFLOW.md]
 
 ## Project Rules
 - Read .claude/CLAUDE.md before writing any code
-- Follow all architecture rules in .claude/rules/
+- Follow all rules in .claude/rules/ (architecture, csharp-unity, performance, serialization, unity-specifics)
 - No singletons — VContainer only
 - No coroutines — UniTask only
 - No legacy Input API
-- Every logic class needs a test (see .claude/rules/testing.md)
 - sealed classes by default
+- Every logic class needs a test (see .claude/rules/testing.md)
 - #region tags required in _GameFolders/Scripts/
 
 ## When Done
-- Run any available compile/test checks
-- Commit your changes with message: "feat: [P{phase}.T{task}] [task title]"
-- Report: DONE or BLOCKED with reason
+List every file you created or modified with a one-line summary.
+Do NOT commit anything.
+Report: DONE or BLOCKED with reason.
 ```
 
-**3. On subagent result:**
+**Unity Setup prompt:**
+```
+You are a Unity scene architect setting up a specific task.
 
-- **DONE** → Mark task complete, append to `docs/PROGRESS.md`, continue.
-- **BLOCKED** → Stop immediately. Print:
-  ```
-  ⚠ BLOCKED at [P{phase}.T{task}]: [reason]
-  Fix this before continuing. Run /orchestrate to resume.
-  ```
-  Update PROGRESS.md with blocked status. Exit.
+## Task
+ID: [P{phase}.T{task}]
+Title: [task title]
+Description: [full task description from WORKFLOW.md]
 
-**4. Update `docs/PROGRESS.md`** after every completed task:
+## Input Files (read these first)
+[list every input file path]
 
+## Output Files (produce exactly these)
+[list every output file path]
+
+## Acceptance Criteria
+[list every criterion from WORKFLOW.md]
+
+## Rules
+- Use Unity MCP tools for all scene/prefab work — do NOT edit .unity or .prefab files as text
+- Attach MonoBehaviours via MCP add_component
+- Register new components in the scene LifetimeScope installer
+
+## When Done
+List every scene/prefab/asset you created or modified.
+Do NOT commit anything.
+Report: DONE or BLOCKED with reason.
+```
+
+If **BLOCKED** → stop immediately. Print:
+```
+⚠ BLOCKED at [P{phase}.T{task}] Step 1 (Coder): [reason]
+Fix this before continuing. Run /orchestrate to resume.
+```
+Update PROGRESS.md with blocked status. Exit.
+
+---
+
+#### Step 2 — Reviewer
+
+First try **Codex** (`codex:rescue` subagent). If unavailable or errors → fall back to **reviewer** subagent.
+
+**Reviewer prompt:**
+```
+Review the following Unity C# implementation.
+
+## Task
+ID: [P{phase}.T{task}]
+Title: [task title]
+
+## Files Changed
+[coder output — list of files with summaries]
+
+## Acceptance Criteria (must all pass)
+[list every criterion from WORKFLOW.md]
+
+## Review Criteria
+1. Acceptance criteria — does the implementation satisfy all of them?
+2. Architecture — VContainer DI, no singletons, interfaces only across modules
+3. Naming — PascalCase types, _camelCase private fields
+4. Performance — no allocations in Update/FixedUpdate, no LINQ on hot paths
+5. Events — IEvent structs past-tense + Event suffix, published via IEventBus
+6. UniTask — no async void outside lifecycle, CancellationToken on every async method
+7. Unity null safety — no ?. or is null on UnityEngine objects
+8. Serialization — FormerlySerializedAs on any renamed [SerializeField]
+
+## Output Format
+APPROVED — all criteria pass.
+
+CHANGES NEEDED:
+- [file:line] Issue and required fix.
+(list every issue)
+```
+
+On **CHANGES NEEDED** → automatically enter the review loop (no user prompt needed):
+
+**Review Loop** (max 3 passes):
+
+1. Spawn a **coder** subagent to fix every listed issue:
+   ```
+   You are a senior C# Unity developer. Fix the following review issues.
+
+   ## Task Context
+   ID: [P{phase}.T{task}] — [task title]
+
+   ## Review Feedback (fix ALL of these)
+   $REVIEWER_FEEDBACK
+
+   ## Rules
+   - Fix only what the reviewer flagged — do not refactor anything else
+   - Read .claude/CLAUDE.md before making changes
+
+   ## When Done
+   List every file you changed with a one-line summary.
+   Report: DONE or BLOCKED with reason.
+   ```
+
+2. Re-run the reviewer (Codex first, fall back to reviewer agent) with the updated files.
+
+3. If APPROVED → proceed to Step 3 (Committer).
+
+4. If still **CHANGES NEEDED** after 3 passes → stop. Print remaining issues and ask:
+   - `skip` → proceed to commit (user accepts responsibility)
+   - `stop` → abort, leave files uncommitted, update PROGRESS.md as blocked
+
+---
+
+#### Step 3 — Committer
+
+Spawn a **committer** subagent:
+
+```
+You are a release engineer. Commit completed work.
+
+## Task Completed
+ID: [P{phase}.T{task}]
+Title: [task title]
+
+## Files Changed
+[coder/unity-setup output — list of files]
+
+## Rules
+- Run: git status, git diff to confirm what changed
+- Stage only files related to this task
+- Commit message format: "feat: [P{phase}.T{task}] [task title]"
+- Do NOT push — user pushes manually
+- Report: commit hash and message
+```
+
+---
+
+#### After Each Task
+
+Update `docs/PROGRESS.md`:
 ```markdown
-## Phase [N]: [Name] — IN PROGRESS / COMPLETE
-
-- [x] P{phase}.T{task} — [title] — [commit hash if available]
-- [ ] P{phase}.T{task} — [title] — pending
+- [x] P{phase}.T{task} — [title] — [commit hash] — Reviewer: [Codex|Claude]
 ```
+
+---
 
 ### Phase Gate
 
 After all tasks in a phase complete:
 
-1. Print the phase exit criteria from WORKFLOW.md.
-2. Do a quick verification: do the output files from this phase exist?
+1. Print exit criteria from WORKFLOW.md.
+2. Verify output files from this phase exist.
 3. Print:
    ```
    ## Phase [N] Complete ✓
@@ -122,9 +250,11 @@ After all tasks in a phase complete:
    - `yes` → continue to next phase
    - `no` or `stop` → exit gracefully, remind them to run `/orchestrate` to resume
 
+---
+
 ## Progress Tracking
 
-`docs/PROGRESS.md` is the source of truth for resuming. Format:
+`docs/PROGRESS.md` format:
 
 ```markdown
 # Execution Progress
@@ -133,11 +263,11 @@ After all tasks in a phase complete:
 **Last updated:** [date]
 
 ## Phase 1: Infrastructure Foundation — COMPLETE
-- [x] P1.T1 — IEventBus + EventBus — abc1234
-- [x] P1.T2 — ModuleInstaller base — def5678
+- [x] P1.T1 — IEventBus + EventBus — abc1234 — Reviewer: Codex
+- [x] P1.T2 — ModuleInstaller base — def5678 — Reviewer: Claude
 
 ## Phase 2: Core Game Logic — IN PROGRESS
-- [x] P2.T1 — EnemyService — 9ab1234
+- [x] P2.T1 — EnemyService — 9ab1234 — Reviewer: Codex
 - [ ] P2.T2 — ScoreService — pending
 - [ ] P2.T3 — PlayerService — pending
 
@@ -146,21 +276,23 @@ After all tasks in a phase complete:
 
 On startup, read this file and skip already-completed tasks.
 
+---
+
 ## Rules
 
-- **Never skip acceptance criteria.** If a subagent reports done but criteria are ambiguous, re-read the WORKFLOW.md criteria before proceeding.
+- **Never skip acceptance criteria.** Re-read WORKFLOW.md criteria if a result is ambiguous.
 - **Never continue past a BLOCKED task.** Fix it first.
 - **Phase gates are mandatory.** Always pause and ask between phases.
-- **One subagent per task.** Never batch multiple tasks into one subagent.
-- **Subagents get no session history.** Write their prompt as if they know nothing about this conversation.
-- **Unity MCP tasks:** For tasks with `Agent: unity-setup`, include a note in the subagent prompt: "Use Unity MCP tools (create_gameobject, add_component, etc.) for scene/prefab work. Do not edit .unity or .prefab files as text."
+- **One pipeline per task.** Never batch multiple tasks into one subagent call.
+- **Subagents get no session history.** Write every prompt as if they know nothing about this conversation.
+- **Reviewer tries Codex first.** Fall back to Claude reviewer agent only if Codex is unavailable.
+
+---
 
 ## On Completion
 
-When all phases are done:
-
 ```
-## 🎉 Orchestration Complete
+## Orchestration Complete
 All [N] phases, [M] tasks executed.
 
 Summary:
