@@ -203,6 +203,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 |---------|-------------|
 | `/new-module` | Generate the 5-file module structure (Interface, Service, Config, Installer, Events) |
 | `/add-feature` | Incrementally extend an existing game |
+| `/orchestrate` | Read a `WORKFLOW.md` plan and execute each task sequentially (or in parallel) by creating real files — turns a written plan into actual code |
 
 ### Quality
 | Command | Description |
