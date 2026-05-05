@@ -2,6 +2,7 @@
 name: context-prime
 description: Brief Claude on project context at the start of a session — reads key files and summarizes current state before any work begins
 user-invocable: true
+model-tier: light
 ---
 
 # Context Prime

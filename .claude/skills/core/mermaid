@@ -2,6 +2,7 @@
 name: mermaid
 description: Generate a Mermaid architecture diagram for a module, system, or the full project — outputs markdown ready to paste into docs or GitHub
 user-invocable: true
+model-tier: light
 ---
 
 # Mermaid — Architecture Diagram Generator

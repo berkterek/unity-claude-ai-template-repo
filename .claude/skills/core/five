@@ -2,6 +2,7 @@
 name: five
 description: 5 Whys root cause analysis — systematically drill down to the true cause of a bug or architectural problem
 user-invocable: true
+model-tier: light
 ---
 
 # Five — 5 Whys Root Cause Analysis

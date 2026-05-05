@@ -2,6 +2,7 @@
 name: dump
 description: Save current session notes, decisions, and context to .claude/logs/ as a markdown file for future reference
 user-invocable: true
+model-tier: light
 ---
 
 # Dump — Session Log Saver

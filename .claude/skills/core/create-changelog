@@ -2,6 +2,7 @@
 name: create-changelog
 description: Create or update CHANGELOG.md with recent git changes — groups commits by type and formats for readability
 user-invocable: true
+model-tier: light
 ---
 
 # Create Changelog

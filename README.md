@@ -74,6 +74,44 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 
 ---
 
+## Model Tiers
+
+Different tasks need different models. Use the right tier to balance speed and cost:
+
+| Tier | Model | Alias | Commands |
+|------|-------|-------|----------|
+| **light** | Haiku | `claude-light` | `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
+| **normal** | Sonnet | `claude-normal` | `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/new-module`, `/performance-audit`, `/clean-slop`, `/catch-up` |
+| **heavy** | Opus | `claude-heavy` | `/architect`, `/plan-workflow`, `/game-idea`, `/add-feature`, `/refine-gdd`, `/refine-tdd` |
+
+### Setup
+
+Add to your `~/.zshrc` or `~/.bashrc`:
+
+```bash
+source /path/to/your-unity-project/.claude/aliases.sh
+```
+
+Or manually:
+
+```bash
+alias claude-light='claude --model claude-haiku-4-5'
+alias claude-normal='claude --model claude-sonnet-4-6'
+alias claude-heavy='claude --model claude-opus-4-7'
+```
+
+Then open Claude for the right task:
+
+```bash
+claude-light   # quick logs, diagrams, changelogs
+claude-normal  # code review, debugging, module generation
+claude-heavy   # architecture, planning, game design
+```
+
+The alias file lives at `.claude/aliases.sh`.
+
+---
+
 ## Quick Start
 
 ### 1. Copy into your project
