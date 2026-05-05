@@ -17,12 +17,43 @@ If no argument is given, ask:
 ## Pipeline
 
 ```
-[1] MIGRATOR → [2] REVIEWER ⟲ (loop until APPROVED) → [3] COMMITTER
+[1] TEST GUARD → [2] MIGRATOR → [3] REVIEWER ⟲ (loop until APPROVED) → [4] COMMITTER
 ```
 
 ---
 
-## Step 1 — Migrator
+## Step 1 — Test Guard
+
+Spawn a **test-writer** subagent with this prompt:
+
+```
+You are a senior C# Unity test engineer. Before a migration begins, ensure tests exist to verify behavior is preserved.
+
+## Migration Task
+$MIGRATION_DESCRIPTION
+
+## Project Rules
+- Read .claude/CLAUDE.md and .claude/rules/testing.md before writing any tests
+- Use NSubstitute for mocking — only mock interfaces
+- Follow AAA pattern (Arrange / Act / Assert)
+- Test method naming: MethodName_WhenCondition_ExpectedBehavior
+
+## Your Task
+1. Check if tests already exist for the code being migrated.
+2. If tests exist and cover the relevant behavior → report: TESTS EXIST, list them.
+3. If tests are missing → write them now, covering the behavior that must survive the migration.
+4. These tests must pass BEFORE migration starts.
+
+## When Done
+Report: TESTS EXIST or TESTS WRITTEN, with a list of test files and what each covers.
+Report: DONE or BLOCKED with reason.
+```
+
+If BLOCKED → stop and show the user.
+
+---
+
+## Step 2 — Migrator
 
 Spawn a **migrator** subagent with this prompt:
 
@@ -66,7 +97,7 @@ If BLOCKED → stop and show the user.
 
 ---
 
-## Step 2 — Reviewer
+## Step 3 — Reviewer
 
 First try **Codex** (`codex:rescue` subagent):
 
@@ -80,11 +111,12 @@ $MIGRATION_DESCRIPTION
 $MIGRATOR_OUTPUT
 
 ## Review Criteria
-1. Correctness — same behavior before and after, no regressions
-2. Completeness — all instances of the old pattern are migrated, no leftovers
-3. Architecture — VContainer DI, no singletons, interfaces only across modules
-4. UniTask rules — no async void, CancellationToken on every async method
-5. Unity null safety — no ?. or is null on UnityEngine objects
+1. Tests pass — all pre-migration tests still pass after migration; no test files were modified
+2. Correctness — same behavior before and after, no regressions
+3. Completeness — all instances of the old pattern are migrated, no leftovers
+4. Architecture — VContainer DI, no singletons, interfaces only across modules
+5. UniTask rules — no async void, CancellationToken on every async method
+6. Unity null safety — no ?. or is null on UnityEngine objects
 
 ## Output Format
 APPROVED or CHANGES NEEDED with file:line issues.
@@ -125,7 +157,7 @@ Repeat until APPROVED or stopped (max 3 passes):
 
 ---
 
-## Step 3 — Committer
+## Step 4 — Committer
 
 Spawn a **committer** subagent with this prompt:
 

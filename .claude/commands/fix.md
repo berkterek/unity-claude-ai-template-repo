@@ -1,6 +1,6 @@
-# /fix — Debugger → Coder → Reviewer → Committer Pipeline
+# /fix — Debugger → Test Writer → Coder → Reviewer → Committer Pipeline
 
-Fixes a bug using a four-agent pipeline: debugger finds root cause, coder fixes, reviewer checks, committer commits.
+Fixes a bug using a five-agent TDD pipeline: debugger finds root cause, test writer writes a failing regression test, coder fixes to make it pass, reviewer checks, committer commits.
 
 ## Usage
 
@@ -14,7 +14,7 @@ If no argument is given, ask: "Describe the bug."
 ## Pipeline
 
 ```
-[1] DEBUGGER → [2] CODER → [3] REVIEWER ⟲ (loop until APPROVED) → [4] COMMITTER
+[1] DEBUGGER → [2] TEST WRITER → [3] CODER → [4] REVIEWER ⟲ (loop until APPROVED) → [5] COMMITTER
 ```
 
 ---
@@ -56,7 +56,45 @@ If **stop** → abort.
 
 ---
 
-## Step 2 — Coder
+## Step 2 — Test Writer
+
+Spawn a **test-writer** subagent with this prompt:
+
+```
+You are a senior C# Unity test engineer. Write a failing regression test that reproduces this bug BEFORE any fix is applied.
+
+## Bug
+$BUG_DESCRIPTION
+
+## Root Cause
+$DEBUGGER_ROOT_CAUSE
+
+## Affected Files
+$DEBUGGER_AFFECTED_FILES
+
+## Project Rules
+- Read .claude/CLAUDE.md and .claude/rules/testing.md before writing any tests
+- Use NSubstitute for mocking — only mock interfaces, never concrete classes
+- Follow AAA pattern (Arrange / Act / Assert)
+- Test method naming: MethodName_WhenCondition_ExpectedBehavior
+- The test must FAIL right now — do not fix the bug
+
+## Your Task
+Write a test (or tests) that:
+1. Directly reproduces the bug described above
+2. Will PASS once the root cause is fixed
+3. Will serve as a permanent regression guard
+
+## When Done
+List every test file you created with a summary of what each test covers.
+Report: DONE or BLOCKED with reason.
+```
+
+If test writer reports **BLOCKED** → stop and show the blocker to the user.
+
+---
+
+## Step 3 — Coder
 
 Spawn a **coder** subagent with this prompt:
 
@@ -72,15 +110,20 @@ $DEBUGGER_ROOT_CAUSE
 ## Files to Change
 $DEBUGGER_AFFECTED_FILES
 
+## Regression Test (make this pass)
+$TEST_WRITER_OUTPUT
+
 ## Project Rules
 - Read .claude/CLAUDE.md before writing any code
 - Follow all rules in .claude/rules/
 - No singletons — VContainer only
 - No coroutines — UniTask only
 - Fix only what is broken — do not refactor surrounding code
+- Do NOT modify the test files
 
 ## When Done
 List every file you modified with a one-line summary of the change.
+Confirm the regression test now passes.
 Report: DONE or BLOCKED with reason.
 ```
 
@@ -88,7 +131,7 @@ If coder reports **BLOCKED** → stop and show the blocker to the user.
 
 ---
 
-## Step 3 — Reviewer
+## Step 4 — Reviewer
 
 First try **Codex** (`codex:rescue` subagent):
 
@@ -105,12 +148,13 @@ $DEBUGGER_ROOT_CAUSE
 $CODER_OUTPUT
 
 ## Review Criteria
-1. Does the fix actually address the root cause (not just the symptom)?
-2. Does the fix introduce any new bugs or regressions?
-3. Architecture — VContainer DI, no singletons, interfaces only across modules
-4. Performance — no allocations in Update/FixedUpdate
-5. UniTask — no async void, CancellationToken on every async method
-6. Unity null safety — no ?. or is null on UnityEngine objects
+1. Regression test passes — the pre-written test now passes; test file was not modified
+2. Does the fix actually address the root cause (not just the symptom)?
+3. Does the fix introduce any new bugs or regressions?
+4. Architecture — VContainer DI, no singletons, interfaces only across modules
+5. Performance — no allocations in Update/FixedUpdate
+6. UniTask — no async void, CancellationToken on every async method
+7. Unity null safety — no ?. or is null on UnityEngine objects
 
 ## Output Format
 APPROVED — fix is correct, no issues.
@@ -155,7 +199,7 @@ Repeat until APPROVED or stopped (max 3 passes):
 
 ---
 
-## Step 4 — Committer
+## Step 5 — Committer
 
 Spawn a **committer** subagent with this prompt:
 

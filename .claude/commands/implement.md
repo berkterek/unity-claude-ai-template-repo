@@ -1,6 +1,6 @@
-# /implement — Coder → Reviewer → Committer Pipeline
+# /implement — Test Writer → Coder → Reviewer → Committer Pipeline
 
-Implements a feature or task using a three-agent pipeline: coder writes, reviewer checks, committer commits.
+Implements a feature or task using a four-agent TDD pipeline: test writer writes failing tests first, coder implements to pass them, reviewer checks, committer commits.
 
 ## Usage
 
@@ -14,12 +14,44 @@ If no argument is given, ask: "What needs to be implemented?"
 ## Pipeline
 
 ```
-[1] CODER → [2] REVIEWER ⟲ (loop until APPROVED) → [3] COMMITTER
+[1] TEST WRITER → [2] CODER → [3] REVIEWER ⟲ (loop until APPROVED) → [4] COMMITTER
 ```
 
 ---
 
-## Step 1 — Coder
+## Step 1 — Test Writer
+
+Spawn a **test-writer** subagent with this prompt:
+
+```
+You are a senior C# Unity test engineer. Write failing unit tests BEFORE any implementation exists.
+
+## Task
+$TASK_DESCRIPTION
+
+## Project Rules
+- Read .claude/CLAUDE.md and .claude/rules/testing.md before writing any tests
+- Use NSubstitute for mocking — only mock interfaces, never concrete classes
+- Follow AAA pattern (Arrange / Act / Assert) — one assertion per test
+- Test method naming: MethodName_WhenCondition_ExpectedBehavior
+- Test class naming: [ClassName]Tests
+- Place test files in the correct test assembly folder
+
+## Your Task
+1. Identify what class(es) and method(s) this task requires.
+2. Write all tests that define the expected behavior — they must FAIL right now (no implementation yet).
+3. Do NOT write any implementation code.
+
+## When Done
+List every test file you created with a summary of what each test covers.
+Report: DONE or BLOCKED with reason.
+```
+
+If test writer reports **BLOCKED** → stop, show the blocker to the user, do not continue.
+
+---
+
+## Step 2 — Coder
 
 Spawn a **coder** subagent with this prompt:
 
@@ -28,6 +60,9 @@ You are a senior C# Unity developer. Implement the following task.
 
 ## Task
 $TASK_DESCRIPTION
+
+## Existing Tests (make these pass)
+$TEST_WRITER_OUTPUT
 
 ## Project Rules (read first)
 - Read .claude/CLAUDE.md before writing any code
@@ -38,9 +73,11 @@ $TASK_DESCRIPTION
 - sealed classes by default
 - IEventBus for cross-system communication
 - #region tags required in _GameFolders/Scripts/
+- Do NOT modify the test files — only write implementation code
 
 ## When Done
 List every file you created or modified with a one-line summary of the change.
+Confirm all tests now pass.
 Report: DONE or BLOCKED with reason.
 ```
 
@@ -48,7 +85,7 @@ If coder reports **BLOCKED** → stop, show the blocker to the user, do not cont
 
 ---
 
-## Step 2 — Reviewer
+## Step 3 — Reviewer
 
 First try **Codex** (`codex:rescue` subagent):
 
@@ -62,13 +99,14 @@ $TASK_DESCRIPTION
 $CODER_OUTPUT
 
 ## Review Criteria
-1. Architecture — VContainer DI, no singletons, interfaces only across modules
-2. Naming — PascalCase types, _camelCase private fields
-3. Performance — no allocations in Update/FixedUpdate, no LINQ on hot paths
-4. Events — IEvent structs past-tense with Event suffix, published via IEventBus
-5. UniTask — no async void outside lifecycle, CancellationToken on every async method
-6. Unity null safety — no ?. or is null on UnityEngine objects
-7. Serialization — FormerlySerializedAs on any renamed [SerializeField]
+1. Tests — all pre-written tests pass; no test files were modified
+2. Architecture — VContainer DI, no singletons, interfaces only across modules
+3. Naming — PascalCase types, _camelCase private fields
+4. Performance — no allocations in Update/FixedUpdate, no LINQ on hot paths
+5. Events — IEvent structs past-tense with Event suffix, published via IEventBus
+6. UniTask — no async void outside lifecycle, CancellationToken on every async method
+7. Unity null safety — no ?. or is null on UnityEngine objects
+8. Serialization — FormerlySerializedAs on any renamed [SerializeField]
 
 ## Output Format
 APPROVED — if all criteria pass, nothing to change.
@@ -113,7 +151,7 @@ Repeat until APPROVED or stopped (max 3 passes):
 
 ---
 
-## Step 3 — Committer
+## Step 4 — Committer
 
 Spawn a **committer** subagent with this prompt:
 

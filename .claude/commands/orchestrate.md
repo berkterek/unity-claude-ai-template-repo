@@ -46,23 +46,66 @@ Inputs: [list]
 Outputs: [list]
 ```
 
-Each task runs three steps in sequence. A failure at any step stops the pipeline.
+Each task runs four steps in sequence (TDD: tests first, then implementation). A failure at any step stops the pipeline.
 
 ---
 
-#### Step 1 — Coder (or Unity Setup)
+#### Step 1 — Test Writer (skip if `Agent: unity-setup`)
+
+If `Agent: unity-setup` → skip this step, go directly to Step 2.
+
+Spawn a **test-writer** subagent with this prompt:
+
+```
+You are a senior C# Unity test engineer. Write failing unit tests BEFORE any implementation exists.
+
+## Task
+ID: [P{phase}.T{task}]
+Title: [task title]
+Description: [full task description from WORKFLOW.md]
+
+## Acceptance Criteria (tests must cover these)
+[list every criterion from WORKFLOW.md]
+
+## Project Rules
+- Read .claude/CLAUDE.md and .claude/rules/testing.md before writing any tests
+- Use NSubstitute for mocking — only mock interfaces, never concrete classes
+- Follow AAA pattern (Arrange / Act / Assert) — one assertion per test
+- Test method naming: MethodName_WhenCondition_ExpectedBehavior
+- Test class naming: [ClassName]Tests
+- Tests must FAIL right now — no implementation exists yet
+
+## When Done
+List every test file you created with a summary of what each test covers.
+Do NOT commit anything.
+Report: DONE or BLOCKED with reason.
+```
+
+If **BLOCKED** → stop immediately. Print:
+```
+⚠ BLOCKED at [P{phase}.T{task}] Step 1 (Test Writer): [reason]
+Fix this before continuing. Run /orchestrate to resume.
+```
+Update PROGRESS.md with blocked status. Exit.
+
+---
+
+#### Step 2 — Coder (or Unity Setup)
 
 If `Agent: unity-setup` → spawn a **unity-setup** subagent.
 Otherwise → spawn a **coder** subagent.
 
 **Coder prompt:**
 ```
-You are a senior C# Unity developer implementing a specific task.
+You are a senior C# Unity developer implementing a specific task. Tests have already been written — your job is to make them pass.
 
 ## Task
 ID: [P{phase}.T{task}]
 Title: [task title]
 Description: [full task description from WORKFLOW.md]
+
+## Existing Tests (make these pass)
+[test-writer output — list of test files and what they cover]
 
 ## Input Files (read these first)
 [list every input file path]
@@ -80,11 +123,12 @@ Description: [full task description from WORKFLOW.md]
 - No coroutines — UniTask only
 - No legacy Input API
 - sealed classes by default
-- Every logic class needs a test (see .claude/rules/testing.md)
+- Do NOT modify the test files — only write implementation code
 - #region tags required in _GameFolders/Scripts/
 
 ## When Done
 List every file you created or modified with a one-line summary.
+Confirm all tests now pass.
 Do NOT commit anything.
 Report: DONE or BLOCKED with reason.
 ```
@@ -127,7 +171,7 @@ Update PROGRESS.md with blocked status. Exit.
 
 ---
 
-#### Step 2 — Reviewer
+#### Step 3 — Reviewer
 
 First try **Codex** (`codex:rescue` subagent). If unavailable or errors → fall back to **reviewer** subagent.
 
@@ -146,14 +190,15 @@ Title: [task title]
 [list every criterion from WORKFLOW.md]
 
 ## Review Criteria
-1. Acceptance criteria — does the implementation satisfy all of them?
-2. Architecture — VContainer DI, no singletons, interfaces only across modules
-3. Naming — PascalCase types, _camelCase private fields
-4. Performance — no allocations in Update/FixedUpdate, no LINQ on hot paths
-5. Events — IEvent structs past-tense + Event suffix, published via IEventBus
-6. UniTask — no async void outside lifecycle, CancellationToken on every async method
-7. Unity null safety — no ?. or is null on UnityEngine objects
-8. Serialization — FormerlySerializedAs on any renamed [SerializeField]
+1. Tests pass — all pre-written tests pass; no test files were modified
+2. Acceptance criteria — does the implementation satisfy all of them?
+3. Architecture — VContainer DI, no singletons, interfaces only across modules
+4. Naming — PascalCase types, _camelCase private fields
+5. Performance — no allocations in Update/FixedUpdate, no LINQ on hot paths
+6. Events — IEvent structs past-tense + Event suffix, published via IEventBus
+7. UniTask — no async void outside lifecycle, CancellationToken on every async method
+8. Unity null safety — no ?. or is null on UnityEngine objects
+9. Serialization — FormerlySerializedAs on any renamed [SerializeField]
 
 ## Output Format
 APPROVED — all criteria pass.
@@ -196,7 +241,7 @@ On **CHANGES NEEDED** → automatically enter the review loop (no user prompt ne
 
 ---
 
-#### Step 3 — Committer
+#### Step 4 — Committer
 
 Spawn a **committer** subagent:
 

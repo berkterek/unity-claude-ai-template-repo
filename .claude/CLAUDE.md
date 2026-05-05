@@ -75,10 +75,10 @@ Detailed coding standards in `.claude/rules/`:
 ## Commands (slash commands)
 
 ### Pipelines (multi-agent)
-- `/implement <task>` — coder → reviewer → committer
-- `/fix <bug>` — debugger → coder → reviewer → committer
+- `/implement <task>` — test writer → coder → reviewer → committer
+- `/fix <bug>` — debugger → test writer → coder → reviewer → committer
 - `/scene-setup <description>` — coder + unity-setup → reviewer → committer
-- `/migrate <pattern> in <scope>` — migrator → reviewer → committer
+- `/migrate <pattern> in <scope>` — test guard → migrator → reviewer → committer
 - `/update-plan <file> <change>` — analyzer → planner (opus) → reviewer → save
 - `/smart-commit` — analyze dirty working tree → group into logical commits → commit
 
