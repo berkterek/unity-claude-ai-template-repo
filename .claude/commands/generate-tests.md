@@ -10,6 +10,27 @@ Ask:
 
 Then read the target class fully before writing any tests.
 
+## Preflight — Assembly & NSubstitute Check (MANDATORY)
+
+Before writing any test code, verify the test infrastructure exists:
+
+1. **Find the test assembly** — look for `*Tests.asmdef` under `_GameFolders/Scripts/Tests/`. If none exists, stop and tell the user:
+   > "No test assembly found. Run `/setup-project` or manually create the test assembly before generating tests."
+
+2. **Check game assembly reference** — open the test `.asmdef` and confirm the target class's assembly is listed in `references`. If missing, add it before proceeding.
+
+3. **Check NSubstitute** — confirm the test `.asmdef` has:
+   - `"overrideReferences": true`
+   - `"NSubstitute.dll"` in `precompiledReferences`
+   - `Assets/_GameFolders/Plugins/NSubstitute/NSubstitute.dll` exists on disk
+
+   If `overrideReferences` is false or `NSubstitute.dll` is missing from `precompiledReferences`, fix the `.asmdef` before writing tests. If the DLL is missing from disk, stop and tell the user:
+   > "NSubstitute.dll not found at Assets/_GameFolders/Plugins/NSubstitute/. Download it from https://github.com/nsubstitute/NSubstitute/releases and place it there."
+
+4. **Trigger Unity compile** — use `mcp__UnityMCP__refresh_unity` and wait for `isCompiling` to be false. Check for errors with `mcp__UnityMCP__read_console` type "Error". If there are existing compile errors unrelated to your changes, stop and report them to the user first.
+
+Only proceed to write tests after all preflight checks pass.
+
 ## What You Generate
 
 For every `public` method and every meaningful `private` method that contains logic:
