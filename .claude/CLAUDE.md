@@ -75,10 +75,11 @@ Detailed coding standards in `.claude/rules/`:
 ## Commands (slash commands)
 
 ### Pipelines (multi-agent)
-- `/implement <task>` — test writer → coder → reviewer → committer
-- `/fix <bug>` — debugger → test writer → coder → reviewer → committer
+- `/implement <task>` — **complexity score** → test writer → coder → unity validator (compile + tests via MCP) → reviewer → [unity-developer reviewer if score ≥ 0.7] → committer
+- `/fix <bug>` — **complexity score** → debugger → test writer → coder → unity validator (compile + tests via MCP) → reviewer → [unity-developer reviewer if score ≥ 0.7] → committer
 - `/scene-setup <description>` — coder + unity-setup → reviewer → committer
 - `/migrate <pattern> in <scope>` — test guard → migrator → reviewer → committer
+- `/create-plan <file> <what>` — researcher → **complexity-aware planner** (opus) → reviewer → save → optional implementer
 - `/update-plan <file> <change>` — analyzer → planner (opus) → reviewer → save
 - `/smart-commit` — analyze dirty working tree → group into logical commits → commit
 
@@ -89,7 +90,7 @@ Detailed coding standards in `.claude/rules/`:
 
 ### Design & Architecture
 - `/game-idea` — Refine a raw game idea into a GDD
-- `/architect` — Create a Technical Design Document from a GDD
+- `/architect` — Create a Technical Design Document from a GDD (auto-runs Phase 7 self-critique before asking for review)
 - `/refine-gdd` — Iterate on an existing GDD
 - `/refine-tdd` — Iterate on an existing TDD
 
@@ -103,7 +104,7 @@ Detailed coding standards in `.claude/rules/`:
 - `/validate` — Validate a completed phase
 - `/check-portability` — Audit a module for copy-paste portability
 - `/clean-slop` — Remove AI-generated bloat (dead code, useless abstractions)
-- `/learn` — Extract project-specific patterns into `.claude/skills/learned/`
+- `/learn` — Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow
 - `/generate-tests` — Write missing tests for an existing class
 - `/performance-audit` — Audit files for allocations and hot-path violations
 - `/debug-session` — Structured root cause analysis for a bug
@@ -122,6 +123,35 @@ Detailed coding standards in `.claude/rules/`:
 
 ### Documentation
 - `/catch-up` — Generate a human-readable codebase guide (`docs/CATCH_UP.md`)
+
+## Agents (`.claude/agents/`)
+
+| Agent | Role |
+|-------|------|
+| `coder` | Pure C# implementation — no Unity API |
+| `tester` | Test writer — NSubstitute + AAA |
+| `reviewer` | General code review |
+| `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7) |
+| `unity-setup` | Unity Editor setup steps |
+| `committer` | Staged changes → commit |
+| `debugger` | Root cause analysis |
+| `migrator` | Pattern migration |
+
+## Context Management
+
+### Proactive Compaction
+
+Compact context **before** it runs out — at ~60-70% usage, not reactively:
+- Update `production/session-state/active.md` with current task and decisions
+- Use `/clear` between unrelated tasks
+- Natural compaction points: after committing, after completing a task, after writing a document section
+
+### Session Resume
+
+After a context reset or new session:
+1. Read `production/session-state/active.md` — the `session-start` hook previews it automatically
+2. Read `.claude/CLAUDE.md` and `.claude/rules/architecture.md`
+3. Read the source files for the module being worked on
 
 ## Key Architecture Rules (summary)
 

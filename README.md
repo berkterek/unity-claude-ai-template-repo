@@ -11,7 +11,7 @@ Claude Code reads the `.claude/` folder when it opens a project. This template p
 - **Rules** — architecture, naming, testing, ECS, serialization, addressables standards that Claude follows automatically
 - **Hooks** — shell scripts that run on every file write, blocking bad patterns before they land
 - **Commands** — slash commands for common workflows (`/new-module`, `/setup-project`, `/debug-session`, etc.)
-- **Agents** — specialized AI agent roles (coder, tester, reviewer, debugger, migrator, silent-failure-hunter, unity-setup)
+- **Agents** — specialized AI agent roles (coder, tester, reviewer, unity-developer, debugger, migrator, silent-failure-hunter, unity-setup)
 
 ---
 
@@ -193,7 +193,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | Command | Description |
 |---------|-------------|
 | `/game-idea` | Refine a raw idea into a Game Design Document |
-| `/architect` | Create a Technical Design Document from a GDD |
+| `/architect` | Create a Technical Design Document from a GDD (auto-runs Phase 7 self-critique before review) |
 | `/refine-gdd` | Iterate on an existing GDD |
 | `/refine-tdd` | Iterate on an existing TDD |
 | `/plan-workflow` | Create a phased execution plan from a TDD |
@@ -201,11 +201,12 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 ### Pipelines (multi-agent)
 | Command | Description |
 |---------|-------------|
-| `/implement <task>` | Coder → Reviewer (loop) → Committer — implement any task end-to-end |
-| `/fix <bug>` | Debugger → Coder → Reviewer (loop) → Committer — root cause first, then fix |
+| `/implement <task>` | **Complexity score** → Test Writer → Coder → **Unity Validator** (compile + tests via MCP) → Reviewer (loop) → [Unity Developer reviewer if complex] → Committer |
+| `/fix <bug>` | **Complexity score** → Debugger → Test Writer → Coder → **Unity Validator** (compile + tests via MCP) → Reviewer (loop) → [Unity Developer reviewer if complex] → Committer |
 | `/migrate <pattern> in <scope>` | Migrator → Reviewer (loop) → Committer — coroutine→UniTask, singleton→VContainer, etc. |
 | `/scene-setup <description>` | Coder + Unity-Setup → Reviewer (loop) → Committer — scripts and scene wiring together |
-| `/update-plan <file> <change>` | Analyzer → Planner → Reviewer (loop) → Save → optional Implementer |
+| `/create-plan <file> <what>` | Researcher → **Complexity-aware Planner** → Reviewer (loop) → Save → optional Implementer — create a new plan file from scratch |
+| `/update-plan <file> <change>` | Analyzer → Planner → Reviewer (loop) → Save → optional Implementer — extend an existing plan |
 | `/smart-commit` | Analyze dirty working tree → group into logical atomic commits → commit |
 | `/orchestrate` | Read `WORKFLOW.md` → execute every task automatically (coder → reviewer loop → committer per task), phase gate between phases |
 
@@ -224,7 +225,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/validate` | Validate a completed phase |
 | `/check-portability` | Audit a module for copy-paste portability to another project |
 | `/clean-slop` | Remove AI-generated bloat (dead code, useless abstractions) |
-| `/learn` | Extract project-specific patterns into `.claude/skills/learned/` |
+| `/learn` | Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow |
 | `/catch-up` | Generate a human-readable codebase guide |
 | `/generate-tests` | Write missing tests for an existing class |
 | `/performance-audit` | Audit files for allocations and hot-path violations |
@@ -255,11 +256,65 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `coder` | Pure C# implementation — follows TDD spec exactly |
 | `tester` | NUnit + NSubstitute test writer — AAA pattern, interface-only mocks |
 | `reviewer` | Principal-level code review — architecture, naming, performance |
+| `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle |
 | `committer` | Smart phase commit manager — semantic git commits |
 | `unity-setup` | Scene, prefab, ScriptableObject configuration via Unity MCP |
 | `debugger` | Root cause analysis — VContainer, ECS, UniTask, Input bug patterns |
 | `migrator` | Legacy pattern migration — coroutine→UniTask, singleton→VContainer, legacy input |
 | `silent-failure-hunter` | Swallowed exception audit — empty catch, `.Forget()` without handler, dangerous fallbacks |
+
+---
+
+## Review Modes
+
+Control pipeline depth by editing `production/review-mode.txt`:
+
+| Mode | Effect | When to use |
+|------|--------|-------------|
+| `solo` | Coder → Committer only — no tests, no review | Prototypes, game jams |
+| `lean` | Standard pipeline (default) | Regular solo development |
+| `full` | Standard pipeline + unity-developer reviewer always active | Team review, learning sessions |
+
+Change mode: `echo "full" > production/review-mode.txt`
+
+---
+
+## Director Gates
+
+Named review prompts in `.claude/docs/director-gates.md` — referenced by ID across all pipeline commands to prevent prompt drift:
+
+| Gate | Checks |
+|------|--------|
+| `TD-ARCHITECTURE` | VContainer DI, interface-driven, IEventBus, Provider pattern, module boundaries |
+| `TD-UNITY-RISK` | Post-cutoff API risk — reads `docs/engine-reference/unity/` before any architecture decision |
+| `TD-PERFORMANCE` | Zero-alloc hot paths, draw call budget, ECS ECB usage, Addressables handle lifecycle |
+| `TD-COMPILE` | Unity MCP compile + Edit Mode test pass — mandatory before reviewer |
+| `CD-SCOPE` | YAGNI check — flags out-of-scope files, unnecessary abstractions, speculative features |
+
+---
+
+## Engine Version Reference
+
+`docs/engine-reference/unity/` contains Unity 6 LTS risk assessments:
+
+- `VERSION.md` — risk levels per system area (ECS, UI Toolkit, Netcode, etc.)
+- `breaking-changes.md` — HIGH/MEDIUM risk API changes with migrations
+- `deprecated-apis.md` — forbidden APIs and their replacements
+- `current-best-practices.md` — VContainer, UniTask, ECS, Input, Addressables, Rendering patterns
+
+`/architect` reads these automatically and stamps TDD sections that touch risky areas.
+
+---
+
+## Session State
+
+`production/session-state/active.md` is a living checkpoint updated after each milestone.
+
+- **On session start** — `session-start.sh` hook previews the active task automatically
+- **On stop** — `pre-compact.sh` hook reminds Claude to save state before context is lost
+- **To resume** — read `production/session-state/active.md`, then continue from where you left off
+
+Compact context **proactively at ~60-70% usage** — not reactively when it runs out.
 
 ---
 
@@ -354,6 +409,18 @@ Install via Unity Package Manager — add by git URL from the UniTask repository
 2. Add `AppScope` component to an empty GameObject
 3. Create `AppInstaller.asset` → `Assets/Configs/`
 4. Assign to `AppScope._appInstaller` in Inspector
+
+---
+
+## Built-In Skills
+
+Skills in `.claude/skills/third-party/` are loaded automatically and cover setup and diagnosis for third-party tools:
+
+| Skill | Covers |
+|-------|--------|
+| `unity-asmdef` | Assembly definition setup, reference wiring, CS0246/CS0234 diagnosis, test assembly configuration |
+| `nsubstitute` | NSubstitute DLL installation, `overrideReferences` configuration, mock patterns, runtime error diagnosis |
+| `vcontainer` | Scope hierarchy, registration patterns, `IInitializable`/`IDisposable` lifecycle, DI failure diagnosis |
 
 ---
 
