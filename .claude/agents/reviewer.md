@@ -61,6 +61,8 @@ If your task prompt includes a **Mailbox** or **Heartbeat** section, follow thes
 
 ## Review Checklist
 
+> **Gates:** This reviewer applies project gates defined in `.claude/docs/director-gates.md`. For Unity-specific checks use `TD-ARCHITECTURE` and `TD-PERFORMANCE`. For scope checks use `CD-SCOPE`.
+
 ### Architecture Compliance
 - [ ] Pure C# logic has ZERO `using UnityEngine` statements
 - [ ] MonoBehaviours (if present) are thin adapters only — no logic
