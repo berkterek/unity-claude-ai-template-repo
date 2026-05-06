@@ -19,6 +19,46 @@ If no argument is given, ask: "What needs to be implemented?"
 
 ---
 
+## Step 0 — Complexity Scoring
+
+**Step 0a — Read Review Mode**
+
+Read `production/review-mode.txt` (default: `lean` if file missing). This controls pipeline depth:
+
+| Mode | Effect |
+|------|--------|
+| `solo` | Skip Test Writer and Reviewer — Coder → Committer only. For prototypes/jams. |
+| `lean` | Standard pipeline. For regular solo development. |
+| `full` | Standard pipeline + unity-developer second reviewer always active (regardless of complexity score). For team review or learning sessions. |
+
+Set mode by editing `production/review-mode.txt`. Print the active mode before proceeding.
+
+Before spawning any agents, score the task complexity on a 0.0–1.0 scale and decide the pipeline variant:
+
+| Score | Label | Signals | Pipeline |
+|-------|-------|---------|----------|
+| 0.0–0.3 | **Simple** | Single class, no new interfaces, no DI wiring, no events | Spawn Coder directly — skip Test Writer |
+| 0.4–0.6 | **Medium** | 2–4 classes, new interface, or touches existing event bus | Full pipeline: Test Writer → Coder → Reviewer → Committer |
+| 0.7–1.0 | **Complex** | New module, cross-system events, ECS integration, or Addressables | Full pipeline + unity-developer reviewer (always active in `full` mode, or when score ≥ 0.7 in `lean` mode) |
+
+**Scoring signals:**
+- Creates a new module folder? +0.3
+- Adds or modifies IEventBus events? +0.2
+- Touches ECS systems or Addressables? +0.3
+- Modifies AppScope, InputView, or an Installer? +0.2
+- Single method addition to existing class? −0.3
+
+**Print before proceeding:**
+```
+Complexity: [score] — [Label]
+Rationale: [one sentence]
+Pipeline: [which variant]
+```
+
+For **Complex** tasks: after the standard Reviewer step passes, spawn a **unity-developer** subagent with the same changed files list and the review criteria from `.claude/agents/unity-developer.md` before proceeding to the Committer.
+
+---
+
 ## Step 1 — Test Writer
 
 Spawn a **test-writer** subagent with this prompt:
@@ -82,6 +122,70 @@ Report: DONE or BLOCKED with reason.
 ```
 
 If coder reports **BLOCKED** → stop, show the blocker to the user, do not continue.
+
+---
+
+## Step 2.5 — Unity Validator (MANDATORY — runs before Reviewer)
+
+Spawn a **reviewer** subagent (always — never Codex, because Codex has no Unity MCP access) with this prompt:
+
+```
+You are a Unity build validator. Your only job is to verify that the project compiles and all tests pass.
+
+## What Was Implemented
+$TASK_DESCRIPTION
+
+## Files Changed
+$CODER_OUTPUT
+
+## Instructions
+1. Use `mcp__UnityMCP__refresh_unity` to trigger a script recompile.
+2. Wait until `isCompiling` is false (poll `editor_state` resource).
+3. Use `mcp__UnityMCP__read_console` with type "Error" to check for compile errors.
+4. If compile errors exist → report COMPILE FAILED with the full error list. Stop here.
+5. If compile is clean → use `mcp__UnityMCP__run_tests` to run all Edit Mode tests.
+6. Check test results for any failures.
+7. If any tests fail → report TEST FAILED with test names and failure messages. Stop here.
+8. If all tests pass → report VALIDATED.
+
+## Output Format
+VALIDATED — zero compile errors, all tests pass.
+
+COMPILE FAILED:
+- [error message] — [file:line]
+
+TEST FAILED:
+- [test name] — [failure message]
+```
+
+### Validator Loop (max 2 fix passes)
+
+If validator reports **COMPILE FAILED** or **TEST FAILED** → spawn a **coder** subagent to fix the issues:
+
+```
+You are a senior C# Unity developer. Fix the following build or test failures.
+
+## Original Task
+$TASK_DESCRIPTION
+
+## Failures (fix ALL of these)
+$VALIDATOR_OUTPUT
+
+## Rules
+- Fix only what is listed — do not refactor anything else
+- For assembly definition issues: check that the test assembly references the correct game assembly and has NSubstitute in precompiledReferences with overrideReferences: true
+- For compile errors: fix the exact file:line reported
+- For test failures: fix the implementation, never change the test
+
+## When Done
+List every file you changed. Report: DONE or BLOCKED.
+```
+
+After coder fixes → re-run the **Unity Validator** on the updated files.
+
+If still failing after **2 fix passes** → stop and show the user all errors. Ask:
+- `skip` → proceed to reviewer anyway (user accepts responsibility)
+- `stop` → abort
 
 ---
 
