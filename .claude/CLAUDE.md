@@ -89,7 +89,7 @@ Detailed coding standards in `.claude/rules/`:
 - `/setup-project` — Initialize a new project: folder structure, .asmdef files, base framework classes, NSubstitute setup, manual checklist
 
 ### Design & Architecture
-- `/game-idea` — Refine a raw game idea into a GDD
+- `/game-idea` — Refine a raw game idea into a GDD (includes assumption surfacing + "Not Doing" list)
 - `/architect` — Create a Technical Design Document from a GDD (auto-runs Phase 7 self-critique before asking for review)
 - `/refine-gdd` — Iterate on an existing GDD
 - `/refine-tdd` — Iterate on an existing TDD

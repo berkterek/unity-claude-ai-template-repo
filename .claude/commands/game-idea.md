@@ -83,6 +83,15 @@ Based on previous answers, drill into EACH identified system:
 - What is the acceptance criteria for "done"?
 - Known risks or concerns?
 
+### Step 2.5: Assumption Surfacing
+
+Before gap analysis, explicitly list the key assumptions being made:
+- What are we betting is true about the player, market, or technology?
+- What could kill this idea if it turns out to be wrong?
+- What are we deliberately ignoring and why?
+
+Ask the developer to confirm or challenge each assumption before proceeding.
+
 ### Step 3: Gap Analysis
 
 Before finalizing, perform a thorough gap analysis:
@@ -188,7 +197,16 @@ Each system gets its own subsection:
 - Funnels
 - Success metrics
 
-## 16. Glossary
+## 16. Not Doing (and Why)
+Explicit list of features/systems that are OUT of scope for this version, with the reason for each exclusion. This prevents scope creep and aligns expectations.
+
+## 17. Key Assumptions to Validate
+List of assumptions the design rests on, each with a validation strategy:
+- Assumption: [what we're betting is true]
+- Risk if wrong: [what breaks]
+- How to validate: [spike, playtest, analytics, etc.]
+
+## 18. Glossary
 Domain-specific terms used in this document.
 ```
 

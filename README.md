@@ -192,7 +192,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 ### Design
 | Command | Description |
 |---------|-------------|
-| `/game-idea` | Refine a raw idea into a Game Design Document |
+| `/game-idea` | Refine a raw idea into a GDD (assumption surfacing + "Not Doing" list included) |
 | `/architect` | Create a Technical Design Document from a GDD (auto-runs Phase 7 self-critique before review) |
 | `/refine-gdd` | Iterate on an existing GDD |
 | `/refine-tdd` | Iterate on an existing TDD |
