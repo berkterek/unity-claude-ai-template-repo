@@ -225,6 +225,98 @@ _controls.Player.Enable();
 
 Always disable the current map **before** enabling the next. Never leave multiple gameplay maps enabled simultaneously.
 
+## Prefab Rules (NON-NEGOTIABLE)
+
+Every GameObject placed in a scene must be an instance of a prefab. Bare (non-prefab) GameObjects are forbidden — except scene separators/organizers (empty GameObjects used purely as hierarchy dividers with no components).
+
+**Why:** Bare GameObjects cannot be reused, are hard to maintain across scenes, and break Addressables-based spawning.
+
+### Prefab Variants for Shared Behavior
+
+When multiple objects share a common base, create a base prefab and derive variants from it. Never duplicate prefabs manually.
+
+```
+BaseEnemy.prefab          ← base: shared components, default values
+├── FastEnemy.prefab      ← variant: overrides Speed, visual
+└── TankEnemy.prefab      ← variant: overrides Health, Size, visual
+```
+
+- Variants inherit all components and values from the base
+- Only override what actually differs — keep overrides minimal
+- Never copy-paste a prefab and tweak it — use Prefab Variants
+
+### Folder Structure
+
+All prefabs live under `_GameFolders/Prefabs/`, grouped by domain:
+
+```
+_GameFolders/
+└── Prefabs/
+    ├── Enemies/
+    │   ├── BaseEnemy.prefab
+    │   ├── FastEnemy.prefab
+    │   └── TankEnemy.prefab
+    ├── UI/
+    │   ├── HUDPanel.prefab
+    │   └── PauseMenuPanel.prefab
+    ├── VFX/
+    │   └── ExplosionEffect.prefab
+    └── Environment/
+        └── Platform.prefab
+```
+
+- One subfolder per domain — never dump prefabs directly into `Prefabs/`
+- Subfolder name matches the domain (Enemies, UI, VFX, Environment, Player, Projectiles…)
+- Base prefabs and their variants live in the same subfolder
+
+### Logic vs Visual Separation (NON-NEGOTIABLE)
+
+Every prefab separates logic components from visual components across two levels:
+
+```
+Player.prefab                  ← Root: logic components only
+├── PlayerProvider.cs
+├── PlayerController.cs
+└── Body/                      ← Child: visual components only
+    ├── MeshRenderer
+    ├── Animator
+    └── SkinnedMeshRenderer
+```
+
+- **Root GameObject** — holds Provider, Controller, Collider, Rigidbody, and any injected MonoBehaviours
+- **`Body` child** (or `Visual`, `Mesh` — be consistent per project) — holds Renderer, Animator, particle systems, and any purely visual components
+- Logic scripts never sit on the same GameObject as a Renderer
+- Visual child has no logic scripts; root has no Renderer components
+
+**Why:** Swapping visuals (skin, LOD, VFX) never touches logic. Animating, hiding, or replacing the visual subtree is isolated — root stays stable.
+
+```
+Enemy.prefab
+├── EnemyProvider.cs
+├── CapsuleCollider
+└── Body/
+    ├── SkinnedMeshRenderer
+    └── Animator
+
+Tower.prefab
+├── TowerProvider.cs
+├── BoxCollider
+└── Body/
+    ├── MeshRenderer
+    └── ParticleSystem (muzzle flash)
+```
+
+### Rules Summary
+
+| Rule | Why |
+|------|-----|
+| Every scene GameObject is a prefab instance | Reusability, Addressables compatibility |
+| Shared-base objects use Prefab Variants | Single source of truth, easier iteration |
+| Prefabs grouped by domain under `_GameFolders/Prefabs/` | Predictable location, clean Project window |
+| Never duplicate a prefab manually | Use Prefab Variants instead |
+| Empty hierarchy organizers are the only bare GameObjects allowed | No components = no logic = no maintenance cost |
+| Logic components on root, visual components on `Body` child | Decouples visual swaps from logic, clear responsibility |
+
 ## .meta Files
 
 - NEVER edit manually
