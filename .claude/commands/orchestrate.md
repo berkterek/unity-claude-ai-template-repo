@@ -152,9 +152,20 @@ Description: [full task description from WORKFLOW.md]
 [list every criterion from WORKFLOW.md]
 
 ## Rules
-- Use Unity MCP tools for all scene/prefab work — do NOT edit .unity or .prefab files as text
-- Attach MonoBehaviours via MCP add_component
+- Use Unity MCP tools for all scene/prefab work — do NOT read or edit .unity or .prefab files as raw text
+- Check editor state first: mcpforunity://editor/state → wait until ready_for_tools == true
+- Attach MonoBehaviours via MCP manage_components
 - Register new components in the scene LifetimeScope installer
+
+## Prefab Rules (NON-NEGOTIABLE — apply to every GameObject you create)
+- Every GameObject placed in a scene must be a prefab instance
+  — Exception: empty hierarchy organizers with no components (e.g. [Systems], [UI], [Gameplay])
+- Save all prefabs under _GameFolders/Prefabs/<Domain>/  (Enemies/, Player/, UI/, VFX/, Environment/…)
+- Root GameObject: logic components only (Provider, Controller, Collider, Rigidbody, injected MonoBehaviours)
+- Body child GameObject: visual components only (MeshRenderer, SkinnedMeshRenderer, Animator, VFX)
+- Never put Renderer components on the root; never put logic scripts on Body
+- When multiple objects share the same base structure → create a base prefab first, then Prefab Variants
+- Never duplicate a prefab manually — always use Prefab Variants
 
 ## When Done
 List every scene/prefab/asset you created or modified.
