@@ -188,6 +188,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | Command | Description |
 |---------|-------------|
 | `/setup-project` | Generate assembly definitions, base classes, NSubstitute config, and manual setup checklist |
+| `/create-prefab-scene` | **Legacy migration:** scan existing scenes for bare GameObjects, build a prefab inventory, create proper prefabs via MCP (logic/visual separation, Prefab Variants, correct domain folders), review, commit |
 
 ### Design
 | Command | Description |
@@ -256,9 +257,9 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `coder` | Pure C# implementation — follows TDD spec exactly |
 | `tester` | NUnit + NSubstitute test writer — AAA pattern, interface-only mocks |
 | `reviewer` | Principal-level code review — architecture, naming, performance |
-| `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle |
+| `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle, prefab structure (logic/visual separation, Prefab Variants, domain folders) |
 | `committer` | Smart phase commit manager — semantic git commits |
-| `unity-setup` | Scene, prefab, ScriptableObject configuration via Unity MCP |
+| `unity-setup` | Scene, prefab, ScriptableObject configuration via Unity MCP — enforces prefab rules (root=logic, Body child=visual, `_GameFolders/Prefabs/<Domain>/`, Prefab Variants) |
 | `debugger` | Root cause analysis — VContainer, ECS, UniTask, Input bug patterns |
 | `migrator` | Legacy pattern migration — coroutine→UniTask, singleton→VContainer, legacy input |
 | `silent-failure-hunter` | Swallowed exception audit — empty catch, `.Forget()` without handler, dangerous fallbacks |
@@ -343,6 +344,7 @@ _GameFolders/Scripts/Games/
 - `IEventBus` for cross-module communication — no direct cross-module calls
 - `EventBusAccessor` static bridge for ECS ↔ Mono communication (only approved static accessor)
 - Provider pattern — Unity API stays in `Concretes/<Module>/`, never in service classes
+- Prefab rules — every scene GO is a prefab instance; root=logic components, `Body` child=visual components; all prefabs under `_GameFolders/Prefabs/<Domain>/`; shared-base objects use Prefab Variants
 - New Input System only — `InputView` owns `PlayerControls`
 - UniTask everywhere — no coroutines, no `async void`, always pass `CancellationToken`
 - Addressables for all runtime asset loading — no `Resources.Load`

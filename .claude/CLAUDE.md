@@ -98,7 +98,7 @@ Detailed coding standards in `.claude/rules/`:
 ### Development
 - `/plan-workflow` — Create a phased execution plan from a TDD
 - `/new-module` — Generate the 5-file module structure (Interface, Service, Config, Installer, Events)
-- `/add-feature` — Incrementally extend an existing game
+- `/add-feature` — Incrementally extend an existing game (includes unity-setup spawn for prefab/scene wiring when needed)
 
 ### Quality
 - `/review-code` — Code review on specific files
@@ -132,8 +132,8 @@ Detailed coding standards in `.claude/rules/`:
 | `coder` | Pure C# implementation — no Unity API |
 | `tester` | Test writer — NSubstitute + AAA |
 | `reviewer` | General code review |
-| `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7) |
-| `unity-setup` | Unity Editor setup steps |
+| `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle + prefab structure (10-point checklist) |
+| `unity-setup` | Unity Editor setup via MCP — scenes, prefabs (root=logic / Body=visual, domain folders, Prefab Variants), ScriptableObjects |
 | `committer` | Staged changes → commit |
 | `debugger` | Root cause analysis |
 | `migrator` | Pattern migration |
