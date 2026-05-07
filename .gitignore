@@ -1,1 +1,6 @@
 .DS_Store
+
+# Claude Code runtime state (written by hooks each session)
+.claude/state/session.json
+.claude/state/session-cost.jsonl
+.claude/state/instincts/observations.jsonl
