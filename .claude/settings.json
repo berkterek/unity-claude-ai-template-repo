@@ -15,6 +15,17 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/gateguard.sh",
+            "timeout": 5000,
+            "statusMessage": "Gate guard: checking read history..."
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
@@ -268,6 +279,26 @@
             "statusMessage": "Checking for singleton patterns..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/instinct-capture.sh",
+            "timeout": 3000,
+            "statusMessage": "Capturing instinct..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/cost-tracker.sh",
+            "timeout": 2000,
+            "statusMessage": "Tracking cost..."
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -290,6 +321,16 @@
             "statusMessage": "Scanning for documentation gaps..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-restore.sh",
+            "timeout": 3000,
+            "statusMessage": "Restoring session state..."
+          }
+        ]
       }
     ],
     "Stop": [
@@ -302,7 +343,30 @@
             "statusMessage": "Saving session state..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/instinct-distill.sh",
+            "timeout": 10000,
+            "statusMessage": "Distilling instincts..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-save.sh",
+            "timeout": 3000,
+            "statusMessage": "Saving session state..."
+          }
+        ]
       }
     ]
+  },
+  "env": {
+    "UNITY_HOOK_PROFILE": "strict"
   }
 }
