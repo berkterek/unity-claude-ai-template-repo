@@ -78,12 +78,51 @@ After developer confirms the design:
 - Same format as WORKFLOW.md but scoped to the feature
 - Include tasks for: implementation, tests, integration, Unity setup
 - Respect the existing codebase — tasks reference existing interfaces and systems
+- If the feature needs prefabs or scene wiring, include a dedicated **Unity Setup task** in the workflow:
+  - List every prefab to create (name, domain folder, logic components, visual components)
+  - List every scene change (new GameObjects to place as prefab instances, VContainer registrations)
 
 ### Step 5: Developer Review
 Present all changes for review. Get confirmation before saving.
 
 ### Step 6: Execution Option
 Ask: "Would you like me to `/orchestrate` this feature's workflow now, or will you handle it manually?"
+
+### Step 7: Unity Setup (if feature needs prefabs or scene wiring)
+
+If the Impact Analysis (Step 2) listed any prefabs or scene changes, spawn a **unity-setup** subagent after implementation is confirmed complete:
+
+```
+You are a Unity scene architect. Wire up the scene and prefabs for this new feature.
+
+## Feature
+$FEATURE_NAME
+
+## Prefabs and Scene Changes Needed
+$UNITY_SETUP_TASKS  ← from the FEATURE_[name].md Unity Setup task
+
+## Prefab Rules (NON-NEGOTIABLE)
+- Save all prefabs under _GameFolders/Prefabs/<Domain>/
+- Root GameObject: logic components only (Provider, Controller, Collider, Rigidbody)
+- Body child: visual components only (MeshRenderer, Animator, SkinnedMeshRenderer, VFX)
+- Shared-base objects → Prefab Variant, never a manual copy
+- Every scene GameObject must be a prefab instance (except empty hierarchy organizers)
+- Do NOT read .unity or .prefab files as raw text — use MCP tools only
+
+## Steps
+1. Check editor state: mcpforunity://editor/state → wait until ready_for_tools == true
+2. Create each prefab via manage_prefabs or manage_gameobject
+3. Add logic components to root, create Body child, add visual components to Body
+4. Open the target scene via manage_scene(action="open")
+5. Place prefab instances in the scene hierarchy
+6. Wire VContainer registrations in the scene LifetimeScope
+
+## When Done
+List every prefab created and every scene change made.
+Report: DONE or BLOCKED with reason.
+```
+
+If no prefabs or scene changes are needed → skip Step 7.
 
 ## Rules
 - **Never break existing systems.** New features extend, they don't modify working code unless absolutely necessary.
