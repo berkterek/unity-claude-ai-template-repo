@@ -16,7 +16,7 @@ If no argument is given, scan ALL `.unity` files under `Assets/_Scene/`.
 ## Pipeline
 
 ```
-[1] ANALYZER      → reads scene YAML, maps GameObjects + components + relationships
+[1] ANALYZER      → MCP ile sahneleri açar, hiyerarşiyi + componentleri sorgular
 [2] PLANNER       → builds PrefabInventory.md (what to create, what's a variant)
 [3] UNITY-SETUP   → creates prefabs via MCP following prefab rules
 [4] UNITY-DEV     → reviews prefab structure (prefab rules 8-10)
@@ -27,13 +27,25 @@ If no argument is given, scan ALL `.unity` files under `Assets/_Scene/`.
 
 ## Step 1 — Analyzer
 
-Read every target `.unity` file as raw text (they are YAML). For each scene, extract:
+**Do NOT read `.unity` files as raw text or YAML. All scene inspection must go through MCP tools.**
 
-- Every `GameObject` entry: name, components list, parent transform
-- Hierarchy tree (parent → children)
-- Which GameObjects are already prefab instances (`m_PrefabInstance` or `PrefabAssetType` not 0)
-- Which are bare GameObjects (no prefab reference)
-- Tags and layers
+For each target scene:
+
+1. Check editor is ready: read `mcpforunity://editor/state` → wait until `ready_for_tools == true`
+2. Open the scene: `manage_scene(action="open", scene_path="<path>")`
+3. Get the full hierarchy with pagination:
+   ```
+   manage_scene(action="get_hierarchy", page_size=50, cursor=0)
+   → repeat with next_cursor until exhausted
+   ```
+4. For each GameObject in the hierarchy, read its full data:
+   ```
+   mcpforunity://scene/gameobject/{instance_id}
+   ```
+   Extract: name, components list, parent, whether it is a prefab instance, tag, layer.
+5. Identify organizers: GameObjects with **no components other than Transform** and a bracketed name (`[Systems]`, `[UI]`, `[Gameplay]`, etc.) → mark exempt.
+6. Identify prefab instances: GameObjects where `prefab_asset_path` is non-empty → mark as already correct.
+7. Identify bare GameObjects: everything else (not organizer, not prefab instance).
 
 Then produce a **Scene Analysis Report** in this format for each scene:
 
@@ -230,7 +242,8 @@ $UNITY_SETUP_OUTPUT
     - No prefabs at root Prefabs/ level
     - Domain subfolder name matches object type (Enemies, Player, UI, VFX, Environment...)
 
-Use Unity MCP tools to read actual prefab and scene state — do NOT assume from unity-setup output alone.
+Use Unity MCP tools to read actual prefab and scene state — do NOT read `.prefab` or `.unity` files as raw text.
+Use `manage_scene`, `find_gameobjects`, and `mcpforunity://scene/gameobject/{id}` to verify actual state.
 
 ## Output Format
 APPROVED or FAIL: list every violation as [asset:path] description
