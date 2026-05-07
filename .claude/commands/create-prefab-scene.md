@@ -1,6 +1,10 @@
-# /create-prefab-scene — Scene Analysis → Prefab Inventory → Prefab Creation → Review → Commit
+# /create-prefab-scene — Legacy Scene Migration → Prefab Inventory → Prefab Creation → Review → Commit
 
-Analyzes every scene under `_Scene/`, builds a prefab inventory (what exists, what's missing, what should be a variant), creates all prefabs via MCP following the project's prefab rules, then reviews and commits.
+**Use this command to retroactively migrate existing scenes** that contain bare (non-prefab) GameObjects — e.g. scenes created before the prefab rules were in place, imported from asset store, or built outside this template.
+
+For new development, prefab rules are already enforced by `orchestrate` and `add-feature` at creation time. This command is a one-time cleanup tool, not part of the normal workflow.
+
+Analyzes every scene under `_Scene/`, identifies bare GameObjects, builds a prefab inventory (what to create, what should be a variant), creates all prefabs via MCP following the project's prefab rules, then reviews and commits.
 
 ## Usage
 

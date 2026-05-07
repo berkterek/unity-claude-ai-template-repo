@@ -87,7 +87,7 @@ Detailed coding standards in `.claude/rules/`:
 
 ### Project Setup
 - `/setup-project` — Initialize a new project: folder structure, .asmdef files, base framework classes, NSubstitute setup, manual checklist
-- `/create-prefab-scene` — Analyze scenes under `_Scene/`, build a prefab inventory, create prefabs via MCP (logic/visual separation, variants, correct folders), review, commit
+- `/create-prefab-scene` — **Legacy migration:** scan existing scenes for bare GameObjects, build a prefab inventory, create proper prefabs via MCP, review, commit. Use for scenes built before the prefab rules were in place.
 
 ### Design & Architecture
 - `/game-idea` — Refine a raw game idea into a GDD (includes assumption surfacing + "Not Doing" list)
