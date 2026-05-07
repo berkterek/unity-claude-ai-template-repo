@@ -2,6 +2,43 @@
 
 This is a personal Unity development template for Claude Code. It enforces architecture, coding standards, and quality rules automatically through hooks and provides slash commands for common workflows.
 
+## Required Stack
+
+| Package | Source | Purpose |
+|---------|--------|---------|
+| **VContainer** | openupm / Package Manager | Dependency injection — replaces all singletons |
+| **UniTask** | openupm / Package Manager | Async/await — replaces all coroutines |
+| **New Input System** | Package Manager (com.unity.inputsystem) | Input — legacy Input API is blocked |
+| **Addressables** | Package Manager (com.unity.addressables) | Asset loading — Resources.Load is forbidden |
+| **NSubstitute** | Manual DLL install | Test mocking — place in `Assets/Plugins/NSubstitute/` |
+| **Unity ECS DOTS** | Package Manager (optional) | Data-oriented systems when performance demands it |
+
+## Quick Start
+
+1. Copy the `.claude/` folder into your Unity project root
+2. Run `/setup-project` to generate folder structure, .asmdef files, and base classes
+3. Complete the **Manual Setup Checklist** printed by `/setup-project`
+
+For an existing project with legacy code, see **Adding to an Existing Project** below.
+
+## Adding to an Existing Project
+
+Copy `.claude/` into the project root. Most hooks warn only — four will **block** existing code:
+
+| Hook | What it blocks | Migration path |
+|------|---------------|----------------|
+| `check-input-system.sh` | `Input.GetKey`, `Input.GetAxis` | Create `PlayerControls.inputactions`, wrap in `InputView` |
+| `check-vcontainer-singleton.sh` | Static singletons | Replace with VContainer registration in scope |
+| `guard-editor-runtime.sh` | Bare `using UnityEditor` in runtime | Wrap with `#if UNITY_EDITOR` |
+| `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` | Move Unity calls to a Provider in `Concretes/` |
+
+**Recommended migration order:**
+1. Run `/setup-project` to scaffold the folder structure
+2. Move existing scripts into the new structure without changing logic
+3. Fix blocking hook violations one module at a time
+4. Run `/migrate` for systematic pattern replacements (e.g. coroutine→UniTask)
+5. Run `/validate` after each phase to confirm green state
+
 ## Model Tiers
 
 Claude Code supports multiple models. Start your session with the right model for the task:
@@ -52,6 +89,7 @@ Detailed coding standards in `.claude/rules/`:
 | `check-vcontainer-singleton.sh` | Static singleton patterns outside of `EventBusAccessor` |
 | `guard-critical-files.sh` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation |
 | `check-config-protection.sh` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` |
+| `gateguard.sh` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 
 ### Warning (exit 0 — logs to stderr, does not block)
 
@@ -71,19 +109,28 @@ Detailed coding standards in `.claude/rules/`:
 | `check-async-void.sh` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation.sh` | `async UniTask` methods without `CancellationToken` parameter |
 | `check-null-propagation.sh` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
+| `instinct-capture.sh` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
+| `cost-tracker.sh` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
+| `instinct-distill.sh` (Stop) | Distills captured observations into confidence-scored instincts |
+| `session-restore.sh` (SessionStart) | Restores session state from `.claude/state/` on session start |
+| `session-save.sh` (Stop) | Saves current session state to `.claude/state/` on stop |
 
 ## Commands (slash commands)
 
 ### Pipelines (multi-agent)
-- `/implement <task>` — **complexity score** → test writer → coder → unity validator (compile + tests via MCP) → reviewer → [unity-developer reviewer if score ≥ 0.7] → committer
-- `/fix <bug>` — **complexity score** → debugger → test writer → coder → unity validator (compile + tests via MCP) → reviewer → [unity-developer reviewer if score ≥ 0.7] → committer
-- `/scene-setup <description>` — coder + unity-setup → reviewer → committer
+- `/implement <task>` — **complexity score** → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → committer
+- `/fix <bug>` — **complexity score** → **unity-fixer** → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → committer
+- `/fix-deep <bug>` — **evidence-first pipeline**: log intake (file / text / MCP) → hypothesis → debug injection → evidence collection → **evidence gate** (proven / refuted / inconclusive) → fix only if proven → validator → reviewer → committer; refuses to fix if root cause cannot be proven
+  - Use for: logic bugs, "sometimes happens" issues, wrong values at runtime, NullRef with unclear source
+  - Use `/fix` when: stack trace clearly points to root cause
+- `/scene-setup <description>` — **unity-coder** + unity-setup → **unity-verifier** (prefab integrity check) → **unity-reviewer** → Codex → reviewer → committer
 - `/migrate <pattern> in <scope>` — test guard → migrator → reviewer → committer
 - `/create-plan <file> <what>` — researcher → **complexity-aware planner** (opus) → reviewer → save → optional implementer
 - `/update-plan <file> <change>` — analyzer → planner (opus) → reviewer → save
 - `/smart-commit` — analyze dirty working tree → group into logical commits → commit
+- `/orchestrate` — read WORKFLOW.md → per-task: **unity-coder** (or unity-setup for scene tasks) → **unity-verifier** → **unity-reviewer** → Codex → reviewer → committer; emits `VERIFICATION_PASSED` event on success
 
-> Reviewer tries Codex first; falls back to Claude reviewer agent if unavailable.
+> Reviewer priority: unity-reviewer → Codex → reviewer (falls back in order if unavailable).
 
 ### Project Setup
 - `/setup-project` — Initialize a new project: folder structure, .asmdef files, base framework classes, NSubstitute setup, manual checklist
@@ -91,30 +138,35 @@ Detailed coding standards in `.claude/rules/`:
 
 ### Design & Architecture
 - `/game-idea` — Refine a raw game idea into a GDD (includes assumption surfacing + "Not Doing" list)
-- `/architect` — Create a Technical Design Document from a GDD (auto-runs Phase 7 self-critique before asking for review)
+- `/architect` — Create a Technical Design Document from a GDD (auto-runs Phase 7 self-critique → **unity-critic** adversarial challenge → developer review)
 - `/refine-gdd` — Iterate on an existing GDD
 - `/refine-tdd` — Iterate on an existing TDD
 
 ### Development
 - `/plan-workflow` — Create a phased execution plan from a TDD
 - `/new-module` — Generate the 5-file module structure (Interface, Service, Config, Installer, Events)
-- `/add-feature` — Incrementally extend an existing game (includes unity-setup spawn for prefab/scene wiring when needed)
+- `/add-feature` — Incrementally extend an existing game; **deep-interview** skill gates ambiguous requirements before coding; includes unity-setup spawn for prefab/scene wiring when needed
 
 ### Quality
-- `/review-code` — Code review on specific files
-- `/validate` — Validate a completed phase
+- `/review-code` — Code review on specific files via **unity-reviewer**
+- `/validate` — Validate a completed phase; **unity-verifier** via MCP tried first, dotnet CLI fallback
 - `/check-portability` — Audit a module for copy-paste portability
 - `/clean-slop` — Remove AI-generated bloat (dead code, useless abstractions)
 - `/learn` — Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow
 - `/generate-tests` — Write missing tests for an existing class
 - `/performance-audit` — Audit files for allocations and hot-path violations
-- `/debug-session` — Structured root cause analysis for a bug
+- `/debug-session` — Structured root cause analysis; routes to **unity-fixer** (complex) or **unity-fixer-lite** (scoped) after root cause; **learner** skill runs on completion
 - `/silent-failure-hunt` — Audit files for swallowed exceptions and silent error patterns
+- `/ralph` — Relentless verify-fix loop (max 10 outer iterations) — refuses to stop until compile and tests are green or stuck is detected
 
 ### Session & Context
 - `/context-prime` — Brief Claude on project context at the start of a session
 - `/dump` — Save current session notes to `.claude/logs/` as markdown
 - `/five` — 5 Whys root cause analysis for a bug or architectural problem
+- `/continue` — Resume an interrupted orchestration run from the event journal (picks up where it left off)
+- `/status` — Report current pipeline stage: GDD → TDD → WORKFLOW progress summary
+- `/dry-run` — Preview the orchestration plan for a WORKFLOW.md without executing any tasks
+- `/instincts` — Manage instinct library: status, list, evolve, promote, export, import
 
 ### Changelog
 - `/create-changelog` — Create or update `CHANGELOG.md` with recent changes
@@ -129,7 +181,7 @@ Detailed coding standards in `.claude/rules/`:
 
 | Agent | Role |
 |-------|------|
-| `coder` | Pure C# implementation — no Unity API |
+| `coder` | Pure C# implementation — no Unity API; used for `_Framework/`, `Abstracts/`, and test support code |
 | `tester` | Test writer — NSubstitute + AAA |
 | `reviewer` | General code review |
 | `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle + prefab structure (10-point checklist) |
@@ -137,6 +189,26 @@ Detailed coding standards in `.claude/rules/`:
 | `committer` | Staged changes → commit |
 | `debugger` | Root cause analysis |
 | `migrator` | Pattern migration |
+| `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |
+| `unity-shader-dev` | URP shader authoring — ShaderGraph, HLSL, render passes |
+| `unity-ui-builder` | UI Toolkit specialist — UXML, USS, runtime panel setup, data binding |
+| `unity-optimizer` | Runtime performance — allocations, draw calls, ECS hot paths, profiler-guided fixes |
+| `unity-scene-builder` | Scene composition via MCP — hierarchy, lighting, camera, volumes |
+| `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
+| `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
+| `unity-build-runner` | CI/build pipeline — platform flags, build profiles, addressables baking |
+| `unity-coder` | Full Unity C# implementation — MonoBehaviours, providers, installers, scene wiring; primary coder in `/implement`, `/fix`, `/orchestrate` pipelines |
+| `unity-coder-lite` | Lightweight Unity coder for small isolated changes |
+| `unity-fixer` | Bug fixer with full context — reads surrounding code before patching |
+| `unity-fixer-lite` | Quick targeted fix for a single well-scoped defect |
+| `unity-git-master` | Git workflow — branching strategy, conflict resolution, history rewrite |
+| `unity-migrator` | Pattern migration specialist — coroutine→UniTask, singleton→VContainer, legacy input |
+| `unity-network-dev` | Netcode for GameObjects / Unity Transport — lobby, relay, RPCs |
+| `unity-prototyper` | Rapid prototype scaffolding — speed over correctness, clearly marked TODOs |
+| `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
+| `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
+| `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
+| `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
 
 ## Context Management
 
@@ -154,6 +226,77 @@ After a context reset or new session:
 2. Read `.claude/CLAUDE.md` and `.claude/rules/architecture.md`
 3. Read the source files for the module being worked on
 
+### Session State Persistence (`.claude/state/`)
+
+Structured state written and restored automatically by hooks across sessions:
+
+| File | Contents |
+|------|----------|
+| `session.json` | Current branch, phase, modified files, active task, decisions |
+| `learnings.jsonl` | Structured learning records accumulated across sessions |
+| `instincts/` | Project-specific and global instinct library (confidence-scored patterns) |
+
+- `session-restore.sh` (SessionStart hook) loads state at the start of every session
+- `session-save.sh` (Stop hook) persists state when the session ends
+- Use `/instincts` to view, evolve, promote, or export instincts
+
+## Review Modes
+
+Control pipeline depth by prefixing any pipeline command:
+
+| Mode | Trigger | Pipeline |
+|------|---------|---------|
+| **solo** | `/solo /implement …` | coder only — no reviewer, no committer |
+| **lean** | `/lean /implement …` | coder → unity-reviewer → committer |
+| **full** | `/full /implement …` (default) | coder → unity-reviewer → Codex → reviewer → committer |
+
+Use `solo` for exploratory spikes, `lean` for low-risk changes, `full` for production features.
+
+## Director Gates
+
+Named prompts that pause the pipeline and ask for human approval:
+
+| Gate | When it fires | What you decide |
+|------|--------------|-----------------|
+| `SCOPE_GATE` | Before implementation starts | Confirm scope matches intent |
+| `ARCHITECTURE_GATE` | Before a new module is created | Approve module structure and interfaces |
+| `BREAKING_GATE` | Before a refactor touches >3 files | Confirm it's safe to proceed |
+| `QUALITY_GATE` | After review finds issues | Accept findings or request fixes |
+| `COMMIT_GATE` | Before committer runs | Final sign-off on what gets committed |
+
+## Engine Version Reference
+
+Engine-specific documentation lives in `docs/engine-reference/unity/`. Reference these files when answering questions about specific Unity 6 APIs, lifecycle changes, or package compatibility.
+
+## Hook Audit Log
+
+Every hook execution is logged. Query logs to audit what was blocked or warned:
+
+```bash
+# All hook events from the current session
+cat .claude/logs/hooks-$(date +%Y-%m-%d).log
+
+# Only blocking events (exit code 2)
+grep '"exit":2' .claude/logs/hooks-*.log
+
+# Cost tracker summary
+cat .claude/logs/cost-tracker.log | tail -50
+```
+
+Logs rotate daily and are stored in `.claude/logs/`.
+
+## Manual Setup Checklist
+
+After running `/setup-project`, complete these steps manually (Claude cannot do them):
+
+- [ ] **NSubstitute DLL** — Download from NuGet, place `NSubstitute.dll` in `Assets/Plugins/NSubstitute/`
+- [ ] **VContainer** — Install via Package Manager or openupm (`jp.hadashikick.vcontainer`)
+- [ ] **UniTask** — Install via Package Manager or openupm (`com.cysharp.unitask`)
+- [ ] **New Input System** — Install via Package Manager (`com.unity.inputsystem`); set active input handling to "Input System Package (New)" in Project Settings → Player
+- [ ] **Addressables** — Install via Package Manager (`com.unity.addressables`); initialize via Window → Asset Management → Addressables → Groups
+- [ ] **AppScope scene** — Create a Bootstrap scene (Build index 0), add `AppScope` component, wire `AppInstaller` and infrastructure roots (`UIRoot`, `AudioRoot`, `PoolRoot`)
+- [ ] **Build settings** — Add Bootstrap scene as index 0; add Menu and Game scenes
+
 ## Key Architecture Rules (summary)
 
 - **No singletons** — VContainer only. Register in AppScope (global) or scene scopes.
@@ -164,6 +307,139 @@ After a context reset or new session:
 - **No UnityEngine in services** — Provider pattern. Unity API lives in `Concretes/<Module>/`.
 - **No direct EntityManager structural changes** — use `EntityCommandBuffer` in ECS systems.
 - **Tests are mandatory** — NSubstitute + AAA. Only interfaces mocked. Test file per class.
+
+### Folder Structure
+
+```
+_Framework/              ← Pure C# — no Unity dependency
+  Events/                ← IEventBus, IEvent, EventBusAccessor
+  Logging/
+  SaveLoadSystems/
+
+_GameFolders/
+  Scripts/
+    Games/
+      Abstracts/         ← Interfaces, abstract classes
+      Concretes/         ← Unity providers, MonoBehaviours
+      Ecs/               ← Authorings, Components, Systems
+    Tests/
+      [Project]Tests/    ← Edit Mode (NUnit + NSubstitute)
+      [Project]PlayTests/ ← Play Mode (ECS World integration)
+  Prefabs/
+    Enemies/
+    UI/
+    VFX/
+    Environment/
+```
+
+### Building a Game from Scratch
+
+| Phase | Commands | What happens |
+|-------|---------|--------------|
+| 1 — Idea & Design | `/game-idea`, `/architect` | GDD → TDD with adversarial review |
+| 2 — Planning | `/plan-workflow`, `/dry-run` | WORKFLOW.md phases, preview without execution |
+| 3 — Project Setup | `/setup-project` | Folder structure, .asmdefs, base classes |
+| 4 — Implementation | `/orchestrate`, `/continue` | Execute WORKFLOW.md phase by phase |
+| 5 — Quality | `/validate`, `/review-code`, `/ralph` | Compile + tests green, code review, fix loops |
+| 6 — Documentation | `/learn`, `/catch-up`, `/smart-commit` | Extract patterns, generate CATCH_UP.md, commit |
+
+For incremental feature work on an existing game: `/add-feature` (interviews requirements, then implements).
+
+## Skills Library (`.claude/skills/`)
+
+Pre-built reference skills loaded automatically by commands. Organized by category:
+
+### Core (`skills/core/`)
+
+Infrastructure skills that govern how Claude reasons and acts across all tasks:
+
+| Skill | Covers |
+|-------|--------|
+| `model-routing` | Automatic model selection heuristics — file count, complexity, risk factors |
+| `deep-interview` | 5-dimension ambiguity gating before implementation starts |
+| `learner` | Post-debug insight extraction — writes findings to CLAUDE.md Project Learnings |
+| `unity-instincts` | Instinct system for learned Unity patterns — capture, score, promote, apply |
+| `assembly-definitions` | .asmdef authoring — references, platforms, define constraints |
+| `commit-trailers` | Conventional commit trailers — co-author, ticket links, sign-off |
+| `event-systems` | IEventBus patterns — pub/sub, struct events, subscribe/unsubscribe lifecycle |
+| `hud-statusline` | In-session status line rendering for pipeline progress |
+| `object-pooling` | ObjectPool<T> setup, return-to-pool patterns, warm-up |
+| `scriptable-objects` | ScriptableObject config authoring, CreateAssetMenu, validation |
+| `serialization-safety` | FormerlySerializedAs, SerializeReference, Unity null semantics |
+| `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
+
+### Gameplay (`skills/gameplay/`)
+
+| Skill | Covers |
+|-------|--------|
+| `character-controller` | Movement, jumping, collision, physics-based character setup |
+| `dialogue-system` | Branching dialogue, scriptable data, event triggers |
+| `inventory-system` | Item data, slot management, persistence |
+| `procedural-generation` | Noise-based map gen, seeded randomness, chunking |
+| `save-system` | Serialization, slot management, async save/load via UniTask |
+| `state-machine` | Enum FSM, scriptable state pattern, VContainer wiring |
+
+### Genre Templates (`skills/genre/`)
+
+| Skill | Covers |
+|-------|--------|
+| `card-game` | Deck, hand, drag-drop, turn flow |
+| `endless-runner` | Chunk spawning, speed ramp, obstacle pools |
+| `hyper-casual` | One-tap input, minimal UI, fast loop |
+| `idle-clicker` | Offline progress, prestige, big-number formatting |
+| `match3` | Grid, swap logic, cascade, scoring |
+| `platformer-2d` | Coyote time, jump buffer, one-way platforms |
+| `puzzle` | Undo stack, level serialization, hint system |
+| `racing` | Waypoint AI, lap timing, drift |
+| `roguelike` | Room generation, loot tables, permadeath |
+| `rpg` | Stats, leveling, equipment, quest log |
+| `topdown` | 8-directional move, aim, minimap |
+| `tower-defense` | Wave spawner, targeting, upgrade tree |
+
+### Platform (`skills/platform/`)
+
+| Skill | Covers |
+|-------|--------|
+| `mobile` | Touch input, safe area, haptics, app lifecycle |
+
+### Systems (`skills/systems/`)
+
+| Skill | Covers |
+|-------|--------|
+| `addressables` | Loading, handle lifecycle, label groups, preload |
+| `animation` | Animator parameters, state machine behaviours, blend trees |
+| `audio` | AudioMixer, snapshots, pooled AudioSource, 3D attenuation |
+| `cinemachine` | Virtual cameras, blends, impulse, follow targets |
+| `navmesh` | NavMeshAgent setup, dynamic obstacles, off-mesh links |
+| `physics` | Layer matrix, non-alloc queries, trigger vs collision |
+| `shader-graph` | URP shader nodes, property exposure, keyword variants |
+| `ui-toolkit` | USS, UXML, data binding, runtime panel setup |
+| `urp-pipeline` | Render features, camera stacking, volume profiles |
+
+### Third-Party (`skills/third-party/`)
+
+| Skill | Covers |
+|-------|--------|
+| `dotween` | Tween creation, sequences, callbacks, memory management |
+| `odin-inspector` | Custom attributes, validators, group drawers |
+| `textmeshpro` | Font assets, rich text, SDF materials, localization |
+| `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid |
+| `vcontainer` | Scope hierarchy, registration, lifecycle interfaces, DI failure diagnosis |
+
+> Skills are read-only reference files. They inform Claude's decisions but do not execute code. The `/learn` command writes new skills to `skills/learned/` based on patterns extracted from your specific project.
+
+### Writing New Skills
+
+Skills support a `model` frontmatter field to control which tier runs them:
+
+```markdown
+---
+name: my-skill
+model: opus   # or sonnet, haiku
+---
+```
+
+Omit `model` to inherit from the calling command. Use `haiku` for lookup/reference skills, `opus` for skills that guide architectural decisions.
 
 ## Project-Specific Setup
 
