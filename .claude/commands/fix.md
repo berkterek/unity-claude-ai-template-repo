@@ -61,7 +61,7 @@ For **Complex** tasks: after the standard Reviewer step passes, spawn a **unity-
 
 ## Step 1 — Debugger
 
-Spawn a **debugger** subagent with this prompt:
+Spawn a **unity-fixer** subagent with this prompt (note: unity-fixer reads surrounding context files before patching — include all relevant file paths in the bug report so it can orient itself):
 
 ```
 You are a senior Unity engineer specializing in root cause analysis. Investigate the following bug.
@@ -136,7 +136,15 @@ If test writer reports **BLOCKED** → stop and show the blocker to the user.
 
 ## Step 3 — Coder
 
-Spawn a **coder** subagent with this prompt:
+**Agent routing — decide before spawning:**
+
+| Target location | Agent |
+|-----------------|-------|
+| `_Framework/`, `Abstracts/`, `Concretes/` (no Unity API) | **coder** |
+| MonoBehaviour, Provider, Installer, scene wiring, Unity lifecycle | **unity-coder** |
+| Mixed (both pure C# and Unity glue) | **unity-coder** |
+
+Spawn the appropriate subagent with this prompt:
 
 ```
 You are a senior C# Unity developer. Fix the following bug.
@@ -206,7 +214,7 @@ TEST FAILED:
 
 ### Validator Loop (max 2 fix passes)
 
-If validator reports **COMPILE FAILED** or **TEST FAILED** → spawn a **coder** subagent to fix the issues:
+If validator reports **COMPILE FAILED** or **TEST FAILED** → spawn a **unity-coder** subagent to fix the issues:
 
 ```
 You are a senior C# Unity developer. Fix the following build or test failures.
@@ -228,7 +236,7 @@ $VALIDATOR_OUTPUT
 List every file you changed. Report: DONE or BLOCKED.
 ```
 
-After coder fixes → re-run the **Unity Validator** on the updated files.
+After unity-coder fixes → re-run the **Unity Validator** on the updated files.
 
 If still failing after **2 fix passes** → stop and show the user all errors. Ask:
 - `skip` → proceed to reviewer anyway (user accepts responsibility)
@@ -238,7 +246,7 @@ If still failing after **2 fix passes** → stop and show the user all errors. A
 
 ## Step 4 — Reviewer
 
-First try **Codex** (`codex:rescue` subagent):
+First try **unity-reviewer** subagent. If unavailable → fall back to **Codex** (`codex:rescue` subagent). If Codex is also unavailable → fall back to **reviewer** subagent.
 
 ```
 Review this bug fix.
@@ -268,13 +276,11 @@ CHANGES NEEDED:
 - [file:line] Issue and fix.
 ```
 
-If Codex unavailable → fall back to **reviewer** subagent.
-
 ### Review Loop
 
 Repeat until APPROVED or stopped (max 3 passes):
 
-1. If reviewer reports **CHANGES NEEDED** → spawn a **coder** subagent to fix every listed issue:
+1. If reviewer reports **CHANGES NEEDED** → spawn a **unity-coder** subagent to fix every listed issue:
    ```
    You are a senior C# Unity developer. Fix the following review issues.
 
@@ -294,13 +300,52 @@ Repeat until APPROVED or stopped (max 3 passes):
    Report: DONE or BLOCKED with reason.
    ```
 
-2. After coder fixes → re-run the reviewer (Codex first, fall back to reviewer agent) with the updated files.
+2. After unity-coder fixes → re-run the reviewer (unity-reviewer first, Codex fallback, reviewer agent fallback) with the updated files.
 
-3. If APPROVED → proceed to Step 4.
+3. If APPROVED → proceed to Step 4.5.
 
 4. If still **CHANGES NEEDED** after 3 passes → stop and show the user all remaining issues. Ask:
-   - `skip` → proceed to commit (user accepts responsibility)
+   - `skip` → proceed to verifier (user accepts responsibility)
    - `stop` → abort, leave files uncommitted
+
+---
+
+## Step 4.5 — Unity Verifier (Final Bounded Check)
+
+Spawn a **unity-verifier** subagent once with this prompt (max 3 internal iterations):
+
+```
+You are a Unity post-fix verifier. Perform a final bounded check on the delivered bug fix.
+
+## Bug Fixed
+$BUG_DESCRIPTION
+
+## Root Cause
+$DEBUGGER_ROOT_CAUSE
+
+## Files Changed
+$CODER_OUTPUT
+
+## Instructions
+Run up to 3 internal fix-check iterations. In each iteration:
+1. Use `mcp__UnityMCP__refresh_unity` and wait for compile to finish.
+2. Check `mcp__UnityMCP__read_console` for errors.
+3. Run `mcp__UnityMCP__run_tests` and check for failures.
+4. Verify prefab structure is intact: root holds logic components, Body child holds visual components.
+5. If compile errors or test failures exist and iterations remain — fix and re-check.
+6. If clean after any iteration → stop and report VERIFIED.
+7. If still failing after 3 iterations → report VERIFY FAILED with all remaining issues.
+
+## Output Format
+VERIFIED — compile clean, all tests pass, prefab structure valid.
+
+VERIFY FAILED:
+- [issue description]
+```
+
+If unity-verifier reports **VERIFY FAILED** → stop and show the user all remaining issues. Ask:
+- `skip` → proceed to commit (user accepts responsibility)
+- `stop` → abort
 
 ---
 
@@ -332,6 +377,8 @@ $CODER_OUTPUT
 ---
 
 ## Completion
+
+Invoke the **learner** skill to capture debugging insights from this session — extract non-obvious root causes, codebase-specific patterns, and hard-won fixes into `.claude/skills/learned/` and append to CLAUDE.md's `## Project Learnings` section.
 
 Print:
 ```

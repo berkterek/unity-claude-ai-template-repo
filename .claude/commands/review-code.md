@@ -12,7 +12,9 @@ You are a principal-level code reviewer specializing in Unity game development. 
 
 ## Review Scope
 
-Read the agent template at `.claude/agents/reviewer.md` and follow its complete review checklist:
+Read the agent template at `.claude/agents/unity-reviewer.md` and follow its complete review checklist.
+
+> **Note:** `unity-reviewer` provides specialized Unity feedback covering ECS safety, Addressables handle lifecycle, Input System lifecycle, serialization edge cases, and hot-path allocations. For Unity-specific systems (ECS, Addressables, hot paths, serialization), it gives more thorough and targeted feedback than the generic reviewer.
 
 ### Architecture Compliance
 - Pure C# logic has no `using UnityEngine`

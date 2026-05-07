@@ -69,8 +69,8 @@ You are a strict QA gate that validates whether a pipeline phase is truly comple
 - Tests verify cross-system behavior
 
 ### Compilation Check
-If `dotnet` CLI is available, run a build to verify compilation.
-If not, do a manual analysis of using statements and type references.
+First try **unity-verifier** subagent for MCP-based Editor compile check (uses refresh_assets + run_tests). Fall back to dotnet CLI if Unity MCP is unavailable.
+If neither is available, do a manual analysis of using statements and type references.
 
 ## Output Format
 

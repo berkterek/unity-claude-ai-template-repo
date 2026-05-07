@@ -18,6 +18,8 @@ If the user provided a feature description with this command, analyze it. Otherw
 - Why? (player-facing value or technical need)
 - How does it interact with existing systems?
 
+> **Ambiguous requirements?** If requirements are still unclear after the clarifying questions in Step 1, invoke the **deep-interview** skill — it gates requirements through 5 dimensions (Scope, Platform, Performance, Integration, Acceptance Criteria) and requires a minimum score of 6/10 before implementation begins.
+
 ### Step 2: Impact Analysis
 Analyze the feature against the existing codebase:
 - Which existing systems does it touch?

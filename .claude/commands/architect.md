@@ -274,7 +274,7 @@ Fix any inconsistencies inline.
 
 ### Refinement Summary
 
-Print before asking the developer to review:
+Print before the adversarial critique step:
 
 ```
 TDD Refinement Summary
@@ -289,7 +289,27 @@ Issues fixed : [N]
 Open questions: [list any remaining, or "None"]
 ```
 
-Then ask the developer to review. Make requested changes. Once confirmed, inform: "TDD is complete. Run `/plan-workflow` to generate the execution plan."
+## Phase: Adversarial Critique
+
+After the refinement summary, spawn a `unity-critic` subagent with the following prompt before presenting the TDD to the developer:
+
+```
+You are an adversarial Unity architect. Challenge this Technical Design Document before implementation begins.
+
+## TDD Draft
+[the TDD content]
+
+## Your Task
+1. Identify architectural weaknesses or gaps
+2. Find edge cases the design doesn't handle
+3. Spot Unity-specific performance risks (allocations, draw calls, lifecycle order)
+4. Challenge pattern choices (is VContainer registration correct? Are events properly scoped?)
+5. Suggest concrete improvements
+
+Report: List every concern with severity (CRITICAL / MAJOR / MINOR). Be direct and specific.
+```
+
+After unity-critic reports, incorporate all CRITICAL and MAJOR feedback into the TDD before presenting it to the developer. MINOR items may be listed as open questions. Then ask the developer to review. Make requested changes. Once confirmed, inform: "TDD is complete. Run `/plan-workflow` to generate the execution plan."
 
 ## Rules
 

@@ -17,6 +17,7 @@ If no argument is given, ask: "What needs to be set up in the scene?"
 [1a] CODER (C# scripts)
 [1b] UNITY-SETUP (scene/prefab wiring via MCP)  ← runs after coder
 [2]  REVIEWER ⟲ (loop until APPROVED)
+[2.5] UNITY-VERIFIER (bounded compile + scene/prefab integrity check)
 [3]  COMMITTER
 ```
 
@@ -83,7 +84,7 @@ If BLOCKED → stop and show the user.
 
 ## Step 2 — Reviewer
 
-First try **Codex** (`codex:rescue` subagent):
+First try **unity-reviewer** subagent. If unavailable → fall back to **Codex** (`codex:rescue` subagent). If Codex also unavailable → fall back to **reviewer** subagent.
 
 ```
 Review this Unity scene setup implementation.
@@ -134,13 +135,42 @@ Repeat until APPROVED or stopped (max 3 passes):
    Report: DONE or BLOCKED with reason.
    ```
 
-2. After coder fixes → re-run the reviewer (Codex first, fall back to reviewer agent) with the updated files.
+2. After coder fixes → re-run the reviewer (unity-reviewer first, Codex second, fall back to reviewer agent) with the updated files.
 
 3. If APPROVED → proceed to Step 3.
 
 4. If still **CHANGES NEEDED** after 3 passes → stop and show the user all remaining issues. Ask:
    - `skip` → proceed to commit (user accepts responsibility)
    - `stop` → abort, leave files uncommitted
+
+---
+
+## Step 2.5 — Bounded Verification
+
+Spawn a **unity-verifier** subagent:
+
+```
+You are a Unity verification agent. Run a final bounded check on this scene/prefab setup.
+
+## Scene Setup Task
+$SETUP_DESCRIPTION
+
+## Files Changed
+$CODER_OUTPUT
+$UNITY_SETUP_OUTPUT
+
+## Your Task (max 3 internal iterations)
+1. Compile check via MCP refresh_assets
+2. Verify scene/prefab integrity: prefab instances in scene (no bare GameObjects), root=logic/Body=visual separation, domain folder placement under _GameFolders/Prefabs/<Domain>/
+3. Quick scan for Unity-specific issues in C# files (null refs, missing SerializeField, event leaks)
+
+If you find and fix issues, list them. If cannot fix, report blockers.
+Report: VERIFIED or ISSUES FOUND with details.
+```
+
+If **VERIFIED** → proceed to Step 3 Committer.
+If **ISSUES FOUND** and fixed → proceed to Step 3 Committer.
+If **cannot fix** → stop and surface blockers to the developer before committing.
 
 ---
 

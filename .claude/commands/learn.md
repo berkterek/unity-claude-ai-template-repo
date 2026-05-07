@@ -20,6 +20,9 @@ If $ARGUMENTS specifies a phase, task range, or system name, focus on that. Othe
 
 ### Step 2: Extract Candidate Patterns
 
+> **Post-debug/fix session?** If this `/learn` run follows a debugging or fix session, also invoke the **learner** skill to extract post-debug insights with quality gates (Non-Googleable, Codebase-Specific, Required Real Effort) and append them to CLAUDE.md's Project Learnings section.
+
+
 Look for patterns that are:
 - **Project-specific** — not generic C# knowledge (that's already in `.claude/rules/`)
 - **Recurring** — appeared in 2+ systems or likely to recur in future work

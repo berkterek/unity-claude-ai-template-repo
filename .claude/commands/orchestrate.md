@@ -8,7 +8,11 @@ You are an orchestration agent. Your job is to read `docs/WORKFLOW.md` and execu
 2. Read `docs/WORKFLOW.md` completely.
 3. Read `.claude/CLAUDE.md` for project constraints.
 4. Read `docs/PROGRESS.md` if it exists — resume from where work left off.
-5. Announce:
+5. Append to `docs/EVENTS.jsonl` (create if missing):
+   ```jsonl
+   {"event":"ORCHESTRATION_STARTED","plan":"[game name]","phases":[N],"tasks":[M],"timestamp":"[ISO8601]"}
+   ```
+6. Announce:
    ```
    ## Orchestration Starting
    Plan: [game name]
@@ -23,6 +27,11 @@ You are an orchestration agent. Your job is to read `docs/WORKFLOW.md` and execu
 Repeat for each phase (skip completed phases from PROGRESS.md):
 
 ### Phase Start
+
+Append to `docs/EVENTS.jsonl`:
+```jsonl
+{"event":"PHASE_STARTED","phase":[N],"name":"[Phase Name]","tasks":[count],"timestamp":"[ISO8601]"}
+```
 
 Print:
 ```
@@ -44,6 +53,11 @@ Tasks: [count]
 Type: [type] | Agent: [agent type] | Complexity: [S/M/L/XL]
 Inputs: [list]
 Outputs: [list]
+```
+
+Append to `docs/EVENTS.jsonl`:
+```jsonl
+{"event":"TASK_STARTED","phase":[N],"task":[P],"id":"P{phase}.T{task}","title":"[task title]","agent":"[agent type]","timestamp":"[ISO8601]"}
 ```
 
 Each task runs four steps in sequence (TDD: tests first, then implementation). A failure at any step stops the pipeline.
@@ -86,14 +100,20 @@ If **BLOCKED** → stop immediately. Print:
 ⚠ BLOCKED at [P{phase}.T{task}] Step 1 (Test Writer): [reason]
 Fix this before continuing. Run /orchestrate to resume.
 ```
-Update PROGRESS.md with blocked status. Exit.
+Update PROGRESS.md with blocked status.
+Append to `docs/EVENTS.jsonl`:
+```jsonl
+{"event":"TASK_BLOCKED","phase":[N],"task":[P],"id":"P{phase}.T{task}","step":"test-writer","reason":"[reason]","timestamp":"[ISO8601]"}
+```
+Exit.
 
 ---
 
 #### Step 2 — Coder (or Unity Setup)
 
 If `Agent: unity-setup` → spawn a **unity-setup** subagent.
-Otherwise → spawn a **coder** subagent.
+If the task targets `_Framework/`, `Abstracts/`, or `Concretes/` with no Unity API → spawn a **coder** subagent.
+Otherwise → spawn a **unity-coder** subagent.
 
 **Coder prompt:**
 ```
@@ -178,13 +198,18 @@ If **BLOCKED** → stop immediately. Print:
 ⚠ BLOCKED at [P{phase}.T{task}] Step 1 (Coder): [reason]
 Fix this before continuing. Run /orchestrate to resume.
 ```
-Update PROGRESS.md with blocked status. Exit.
+Update PROGRESS.md with blocked status.
+Append to `docs/EVENTS.jsonl`:
+```jsonl
+{"event":"TASK_BLOCKED","phase":[N],"task":[P],"id":"P{phase}.T{task}","step":"coder","reason":"[reason]","timestamp":"[ISO8601]"}
+```
+Exit.
 
 ---
 
 #### Step 3 — Reviewer
 
-First try **Codex** (`codex:rescue` subagent). If unavailable or errors → fall back to **reviewer** subagent.
+First try **unity-reviewer** subagent. If unavailable or errors → fall back to **Codex** (`codex:rescue` subagent). If Codex also unavailable → fall back to **reviewer** subagent.
 
 **Reviewer prompt:**
 ```
@@ -242,13 +267,51 @@ On **CHANGES NEEDED** → automatically enter the review loop (no user prompt ne
    Report: DONE or BLOCKED with reason.
    ```
 
-2. Re-run the reviewer (Codex first, fall back to reviewer agent) with the updated files.
+2. Re-run the reviewer (unity-reviewer first, Codex second, fall back to reviewer agent) with the updated files.
 
 3. If APPROVED → proceed to Step 3 (Committer).
 
 4. If still **CHANGES NEEDED** after 3 passes → stop. Print remaining issues and ask:
    - `skip` → proceed to commit (user accepts responsibility)
    - `stop` → abort, leave files uncommitted, update PROGRESS.md as blocked
+
+---
+
+#### Step 3.5 — Bounded Verification
+
+Spawn a **unity-verifier** subagent:
+
+```
+You are a Unity verification agent. Run a final bounded check on completed work.
+
+## Task
+ID: [P{phase}.T{task}]
+Title: [task title]
+
+## Files Changed
+[list from coder output]
+
+## Acceptance Criteria
+[from WORKFLOW.md]
+
+## Your Task (max 3 internal iterations)
+1. Compile check via MCP refresh_assets
+2. Test run via MCP run_tests
+3. Quick scan for Unity-specific issues (null refs, missing SerializeField, event leaks)
+
+If you find and fix issues, list them. If cannot fix, report blockers.
+Report: VERIFIED or ISSUES FOUND with details.
+```
+
+If **VERIFIED** → append to `docs/EVENTS.jsonl`:
+```jsonl
+{"event":"VERIFICATION_PASSED","phase":[N],"task":[P],"id":"P{phase}.T{task}","title":"[task title]","timestamp":"[ISO8601]"}
+```
+Then proceed to Step 4 Committer.
+
+If **ISSUES FOUND** and fixed → append VERIFICATION_PASSED event and proceed to Step 4 Committer.
+
+If **cannot fix** → stop. Print blockers and surface to developer before committing. Update PROGRESS.md with blocked status.
 
 ---
 
@@ -283,6 +346,11 @@ Update `docs/PROGRESS.md`:
 - [x] P{phase}.T{task} — [title] — [commit hash] — Reviewer: [Codex|Claude]
 ```
 
+Append to `docs/EVENTS.jsonl`:
+```jsonl
+{"event":"TASK_COMPLETED","phase":[N],"task":[P],"id":"P{phase}.T{task}","title":"[task title]","commit":"[hash]","reviewer":"[Codex|Claude]","timestamp":"[ISO8601]"}
+```
+
 ---
 
 ### Phase Gate
@@ -303,7 +371,11 @@ After all tasks in a phase complete:
    Proceed? (yes / no / stop)
    ```
 4. **Wait for the developer's response.**
-   - `yes` → continue to next phase
+   - `yes` → append to `docs/EVENTS.jsonl`:
+     ```jsonl
+     {"event":"PHASE_COMPLETED","phase":[N],"name":"[Phase Name]","tasks_done":[count],"timestamp":"[ISO8601]"}
+     ```
+     Then continue to next phase.
    - `no` or `stop` → exit gracefully, remind them to run `/orchestrate` to resume
 
 ---
@@ -341,7 +413,7 @@ On startup, read this file and skip already-completed tasks.
 - **Phase gates are mandatory.** Always pause and ask between phases.
 - **One pipeline per task.** Never batch multiple tasks into one subagent call.
 - **Subagents get no session history.** Write every prompt as if they know nothing about this conversation.
-- **Reviewer tries Codex first.** Fall back to Claude reviewer agent only if Codex is unavailable.
+- **Reviewer tries unity-reviewer first.** Fall back to Codex, then to Claude reviewer agent if both are unavailable.
 
 ---
 
@@ -357,6 +429,11 @@ Summary:
 ...
 
 Next step: Run /validate to verify the full build, then /review-code on key systems.
+```
+
+Append to `docs/EVENTS.jsonl`:
+```jsonl
+{"event":"ORCHESTRATION_COMPLETE","phases":[N],"tasks":[M],"timestamp":"[ISO8601]"}
 ```
 
 $ARGUMENTS
