@@ -60,11 +60,14 @@ When reviewing code or plans, specifically check:
 5. **ECS structural safety** — no direct EntityManager structural calls inside systems; ECB used for add/remove/destroy
 6. **Addressables handle lifecycle** — every LoadAssetAsync handle stored and released in Dispose
 7. **Editor/runtime boundary** — UnityEditor namespace guarded with `#if UNITY_EDITOR` in runtime assemblies
+8. **Prefab structure** — every scene GameObject is a prefab instance; logic components on root, visual components on `Body` child; no bare GameObjects except hierarchy organizers
+9. **Prefab variants** — shared-base objects use Prefab Variants, never manually duplicated prefabs
+10. **Prefab folder** — all prefabs under `_GameFolders/Prefabs/<Domain>/`; no prefabs dumped at root level
 
 ## When Called From Pipelines
 
 ### As Reviewer (called from /implement, /fix)
-- Check all 7 points above in addition to the standard reviewer criteria
+- Check all 10 points above in addition to the standard reviewer criteria
 - Flag any Unity-specific issue the generic reviewer would miss
 - Output format: `PASS` or `FAIL: [file:line] issue`
 
