@@ -144,6 +144,78 @@ This generates project-specific boilerplate: assembly definition files (with you
 
 ---
 
+## Building a Game from Scratch
+
+The full pipeline from idea to shippable game, using the commands in this template:
+
+### Phase 1 — Idea & Design
+
+| Command | What it does |
+|---------|-------------|
+| `/game-idea` | Refines a raw idea into a **GDD** — surfaces assumptions, defines scope, creates a "Not Doing" list |
+| `/architect` | Converts the GDD into a **TDD** — `unity-critic` adversarially challenges the design before you review |
+
+### Phase 2 — Planning
+
+| Command | What it does |
+|---------|-------------|
+| `/plan-workflow` | Breaks the TDD into phases and tasks with agent types, inputs/outputs, and acceptance criteria → **WORKFLOW.md** |
+| `/dry-run` | *(optional)* Preview the orchestration plan without executing — shows agent assignments, phase count, risk points |
+
+### Phase 3 — Project Setup
+
+| Command | What it does |
+|---------|-------------|
+| `/setup-project` | Generates folder structure, `.asmdef` files, base framework classes, NSubstitute test assembly config. Prints a manual checklist for package installs |
+
+### Phase 4 — Implementation
+
+| Command | What it does |
+|---------|-------------|
+| `/orchestrate` | Executes `WORKFLOW.md` end-to-end. Per task: `test-writer → unity-coder → unity-verifier → unity-reviewer → committer`. Pauses at each phase gate for your approval |
+| `/continue` | Resumes an interrupted orchestration run from the event journal |
+
+### Phase 5 — Quality
+
+| Command | What it does |
+|---------|-------------|
+| `/validate` | Verifies exit criteria for a completed phase |
+| `/review-code` | Deep review of specific files via `unity-reviewer` |
+| `/silent-failure-hunt` | Audits for swallowed exceptions, async void, event leaks |
+| `/performance-audit` | Hot path allocation and draw call audit |
+| `/ralph` | Relentless verify-fix loop — refuses to stop until the project is clean (max 10 iterations) |
+
+### Phase 6 — Documentation & Learning
+
+| Command | What it does |
+|---------|-------------|
+| `/learn` | Extracts project-specific patterns into `.claude/skills/learned/` |
+| `/catch-up` | Generates a human-readable codebase guide at `docs/CATCH_UP.md` |
+| `/create-changelog` | Creates or updates `CHANGELOG.md` |
+| `/smart-commit` | Groups dirty working tree into logical commits |
+
+### Full Flow
+
+```
+/game-idea → /architect → /plan-workflow → /setup-project → /orchestrate
+                                                                   ↓
+                                         /validate → /review-code → /ralph
+                                                                   ↓
+                                                   /learn → /smart-commit
+```
+
+### Incremental Development (existing project or single feature)
+
+| Command | When to use |
+|---------|-------------|
+| `/add-feature` | Add a feature to an existing game — `deep-interview` gates ambiguous requirements |
+| `/implement` | Implement a single well-defined task with TDD |
+| `/fix` | Fix a bug — `unity-fixer` diagnoses, `unity-coder` patches |
+| `/fix-deep` | Evidence-first bug fix — **proves the root cause before touching code**; accepts log file/text or collects via MCP; refuses to fix if root cause cannot be proven |
+| `/new-module` | Scaffold a 5-file module (Interface, Service, Config, Installer, Events) |
+
+---
+
 ## Hooks — Auto-Enforced on Every Write
 
 Hooks run silently in the background every time Claude writes or edits a C# file.
@@ -160,6 +232,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
 | `guard-critical-files` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation |
 | `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` |
+| `gateguard` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 
 ### Warnings (logged to stderr, does not block)
 
@@ -179,6 +252,11 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-async-void` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation` | `async UniTask` methods missing `CancellationToken` parameter |
 | `check-null-propagation` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
+| `instinct-capture` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
+| `cost-tracker` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
+| `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
+| `session-restore` (SessionStart) | Restores session state from `.claude/state/` on session start |
+| `session-save` (Stop) | Saves current session state to `.claude/state/` on stop |
 
 ---
 
@@ -194,7 +272,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | Command | Description |
 |---------|-------------|
 | `/game-idea` | Refine a raw idea into a GDD (assumption surfacing + "Not Doing" list included) |
-| `/architect` | Create a Technical Design Document from a GDD (auto-runs Phase 7 self-critique before review) |
+| `/architect` | Create a Technical Design Document from a GDD (Phase 7 self-critique → **unity-critic** adversarial challenge → developer review) |
 | `/refine-gdd` | Iterate on an existing GDD |
 | `/refine-tdd` | Iterate on an existing TDD |
 | `/plan-workflow` | Create a phased execution plan from a TDD |
@@ -202,36 +280,40 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 ### Pipelines (multi-agent)
 | Command | Description |
 |---------|-------------|
-| `/implement <task>` | **Complexity score** → Test Writer → Coder → **Unity Validator** (compile + tests via MCP) → Reviewer (loop) → [Unity Developer reviewer if complex] → Committer |
-| `/fix <bug>` | **Complexity score** → Debugger → Test Writer → Coder → **Unity Validator** (compile + tests via MCP) → Reviewer (loop) → [Unity Developer reviewer if complex] → Committer |
+| `/implement <task>` | **Complexity score** → Test Writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → Reviewer priority: **unity-reviewer** → Codex → reviewer → [Unity Developer if complex] → Committer |
+| `/fix <bug>` | **Complexity score** → **unity-fixer** → Test Writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → Reviewer priority: **unity-reviewer** → Codex → reviewer → [Unity Developer if complex] → Committer |
+| `/fix-deep <bug>` | Log intake (file/text/MCP) → Hypothesis → Debug injection → Evidence collection → **Evidence gate** (proven/refuted/inconclusive) → Fix only if proven → **unity-verifier** → **unity-reviewer** → Committer |
 | `/migrate <pattern> in <scope>` | Migrator → Reviewer (loop) → Committer — coroutine→UniTask, singleton→VContainer, etc. |
-| `/scene-setup <description>` | Coder + Unity-Setup → Reviewer (loop) → Committer — scripts and scene wiring together |
+| `/scene-setup <description>` | **unity-coder** + Unity-Setup → **unity-verifier** (prefab integrity check) → **unity-reviewer** → Codex → reviewer → Committer |
 | `/create-plan <file> <what>` | Researcher → **Complexity-aware Planner** → Reviewer (loop) → Save → optional Implementer — create a new plan file from scratch |
 | `/update-plan <file> <change>` | Analyzer → Planner → Reviewer (loop) → Save → optional Implementer — extend an existing plan |
 | `/smart-commit` | Analyze dirty working tree → group into logical atomic commits → commit |
-| `/orchestrate` | Read `WORKFLOW.md` → execute every task automatically (coder → reviewer loop → committer per task), phase gate between phases |
+| `/orchestrate` | Read `WORKFLOW.md` → per-task: **unity-coder** (or unity-setup for scene tasks) → **unity-verifier** → **unity-reviewer** → Codex → reviewer → committer; emits `VERIFICATION_PASSED` event; phase gate between phases |
 
-> All pipeline reviewer steps loop automatically: CHANGES NEEDED → coder fixes → reviewer re-checks → repeat until APPROVED (max 3 passes). Only asks the user if 3 passes fail.
+> Reviewer priority across all pipelines: unity-reviewer → Codex → reviewer (falls back in order if unavailable). Reviewer loops: CHANGES NEEDED → unity-coder fixes → reviewer re-checks → repeat until APPROVED (max 3 passes).
+
+> **`/fix` vs `/fix-deep`:** Use `/fix` when the stack trace clearly points to the root cause. Use `/fix-deep` for logic bugs, "sometimes happens" issues, wrong values at runtime, or any case where the root cause is uncertain — it injects debug logs, collects evidence, and **refuses to fix until the root cause is proven**.
 
 ### Development
 | Command | Description |
 |---------|-------------|
 | `/new-module` | Generate the 5-file module structure (Interface, Service, Config, Installer, Events) |
-| `/add-feature` | Incrementally extend an existing game |
+| `/add-feature` | Incrementally extend an existing game; **deep-interview** skill gates ambiguous requirements; includes unity-setup spawn for prefab/scene wiring |
 
 ### Quality
 | Command | Description |
 |---------|-------------|
-| `/review-code` | Code review on specific files |
-| `/validate` | Validate a completed phase |
+| `/review-code` | Code review on specific files via **unity-reviewer** |
+| `/validate` | Validate a completed phase; **unity-verifier** via MCP tried first, dotnet CLI fallback |
 | `/check-portability` | Audit a module for copy-paste portability to another project |
 | `/clean-slop` | Remove AI-generated bloat (dead code, useless abstractions) |
 | `/learn` | Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow |
 | `/catch-up` | Generate a human-readable codebase guide |
 | `/generate-tests` | Write missing tests for an existing class |
 | `/performance-audit` | Audit files for allocations and hot-path violations |
-| `/debug-session` | Structured root cause analysis for a bug |
+| `/debug-session` | Structured root cause analysis; routes to **unity-fixer** or **unity-fixer-lite** after root cause; **learner** skill runs on completion |
 | `/silent-failure-hunt` | Audit files for swallowed exceptions and silent error patterns |
+| `/ralph` | Relentless verify-fix loop (max 10 outer iterations) — refuses to stop until compile and tests are green or stuck is detected |
 
 ### Session & Context
 | Command | Description |
@@ -239,6 +321,10 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/context-prime` | Brief Claude on project context at the start of a session (reads git log + key files) |
 | `/dump` | Save current session notes and decisions to `.claude/logs/` as markdown |
 | `/five` | 5 Whys root cause analysis — drill down from symptom to root cause |
+| `/continue` | Resume an interrupted orchestration run from the event journal — picks up exactly where it left off |
+| `/status` | Report current pipeline stage: GDD → TDD → WORKFLOW progress summary |
+| `/dry-run` | Preview the orchestration plan for a WORKFLOW.md without executing any tasks |
+| `/instincts` | Manage instinct library: status, list, evolve, promote, export, import |
 
 ### Changelog & Diagrams
 | Command | Description |
@@ -254,7 +340,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 
 | Agent | Role |
 |-------|------|
-| `coder` | Pure C# implementation — follows TDD spec exactly |
+| `coder` | Pure C# implementation — no Unity API; used for `_Framework/`, `Abstracts/`, and test support code |
 | `tester` | NUnit + NSubstitute test writer — AAA pattern, interface-only mocks |
 | `reviewer` | Principal-level code review — architecture, naming, performance |
 | `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle, prefab structure (logic/visual separation, Prefab Variants, domain folders) |
@@ -263,6 +349,26 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `debugger` | Root cause analysis — VContainer, ECS, UniTask, Input bug patterns |
 | `migrator` | Legacy pattern migration — coroutine→UniTask, singleton→VContainer, legacy input |
 | `silent-failure-hunter` | Swallowed exception audit — empty catch, `.Forget()` without handler, dangerous fallbacks |
+| `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |
+| `unity-shader-dev` | URP shader authoring — ShaderGraph, HLSL, render passes |
+| `unity-ui-builder` | UI Toolkit specialist — UXML, USS, runtime panel setup, data binding |
+| `unity-optimizer` | Runtime performance — allocations, draw calls, ECS hot paths, profiler-guided fixes |
+| `unity-scene-builder` | Scene composition via MCP — hierarchy, lighting, camera, volumes |
+| `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
+| `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
+| `unity-build-runner` | CI/build pipeline — platform flags, build profiles, addressables baking |
+| `unity-coder` | Full Unity C# implementation — MonoBehaviours, providers, installers, scene wiring; used in `/implement`, `/fix`, `/orchestrate` pipelines |
+| `unity-coder-lite` | Lightweight Unity coder for small isolated changes |
+| `unity-fixer` | Bug fixer with full context — reads surrounding code before patching |
+| `unity-fixer-lite` | Quick targeted fix for a single well-scoped defect |
+| `unity-git-master` | Git workflow — branching strategy, conflict resolution, history rewrite |
+| `unity-migrator` | Pattern migration specialist — coroutine→UniTask, singleton→VContainer, legacy input |
+| `unity-network-dev` | Netcode for GameObjects / Unity Transport — lobby, relay, RPCs |
+| `unity-prototyper` | Rapid prototype scaffolding — speed over correctness, clearly marked TODOs |
+| `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
+| `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
+| `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
+| `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
 
 ---
 
@@ -308,6 +414,22 @@ Named review prompts in `.claude/docs/director-gates.md` — referenced by ID ac
 ---
 
 ## Session State
+
+### Structured State (`.claude/state/`)
+
+Machine-readable state written and restored automatically by hooks:
+
+| File | Contents |
+|------|----------|
+| `session.json` | Current branch, phase, modified files, active task, decisions |
+| `learnings.jsonl` | Structured learning records accumulated across sessions |
+| `instincts/` | Project-specific and global instinct library (confidence-scored patterns) |
+
+- `session-restore.sh` (SessionStart hook) loads state at the start of every session
+- `session-save.sh` (Stop hook) persists state when the session ends
+- Use `/instincts` to view, evolve, promote, or export instincts
+
+### Human-Readable Checkpoint
 
 `production/session-state/active.md` is a living checkpoint updated after each milestone.
 
@@ -416,12 +538,83 @@ Install via Unity Package Manager — add by git URL from the UniTask repository
 
 ## Built-In Skills
 
-Skills in `.claude/skills/third-party/` are loaded automatically and cover setup and diagnosis for third-party tools:
+Skills live under `.claude/skills/` and are loaded automatically by commands. They are read-only reference files that inform Claude's decisions — they do not execute code. The `/learn` command writes project-specific patterns to `skills/learned/`.
+
+### Core (`skills/core/`)
+
+Infrastructure skills that govern how Claude reasons and acts across all tasks:
 
 | Skill | Covers |
 |-------|--------|
-| `unity-asmdef` | Assembly definition setup, reference wiring, CS0246/CS0234 diagnosis, test assembly configuration |
-| `nsubstitute` | NSubstitute DLL installation, `overrideReferences` configuration, mock patterns, runtime error diagnosis |
+| `model-routing` | Automatic model selection heuristics — file count, complexity, risk factors |
+| `deep-interview` | 5-dimension ambiguity gating before implementation starts |
+| `learner` | Post-debug insight extraction — writes findings to CLAUDE.md Project Learnings |
+| `unity-instincts` | Instinct system for learned Unity patterns — capture, score, promote, apply |
+| `assembly-definitions` | .asmdef authoring — references, platforms, define constraints |
+| `commit-trailers` | Conventional commit trailers — co-author, ticket links, sign-off |
+| `event-systems` | IEventBus patterns — pub/sub, struct events, subscribe/unsubscribe lifecycle |
+| `hud-statusline` | In-session status line rendering for pipeline progress |
+| `object-pooling` | ObjectPool<T> setup, return-to-pool patterns, warm-up |
+| `scriptable-objects` | ScriptableObject config authoring, CreateAssetMenu, validation |
+| `serialization-safety` | FormerlySerializedAs, SerializeReference, Unity null semantics |
+| `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
+
+### Gameplay (`skills/gameplay/`)
+
+| Skill | Covers |
+|-------|--------|
+| `character-controller` | Movement, jumping, collision, physics-based character setup |
+| `dialogue-system` | Branching dialogue, scriptable data, event triggers |
+| `inventory-system` | Item data, slot management, persistence |
+| `procedural-generation` | Noise-based map gen, seeded randomness, chunking |
+| `save-system` | Serialization, slot management, async save/load via UniTask |
+| `state-machine` | Enum FSM, scriptable state pattern, VContainer wiring |
+
+### Genre Templates (`skills/genre/`)
+
+| Skill | Covers |
+|-------|--------|
+| `card-game` | Deck, hand, drag-drop, turn flow |
+| `endless-runner` | Chunk spawning, speed ramp, obstacle pools |
+| `hyper-casual` | One-tap input, minimal UI, fast loop |
+| `idle-clicker` | Offline progress, prestige, big-number formatting |
+| `match3` | Grid, swap logic, cascade, scoring |
+| `platformer-2d` | Coyote time, jump buffer, one-way platforms |
+| `puzzle` | Undo stack, level serialization, hint system |
+| `racing` | Waypoint AI, lap timing, drift |
+| `roguelike` | Room generation, loot tables, permadeath |
+| `rpg` | Stats, leveling, equipment, quest log |
+| `topdown` | 8-directional move, aim, minimap |
+| `tower-defense` | Wave spawner, targeting, upgrade tree |
+
+### Platform (`skills/platform/`)
+
+| Skill | Covers |
+|-------|--------|
+| `mobile` | Touch input, safe area, haptics, app lifecycle |
+
+### Systems (`skills/systems/`)
+
+| Skill | Covers |
+|-------|--------|
+| `addressables` | Loading, handle lifecycle, label groups, preload |
+| `animation` | Animator parameters, state machine behaviours, blend trees |
+| `audio` | AudioMixer, snapshots, pooled AudioSource, 3D attenuation |
+| `cinemachine` | Virtual cameras, blends, impulse, follow targets |
+| `navmesh` | NavMeshAgent setup, dynamic obstacles, off-mesh links |
+| `physics` | Layer matrix, non-alloc queries, trigger vs collision |
+| `shader-graph` | URP shader nodes, property exposure, keyword variants |
+| `ui-toolkit` | USS, UXML, data binding, runtime panel setup |
+| `urp-pipeline` | Render features, camera stacking, volume profiles |
+
+### Third-Party (`skills/third-party/`)
+
+| Skill | Covers |
+|-------|--------|
+| `dotween` | Tween creation, sequences, callbacks, memory management |
+| `odin-inspector` | Custom attributes, validators, group drawers |
+| `textmeshpro` | Font assets, rich text, SDF materials, localization |
+| `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid |
 | `vcontainer` | Scope hierarchy, registration patterns, `IInitializable`/`IDisposable` lifecycle, DI failure diagnosis |
 
 ---
