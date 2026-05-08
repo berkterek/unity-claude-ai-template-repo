@@ -79,10 +79,22 @@ $CHANGE_DESCRIPTION
 ## Analyzer Findings
 $ANALYZER_OUTPUT
 
+## Parallel Group Assignment
+
+After writing all new tasks, analyze dependencies across ALL tasks (existing + new) and update the `parallel_group` column in the Status table:
+
+**Rules:**
+- If Task B's inputs depend on Task A's outputs → they MUST be sequential (no shared group)
+- If two tasks are fully independent (different files, no shared inputs/outputs) → assign the same `parallel_group` number
+- Tasks with no parallel candidate get `—` (sequential by default)
+- If the Status table has no `parallel_group` column yet, add it
+
+**When orchestrate runs this plan:** tasks in the same `parallel_group` will spawn simultaneously (complexity ≥ 0.4). Tasks with `—` run sequentially.
+
 ## Instructions
 1. Read the existing plan file carefully
 2. Add a new revision note at the top (vN+1 format, today's date)
-3. Update the status table if any phases changed status
+3. Update the status table if any phases changed status (add `parallel_group` column if missing)
 4. Add new Task sections at the bottom (Task N+1, Task N+2, etc.) with:
    - Files to modify (exact paths)
    - Numbered steps with [ ] checkboxes
@@ -157,7 +169,21 @@ After saving, ask the user:
 
 If **no** → print completion summary and stop.
 
-If **yes** → spawn a **general-purpose** subagent with this prompt:
+If **yes** → read the plan file. Extract the complexity score printed at the top of the plan by the Planner (e.g. `Complexity: 0.6 — Medium`). Then check for `parallel_group` annotations in the Status table.
+
+**If `parallel_group` annotations exist AND complexity score ≥ 0.4:**
+1. Group tasks by `parallel_group` number. Tasks with `—` are sequential.
+2. **Conflict check:** For each group, check if two tasks write to the same output file → demote the later task to sequential and warn:
+   ```
+   ⚠ PARALLEL CONFLICT: [Task A] and [Task B] both write to [file]
+   [Task B] demoted to sequential.
+   ```
+3. Spawn one **general-purpose** subagent per task in the same group simultaneously.
+4. Wait for all tasks in the group to complete before starting the next group or sequential task.
+5. If any task in a group fails → stop. Report all failures. Do not proceed until user resolves.
+6. After all groups and sequential tasks complete → run reviewer + committer as normal.
+
+**If no `parallel_group` annotations OR complexity < 0.4:** spawn a single **general-purpose** subagent with this prompt:
 
 ```
 You are a senior C# Unity developer implementing a plan.
@@ -185,6 +211,8 @@ $PLAN_FILE
 - List every file created or modified with a one-line summary
 - Report: DONE or BLOCKED (with reason and task name)
 ```
+
+Each parallel task subagent uses this same prompt with its specific task ID and title scoped in.
 
 After implementer finishes → spawn the **Reviewer** (Codex first, fall back to general-purpose) with:
 

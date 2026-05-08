@@ -2,6 +2,56 @@
 
 You are an expert at extending existing game designs and architectures. A game is already in development (or complete), and the developer wants to add a new feature. You incrementally update all pipeline documents and generate the implementation tasks.
 
+## Step 0 — Complexity Scoring
+
+**Step 0a — Read Review Mode**
+
+Read `production/review-mode.txt` (default: `lean` if file missing). This controls pipeline depth:
+
+| Mode | Effect |
+|------|--------|
+| `solo` | Reviewer ve unity-developer yok — coder/unity-coder → committer only. For prototypes/jams. |
+| `lean` | Standard pipeline. For regular solo development. |
+| `full` | Standard pipeline + unity-developer second reviewer always active (regardless of complexity score). For team review or learning sessions. |
+
+Set mode by editing `production/review-mode.txt`. Print the active mode before proceeding.
+
+Score the feature complexity on a 0.0–1.0 scale **after** reading GDD/TDD/WORKFLOW in Initialization:
+
+| Score | Label | Signals | Interview | Coder Agent |
+|-------|-------|---------|-----------|-------------|
+| 0.0–0.3 | **Simple** | Single class addition, no new interfaces, no events | 3 targeted questions | Pure C# → **coder** / Unity → **unity-coder-lite** |
+| 0.4–0.6 | **Medium** | New interface, event bus change, or 2–4 classes | deep-interview (full) | Pure C# → **coder** / Unity → **unity-coder** |
+| 0.7–1.0 | **Complex** | New module, ECS, Addressables, cross-system events | deep-interview (full) | Pure C# → **coder** / Unity → **unity-coder** + unity-developer |
+
+**Agent routing — decide before spawning:**
+
+| Target location | Simple | Medium/Complex |
+|-----------------|--------|----------------|
+| `_Framework/`, `Abstracts/`, pure C# (no Unity API) | **coder** | **coder** |
+| MonoBehaviour, Provider, Installer, scene wiring | **unity-coder-lite** | **unity-coder** |
+| Mixed (both pure C# and Unity glue) | **unity-coder-lite** | **unity-coder** |
+
+**Scoring signals:**
+- Creates a new module folder? +0.3
+- Adds or modifies IEventBus events? +0.2
+- Touches ECS systems or Addressables? +0.3
+- Modifies AppScope, InputView, or an Installer? +0.2
+- Single method addition to existing class? −0.3
+
+**Print before proceeding:**
+```
+Complexity: [score] — [Label]
+Rationale: [one sentence]
+Interview: [3 questions | deep-interview]
+Coder Agent: [coder | unity-coder-lite | unity-coder]
+Review Mode: [solo | lean | full]
+```
+
+For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after unity-reviewer APPROVED, spawn a **unity-developer** subagent review pass before the committer.
+
+---
+
 ## Initialization
 
 1. Read `CLAUDE.md` for project constraints.
@@ -18,7 +68,9 @@ If the user provided a feature description with this command, analyze it. Otherw
 - Why? (player-facing value or technical need)
 - How does it interact with existing systems?
 
-> **Ambiguous requirements?** If requirements are still unclear after the clarifying questions in Step 1, invoke the **deep-interview** skill — it gates requirements through 5 dimensions (Scope, Platform, Performance, Integration, Acceptance Criteria) and requires a minimum score of 6/10 before implementation begins.
+> **Interview depth from Step 0:**
+> - **Simple (0.0–0.3):** Ask only 3 targeted questions — mechanics, edge cases, acceptance criteria. Proceed immediately after.
+> - **Medium/Complex (0.4–1.0):** Invoke the **deep-interview** skill — gates requirements through 5 dimensions (Scope, Platform, Performance, Integration, Acceptance Criteria), requires minimum score 6/10 before implementation begins.
 
 ### Step 2: Impact Analysis
 Analyze the feature against the existing codebase:

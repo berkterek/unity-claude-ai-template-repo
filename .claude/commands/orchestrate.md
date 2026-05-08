@@ -2,6 +2,55 @@
 
 You are an orchestration agent. Your job is to read `docs/WORKFLOW.md` and execute every task automatically, one phase at a time. Each task runs a three-step pipeline: **coder → reviewer → committer**. After each phase you pause and ask the developer before moving on.
 
+## Step 0 — Complexity Scoring
+
+**Step 0a — Read Review Mode**
+
+Read `production/review-mode.txt` (default: `lean` if file missing). This controls pipeline depth:
+
+| Mode | Effect |
+|------|--------|
+| `solo` | Reviewer ve unity-developer yok — coder/unity-coder → committer only. For prototypes/jams. |
+| `lean` | Standard pipeline. For regular solo development. |
+| `full` | Standard pipeline + unity-developer second reviewer always active (regardless of complexity score). For team review or learning sessions. |
+
+Set mode by editing `production/review-mode.txt`. Print the active mode before proceeding.
+
+Before executing any task, score the overall workflow complexity on a 0.0–1.0 scale:
+
+| Score | Label | Signals | Coder Agent |
+|-------|-------|---------|-------------|
+| 0.0–0.3 | **Simple** | Single class, no new interfaces, no DI wiring, no events | Pure C# target → **coder** / Unity target → **unity-coder-lite** |
+| 0.4–0.6 | **Medium** | 2–4 classes, new interface, or touches existing event bus | Pure C# target → **coder** / Unity target → **unity-coder** |
+| 0.7–1.0 | **Complex** | New module, cross-system events, ECS integration, or Addressables | Pure C# target → **coder** / Unity target → **unity-coder** + unity-developer review after each task |
+
+**Agent routing per task — decide before spawning:**
+
+| Target location | Simple | Medium/Complex |
+|-----------------|--------|----------------|
+| `_Framework/`, `Abstracts/`, pure C# (no Unity API) | **coder** | **coder** |
+| MonoBehaviour, Provider, Installer, scene wiring | **unity-coder-lite** | **unity-coder** |
+| Mixed (both pure C# and Unity glue) | **unity-coder-lite** | **unity-coder** |
+
+**Scoring signals:**
+- Creates a new module folder? +0.3
+- Adds or modifies IEventBus events? +0.2
+- Touches ECS systems or Addressables? +0.3
+- Modifies AppScope, InputView, or an Installer? +0.2
+- Single method addition to existing class? −0.3
+
+**Print before proceeding:**
+```
+Complexity: [score] — [Label]
+Rationale: [one sentence]
+Coder Agent: [coder | unity-coder-lite | unity-coder] (per task)
+Review Mode: [solo | lean | full]
+```
+
+For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after the standard unity-reviewer step passes for each task, spawn a **unity-developer** subagent review pass before the committer.
+
+---
+
 ## Initialization
 
 1. Verify `docs/WORKFLOW.md` exists. If not, stop: "WORKFLOW.md not found. Run `/plan-workflow` first."
@@ -45,12 +94,34 @@ Tasks: [count]
 
 ---
 
-### Task Execution (for each task in the phase, in order)
+### Task Execution
+
+Before executing tasks in a phase, check for `parallel_group` annotations in WORKFLOW.md:
+
+**If no tasks have `parallel_group`:** Execute all tasks sequentially (existing behavior).
+
+**If tasks have `parallel_group` AND complexity score ≥ 0.4:**
+1. Group tasks by their `parallel_group` number. Tasks without a group number are sequential.
+2. **Conflict check:** For each group, read each task's `outputs` field. If two tasks in the same group list the same output file → demote the later task to sequential and warn:
+   ```
+   ⚠ PARALLEL CONFLICT: [T1] and [T2] both write to [file]
+   [T2] demoted to sequential. Running [T1] first.
+   ```
+3. Execute tasks in the same group simultaneously. Each spawns its own full pipeline (test-writer → coder → verifier → reviewer).
+4. Wait for all tasks in the group to complete before starting the next group or sequential task.
+5. If any task in a group fails → stop the entire group. Report all failures. Do not proceed until user resolves.
+6. Commit all group outputs in a single commit after the group completes.
+
+**If complexity score < 0.4:** Ignore `parallel_group` — run all tasks sequentially.
+
+---
+
+#### Sequential Task Execution (for each task without parallel_group, in order)
 
 **Announce the task:**
 ```
 ### [P{phase}.T{task}] [Task Title]
-Type: [type] | Agent: [agent type] | Complexity: [S/M/L/XL]
+Type: [type] | Agent: [agent type] | Complexity: [S/M/L/XL] | Group: [parallel_group or "sequential"]
 Inputs: [list]
 Outputs: [list]
 ```
@@ -112,8 +183,10 @@ Exit.
 #### Step 2 — Coder (or Unity Setup)
 
 If `Agent: unity-setup` → spawn a **unity-setup** subagent.
-If the task targets `_Framework/`, `Abstracts/`, or `Concretes/` with no Unity API → spawn a **coder** subagent.
-Otherwise → spawn a **unity-coder** subagent.
+
+**Coder agent — use routing table from Step 0:**
+- Pure C# target (`_Framework/`, `Abstracts/`, no Unity API) → **coder**
+- Unity/Mixed target (MonoBehaviour, Provider, Installer, scene wiring) → **unity-coder-lite** (Simple) or **unity-coder** (Medium/Complex)
 
 **Coder prompt:**
 ```
@@ -355,28 +428,82 @@ Append to `docs/EVENTS.jsonl`:
 
 ### Phase Gate
 
-After all tasks in a phase complete:
+After all tasks in a phase complete, run the automated QA sequence before asking the developer:
 
-1. Print exit criteria from WORKFLOW.md.
-2. Verify output files from this phase exist.
-3. Print:
-   ```
-   ## Phase [N] Complete ✓
-   [N] tasks done. Exit criteria met: [YES / PARTIAL — list gaps]
+#### Step 1 — Ralph (compile + test green)
 
-   Ready to start Phase [N+1]: [name]
-   Goal: [goal]
-   Tasks: [count]
+Spawn a **unity-verifier** subagent to compile and run tests. If failures found → spawn **unity-fixer** to fix, re-verify (max 3 passes). If still failing after 3 passes → stop and report to user. Do not proceed to Step 2 until green.
 
-   Proceed? (yes / no / stop)
-   ```
-4. **Wait for the developer's response.**
-   - `yes` → append to `docs/EVENTS.jsonl`:
-     ```jsonl
-     {"event":"PHASE_COMPLETED","phase":[N],"name":"[Phase Name]","tasks_done":[count],"timestamp":"[ISO8601]"}
-     ```
-     Then continue to next phase.
-   - `no` or `stop` → exit gracefully, remind them to run `/orchestrate` to resume
+Print: `✓ Ralph passed — compile and tests green.` or `⚠ Ralph failed after 3 passes — [issues]. Fix before proceeding.`
+
+#### Step 2 — Silent Failure Hunt
+
+Spawn a **unity-linter** subagent with this prompt:
+
+```
+Audit all files changed in this phase for silent failure patterns:
+- catch blocks that swallow exceptions without logging
+- async void outside Unity lifecycle methods
+- IEventBus subscriptions without matching Unsubscribe
+- UniTask.Forget() without an error handler
+- empty catch blocks
+
+Files to audit: [list of output files from this phase's tasks]
+
+Report each finding as: [file:line] — [pattern] — [fix]
+If none found: CLEAN
+```
+
+Print findings or `✓ Silent failure hunt — CLEAN.`
+
+#### Step 3 — Validate
+
+Spawn a **general-purpose** subagent with the validate prompt:
+
+```
+You are a strict QA gate. Validate phase [N] of this orchestration.
+
+WORKFLOW.md phase [N] tasks and acceptance criteria: [paste from WORKFLOW.md]
+PROGRESS.md reported status: [paste phase section]
+
+Checks:
+1. All output files exist at specified paths
+2. Files are not empty or placeholder
+3. Every acceptance criterion is met (read the code to verify)
+
+Output:
+PASS — all criteria met.
+FAIL:
+- [task] [criterion] — [what's missing]
+```
+
+If **FAIL** → print failures, ask user: `Validation failed. Fix issues and type "retry" to re-run QA, or "skip" to proceed anyway.`
+- `retry` → restart from Step 1
+- `skip` → proceed with warning logged
+
+If **PASS** → proceed to developer prompt.
+
+#### Step 4 — Developer Prompt
+
+Print:
+```
+## Phase [N] QA Complete ✓
+Ralph: green | Silent failures: [CLEAN / N findings] | Validate: PASS
+
+Ready to start Phase [N+1]: [name]
+Goal: [goal]
+Tasks: [count]
+
+Proceed? (yes / no / stop)
+```
+
+**Wait for the developer's response.**
+- `yes` → append to `docs/EVENTS.jsonl`:
+  ```jsonl
+  {"event":"PHASE_COMPLETED","phase":[N],"name":"[Phase Name]","tasks_done":[count],"timestamp":"[ISO8601]"}
+  ```
+  Then continue to next phase.
+- `no` or `stop` → exit gracefully, remind them to run `/continue` to resume.
 
 ---
 
