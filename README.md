@@ -167,6 +167,8 @@ The full pipeline from idea to shippable game, using the commands in this templa
 | Command | What it does |
 |---------|-------------|
 | `/setup-project` | Generates folder structure, `.asmdef` files, base framework classes, NSubstitute test assembly config. Prints a manual checklist for package installs |
+| `/graphics-setup <mobile\|pc>` | Creates URP Pipeline Assets (Low/Medium/High), Renderer Data, and URPQualityConfiguration for the target platform via MCP |
+| `/audio-clip-setup [path]` | Applies optimized AudioClip import settings (format, load type, platform overrides) across the project |
 
 ### Phase 4 — Implementation
 
@@ -184,6 +186,8 @@ The full pipeline from idea to shippable game, using the commands in this templa
 | `/silent-failure-hunt` | Audits for swallowed exceptions, async void, event leaks |
 | `/performance-audit` | Hot path allocation and draw call audit |
 | `/ralph` | Relentless verify-fix loop — refuses to stop until the project is clean (max 10 iterations) |
+| `/graphics-setup <mobile\|pc>` | Tune or recreate URP quality tiers after gameplay is stable |
+| `/audio-clip-setup [path]` | Audit and fix AudioClip import settings before a build |
 
 ### Phase 6 — Documentation & Learning
 
@@ -197,11 +201,13 @@ The full pipeline from idea to shippable game, using the commands in this templa
 ### Full Flow
 
 ```
-/game-idea → /architect → /plan-workflow → /setup-project → /orchestrate
-                                                                   ↓
-                                         /validate → /review-code → /ralph
-                                                                   ↓
-                                                   /learn → /smart-commit
+/game-idea → /architect → /plan-workflow → /setup-project → /graphics-setup → /audio-clip-setup
+                                                                                       ↓
+                                                                              /orchestrate
+                                                                                       ↓
+                                                         /validate → /review-code → /ralph
+                                                                                       ↓
+                                                                       /learn → /smart-commit
 ```
 
 ### Incremental Development (existing project or single feature)
