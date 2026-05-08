@@ -11,6 +11,49 @@ Sets up a new scene or prefab: coder writes the C# scripts, unity-setup wires ev
 
 If no argument is given, ask: "What needs to be set up in the scene?"
 
+## Step 0 — Complexity Scoring
+
+**Step 0a — Read Review Mode**
+
+Read `production/review-mode.txt` (default: `lean` if file missing). This controls pipeline depth:
+
+| Mode | Effect |
+|------|--------|
+| `solo` | Reviewer ve unity-developer yok — unity-coder/unity-coder-lite → unity-setup → committer only. |
+| `lean` | Standard pipeline. For regular solo development. |
+| `full` | Standard pipeline + unity-developer second reviewer always active (regardless of complexity score). For team review or learning sessions. |
+
+Set mode by editing `production/review-mode.txt`. Print the active mode before proceeding.
+
+Before spawning any agents, score the task complexity on a 0.0–1.0 scale:
+
+| Score | Label | Signals | Coder Agent |
+|-------|-------|---------|-------------|
+| 0.0–0.3 | **Simple** | Single MonoBehaviour, no new interfaces, no DI wiring | **unity-coder-lite** |
+| 0.4–0.6 | **Medium** | 2–4 scripts, new interface, or LifetimeScope installer | **unity-coder** |
+| 0.7–1.0 | **Complex** | New module, cross-system events, ECS, or Addressables | **unity-coder** + unity-developer review |
+
+Scene setup always targets Unity/Mixed code — `coder` agent is never used here.
+
+**Scoring signals:**
+- Creates a new module folder? +0.3
+- Adds or modifies IEventBus events? +0.2
+- Touches ECS systems or Addressables? +0.3
+- Modifies AppScope, InputView, or an Installer? +0.2
+- Single MonoBehaviour with no dependencies? −0.3
+
+**Print before proceeding:**
+```
+Complexity: [score] — [Label]
+Rationale: [one sentence]
+Coder Agent: [unity-coder-lite | unity-coder]
+Review Mode: [solo | lean | full]
+```
+
+For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after unity-reviewer APPROVED, spawn a **unity-developer** subagent review pass before the committer.
+
+---
+
 ## Pipeline
 
 ```
@@ -25,7 +68,7 @@ If no argument is given, ask: "What needs to be set up in the scene?"
 
 ## Step 1a — Coder
 
-Spawn a **coder** subagent with this prompt:
+Spawn the coder agent determined in Step 0 (**unity-coder-lite** for Simple, **unity-coder** for Medium/Complex) with this prompt:
 
 ```
 You are a senior C# Unity developer. Write the C# scripts needed for the following Unity scene setup.

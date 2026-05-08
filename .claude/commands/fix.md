@@ -14,7 +14,7 @@ If no argument is given, ask: "Describe the bug."
 ## Pipeline
 
 ```
-[1] DEBUGGER → [2] TEST WRITER → [3] CODER → [4] REVIEWER ⟲ (loop until APPROVED) → [5] COMMITTER
+[1] DEBUGGER → [2] TEST WRITER → [3] CODER → [4] REVIEWER ⟲ (loop until APPROVED) → [4.7] SILENT FAILURE AUDIT → [5] COMMITTER
 ```
 
 ---
@@ -61,6 +61,10 @@ For **Complex** tasks: after the standard Reviewer step passes, spawn a **unity-
 
 ## Step 1 — Debugger
 
+**If complexity score ≥ 0.4:** Spawn **unity-fixer** and **unity-scout** simultaneously. Proceed once both complete.
+
+**If complexity score < 0.4 (Simple):** Spawn unity-fixer only — skip to Step 2 if Simple bypasses debugger.
+
 Spawn a **unity-fixer** subagent with this prompt (note: unity-fixer reads surrounding context files before patching — include all relevant file paths in the bug report so it can orient itself):
 
 ```
@@ -88,6 +92,48 @@ REPRODUCTION PATH:
 <step-by-step sequence of calls that leads to the bug>
 
 DO NOT fix anything. Report only.
+```
+
+### unity-scout Agent Prompt (complexity ≥ 0.4 only)
+
+```
+You are a Unity risk analyst. While the debugger investigates the bug, scan in parallel for Unity-specific risk patterns.
+
+BUG: $BUG_DESCRIPTION
+
+## Instructions
+
+Scan for Unity-specific patterns that could cause or contribute to this bug:
+- VContainer registration gaps or scope hierarchy issues
+- UniTask async methods missing CancellationToken or using async void
+- Input System lifecycle violations (missing Enable/Disable)
+- ECS structural changes outside EntityCommandBuffer
+- Addressables handles not released
+- Unity null check violations (?. or is null on UnityEngine objects)
+- Missing [Inject] Construct() methods on MonoBehaviours
+
+## Output Format (REQUIRED)
+
+UNITY_RISKS:
+- [risk type] — [file:line] — [description]
+OR: UNITY_RISKS: none
+```
+
+### Merge (after both agents complete)
+
+Combine into unified debugger output before showing to user:
+
+```
+ROOT CAUSE: [from unity-fixer]
+
+AFFECTED FILES:
+- [from unity-fixer]
+
+REPRODUCTION PATH:
+[from unity-fixer]
+
+UNITY_RISKS (parallel scan):
+[from unity-scout, or "none"]
 ```
 
 Show the debugger output to the user. Ask: "Root cause found — proceed with fix? (yes / stop)"
@@ -346,6 +392,44 @@ VERIFY FAILED:
 If unity-verifier reports **VERIFY FAILED** → stop and show the user all remaining issues. Ask:
 - `skip` → proceed to commit (user accepts responsibility)
 - `stop` → abort
+
+---
+
+## Step 4.7 — Silent Failure Audit
+
+Spawn a **silent-failure-hunter** subagent with this prompt:
+
+```
+Audit the following C# files for silent failure patterns:
+
+FILES: $CHANGED_FILES
+
+Check for:
+1. catch blocks that swallow exceptions without logging or rethrowing
+2. async void outside Unity lifecycle methods (Awake, Start, OnEnable, OnDisable, OnDestroy)
+3. IEventBus subscriptions (Subscribe<T>) without a matching Unsubscribe<T> in Dispose/OnDisable
+4. UniTask.Forget() calls without an onException error handler
+5. Empty catch blocks: catch { } or catch (Exception) { }
+
+For each finding:
+- [file:line] — [pattern type] — [description] — [suggested fix]
+
+If nothing found: CLEAN
+```
+
+If hunter reports **CLEAN** → proceed to Committer.
+
+If hunter reports findings → show them to the user. Ask:
+```
+Silent failure issues found. Options:
+  fix   — spawn unity-coder to address findings, then re-audit once
+  skip  — accept and proceed to commit
+  stop  — abort
+```
+
+- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run hunter once. Proceed to committer regardless of result.
+- `skip` → proceed to committer.
+- `stop` → abort.
 
 ---
 

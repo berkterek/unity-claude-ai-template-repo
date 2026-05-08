@@ -21,7 +21,31 @@ If no argument is given, ask: "Describe the bug. Paste any logs or error text if
 
 ---
 
-## Step 0 — Log Intake
+## Step 0 — Complexity Scoring
+
+Score the bug complexity on a 0.0–1.0 scale before spawning any agents:
+
+| Score | Label | Signals |
+|-------|-------|---------|
+| 0.0–0.3 | **Simple** | Single class, isolated method, no cross-system trace |
+| 0.4–0.6 | **Medium** | 2–4 classes, event flow involved, DI wiring suspect |
+| 0.7–1.0 | **Complex** | Cross-module, ECS + Mono bridge, race condition, Addressables lifecycle |
+
+**Scoring signals:**
+- Bug spans multiple modules or systems? +0.3
+- Involves IEventBus events or DI wiring? +0.2
+- Involves ECS, Addressables, or async lifecycle? +0.3
+- Single method, single class? −0.3
+
+**Print before proceeding:**
+```
+Complexity: [score] — [Label]
+Rationale: [one sentence]
+```
+
+---
+
+## Step 0b — Log Intake
 
 Determine the evidence source. In order of preference:
 
@@ -152,6 +176,10 @@ Debug logs injected. Now reproduce the bug in the Unity editor, then press Enter
 
 Wait for user confirmation (Enter / "done" / "ready").
 
+**If complexity score ≥ 0.4:** Spawn **unity-fixer** (MCP log collection) and **unity-scout** (static risk scan) simultaneously. Both complete before proceeding to Step 4.
+
+**If complexity score < 0.4:** Spawn unity-fixer only.
+
 Then spawn a **unity-fixer** subagent with this prompt:
 
 ```
@@ -177,6 +205,37 @@ ERRORS DURING REPRODUCTION:
 
 NO_EVIDENCE — if no [FIX-DEEP] logs appeared (bug was not reproduced).
 ```
+
+### unity-scout Agent Prompt (complexity ≥ 0.4 only, runs in parallel with unity-fixer)
+
+```
+You are a Unity risk analyst. While evidence logs are being collected, scan the codebase for Unity-specific patterns related to this bug hypothesis.
+
+HYPOTHESIS: $HYPOTHESIS
+
+## Instructions
+
+Scan for patterns that could confirm or refute the hypothesis:
+- VContainer registration and scope hierarchy
+- UniTask cancellation and lifecycle
+- ECS structural change patterns
+- Input System Enable/Disable lifecycle
+- Addressables handle management
+- Unity null semantics (?. vs == null)
+
+## Output Format (REQUIRED)
+
+STATIC_EVIDENCE:
+- [file:line] — [how this supports or refutes the hypothesis]
+OR: STATIC_EVIDENCE: none
+```
+
+After both agents complete, append unity-scout findings to the evidence:
+```
+EVIDENCE LOGS: [from unity-fixer]
+STATIC_EVIDENCE: [from unity-scout]
+```
+Pass both to Step 4 — Evidence Gate.
 
 If **NO_EVIDENCE** → print:
 ```
@@ -380,6 +439,44 @@ CHANGES NEEDED:
 ```
 
 Review loop: max 3 passes (same as `/fix`).
+
+---
+
+## Step 6.7 — Silent Failure Audit
+
+Spawn a **silent-failure-hunter** subagent with this prompt:
+
+```
+Audit the following C# files for silent failure patterns:
+
+FILES: $CHANGED_FILES
+
+Check for:
+1. catch blocks that swallow exceptions without logging or rethrowing
+2. async void outside Unity lifecycle methods (Awake, Start, OnEnable, OnDisable, OnDestroy)
+3. IEventBus subscriptions (Subscribe<T>) without a matching Unsubscribe<T> in Dispose/OnDisable
+4. UniTask.Forget() calls without an onException error handler
+5. Empty catch blocks: catch { } or catch (Exception) { }
+
+For each finding:
+- [file:line] — [pattern type] — [description] — [suggested fix]
+
+If nothing found: CLEAN
+```
+
+If hunter reports **CLEAN** → proceed to Committer.
+
+If hunter reports findings → show them to the user. Ask:
+```
+Silent failure issues found. Options:
+  fix   — spawn unity-coder to address findings, then re-audit once
+  skip  — accept and proceed to commit
+  stop  — abort
+```
+
+- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run hunter once. Proceed to committer regardless of result.
+- `skip` → proceed to committer.
+- `stop` → abort.
 
 ---
 

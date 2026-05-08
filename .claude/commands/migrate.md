@@ -14,6 +14,52 @@ If no argument is given, ask:
 1. What pattern needs migrating? (coroutine→UniTask, singleton→VContainer, Debug.Log→wrapper, Input.GetKey→New Input System, other)
 2. Which files or folder?
 
+## Step 0 — Complexity Scoring
+
+**Step 0a — Read Review Mode**
+
+Read `production/review-mode.txt` (default: `lean` if file missing). This controls pipeline depth:
+
+| Mode | Effect |
+|------|--------|
+| `solo` | Test guard ve unity-developer yok — migrator → committer only. |
+| `lean` | Standard pipeline. For regular solo development. |
+| `full` | Standard pipeline + unity-developer second reviewer always active (regardless of complexity score). For team review or learning sessions. |
+
+Set mode by editing `production/review-mode.txt`. Print the active mode before proceeding.
+
+Before spawning any agents, score the migration complexity on a 0.0–1.0 scale:
+
+| Score | Label | Signals | Pipeline variant |
+|-------|-------|---------|-----------------|
+| 0.0–0.3 | **Simple** | Single file, mechanical substitution (e.g. one coroutine) | migrator/unity-migrator → reviewer → committer |
+| 0.4–0.6 | **Medium** | Multiple files, interface changes, or VContainer rewiring | test guard → migrator/unity-migrator → reviewer → committer |
+| 0.7–1.0 | **Complex** | Cross-module migration, ECS involvement, or Addressables | test guard → migrator/unity-migrator → unity-reviewer → unity-developer → committer |
+
+**Migrator agent routing — decide before spawning:**
+
+| Migration type | Agent |
+|----------------|-------|
+| Pure C# pattern (no Unity API: data classes, interfaces, services) | **migrator** |
+| Unity-specific (coroutine→UniTask, singleton→VContainer, Input.GetKey→New Input System) | **unity-migrator** |
+
+**Scoring signals:**
+- Touches more than 5 files? +0.3
+- Changes a public interface or adds IEventBus events? +0.2
+- Involves ECS systems or Addressables? +0.3
+- Single file, single pattern? −0.3
+
+**Print before proceeding:**
+```
+Complexity: [score] — [Label]
+Rationale: [one sentence]
+Migrator Agent: [migrator | unity-migrator]
+Pipeline: [which variant]
+Review Mode: [solo | lean | full]
+```
+
+---
+
 ## Pipeline
 
 ```
@@ -23,6 +69,8 @@ If no argument is given, ask:
 ---
 
 ## Step 1 — Test Guard
+
+> **Skip this step if complexity score is Simple (0.0–0.3) and review mode is not `full`.**
 
 Spawn a **test-writer** subagent with this prompt:
 
@@ -154,6 +202,36 @@ Repeat until APPROVED or stopped (max 3 passes):
 4. If still **CHANGES NEEDED** after 3 passes → stop and show the user all remaining issues. Ask:
    - `skip` → proceed to commit (user accepts responsibility)
    - `stop` → abort, leave files uncommitted
+
+### unity-developer Pass (Complex only)
+
+If complexity score ≥ 0.7 and review mode is `lean` or `full`: after unity-reviewer reports APPROVED, spawn a **unity-developer** subagent with this prompt:
+
+```
+Review this migration for Unity-specific correctness.
+
+## Migration Task
+$MIGRATION_DESCRIPTION
+
+## Files Changed
+$MIGRATOR_OUTPUT
+
+## Review Criteria (from .claude/agents/unity-developer.md)
+- Hot-path allocations introduced?
+- Draw call regressions?
+- ECS safety (structural changes via ECB only)?
+- Addressables handle lifecycle correct?
+- Prefab structure intact (root=logic / Body=visual)?
+- UniTask cancellation tokens present on all async methods?
+
+## Output Format
+APPROVED — migration is correct.
+
+CHANGES NEEDED:
+- [file:line] Issue and fix.
+```
+
+If CHANGES NEEDED → spawn **unity-migrator** to fix, then re-run unity-developer (max 2 passes).
 
 ---
 

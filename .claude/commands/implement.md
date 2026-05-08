@@ -14,7 +14,7 @@ If no argument is given, ask: "What needs to be implemented?"
 ## Pipeline
 
 ```
-[1] TEST WRITER → [2] CODER → [3] REVIEWER ⟲ (loop until APPROVED) → [4] COMMITTER
+[1] TEST WRITER → [2] CODER → [3] REVIEWER ⟲ (loop until APPROVED) → [3.7] SILENT FAILURE AUDIT → [4] COMMITTER
 ```
 
 ---
@@ -294,6 +294,44 @@ VERIFY FAILED:
 If unity-verifier reports **VERIFY FAILED** → stop and show the user all remaining issues. Ask:
 - `skip` → proceed to commit (user accepts responsibility)
 - `stop` → abort
+
+---
+
+## Step 3.7 — Silent Failure Audit
+
+Spawn a **silent-failure-hunter** subagent with this prompt:
+
+```
+Audit the following C# files for silent failure patterns:
+
+FILES: $CHANGED_FILES
+
+Check for:
+1. catch blocks that swallow exceptions without logging or rethrowing
+2. async void outside Unity lifecycle methods (Awake, Start, OnEnable, OnDisable, OnDestroy)
+3. IEventBus subscriptions (Subscribe<T>) without a matching Unsubscribe<T> in Dispose/OnDisable
+4. UniTask.Forget() calls without an onException error handler
+5. Empty catch blocks: catch { } or catch (Exception) { }
+
+For each finding:
+- [file:line] — [pattern type] — [description] — [suggested fix]
+
+If nothing found: CLEAN
+```
+
+If hunter reports **CLEAN** → proceed to Committer.
+
+If hunter reports findings → show them to the user. Ask:
+```
+Silent failure issues found. Options:
+  fix   — spawn unity-coder to address findings, then re-audit once
+  skip  — accept and proceed to commit
+  stop  — abort
+```
+
+- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run hunter once. Proceed to committer regardless of result.
+- `skip` → proceed to committer.
+- `stop` → abort.
 
 ---
 
