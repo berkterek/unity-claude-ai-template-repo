@@ -154,6 +154,7 @@ Detailed coding standards in `.claude/rules/`:
 - `/clean-slop` — Remove AI-generated bloat (dead code, useless abstractions)
 - `/learn` — Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow
 - `/generate-tests` — Write missing tests for an existing class
+- `/graphics-setup <mobile|pc>` — Show tier plan (Low/Medium/High), await approval, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP, wire into Quality Settings, commit option
 - `/audio-clip-setup [path]` — Scan AudioClip assets, categorize (Music/SFX/UI/Voice), apply optimized import settings via temp Editor script + MCP; reports per-clip changes + summary + commit option
 - `/performance-audit` — Audit files for allocations and hot-path violations
 - `/debug-session` — Structured root cause analysis; routes to **unity-fixer** (complex) or **unity-fixer-lite** (scoped) after root cause; **learner** skill runs on completion
@@ -197,6 +198,7 @@ Detailed coding standards in `.claude/rules/`:
 | `unity-ui-builder` | UI Toolkit specialist — UXML, USS, runtime panel setup, data binding |
 | `unity-optimizer` | Runtime performance — allocations, draw calls, ECS hot paths, profiler-guided fixes |
 | `unity-scene-builder` | Scene composition via MCP — hierarchy, lighting, camera, volumes |
+| `graphics-setup-agent` | Creates URP Pipeline Assets (Low/Medium/High) for mobile or pc, configures Renderer Data, wires Quality Settings via MCP |
 | `audio-clip-agent` | Scans AudioClip assets, categorizes them, applies optimized import settings via temp Editor script + MCP |
 | `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
 | `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
