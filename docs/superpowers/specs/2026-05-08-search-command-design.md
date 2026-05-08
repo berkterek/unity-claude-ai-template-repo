@@ -15,9 +15,9 @@ A research pipeline that investigates any query (bug, architectural question, co
 
 ```
 /search <query>
-/search "AudioService inject olmuyor"
-/search "EnemyMoveSystem bazen çalışmıyor"
-/search "bu projede event bus nasıl kullanılmış"
+/search "AudioService not injecting"
+/search "EnemyMoveSystem sometimes not working"
+/search "how is event bus used in this project"
 ```
 
 ---
@@ -28,39 +28,39 @@ A research pipeline that investigates any query (bug, architectural question, co
 /search <query>
     ↓
 [Phase 1] Research
-    - Explore agent      → codebase tarama, dosya okuma, pattern analizi
-    - unity-scout agent  → Unity-spesifik risk, lifecycle, ECS, DI sorunları
-    - Web search         → Unity docs, bilinen bug'lar (opsiyonel, query'e göre)
-    → Çıktı: ROOT_CAUSE + PROPOSED_SOLUTION
+    - Explore agent      → codebase scan, file reading, pattern analysis
+    - unity-scout agent  → Unity-specific risks, lifecycle, ECS, DI issues
+    - Web search         → Unity docs, known bugs (optional, based on query)
+    → Output: ROOT_CAUSE + PROPOSED_SOLUTION
 
     ↓
 [Phase 2] Review
     - unity-reviewer agent
-    → Soruları: Sorun gerçekten bu mu? Çözüm mimari kurallara uygun mu?
-    → APPROVED veya MISMATCH kararı + gerekçe
+    → Questions: Is the root cause correct? Is the solution consistent with architecture rules?
+    → APPROVED or MISMATCH verdict + rationale
 
-    ↓ MISMATCH (max 5 iterasyon)
-    → Research'e geri dön, reviewer feedback'i eklenmiş prompt ile
+    ↓ MISMATCH (max 5 iterations)
+    → Back to Research, with reviewer feedback added to prompt
 
     ↓ APPROVED
 [Phase 3] Present to User
-    PROBLEM:     [ne bulundu, hangi dosya/satır]
-    SOLUTION:    [ne yapılmalı]
-    CONFIDENCE:  [APPROVED - N. iterasyonda]
-    NEXT:        [önerilen komut: /fix, /fix-deep, /implement]
+    PROBLEM:     [what was found, which file/line]
+    SOLUTION:    [what should be done]
+    CONFIDENCE:  [APPROVED - iteration N]
+    NEXT:        [recommended command: /fix, /fix-deep, /implement]
 ```
 
 ---
 
 ## Iteration Loop
 
-- Her iterasyonda research agent, bir önceki reviewer feedback'ini alır.
-- Araştırma kapsamını genişletir veya derinleştirir.
-- **5. iterasyonda hâlâ MISMATCH** → pipeline durur:
+- Each iteration, the research agent receives the previous reviewer feedback.
+- It broadens or deepens the investigation scope.
+- **Still MISMATCH at iteration 5** → pipeline stops:
   ```
-  INCONCLUSIVE: 5 iterasyon sonunda kesin sonuç bulunamadı.
-  BEST_GUESS: [en son research bulguları ham halde]
-  REVIEWER_CONCERN: [reviewer'ın çözümlenmemiş itirazı]
+  INCONCLUSIVE: No definitive result found after 5 iterations.
+  BEST_GUESS: [latest research findings in raw form]
+  REVIEWER_CONCERN: [unresolved reviewer objection]
   ```
 
 ---

@@ -7,22 +7,22 @@
 
 ## Purpose
 
-`fix` ve `implement` komutlarında bulunan complexity scoring sistemini 4 pipeline komutuna daha eklemek: `orchestrate`, `scene-setup`, `migrate`, `add-feature`.
+Extend the complexity scoring system from `fix` and `implement` to 4 more pipeline commands: `orchestrate`, `scene-setup`, `migrate`, `add-feature`.
 
-Her komut complexity score'a göre agent seçimini ve pipeline derinliğini ayarlar. Agent seçimi aynı zamanda hedef kodun türüne göre de şekillenir: pure C# → `coder`, Unity/Mixed → `unity-coder`.
-
----
-
-## Kapsam Dışı
-
-- `fix-deep` — zaten her zaman max evidence pipeline, scoring anlamsız
-- `create-prefab-scene` — sabit legacy migration flow, scoring anlamsız
+Each command adjusts agent selection and pipeline depth based on the complexity score. Agent selection also depends on the target code type: pure C# → `coder`, Unity/Mixed → `unity-coder`.
 
 ---
 
-## Ortak Scoring Bloğu
+## Out of Scope
 
-Tüm 4 komuta `## Step 0 — Complexity Scoring` olarak eklenir. `fix.md` / `implement.md`'deki blokla birebir aynı format:
+- `fix-deep` — always runs max evidence pipeline; scoring adds no value
+- `create-prefab-scene` — fixed legacy migration flow; scoring adds no value
+
+---
+
+## Shared Scoring Block
+
+Added to all 4 commands as `## Step 0 — Complexity Scoring`. Same format as `fix.md` / `implement.md`:
 
 ```markdown
 ## Step 0 — Complexity Scoring
@@ -33,17 +33,17 @@ Read `production/review-mode.txt` (default: `lean` if file missing).
 
 | Mode | Effect |
 |------|--------|
-| `solo` | Reviewer ve unity-developer yok — coder → committer only |
-| `lean` | Standart pipeline |
-| `full` | unity-developer her zaman aktif |
+| `solo` | No reviewer or unity-developer — coder → committer only |
+| `lean` | Standard pipeline |
+| `full` | unity-developer always active |
 
 Before spawning any agents, score the task complexity on a 0.0–1.0 scale:
 
 | Score | Label | Signals |
 |-------|-------|---------|
-| 0.0–0.3 | Simple | Tek dosya, yeni interface yok, event yok |
-| 0.4–0.6 | Medium | 2–4 dosya, yeni interface veya event bus |
-| 0.7–1.0 | Complex | Yeni modül, ECS, Addressables, cross-system events |
+| 0.0–0.3 | Simple | Single file, no new interfaces, no events |
+| 0.4–0.6 | Medium | 2–4 files, new interface or event bus change |
+| 0.7–1.0 | Complex | New module, ECS, Addressables, cross-system events |
 
 **Scoring signals:**
 - Creates a new module folder? +0.3
@@ -60,19 +60,19 @@ Pipeline: [which variant]
 
 ---
 
-## Agent Routing Kuralı (Tüm Komutlar)
+## Agent Routing Rule (All Commands)
 
-Her komut coder spawn etmeden önce bu kararı verir:
+Each command makes this decision before spawning a coder:
 
-| Hedef | Agent (Simple) | Agent (Medium/Complex) |
-|-------|----------------|------------------------|
+| Target | Agent (Simple) | Agent (Medium/Complex) |
+|--------|----------------|------------------------|
 | `_Framework/`, `Abstracts/`, pure C# (no Unity API) | **coder** | **coder** |
 | MonoBehaviour, Provider, Installer, scene wiring, Unity lifecycle | **unity-coder-lite** | **unity-coder** |
 | Mixed (both) | **unity-coder-lite** | **unity-coder** |
 
 ---
 
-## Komuta Özel Pipeline Değişimleri
+## Per-Command Pipeline Changes
 
 ### `orchestrate`
 
@@ -82,11 +82,11 @@ Her komut coder spawn etmeden önce bu kararı verir:
 | Medium | coder / unity-coder | unity-reviewer |
 | Complex | coder / unity-coder | unity-reviewer → unity-developer |
 
-`full` modunda unity-developer her zaman aktif (score'dan bağımsız).
+In `full` mode, unity-developer is always active regardless of score.
 
 ### `scene-setup`
 
-Scene setup her zaman Unity/Mixed hedef — pure C# agent kullanılmaz.
+Scene setup always targets Unity/Mixed — pure C# agent is never used.
 
 | Score | Coder | Review |
 |-------|-------|--------|
@@ -110,20 +110,20 @@ Scene setup her zaman Unity/Mixed hedef — pure C# agent kullanılmaz.
 
 | Score | Interview | Coder | Review |
 |-------|-----------|-------|--------|
-| Simple | 3 soru (kısa) | coder / unity-coder-lite | unity-reviewer |
-| Medium | deep-interview tam | coder / unity-coder | unity-reviewer |
-| Complex | deep-interview tam | coder / unity-coder | unity-reviewer → unity-developer |
+| Simple | 3 targeted questions | coder / unity-coder-lite | unity-reviewer |
+| Medium | full deep-interview | coder / unity-coder | unity-reviewer |
+| Complex | full deep-interview | coder / unity-coder | unity-reviewer → unity-developer |
 
-`full` modunda unity-developer her zaman aktif.
+In `full` mode, unity-developer is always active.
 
 ---
 
-## Uygulama Noktaları
+## Implementation Points
 
-Her komutta scoring bloğu pipeline'ın en başına (`## Step 0`) eklenir. Mevcut step numaraları 1'er artırılır.
+The scoring block is added at the start of each command's pipeline (`## Step 0`). Existing step numbers shift up by 1.
 
-| Komut | Mevcut ilk step | Yeni ilk step |
-|-------|----------------|---------------|
+| Command | Previous first step | New first step |
+|---------|---------------------|----------------|
 | `orchestrate` | Step 1 | Step 1 → Step 2 (scoring Step 0) |
 | `scene-setup` | Step 1 | Step 1 → Step 2 (scoring Step 0) |
 | `migrate` | Step 1 | Step 1 → Step 2 (scoring Step 0) |
