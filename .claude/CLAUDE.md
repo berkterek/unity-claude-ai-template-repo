@@ -118,17 +118,17 @@ Detailed coding standards in `.claude/rules/`:
 ## Commands (slash commands)
 
 ### Pipelines (multi-agent)
-- `/implement <task>` — **complexity score** → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → committer
-- `/fix <bug>` — **complexity score** → **unity-fixer** → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → committer
-- `/fix-deep <bug>` — **evidence-first pipeline**: log intake (file / text / MCP) → hypothesis → debug injection → evidence collection → **evidence gate** (proven / refuted / inconclusive) → fix only if proven → validator → reviewer → committer; refuses to fix if root cause cannot be proven
+- `/implement <task>` — **complexity score** → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → **silent failure audit** (changed files) → committer
+- `/fix <bug>` — **complexity score** → Step 1: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → **silent failure audit** (changed files) → committer
+- `/fix-deep <bug>` — **complexity score** → **evidence-first pipeline**: log intake (file / text / MCP) → hypothesis → debug injection → Step 3: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → **evidence gate** (proven / refuted / inconclusive) → fix only if proven → validator → reviewer → **silent failure audit** (changed files) → committer; refuses to fix if root cause cannot be proven
   - Use for: logic bugs, "sometimes happens" issues, wrong values at runtime, NullRef with unclear source
   - Use `/fix` when: stack trace clearly points to root cause
-- `/scene-setup <description>` — **unity-coder** + unity-setup → **unity-verifier** (prefab integrity check) → **unity-reviewer** → Codex → reviewer → committer
-- `/migrate <pattern> in <scope>` — test guard → migrator → reviewer → committer
-- `/create-plan <file> <what>` — researcher → **complexity-aware planner** (opus) → reviewer → save → optional implementer
-- `/update-plan <file> <change>` — analyzer → planner (opus) → reviewer → save
+- `/scene-setup <description>` — **complexity score** → **unity-coder-lite** (Simple) / **unity-coder** (Medium/Complex) + unity-setup → **unity-verifier** → **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → committer
+- `/migrate <pattern> in <scope>` — **complexity score** → [test guard if Medium/Complex] → **migrator** / **unity-migrator** → reviewer → [unity-developer if score ≥ 0.7] → committer
+- `/create-plan <file> <what>` — researcher → **complexity-aware planner** (opus, assigns `parallel_group` to independent tasks) → reviewer → save → optional implementer (parallel spawn for grouped tasks if complexity ≥ 0.4)
+- `/update-plan <file> <change>` — analyzer → planner (opus, updates `parallel_group` annotations) → reviewer → save → optional implementer (parallel spawn for grouped tasks if complexity ≥ 0.4)
 - `/smart-commit` — analyze dirty working tree → group into logical commits → commit
-- `/orchestrate` — read WORKFLOW.md → per-task: **unity-coder** (or unity-setup for scene tasks) → **unity-verifier** → **unity-reviewer** → Codex → reviewer → committer; emits `VERIFICATION_PASSED` event on success
+- `/orchestrate` — **complexity score** → read WORKFLOW.md → check `parallel_group` annotations → per-task: **coder** (pure C#) / **unity-coder-lite** (Simple Unity) / **unity-coder** (Medium/Complex Unity) → **unity-verifier** → **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → committer; tasks with same `parallel_group` run simultaneously (complexity ≥ 0.4); phase gate runs **ralph → silent-failure-hunt → validate** automatically before asking to proceed; emits `VERIFICATION_PASSED` event on success
 
 > Reviewer priority: unity-reviewer → Codex → reviewer (falls back in order if unavailable).
 
@@ -145,7 +145,7 @@ Detailed coding standards in `.claude/rules/`:
 ### Development
 - `/plan-workflow` — Create a phased execution plan from a TDD
 - `/new-module` — Generate the 5-file module structure (Interface, Service, Config, Installer, Events)
-- `/add-feature` — Incrementally extend an existing game; **deep-interview** skill gates ambiguous requirements before coding; includes unity-setup spawn for prefab/scene wiring when needed
+- `/add-feature` — **complexity score** → Simple: 3 questions + **unity-coder-lite** / Medium/Complex: **deep-interview** + **unity-coder** → [unity-developer if score ≥ 0.7]; includes unity-setup spawn for prefab/scene wiring
 
 ### Quality
 - `/review-code` — Code review on specific files via **unity-reviewer**
@@ -158,9 +158,11 @@ Detailed coding standards in `.claude/rules/`:
 - `/debug-session` — Structured root cause analysis; routes to **unity-fixer** (complex) or **unity-fixer-lite** (scoped) after root cause; **learner** skill runs on completion
 - `/silent-failure-hunt` — Audit files for swallowed exceptions and silent error patterns
 - `/ralph` — Relentless verify-fix loop (max 10 outer iterations) — refuses to stop until compile and tests are green or stuck is detected
+- `/qa` — Full quality pipeline: **ralph** (compile + tests) → **silent-failure-hunt** → **validate** — run after any implementation, accepts `--phase N` and `--files <path>`
 
 ### Session & Context
 - `/context-prime` — Brief Claude on project context at the start of a session
+- `/search <query>` — **complexity score** → Phase 1: **Explore** + **unity-scout** simultaneously (complexity ≥ 0.4) → reviewer chain (unity-reviewer → Codex → reviewer, max 5 iterations) → structured result report with next-step routing
 - `/dump` — Save current session notes to `.claude/logs/` as markdown
 - `/five` — 5 Whys root cause analysis for a bug or architectural problem
 - `/continue` — Resume an interrupted orchestration run from the event journal (picks up where it left off)
@@ -181,7 +183,7 @@ Detailed coding standards in `.claude/rules/`:
 
 | Agent | Role |
 |-------|------|
-| `coder` | Pure C# implementation — no Unity API; used for `_Framework/`, `Abstracts/`, and test support code |
+| `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Abstracts/`, and pure C# targets in complexity-scored pipelines (`/orchestrate`, `/add-feature`, `/migrate`). |
 | `tester` | Test writer — NSubstitute + AAA |
 | `reviewer` | General code review |
 | `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle + prefab structure (10-point checklist) |
@@ -197,7 +199,7 @@ Detailed coding standards in `.claude/rules/`:
 | `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
 | `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
 | `unity-build-runner` | CI/build pipeline — platform flags, build profiles, addressables baking |
-| `unity-coder` | Full Unity C# implementation — MonoBehaviours, providers, installers, scene wiring; primary coder in `/implement`, `/fix`, `/orchestrate` pipelines |
+| `unity-coder` | **Primary Unity coder for Medium/Complex tasks.** Full Unity C# — MonoBehaviours, providers, installers, scene wiring. Used in `/implement`, `/fix`, `/scene-setup`, `/orchestrate`, `/add-feature`, `/migrate` when complexity ≥ 0.4. |
 | `unity-coder-lite` | Lightweight Unity coder for small isolated changes |
 | `unity-fixer` | Bug fixer with full context — reads surrounding code before patching |
 | `unity-fixer-lite` | Quick targeted fix for a single well-scoped defect |
@@ -246,9 +248,9 @@ Control pipeline depth by prefixing any pipeline command:
 
 | Mode | Trigger | Pipeline |
 |------|---------|---------|
-| **solo** | `/solo /implement …` | coder only — no reviewer, no committer |
-| **lean** | `/lean /implement …` | coder → unity-reviewer → committer |
-| **full** | `/full /implement …` (default) | coder → unity-reviewer → Codex → reviewer → committer |
+| **solo** | `/solo /implement …` | unity-coder only — no reviewer, no committer |
+| **lean** | `/lean /implement …` | unity-coder → unity-reviewer → committer |
+| **full** | `/full /implement …` (default) | unity-coder → unity-reviewer → Codex → reviewer → committer |
 
 Use `solo` for exploratory spikes, `lean` for low-risk changes, `full` for production features.
 
@@ -430,16 +432,16 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 
 ### Writing New Skills
 
-Skills support a `model` frontmatter field to control which tier runs them:
+Skills support a `model-tier` frontmatter field to control which tier runs them:
 
 ```markdown
 ---
 name: my-skill
-model: opus   # or sonnet, haiku
+model-tier: heavy   # light | normal | heavy
 ---
 ```
 
-Omit `model` to inherit from the calling command. Use `haiku` for lookup/reference skills, `opus` for skills that guide architectural decisions.
+Omit `model-tier` to inherit from the calling command. Use `light` for lookup/reference skills, `heavy` for skills that guide architectural decisions.
 
 ## Project-Specific Setup
 

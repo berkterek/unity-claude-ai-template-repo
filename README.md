@@ -11,7 +11,7 @@ Claude Code reads the `.claude/` folder when it opens a project. This template p
 - **Rules** — architecture, naming, testing, ECS, serialization, addressables standards that Claude follows automatically
 - **Hooks** — shell scripts that run on every file write, blocking bad patterns before they land
 - **Commands** — slash commands for common workflows (`/new-module`, `/setup-project`, `/debug-session`, etc.)
-- **Agents** — specialized AI agent roles (coder, tester, reviewer, unity-developer, debugger, migrator, silent-failure-hunter, unity-setup)
+- **Agents** — specialized AI agent roles (unity-coder, unity-coder-lite, unity-fixer, unity-reviewer, unity-scout, unity-verifier, coder, tester, reviewer, unity-developer, unity-setup, committer, and more)
 
 ---
 
@@ -172,7 +172,7 @@ The full pipeline from idea to shippable game, using the commands in this templa
 
 | Command | What it does |
 |---------|-------------|
-| `/orchestrate` | Executes `WORKFLOW.md` end-to-end. Per task: `test-writer → unity-coder → unity-verifier → unity-reviewer → committer`. Pauses at each phase gate for your approval |
+| `/orchestrate` | Executes `WORKFLOW.md` end-to-end. Per task: coder routing (pure C# → **coder** / Simple Unity → **unity-coder-lite** / Medium/Complex → **unity-coder**) → **unity-verifier** → **unity-reviewer** → committer. Tasks with same `parallel_group` run simultaneously (complexity ≥ 0.4). Phase gate runs **ralph → silent-failure-hunt → validate** automatically before asking to proceed; emits `VERIFICATION_PASSED` event on success |
 | `/continue` | Resumes an interrupted orchestration run from the event journal |
 
 ### Phase 5 — Quality
@@ -210,8 +210,8 @@ The full pipeline from idea to shippable game, using the commands in this templa
 |---------|-------------|
 | `/add-feature` | Add a feature to an existing game — `deep-interview` gates ambiguous requirements |
 | `/implement` | Implement a single well-defined task with TDD |
-| `/fix` | Fix a bug — `unity-fixer` diagnoses, `unity-coder` patches |
-| `/fix-deep` | Evidence-first bug fix — **proves the root cause before touching code**; accepts log file/text or collects via MCP; refuses to fix if root cause cannot be proven |
+| `/fix` | **Complexity score** → **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → test writer → **unity-coder** → reviewer → **silent failure audit** (changed files) → committer |
+| `/fix-deep` | **Complexity score** → evidence-first pipeline — **proves the root cause before touching code**; **unity-fixer** + **unity-scout** simultaneously in evidence collection (complexity ≥ 0.4); **silent failure audit** (changed files) → committer; refuses to fix if root cause cannot be proven |
 | `/new-module` | Scaffold a 5-file module (Interface, Service, Config, Installer, Events) |
 
 ---
@@ -280,15 +280,15 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 ### Pipelines (multi-agent)
 | Command | Description |
 |---------|-------------|
-| `/implement <task>` | **Complexity score** → Test Writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → Reviewer priority: **unity-reviewer** → Codex → reviewer → [Unity Developer if complex] → Committer |
-| `/fix <bug>` | **Complexity score** → **unity-fixer** → Test Writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → Reviewer priority: **unity-reviewer** → Codex → reviewer → [Unity Developer if complex] → Committer |
-| `/fix-deep <bug>` | Log intake (file/text/MCP) → Hypothesis → Debug injection → Evidence collection → **Evidence gate** (proven/refuted/inconclusive) → Fix only if proven → **unity-verifier** → **unity-reviewer** → Committer |
-| `/migrate <pattern> in <scope>` | Migrator → Reviewer (loop) → Committer — coroutine→UniTask, singleton→VContainer, etc. |
-| `/scene-setup <description>` | **unity-coder** + Unity-Setup → **unity-verifier** (prefab integrity check) → **unity-reviewer** → Codex → reviewer → Committer |
-| `/create-plan <file> <what>` | Researcher → **Complexity-aware Planner** → Reviewer (loop) → Save → optional Implementer — create a new plan file from scratch |
-| `/update-plan <file> <change>` | Analyzer → Planner → Reviewer (loop) → Save → optional Implementer — extend an existing plan |
+| `/implement <task>` | **Complexity score** → Test Writer → **unity-coder** → **unity-verifier** → Reviewer priority: **unity-reviewer** → Codex → reviewer → [Unity Developer if complex] → **silent failure audit** (changed files) → Committer |
+| `/fix <bug>` | **Complexity score** → Step 1: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → Test Writer → **unity-coder** → **unity-verifier** → Reviewer priority: **unity-reviewer** → Codex → reviewer → [Unity Developer if complex] → **silent failure audit** (changed files) → Committer |
+| `/fix-deep <bug>` | **Complexity score** → Log intake (file/text/MCP) → Hypothesis → Debug injection → Step 3: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → **Evidence gate** (proven/refuted/inconclusive) → Fix only if proven → **unity-verifier** → **unity-reviewer** → **silent failure audit** (changed files) → Committer |
+| `/migrate <pattern> in <scope>` | **Complexity score** → [test guard if Medium/Complex] → **migrator** / **unity-migrator** → Reviewer → [unity-developer if complex] → Committer |
+| `/scene-setup <description>` | **Complexity score** → **unity-coder-lite** (Simple) / **unity-coder** (Medium/Complex) + Unity-Setup → **unity-verifier** → **unity-reviewer** → Codex → reviewer → [unity-developer if complex] → Committer |
+| `/create-plan <file> <what>` | Researcher → **Complexity-aware Planner** (assigns `parallel_group` to independent tasks) → Reviewer (loop) → Save → optional Implementer (parallel spawn for grouped tasks if complexity ≥ 0.4) |
+| `/update-plan <file> <change>` | Analyzer → Planner (updates `parallel_group` annotations) → Reviewer (loop) → Save → optional Implementer (parallel spawn for grouped tasks if complexity ≥ 0.4) |
 | `/smart-commit` | Analyze dirty working tree → group into logical atomic commits → commit |
-| `/orchestrate` | Read `WORKFLOW.md` → per-task: **unity-coder** (or unity-setup for scene tasks) → **unity-verifier** → **unity-reviewer** → Codex → reviewer → committer; emits `VERIFICATION_PASSED` event; phase gate between phases |
+| `/orchestrate` | **Complexity score** → Read `WORKFLOW.md` → check `parallel_group` annotations → per-task: **coder** (pure C#) / **unity-coder-lite** (Simple Unity) / **unity-coder** (Medium/Complex Unity) → **unity-verifier** → **unity-reviewer** → Codex → reviewer → [unity-developer if complex] → committer; tasks with same `parallel_group` run simultaneously (complexity ≥ 0.4); phase gate runs **ralph → silent-failure-hunt → validate** automatically before asking to proceed; emits `VERIFICATION_PASSED` event on success |
 
 > Reviewer priority across all pipelines: unity-reviewer → Codex → reviewer (falls back in order if unavailable). Reviewer loops: CHANGES NEEDED → unity-coder fixes → reviewer re-checks → repeat until APPROVED (max 3 passes).
 
@@ -298,7 +298,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | Command | Description |
 |---------|-------------|
 | `/new-module` | Generate the 5-file module structure (Interface, Service, Config, Installer, Events) |
-| `/add-feature` | Incrementally extend an existing game; **deep-interview** skill gates ambiguous requirements; includes unity-setup spawn for prefab/scene wiring |
+| `/add-feature` | **Complexity score** → Simple: 3 questions + **unity-coder-lite** / Medium/Complex: **deep-interview** + **unity-coder** → [unity-developer if complex]; includes unity-setup spawn for prefab/scene wiring |
 
 ### Quality
 | Command | Description |
@@ -314,11 +314,13 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/debug-session` | Structured root cause analysis; routes to **unity-fixer** or **unity-fixer-lite** after root cause; **learner** skill runs on completion |
 | `/silent-failure-hunt` | Audit files for swallowed exceptions and silent error patterns |
 | `/ralph` | Relentless verify-fix loop (max 10 outer iterations) — refuses to stop until compile and tests are green or stuck is detected |
+| `/qa` | Full quality pipeline: **ralph** (compile + tests) → **silent-failure-hunt** → **validate** — run after any implementation, accepts `--phase N` and `--files <path>` |
 
 ### Session & Context
 | Command | Description |
 |---------|-------------|
 | `/context-prime` | Brief Claude on project context at the start of a session (reads git log + key files) |
+| `/search <query>` | **Complexity score** → Phase 1: **Explore** + **unity-scout** simultaneously (complexity ≥ 0.4) → reviewer chain (unity-reviewer → Codex → reviewer, max 5 iterations) → structured result with next-step routing |
 | `/dump` | Save current session notes and decisions to `.claude/logs/` as markdown |
 | `/five` | 5 Whys root cause analysis — drill down from symptom to root cause |
 | `/continue` | Resume an interrupted orchestration run from the event journal — picks up exactly where it left off |
@@ -340,7 +342,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 
 | Agent | Role |
 |-------|------|
-| `coder` | Pure C# implementation — no Unity API; used for `_Framework/`, `Abstracts/`, and test support code |
+| `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Abstracts/`, and pure C# targets in complexity-scored pipelines (`/orchestrate`, `/add-feature`, `/migrate`). |
 | `tester` | NUnit + NSubstitute test writer — AAA pattern, interface-only mocks |
 | `reviewer` | Principal-level code review — architecture, naming, performance |
 | `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle, prefab structure (logic/visual separation, Prefab Variants, domain folders) |
@@ -357,7 +359,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
 | `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
 | `unity-build-runner` | CI/build pipeline — platform flags, build profiles, addressables baking |
-| `unity-coder` | Full Unity C# implementation — MonoBehaviours, providers, installers, scene wiring; used in `/implement`, `/fix`, `/orchestrate` pipelines |
+| `unity-coder` | **Primary Unity coder for Medium/Complex tasks.** Full Unity C# — MonoBehaviours, providers, installers, scene wiring. Used in `/implement`, `/fix`, `/scene-setup`, `/orchestrate`, `/add-feature`, `/migrate` when complexity ≥ 0.4. |
 | `unity-coder-lite` | Lightweight Unity coder for small isolated changes |
 | `unity-fixer` | Bug fixer with full context — reads surrounding code before patching |
 | `unity-fixer-lite` | Quick targeted fix for a single well-scoped defect |
@@ -378,7 +380,7 @@ Control pipeline depth by editing `production/review-mode.txt`:
 
 | Mode | Effect | When to use |
 |------|--------|-------------|
-| `solo` | Coder → Committer only — no tests, no review | Prototypes, game jams |
+| `solo` | unity-coder → Committer only — no tests, no review | Prototypes, game jams |
 | `lean` | Standard pipeline (default) | Regular solo development |
 | `full` | Standard pipeline + unity-developer reviewer always active | Team review, learning sessions |
 
