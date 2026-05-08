@@ -612,7 +612,10 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `physics` | Layer matrix, non-alloc queries, trigger vs collision |
 | `shader-graph` | URP shader nodes, property exposure, keyword variants |
 | `ui-toolkit` | USS, UXML, data binding, runtime panel setup |
-| `urp-pipeline` | Render features, camera stacking, volume profiles |
+| `urp-pipeline` | Renderer features, camera stacking, custom render passes, SRP Batcher, Forward+ |
+| `urp-quality-settings` | URP quality tiers (Low/Medium/High/Ultra), runtime asset swap, auto-detect, adaptive performance |
+| `urp-lighting-shadows` | Directional/point/spot lights, shadow cascades, bias tuning, light layers, light cookies, reflection probes |
+| `urp-post-processing` | Bloom, DOF, Motion Blur, SSAO, Tonemapping, Color Grading, Vignette — setup, values, runtime control |
 
 ### Third-Party (`skills/third-party/`)
 
