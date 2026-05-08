@@ -310,6 +310,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/learn` | Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow |
 | `/catch-up` | Generate a human-readable codebase guide |
 | `/generate-tests` | Write missing tests for an existing class |
+| `/audio-clip-setup [path]` | Scan AudioClip assets, categorize (Music/SFX/UI/Voice), apply optimized import settings via temp Editor script + MCP; reports per-clip changes + summary + commit option |
 | `/performance-audit` | Audit files for allocations and hot-path violations |
 | `/debug-session` | Structured root cause analysis; routes to **unity-fixer** or **unity-fixer-lite** after root cause; **learner** skill runs on completion |
 | `/silent-failure-hunt` | Audit files for swallowed exceptions and silent error patterns |
@@ -356,6 +357,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-ui-builder` | UI Toolkit specialist — UXML, USS, runtime panel setup, data binding |
 | `unity-optimizer` | Runtime performance — allocations, draw calls, ECS hot paths, profiler-guided fixes |
 | `unity-scene-builder` | Scene composition via MCP — hierarchy, lighting, camera, volumes |
+| `audio-clip-agent` | Scans AudioClip assets, categorizes them, applies optimized import settings via temp Editor script + MCP |
 | `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
 | `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
 | `unity-build-runner` | CI/build pipeline — platform flags, build profiles, addressables baking |
@@ -601,7 +603,10 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 |-------|--------|
 | `addressables` | Loading, handle lifecycle, label groups, preload |
 | `animation` | Animator parameters, state machine behaviours, blend trees |
-| `audio` | AudioMixer, snapshots, pooled AudioSource, 3D attenuation |
+| `audio` | AudioMixer groups, snapshots, pooled AudioSource, spatial audio, beat sync, procedural SFX |
+| `audio-mixer` | AudioMixer routing, exposed parameters, send/receive buses, ducking (sidechain), snapshot transitions |
+| `audio-settings` | Audio settings UI, volume persistence via PlayerPrefs, IAudioSettingsService + VContainer wiring |
+| `audio-clip-settings` | AudioClip import settings — PCM/ADPCM/Vorbis format selection, load type, platform overrides, memory budget |
 | `cinemachine` | Virtual cameras, blends, impulse, follow targets |
 | `navmesh` | NavMeshAgent setup, dynamic obstacles, off-mesh links |
 | `physics` | Layer matrix, non-alloc queries, trigger vs collision |
