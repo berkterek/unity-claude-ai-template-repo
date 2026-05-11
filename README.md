@@ -195,6 +195,7 @@ The full pipeline from idea to shippable game, using the commands in this templa
 |---------|-------------|
 | `/learn` | Extracts project-specific patterns into `.claude/skills/learned/` |
 | `/catch-up` | Generates a human-readable codebase guide at `docs/CATCH_UP.md` |
+| `/adr <decision>` | Records an Architecture Decision Record to `docs/decisions/` |
 | `/create-changelog` | Creates or updates `CHANGELOG.md` |
 | `/smart-commit` | Groups dirty working tree into logical commits |
 
@@ -231,6 +232,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | Hook | What it blocks |
 |------|---------------|
 | `block-git-push` | `git push` — Claude cannot push; user always pushes manually |
+| `block-git-commit` | `git commit` — requires explicit user approval every time; Claude cannot commit autonomously |
 | `block-scene-edit` | Direct editing of `.unity`, `.prefab`, `.asset` YAML |
 | `guard-editor-runtime` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `check-pure-csharp` | `using UnityEngine` inside `_Framework/` or service classes in `Abstracts/Concretes/` |
@@ -327,6 +329,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 ### Session & Context
 | Command | Description |
 |---------|-------------|
+| `/checkpoint` | Save current conversation summary to `.claude/state/checkpoint.md`, then run `/clear` to free context; next session auto-reads the checkpoint and resumes from where you left off |
 | `/context-prime` | Brief Claude on project context at the start of a session (reads git log + key files) |
 | `/search <query>` | **Complexity score** → Phase 1: **Explore** + **unity-scout** simultaneously (complexity ≥ 0.4) → reviewer chain (unity-reviewer → Codex → reviewer, max 5 iterations) → structured result with next-step routing |
 | `/dump` | Save current session notes and decisions to `.claude/logs/` as markdown |
@@ -335,6 +338,12 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/status` | Report current pipeline stage: GDD → TDD → WORKFLOW progress summary |
 | `/dry-run` | Preview the orchestration plan for a WORKFLOW.md without executing any tasks |
 | `/instincts` | Manage instinct library: status, list, evolve, promote, export, import |
+
+### Documentation
+| Command | Description |
+|---------|-------------|
+| `/catch-up` | Generate a human-readable codebase guide at `docs/CATCH_UP.md` |
+| `/adr <decision>` | Record an Architecture Decision — e.g. `/adr why VContainer over Zenject`; writes to `docs/decisions/NNN-topic.md` |
 
 ### Changelog & Diagrams
 | Command | Description |
@@ -449,7 +458,26 @@ Machine-readable state written and restored automatically by hooks:
 - **On stop** — `pre-compact.sh` hook reminds Claude to save state before context is lost
 - **To resume** — read `production/session-state/active.md`, then continue from where you left off
 
-Compact context **proactively at ~60-70% usage** — not reactively when it runs out.
+### Context Management with /checkpoint
+
+When context is getting full (~70-80%), use `/checkpoint` instead of losing progress:
+
+```
+Context ~70-80% full
+      ↓
+/checkpoint
+      ↓  Claude writes summary to .claude/state/checkpoint.md
+/clear
+      ↓  Context fully freed
+Send: "read .claude/state/checkpoint.md"
+      ↓  Claude reads file, resumes from where you left off, deletes the file
+```
+
+**Why not just `/compact`?**
+- `/compact` summarizes in-memory — context shrinks but doesn't fully clear
+- `/checkpoint` + `/clear` fully resets context for maximum token recovery, while preserving all progress in a file
+
+The checkpoint file (`.claude/state/checkpoint.md`) is deleted after it is read on resume.
 
 ---
 
@@ -563,6 +591,10 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `learner` | Post-debug insight extraction — writes findings to CLAUDE.md Project Learnings |
 | `unity-instincts` | Instinct system for learned Unity patterns — capture, score, promote, apply |
 | `assembly-definitions` | .asmdef authoring — references, platforms, define constraints |
+| `source-driven-development` | Fetch official Unity docs before writing API calls — cites sources, flags deprecated APIs, surfaces version conflicts |
+| `documentation-and-adrs` | ADR creation — `/adr` command writes to `docs/decisions/`, lifecycle management |
+| `planning-and-task-breakdown` | Vertical slice decomposition + per-task acceptance criteria for `/create-plan` and `/plan-workflow` |
+| `code-simplification` | Chesterton's Fence discipline for `/clean-slop` — understand before removing, behavior-preserving refactor |
 | `commit-trailers` | Conventional commit trailers — co-author, ticket links, sign-off |
 | `event-systems` | IEventBus patterns — pub/sub, struct events, subscribe/unsubscribe lifecycle |
 | `hud-statusline` | In-session status line rendering for pipeline progress |

@@ -82,6 +82,7 @@ Detailed coding standards in `.claude/rules/`:
 | Hook | Blocks |
 |------|--------|
 | `block-git-push.sh` | `git push` — Claude cannot push; user always pushes manually |
+| `block-git-commit.sh` | `git commit` — requires explicit user approval every time; use `/smart-commit` for guided workflow |
 | `block-scene-edit.sh` | Direct editing of `.unity`, `.prefab`, `.asset` files |
 | `guard-editor-runtime.sh` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` or `Games/Abstracts/` / `Games/Concretes/` (non-provider) |
@@ -165,6 +166,7 @@ Detailed coding standards in `.claude/rules/`:
 - `/qa` — Full quality pipeline: **ralph** (compile + tests) → **silent-failure-hunt** → **validate** — run after any implementation, accepts `--phase N` and `--files <path>`
 
 ### Session & Context
+- `/checkpoint` — Save current conversation summary to `.claude/state/checkpoint.md`, then run `/clear` to free context; next session auto-reads the checkpoint and resumes
 - `/context-prime` — Brief Claude on project context at the start of a session
 - `/search <query>` — **complexity score** → Phase 1: **Explore** + **unity-scout** simultaneously (complexity ≥ 0.4) → reviewer chain (unity-reviewer → Codex → reviewer, max 5 iterations) → structured result report with next-step routing
 - `/dump` — Save current session notes to `.claude/logs/` as markdown
@@ -182,6 +184,7 @@ Detailed coding standards in `.claude/rules/`:
 
 ### Documentation
 - `/catch-up` — Generate a human-readable codebase guide (`docs/CATCH_UP.md`)
+- `/adr <decision>` — Record an Architecture Decision (e.g. `/adr why VContainer over Zenject`); writes to `docs/decisions/NNN-topic.md`
 
 ## Agents (`.claude/agents/`)
 
@@ -220,17 +223,26 @@ Detailed coding standards in `.claude/rules/`:
 
 ## Context Management
 
-### Proactive Compaction
+### Context Getting Full? Use /checkpoint
 
-Compact context **before** it runs out — at ~60-70% usage, not reactively:
-- Update `production/session-state/active.md` with current task and decisions
-- Use `/clear` between unrelated tasks
-- Natural compaction points: after committing, after completing a task, after writing a document section
+When context reaches ~70-80%, use `/checkpoint` to save progress and fully reset:
+
+```
+/checkpoint  →  Claude writes summary to .claude/state/checkpoint.md
+/clear       →  Context fully freed
+Send: "read .claude/state/checkpoint.md"  →  Claude resumes from where you left off
+```
+
+The checkpoint file is at `.claude/state/checkpoint.md` and is deleted after it is read. This is the preferred approach over `/compact` when you need maximum token recovery.
+
+**`/compact` vs `/checkpoint` + `/clear`:**
+- `/compact` — shrinks context in-place, you continue immediately, some tokens remain
+- `/checkpoint` + `/clear` — full reset, maximum token recovery, resumes via file on next message
 
 ### Session Resume
 
 After a context reset or new session:
-1. Read `production/session-state/active.md` — the `session-start` hook previews it automatically
+1. `session-restore.sh` runs automatically — shows checkpoint (if any) + prior session state
 2. Read `.claude/CLAUDE.md` and `.claude/rules/architecture.md`
 3. Read the source files for the module being worked on
 
@@ -349,7 +361,7 @@ _GameFolders/
 | 3 — Project Setup | `/setup-project`, `/graphics-setup`, `/audio-clip-setup` | Folder structure, .asmdefs, base classes, URP quality tiers, audio import settings |
 | 4 — Implementation | `/orchestrate`, `/continue` | Execute WORKFLOW.md phase by phase |
 | 5 — Quality | `/validate`, `/review-code`, `/ralph`, `/performance-audit` | Compile + tests green, code review, fix loops, hot path audit |
-| 6 — Documentation | `/learn`, `/catch-up`, `/smart-commit` | Extract patterns, generate CATCH_UP.md, commit |
+| 6 — Documentation | `/learn`, `/catch-up`, `/adr`, `/smart-commit` | Extract patterns, generate CATCH_UP.md, record decisions, commit |
 
 For incremental feature work on an existing game: `/add-feature` (interviews requirements, then implements).
 
@@ -368,6 +380,10 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `learner` | Post-debug insight extraction — writes findings to CLAUDE.md Project Learnings |
 | `unity-instincts` | Instinct system for learned Unity patterns — capture, score, promote, apply |
 | `assembly-definitions` | .asmdef authoring — references, platforms, define constraints |
+| `source-driven-development` | Fetch official Unity docs before writing API calls — cites sources, flags deprecated APIs, surfaces version conflicts |
+| `documentation-and-adrs` | ADR creation for architectural decisions — `/adr` command, `docs/decisions/` folder, lifecycle management |
+| `planning-and-task-breakdown` | Vertical slice decomposition + per-task acceptance criteria for `/create-plan` and `/plan-workflow` |
+| `code-simplification` | Chesterton's Fence discipline for `/clean-slop` — understand before removing, behavior-preserving refactor |
 | `commit-trailers` | Conventional commit trailers — co-author, ticket links, sign-off |
 | `event-systems` | IEventBus patterns — pub/sub, struct events, subscribe/unsubscribe lifecycle |
 | `hud-statusline` | In-session status line rendering for pipeline progress |
