@@ -94,4 +94,13 @@ fi
 
 echo "------------------------" >&2
 
+# Check for checkpoint file (saved by /checkpoint command)
+CHECKPOINT_FILE="${UNITY_HOOK_STATE_DIR}/checkpoint.md"
+if [ -f "$CHECKPOINT_FILE" ]; then
+    echo "" >&2
+    echo "*** CHECKPOINT FOUND — Resume from saved context ***" >&2
+    cat "$CHECKPOINT_FILE" >&2
+    echo "****************************************************" >&2
+fi
+
 exit 0
