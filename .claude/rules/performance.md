@@ -34,19 +34,18 @@ Drag-drop the reference in the Inspector (or assign in a Prefab). No Awake code 
 - The component is added dynamically at runtime (not present at edit time)
 - The reference comes from a spawned/instantiated object you don't own
 
-**`transform` — always cache:**
+**`transform` — serialize like any other component:**
 
 ```csharp
 // BAD — bare transform property on hot path
 private void Update() => transform.position += Vector3.forward;
 
-// GOOD — cached in Awake (transform can't be [SerializeField])
-private Transform _transform;
-private void Awake() => _transform = transform;
+// GOOD — [SerializeField], drag-drop the GameObject's Transform in Inspector
+[SerializeField] private Transform _transform;
 private void Update() => _transform.position += Vector3.forward;
 ```
 
-`transform` is the one built-in property that cannot be serialized — cache it in `Awake`.
+`Transform` is a `UnityEngine.Object` — it serializes normally. Drag the GameObject onto the `_transform` field in the Inspector.
 
 **Other calls — NEVER in Update/FixedUpdate/LateUpdate/Tick:**
 - `Camera.main` (calls FindObjectOfType internally) → `[SerializeField] private Camera _camera`

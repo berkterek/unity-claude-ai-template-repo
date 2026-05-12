@@ -93,7 +93,7 @@ for METHOD_LINE in $HOT_METHOD_LINES; do
         if echo "$BODY" | grep -qE "(^|[^_a-zA-Z0-9])transform\."; then
             HITS=$(echo "$STRIPPED" | grep -n -E "(^|[^_a-zA-Z0-9])transform\." | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
             if [ -n "$HITS" ]; then
-                WARNINGS="${WARNINGS}\n  [${METHOD_NAME}] Bare transform property — cache it:\n    private Transform _transform;\n    void Awake() => _transform = transform;\n  Then use _transform in hot paths:\n$(echo "$HITS" | sed 's/^/    Line /')"
+                WARNINGS="${WARNINGS}\n  [${METHOD_NAME}] Bare transform property — add a serialized field and assign in Inspector:\n    [SerializeField] private Transform _transform;\n  Then use _transform in hot paths:\n$(echo "$HITS" | sed 's/^/    Line /')"
             fi
         fi
     fi
