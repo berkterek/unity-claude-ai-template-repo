@@ -51,48 +51,21 @@ Read and apply `.claude/skills/core/mcp-preflight.md`.
 
 ---
 
-## Step 3 — Spawn unity-scene-builder (MCP)
+## Step 3 — Generate C# Scripts (inline — no subagent)
 
-Spawn a **unity-scene-builder** subagent with this prompt:
+> **Why inline:** MCP tools belong to the main Claude session. Spawning a subagent loses the MCP connection — so both C# writing and scene creation happen here directly.
 
-```
-You build Play Mode test scenes. You do not write production code — only test infrastructure.
-Use MCP tools (mcp__unityMCP__*) to create scenes and wire GameObjects directly in the Unity Editor.
-
-## Feature
-Name: [FEATURE]
-Hint: [HINT or "none provided"]
-
-## Project Context
-- PlayTests assembly: [path found in preflight]
-- Existing TestScopes: [list found in preflight, or "none yet"]
-- Project namespace: [from CLAUDE.md or existing TestScope files]
-
----
-
-## Your Deliverables
-
-1. **TestScope script** — `_GameFolders/Scripts/Games/TestScopes/[Feature]TestScope.cs`
-2. **TestInstaller script** — `_GameFolders/Scripts/Games/TestScopes/[Feature]TestInstaller.cs`
-3. **PlayMode test stub** — `_GameFolders/Scripts/Tests/[Project]PlayTests/[Feature]Tests.cs`
-4. **Test scene** — `_Scenes/TestScenes/[Feature]Test.unity` via MCP
-5. **TestBootstrap wiring** — add TestScope + TestInstaller components to TestBootstrap GameObject via MCP
-
----
-
-## Step A — Read Project Context
+### 3a — Read Project Context
 
 1. Read `.claude/CLAUDE.md` — get project name and namespace
-2. Read `.claude/rules/testing.md` — PlayMode scene testing rules
-3. Find the project's PlayTests assembly: `find . -name "*PlayTests*.asmdef"`
-4. Find existing TestScopes (if any): `find . -path "*/TestScopes/*.cs" | head -5`
-5. Read one existing TestScope file to confirm namespace and pattern
+2. Find the project's PlayTests assembly: `find . -name "*PlayTests*.asmdef"`
+3. Find existing TestScopes (if any): `find . -path "*/TestScopes/*.cs" | head -5`
+4. If any TestScope found, read one to confirm namespace and pattern
 
----
+### 3b — Write TestScope
 
-## Step B — Generate C# Scripts
+File: `_GameFolders/Scripts/Games/TestScopes/[Feature]TestScope.cs`
 
-### TestScope
 ```csharp
 using VContainer;
 using VContainer.Unity;
@@ -119,7 +92,10 @@ namespace [Namespace].Tests
 }
 ```
 
-### TestInstaller
+### 3c — Write TestInstaller
+
+File: `_GameFolders/Scripts/Games/TestScopes/[Feature]TestInstaller.cs`
+
 ```csharp
 using UnityEngine;
 using VContainer;
@@ -146,7 +122,10 @@ namespace [Namespace].Tests
 }
 ```
 
-### PlayMode Test Stub
+### 3d — Write PlayMode Test Stub
+
+File: `_GameFolders/Scripts/Tests/[Project]PlayTests/[Feature]Tests.cs`
+
 ```csharp
 using System.Collections;
 using NUnit.Framework;
@@ -193,7 +172,9 @@ namespace [Namespace].Tests
 
 ---
 
-## Step C — Create Scene via MCP
+## Step 4 — Create Scene via MCP (inline — main session)
+
+> MCP calls are made directly by the main Claude session, not a subagent.
 
 1. Check editor state: `unity_get_project_info` — ensure Unity is ready
 2. Create the scene: `unity_create_scene` with path `_Scenes/TestScenes/[Feature]Test`
@@ -205,32 +186,13 @@ namespace [Namespace].Tests
 
 If `_Scenes/TestScenes/Empty.unity` does not exist — create it as a minimal empty scene via MCP.
 
----
-
-## Step D — Check TestBootstrap Prefab
-
 Check if `_GameFolders/Prefabs/TestBootstrap/TestBootstrap.prefab` exists.
-- If not: note in report that the TestBootstrap GameObject in the scene is not yet a prefab.
-- If yes: note in report that the scene uses a standalone GameObject (not the shared prefab).
+- If not: note in the final report that TestBootstrap is a standalone GameObject (not yet a shared prefab).
+- If yes: note in the final report that the scene uses a standalone GameObject (shared prefab not linked).
 
 ---
 
-## Step E — Report
-
-Report all created files and any manual steps required. Be explicit about what MCP did vs what the user must do manually.
-
-## Rules
-
-- Never edit production scripts
-- TestScope is always a root scope — never extend AppScope
-- TestBootstrap is the only bare GameObject allowed in the test scene
-- All other game objects must be prefab instances
-- Report DONE or BLOCKED with reason
-```
-
----
-
-## Step 4 — Review
+## Step 5 — Review
 
 **Reviewer priority:** Try **unity-reviewer** first. If unavailable → **codex:rescue**. If also unavailable → review inline with Claude.
 
@@ -268,13 +230,13 @@ OR: ISSUES: none
 
 - Spawn **unity-coder-lite** with the ISSUES list. It edits only the flagged files.
 - Re-run the reviewer on the same files. Max **2 fix iterations**.
-- After 2 iterations still failing → proceed to Step 5 with issues listed in the report (do not retry the scene builder).
+- After 2 iterations still failing → proceed to Step 6 with issues listed in the report (do not redo scene creation).
 
 **What never restarts:** scene creation, TestBootstrap wiring, MCP operations — those are done once and kept.
 
 ---
 
-## Step 5 — Post-generation Report
+## Step 6 — Post-generation Report
 
 After review passes (or max iterations reached), print:
 
