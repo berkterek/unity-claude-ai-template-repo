@@ -10,6 +10,27 @@ Ask:
 
 Then read the target class fully before writing any tests.
 
+## Preflight — Test Type Decision (MANDATORY, run first)
+
+Read `.claude/skills/core/test-type-router.md` and apply the decision matrix to the target class.
+
+Emit the decision block:
+```
+TEST TYPE DECISION
+  Target:   [class name or file path]
+  Decision: [EditMode | PlayMode-ECS | PlayMode-Scene | NoTest]
+  Reason:   [one sentence]
+```
+
+- **NoTest** → stop:
+  > "This class does not require tests (data struct, authoring baker, thin view adapter, or config SO). No test file will be created."
+- **PlayMode-Scene** → stop:
+  > "This class requires a Play Mode scene test. Run `/create-test-scene [FeatureName]` to scaffold the scene, TestBootstrap, and test stub."
+- **PlayMode-ECS** → continue; write an isolated World test in `[Project]PlayTests` assembly (not a scene test)
+- **EditMode** → continue normally with NUnit + NSubstitute
+
+---
+
 ## Preflight — Assembly & NSubstitute Check (MANDATORY)
 
 Before writing any test code, verify the test infrastructure exists:
