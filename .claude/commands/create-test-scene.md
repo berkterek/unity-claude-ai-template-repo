@@ -37,7 +37,25 @@ Read and apply `.claude/skills/core/mcp-preflight.md`.
 - **State 2** (disconnected) → stop; offer to generate C# files only (TestScope, TestInstaller, test stub) — scene creation and MCP wiring steps are skipped, manual steps are listed instead
 - **State 3** (not installed) → continue in code-only mode; skip Step 3 (scene builder) entirely, print manual scene creation steps after generating C# files
 
-### 2b — Proje Kontrolleri
+### 2b — Test Type Check
+
+Read `.claude/skills/core/test-type-router.md` and apply the decision matrix to `[FEATURE]`.
+
+- Extract class name or path hint from `$ARGUMENTS`.
+- Run the router and emit the decision block.
+
+**If decision is NOT `PlayMode-Scene`** → stop:
+```
+⚠ This target does not require a Play Mode scene test.
+  Decision: [EditMode | PlayMode-ECS | NoTest]
+  Reason:   [one sentence]
+
+→ Use /generate-tests instead.
+```
+
+**If decision is `PlayMode-Scene`** → continue to 2c.
+
+### 2c — Proje Kontrolleri
 
 1. Does `_Scenes/TestScenes/` exist? If not, it will be created by the scene builder.
 2. Does `_GameFolders/Scripts/Games/TestScopes/` exist? If not, note it for the agent.

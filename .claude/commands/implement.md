@@ -33,8 +33,6 @@ Read and apply `.claude/skills/core/mcp-preflight.md`.
 
 **Step 0b — Read Review Mode**
 
-**Step 0b — Read Review Mode**
-
 Read `production/review-mode.txt` (default: `lean` if file missing). This controls pipeline depth:
 
 | Mode | Effect |
@@ -66,6 +64,27 @@ Complexity: [score] — [Label]
 Rationale: [one sentence]
 Pipeline: [which variant]
 ```
+
+---
+
+## Step 0c — Test Type Routing
+
+Read `.claude/skills/core/test-type-router.md` and apply the decision matrix to the task target.
+
+Extract the target class or file path from `$TASK_DESCRIPTION`. Run the router and emit:
+
+```
+TEST TYPE DECISION
+  Target:   [class name or file path]
+  Decision: [EditMode | PlayMode-ECS | PlayMode-Scene | NoTest]
+  Reason:   [one sentence]
+```
+
+- **NoTest** → skip Step 1 (Test Writer) entirely; proceed directly to Step 2 (Coder)
+- **PlayMode-Scene** → Test Writer writes the stub only; note that `/create-test-scene` must be run separately for scene + TestBootstrap wiring
+- **EditMode** or **PlayMode-ECS** → proceed normally; Test Writer uses the correct assembly
+
+---
 
 For **Complex** tasks: after the standard Reviewer step passes, spawn a **unity-developer** subagent with the same changed files list and the review criteria from `.claude/agents/unity-developer.md` before proceeding to the Committer.
 

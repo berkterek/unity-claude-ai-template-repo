@@ -155,6 +155,9 @@ The plan must follow this exact structure:
 1. [ ] Step description
 2. [ ] Step description
 
+**Test Type:** EditMode | PlayMode-ECS | PlayMode-Scene | NoTest
+_(apply `.claude/skills/core/test-type-router.md` decision matrix to the primary file for this task)_
+
 **Code Skeleton:**
 \`\`\`csharp
 // method signature + key logic sketch (not full implementation)
