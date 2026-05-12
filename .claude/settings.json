@@ -142,6 +142,17 @@
         "hooks": [
           {
             "type": "command",
+            "command": ".claude/hooks/check-no-hotpath-expensive-calls.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking expensive calls on hot paths..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
             "command": ".claude/hooks/check-no-runtime-instantiate.sh",
             "timeout": 5000,
             "statusMessage": "Checking runtime instantiation..."
