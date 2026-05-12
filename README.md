@@ -259,6 +259,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-async-void` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation` | `async UniTask` methods missing `CancellationToken` parameter |
 | `check-null-propagation` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
+| `check-test-scene-exists` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test-scene` |
 | `instinct-capture` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
@@ -317,6 +318,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/learn` | Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow |
 | `/catch-up` | Generate a human-readable codebase guide |
 | `/generate-tests` | Write missing tests for an existing class |
+| `/create-test-scene <FeatureName>` | Create a complete Play Mode test scene: TestScope, TestInstaller, PlayMode test stub, and scene via MCP; prints manual wiring steps |
 | `/graphics-setup <mobile\|pc>` | Show Low/Medium/High tier plan, await approval, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP, wire into Quality Settings |
 | `/audio-clip-setup [path]` | Scan AudioClip assets, categorize (Music/SFX/UI/Voice), apply optimized import settings via temp Editor script + MCP; reports per-clip changes + summary + commit option |
 | `/performance-audit` | Audit files for allocations and hot-path violations |
@@ -388,6 +390,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
 | `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
+| `unity-test-scene-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test-scene` |
 | `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
 
 ---
@@ -605,6 +608,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `scriptable-objects` | ScriptableObject config authoring, CreateAssetMenu, validation |
 | `serialization-safety` | FormerlySerializedAs, SerializeReference, Unity null semantics |
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
+| `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns for real MonoBehaviour and prefab integration tests |
 
 ### Gameplay (`skills/gameplay/`)
 
