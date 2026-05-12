@@ -316,6 +316,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/check-portability` | Audit a module for copy-paste portability to another project |
 | `/clean-slop` | Remove AI-generated bloat (dead code, useless abstractions) |
 | `/learn` | Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow |
+| `/discover [--dry-run\|--write] [--only <pkg>]` | Walk `Packages/manifest.json`, summarize each Unity package, and emit per-package skill drafts to `.claude/skills/plugins/<pkg>/SKILL.md`. Detects package prefabs, suggests `_GameFolders/Prefabs/<Category>/` duplication destinations. Supports `--dry-run` (default), `--write`, `--only <pkg>`, `--include-assets-plugins`. |
 | `/catch-up` | Generate a human-readable codebase guide |
 | `/generate-tests` | Write missing tests for an existing class |
 | `/create-test-scene <FeatureName>` | Create a complete Play Mode test scene: TestScope, TestInstaller, PlayMode test stub, and scene via MCP; prints manual wiring steps |

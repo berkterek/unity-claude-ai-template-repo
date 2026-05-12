@@ -156,6 +156,7 @@ Detailed coding standards in `.claude/rules/`:
 - `/check-portability` — Audit a module for copy-paste portability
 - `/clean-slop` — Remove AI-generated bloat (dead code, useless abstractions)
 - `/learn` — Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow
+- `/discover [--dry-run|--write] [--only <pkg>]` — Walk `Packages/manifest.json`, summarize each Unity package, and emit per-package skill drafts to `.claude/skills/plugins/<pkg>/SKILL.md`. Detects package prefabs and suggests `_GameFolders/Prefabs/<Category>/` duplication destinations in the generated skill. Supports `--dry-run` (default), `--write`, `--only <pkg>`, `--include-assets-plugins`.
 - `/generate-tests` — Write missing tests for an existing class
 - `/create-test-scene <FeatureName>` — Create a complete Play Mode test scene: TestScope, TestInstaller, PlayMode test stub, and scene via MCP; prints manual wiring steps
 - `/graphics-setup <mobile|pc>` — Show tier plan (Low/Medium/High), await approval, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP, wire into Quality Settings, commit option
@@ -206,6 +207,7 @@ Detailed coding standards in `.claude/rules/`:
 | `unity-scene-builder` | Scene composition via MCP — hierarchy, lighting, camera, volumes |
 | `graphics-setup-agent` | Creates URP Pipeline Assets (Low/Medium/High) for mobile or pc, configures Renderer Data, wires Quality Settings via MCP |
 | `audio-clip-agent` | Scans AudioClip assets, categorizes them, applies optimized import settings via temp Editor script + MCP |
+| `package-analyzer` | Read-only analyst — walks `Packages/manifest.json` + each package directory, detects prefabs and APIs, and returns skill drafts as JSON for `/discover` to write. |
 | `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
 | `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
 | `unity-build-runner` | CI/build pipeline — platform flags, build profiles, addressables baking |
