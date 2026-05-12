@@ -317,6 +317,33 @@ Tower.prefab
 | Empty hierarchy organizers are the only bare GameObjects allowed | No components = no logic = no maintenance cost |
 | Logic components on root, visual components on `Body` child | Decouples visual swaps from logic, clear responsibility |
 
+## Prefab Duplication from Third-Party Packages (NON-NEGOTIABLE)
+
+Prefabs that ship inside a third-party UPM package (under `Library/PackageCache/<name>@<version>/`) or an Asset Store package (under `Assets/Plugins/<vendor>/`) must NEVER be referenced directly from a scene, a Resources reference, an Addressables entry, or another prefab.
+
+**Why:** Package contents are immutable from the project's perspective — UPM rewrites `Library/PackageCache/` on every resolve, and Asset Store updates overwrite `Assets/Plugins/`. Any in-scene reference to a package GUID breaks with a "missing prefab" error on version bump; any in-package edit is silently lost.
+
+### Procedure
+
+1. Identify the source prefab inside the package directory.
+2. Choose a category folder under `_GameFolders/Prefabs/<Category>/` matching the existing domain folders (Enemies, UI, VFX, Environment, …). Use a `<Category>/<PackageSlug>/` subfolder when the package contributes more than one prefab.
+3. Duplicate the prefab into that destination using **Project window → right-click → Duplicate**. Do NOT copy `.meta` files from the package — Unity will mint a fresh GUID on duplication.
+4. Replace any in-scene/in-prefab reference to the package GUID with the new GUID from the duplicate.
+5. Apply the Logic vs Visual Separation rule to the duplicate: logic components on the root GameObject, visual/renderer components on a `Body` child. See "Prefab Rules (NON-NEGOTIABLE)" for the full separation convention.
+
+### Rules
+
+| Rule | Why |
+|------|-----|
+| Never drag a `Library/PackageCache/...` prefab into a scene | Reference breaks on package upgrade |
+| Always duplicate into `_GameFolders/Prefabs/<Category>/` first | Project owns the GUID and the asset lifecycle |
+| Never edit a package prefab in place | UPM resolve overwrites it; Asset Store update overwrites it |
+| Never copy `.meta` files from the package source | Forces Unity to assign a fresh GUID; old references stay scoped to the package |
+| Place duplicates by category, not by package | Keeps the project-side prefab tree organized by domain, not by vendor |
+
+See also: "Prefab Rules (NON-NEGOTIABLE)" in this file for folder structure, Prefab Variants, and Logic vs Visual Separation rules that apply after duplication.
+See also: `/discover` writes the per-package duplication plan into `.claude/skills/plugins/<package>/SKILL.md` under the `## Prefabs` section.
+
 ## .meta Files
 
 - NEVER edit manually
