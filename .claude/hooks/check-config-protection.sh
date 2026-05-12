@@ -36,9 +36,14 @@ BLOCKED=false
 REASON=""
 
 # Assembly definition files — changing references or constraints breaks compile
+# Exception: test assembly definitions (PlayTests, EditTests, Tests) may need precompiledReferences updates
 if [ "$EXT" = "asmdef" ]; then
-    BLOCKED=true
-    REASON=".asmdef files define assembly boundaries and reference rules. Modifying them to fix a compile error usually means the architecture is wrong, not the config."
+    if echo "$FILE_PATH" | grep -qiE "(PlayTests|EditTests|\.Tests)"; then
+        : # test assembly — allowed
+    else
+        BLOCKED=true
+        REASON=".asmdef files define assembly boundaries and reference rules. Modifying them to fix a compile error usually means the architecture is wrong, not the config."
+    fi
 fi
 
 # Claude Code settings — hooks and permissions should not be weakened to bypass errors

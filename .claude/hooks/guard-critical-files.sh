@@ -51,9 +51,14 @@ if echo "$FILENAME_NO_EXT" | grep -qiE "^InputView$"; then
 fi
 
 # Any Installer — registers services into VContainer scope
+# Exception: test infrastructure installers under TestScopes/ or Tests/ paths are safe to create/edit
 if echo "$FILENAME_NO_EXT" | grep -qiE "Installer$"; then
-    CRITICAL=true
-    REASON="Installer files wire VContainer bindings — changes can break DI resolution for the entire module."
+    if echo "$FILE_PATH" | grep -qiE "(TestScopes|Tests|PlayTests|EditTests)/"; then
+        : # test installer — allowed
+    else
+        CRITICAL=true
+        REASON="Installer files wire VContainer bindings — changes can break DI resolution for the entire module."
+    fi
 fi
 
 # IEventBus, EventBus — cross-system communication contract
