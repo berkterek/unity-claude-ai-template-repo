@@ -109,6 +109,7 @@ Detailed coding standards in `.claude/rules/`:
 | `check-async-void.sh` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation.sh` | `async UniTask` methods without `CancellationToken` parameter |
 | `check-null-propagation.sh` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
+| `check-test-scene-exists.sh` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test-scene` |
 | `instinct-capture.sh` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker.sh` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `instinct-distill.sh` (Stop) | Distills captured observations into confidence-scored instincts |
@@ -156,6 +157,7 @@ Detailed coding standards in `.claude/rules/`:
 - `/clean-slop` — Remove AI-generated bloat (dead code, useless abstractions)
 - `/learn` — Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow
 - `/generate-tests` — Write missing tests for an existing class
+- `/create-test-scene <FeatureName>` — Create a complete Play Mode test scene: TestScope, TestInstaller, PlayMode test stub, and scene via MCP; prints manual wiring steps
 - `/graphics-setup <mobile|pc>` — Show tier plan (Low/Medium/High), await approval, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP, wire into Quality Settings, commit option
 - `/audio-clip-setup [path]` — Scan AudioClip assets, categorize (Music/SFX/UI/Voice), apply optimized import settings via temp Editor script + MCP; reports per-clip changes + summary + commit option
 - `/performance-audit` — Audit files for allocations and hot-path violations
@@ -218,6 +220,7 @@ Detailed coding standards in `.claude/rules/`:
 | `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
 | `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
+| `unity-test-scene-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test-scene` |
 | `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
 
 ## Context Management
@@ -315,6 +318,13 @@ After running `/setup-project`, complete these steps manually (Claude cannot do 
 - [ ] **Addressables** — Install via Package Manager (`com.unity.addressables`); initialize via Window → Asset Management → Addressables → Groups
 - [ ] **AppScope scene** — Create a Bootstrap scene (Build index 0), add `AppScope` component, wire `AppInstaller` and infrastructure roots (`UIRoot`, `AudioRoot`, `PoolRoot`)
 - [ ] **Build settings** — Add Bootstrap scene as index 0; add Menu and Game scenes
+- [ ] **`check-test-scene-exists.sh` hook** — Add to `.claude/settings.json` PostToolUse section (Claude cannot edit settings.json due to config-protection hook):
+  ```json
+  {
+    "matcher": "Write|Edit",
+    "hooks": [{ "type": "command", "command": ".claude/hooks/check-test-scene-exists.sh", "timeout": 5000, "statusMessage": "Checking test scene exists..." }]
+  }
+  ```
 
 ## Key Architecture Rules (summary)
 
@@ -394,6 +404,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `scriptable-objects` | ScriptableObject config authoring, CreateAssetMenu, validation |
 | `serialization-safety` | FormerlySerializedAs, SerializeReference, Unity null semantics |
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
+| `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns for real MonoBehaviour and prefab integration tests |
 
 ### Gameplay (`skills/gameplay/`)
 
