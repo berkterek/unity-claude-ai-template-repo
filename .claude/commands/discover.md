@@ -20,6 +20,8 @@ argument-hint: "[--dry-run] [--write] [--only <pkg>] [--include-assets-plugins]"
 
    > **Important:** Do NOT use `subagent_type: "package-analyzer"` in the Agent tool — that type is not registered as a built-in FleetView agent. Instead use `subagent_type: "general-purpose"` and embed the package-analyzer instructions in the prompt.
 
+   > **Deep scan for Assets-folder plugins:** When `--include-assets-plugins` is set (or when a package lives under `Assets/_AssetFolders/` or `Assets/Plugins/`), the package-analyzer MUST execute steps 3b (script sampling) and 3c (demo scene inspection) in addition to the standard analysis. This is mandatory — static packages without a `package.json` often have no README; the scripts and scenes are the only source of truth.
+
 3. Pretty-print a preview table:
 
    | package | version | target_path | exists |
@@ -31,6 +33,13 @@ argument-hint: "[--dry-run] [--write] [--only <pkg>] [--include-assets-plugins]"
    |---------|-------------|----------------------|
 
    If all packages have `prefabs: []`, print: `Prefab Summary: (none detected)`
+
+   Then print the **Demo Scenes** table built from the `demo_scenes` field of each JSON element:
+
+   | package | scene_path | notes |
+   |---------|-----------|-------|
+
+   If all packages have `demo_scenes: []`, print: `Demo Scenes: (none detected)`
 
 4. Print this note verbatim:
    ```

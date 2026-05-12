@@ -32,6 +32,32 @@ find <package_path> -type f -name '*.prefab' | head -200
 ```
 For each prefab, infer a **Category** from path/name heuristics (`UI`, `VFX`, `Enemies`, `Environment`, `Audio`, `Tools`; default: `ThirdParty`). Map each prefab to a suggested destination: `_GameFolders/Prefabs/<Category>/<PackageSlug>/<OriginalName>.prefab`. Reject any source path containing `..` segments. Never emit any write.
 
+3b. **Script sampling.** Glob up to 50 `.cs` files inside the package path:
+```bash
+find <package_path> -type f -name '*.cs' | head -50
+```
+From the results, select and **read** (using the Read tool, not Bash):
+- The primary manager/facade class: prioritize files named `*Manager.cs`, `*System.cs`, `*Controller.cs`, or the largest `.cs` file in the root Scripts folder.
+- Extension-point base classes: files named `*Base.cs`, `Abstract*.cs`, or starting with `I` (interfaces).
+- Up to 2 files from any `Samples/`, `Examples/`, or `Demo/` subfolder.
+
+Use the read content to populate `## Idiomatic patterns` and `## Key APIs` with **real** method signatures, field names, and class hierarchies. Never invent API names. If the files cannot be read, note "Script source unavailable" in those sections.
+
+3c. **Demo scene inspection.** Search for demo/example scenes:
+```bash
+find <package_path> -type f -name '*.unity' | head -10
+```
+Also search the project's Assets folder for demo scenes related to this package (e.g. `_Demo/`, `Demo/`, `Samples/`):
+```bash
+find . -path "*/$(basename <package_path>)*/_Demo*" -name '*.unity' 2>/dev/null | head -5
+find . -path "*/_AssetFolders*" -name '*.unity' 2>/dev/null | head -10
+```
+For each found `.unity` file, **read the first 400 lines**. Unity scene YAML stores GameObjects as blocks with `m_Name`, `m_Component` lists, and `m_Script` references. Extract:
+- Root-level GameObject names and their attached component types (search for `m_Name:` and adjacent `m_Component:` blocks)
+- Script component references (search for lines containing `m_Script:` and nearby `m_ClassName` or guid-to-script cross references)
+
+Record each scene's path and extracted summary in the `demo_scenes` output field. Use this data to populate `## Samples` with the actual scene structure — list the key GameObjects and their components rather than generic descriptions.
+
 4. For each resolved path, read at most: `package.json` (name, displayName, version, description, samples list), `README.md` (first 200 lines), `CHANGELOG.md` (first 80 lines), and the file list of `Samples~/` if present.
 
 5. Synthesize a `SKILL.md` draft with these **twelve** fixed sections (in order):
@@ -104,10 +130,17 @@ A JSON array on stdout where each element is:
       "category": "<inferred-category>",
       "suggested_dest": "_GameFolders/Prefabs/<Category>/<slug>/<OriginalName>.prefab"
     }
+  ],
+  "demo_scenes": [
+    {
+      "scene_path": "<path-to-.unity-file>",
+      "root_objects": ["<GameObject name> [<Component>, <Component>]"],
+      "notes": "<one-line summary of what the scene demonstrates>"
+    }
   ]
 }
 ```
-`prefabs` is `[]` when no prefabs detected.
+`prefabs` is `[]` when no prefabs detected. `demo_scenes` is `[]` when no demo/example scenes found.
 
 ## Failure Modes
 
