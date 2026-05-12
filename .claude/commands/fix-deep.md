@@ -320,26 +320,7 @@ Debug logs have been left in place for your review — remove them manually or r
 
 ---
 
-## Step 5 — Find Existing Test File
-
-For each file in `$CONFIRMED_AFFECTED_FILES`, check if a corresponding test file already exists:
-
-```bash
-find . -name "[ClassName]Tests.cs" -path "*/Tests/*"
-```
-
-**If test file found** → note the path; after the fix a regression test case will be added to that file. Skip the router entirely.
-
-**If no test file exists** → run `.claude/skills/core/test-type-router.md` once to decide where to create it. Emit the decision block.
-
-- **NoTest** → no regression test needed; proceed directly to Step 6 (Fix)
-- All other decisions → regression test is written after Step 6, in the correct assembly
-
-The regression test is written **after the fix** (unlike `/fix` where it comes before) — the fix is the primary goal, the test guards against regression.
-
----
-
-## Step 6 — Fix
+## Step 5 — Fix
 
 **Agent routing — decide before spawning:**
 
@@ -382,7 +363,7 @@ Report: DONE or BLOCKED with reason.
 
 ---
 
-## Step 6.5 — Unity Validator
+## Step 5.5 — Unity Validator
 
 Spawn a **reviewer** subagent (always — never Codex, because Codex has no Unity MCP access):
 
@@ -422,7 +403,7 @@ Validator loop: same as `/fix` — max 2 fix passes before stopping and asking u
 
 ---
 
-## Step 7 — Reviewer
+## Step 6 — Reviewer
 
 First try **unity-reviewer**. If unavailable → **Codex** (`codex:rescue`). If unavailable → **reviewer**.
 
@@ -461,7 +442,7 @@ Review loop: max 3 passes (same as `/fix`).
 
 ---
 
-## Step 7.7 — Silent Failure Audit
+## Step 6.7 — Silent Failure Audit
 
 Spawn a **silent-failure-hunter** subagent with this prompt:
 
@@ -499,7 +480,7 @@ Silent failure issues found. Options:
 
 ---
 
-## Step 8 — Committer
+## Step 7 — Committer
 
 Spawn a **committer** subagent:
 
