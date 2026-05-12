@@ -8,31 +8,49 @@ Every allocation triggers GC, which causes frame spikes. Profile with Unity Prof
 
 ---
 
-## Cache Everything
+## Component References — Inspector Assignment First
+
+Components on the same GameObject or its children must be assigned via `[SerializeField]` in the Inspector — **not** fetched with `GetComponent` at runtime, even in `Awake`.
 
 ```csharp
-// BAD — FindObjectOfType every frame
-private void Update()
-{
-    Camera.main.WorldToScreenPoint(transform.position);
-    GetComponent<Rigidbody>().AddForce(Vector3.up);
-}
-
-// GOOD — cache in Awake
-private Camera _mainCamera;
+// BAD — runtime cost, hides dependency
 private Rigidbody _rigidbody;
+private Animator _animator;
 
 private void Awake()
 {
-    _mainCamera = Camera.main;
     _rigidbody = GetComponent<Rigidbody>();
+    _animator  = GetComponentInChildren<Animator>();
 }
+
+// GOOD — zero runtime cost, dependency visible in Inspector
+[SerializeField] private Rigidbody _rigidbody;
+[SerializeField] private Animator  _animator;
 ```
 
-Cache these in Awake — NEVER call in Update:
-- `GetComponent<T>()` / `TryGetComponent<T>()`
-- `Camera.main` (calls FindObjectOfType internally)
-- `Animator.StringToHash()` / `Shader.PropertyToID()` → `static readonly int` (PascalCase)
+Drag-drop the reference in the Inspector (or assign in a Prefab). No Awake code needed.
+
+**When `GetComponent` in Awake IS acceptable:**
+- The component is added dynamically at runtime (not present at edit time)
+- The reference comes from a spawned/instantiated object you don't own
+
+**`transform` — always cache:**
+
+```csharp
+// BAD — bare transform property on hot path
+private void Update() => transform.position += Vector3.forward;
+
+// GOOD — cached in Awake (transform can't be [SerializeField])
+private Transform _transform;
+private void Awake() => _transform = transform;
+private void Update() => _transform.position += Vector3.forward;
+```
+
+`transform` is the one built-in property that cannot be serialized — cache it in `Awake`.
+
+**Other calls — NEVER in Update/FixedUpdate/LateUpdate/Tick:**
+- `Camera.main` (calls FindObjectOfType internally) → `[SerializeField] private Camera _camera`
+- `Animator.StringToHash()` / `Shader.PropertyToID()` → `static readonly int` (PascalCase, cached at class level)
 
 ---
 

@@ -153,6 +153,17 @@
         "hooks": [
           {
             "type": "command",
+            "command": ".claude/hooks/check-getcomponent-in-awake.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking GetComponent in Awake..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
             "command": ".claude/hooks/check-no-runtime-instantiate.sh",
             "timeout": 5000,
             "statusMessage": "Checking runtime instantiation..."

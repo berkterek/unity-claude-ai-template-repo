@@ -98,6 +98,7 @@ Detailed coding standards in `.claude/rules/`:
 | `check-naming-conventions.sh` | Non-PascalCase types, wrong field naming |
 | `check-no-linq-hotpath.sh` | LINQ in Update/FixedUpdate/LateUpdate |
 | `check-no-hotpath-expensive-calls.sh` | `GetComponent`, `Camera.main`, `FindObjectOfType`, bare `transform.`, `tag ==`, `SendMessage` inside Update/FixedUpdate/LateUpdate/Tick/FixedTick/LateTick — suppressed if `_transform` field is cached |
+| `check-getcomponent-in-awake.sh` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment; only acceptable when component is added dynamically at runtime |
 | `check-no-runtime-instantiate.sh` | `Instantiate()`, `new GameObject()`, `Destroy()` |
 | `check-test-exists.sh` | Logic class with no corresponding test file |
 | `check-compile.sh` | Basic C# syntax (braces, namespace, type declaration) |
