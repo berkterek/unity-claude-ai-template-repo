@@ -79,15 +79,41 @@ $CHANGE_DESCRIPTION
 ## Analyzer Findings
 $ANALYZER_OUTPUT
 
+## Test Type Decision Matrix
+
+For each new task, apply this decision matrix to its **primary file** to fill the `**Test Type:**` field:
+
+**Path-based (fastest):**
+| Path contains | Decision |
+|---------------|----------|
+| `Games/Abstracts/` or `Games/Concretes/` | **EditMode** |
+| `Games/Ecs/Systems/` | **PlayMode-ECS** |
+| `Games/Ecs/Components/` or `Games/Ecs/Authorings/` | **NoTest** |
+| `_Framework/` | **EditMode** |
+| `Editor/` | **NoTest** |
+
+**Class type fallback:**
+| Class type | Decision |
+|------------|----------|
+| Extends `LifetimeScope` | **NoTest** |
+| `MonoBehaviour` with no logic (thin adapter) | **NoTest** |
+| `MonoBehaviour` WITH logic | **PlayMode-Scene** |
+| `ISystem` or `SystemBase` | **PlayMode-ECS** |
+| `IComponentData` struct or `Baker<T>` | **NoTest** |
+| Pure C# service/model/util | **EditMode** |
+| `ScriptableObject` config | **NoTest** |
+
 ## Parallel Group Assignment
 
 After writing all new tasks, analyze dependencies across ALL tasks (existing + new) and update the `parallel_group` column in the Status table:
 
 **Rules:**
-- If Task B's inputs depend on Task A's outputs → they MUST be sequential (no shared group)
-- If two tasks are fully independent (different files, no shared inputs/outputs) → assign the same `parallel_group` number
-- Tasks with no parallel candidate get `—` (sequential by default)
-- If the Status table has no `parallel_group` column yet, add it
+1. **Compile-time dependency (most important):** If Task B's code references a type, interface, or method that Task A *introduces* (even in a different file), Task B MUST be sequential after Task A. Different files ≠ safe to parallelize when there is a type dependency.
+   - Example: Task A creates `IGameFlowService.cs`, Task B creates `InputView.cs` that calls `IGameFlowService.ResumeGame()` → Task B is sequential after Task A.
+2. **File write conflict:** If two tasks write to the same file → they MUST be sequential.
+3. **Independent:** If two tasks write to entirely different files AND neither references types introduced by the other → assign the same `parallel_group` number.
+4. Tasks with no parallel candidate get `—` (sequential by default).
+- If the Status table has no `parallel_group` column yet, add it.
 
 **When orchestrate runs this plan:** tasks in the same `parallel_group` will spawn simultaneously (complexity ≥ 0.4). Tasks with `—` run sequentially.
 
@@ -98,7 +124,7 @@ After writing all new tasks, analyze dependencies across ALL tasks (existing + n
 4. Add new Task sections at the bottom (Task N+1, Task N+2, etc.) with:
    - Files to modify (exact paths)
    - Numbered steps with [ ] checkboxes
-   - **Test Type:** field — apply `.claude/skills/core/test-type-router.md` decision matrix to the primary file for each new task (EditMode | PlayMode-ECS | PlayMode-Scene | NoTest)
+   - **Test Type:** field — apply the decision matrix below to the primary file for each new task (EditMode | PlayMode-ECS | PlayMode-Scene | NoTest)
    - Code snippets showing method signatures and key logic (not full implementations)
    - Clear acceptance criteria
 5. Keep existing tasks and content untouched — only append

@@ -156,7 +156,7 @@ The plan must follow this exact structure:
 2. [ ] Step description
 
 **Test Type:** EditMode | PlayMode-ECS | PlayMode-Scene | NoTest
-_(apply `.claude/skills/core/test-type-router.md` decision matrix to the primary file for this task)_
+_(see Test Type Decision Matrix below — apply it to the primary file for this task)_
 
 **Code Skeleton:**
 \`\`\`csharp
@@ -173,14 +173,42 @@ _(apply `.claude/skills/core/test-type-router.md` decision matrix to the primary
 ...
 ```
 
+## Test Type Decision Matrix
+
+For each task, apply this decision matrix to its **primary file** to fill the `**Test Type:**` field:
+
+**Path-based (fastest):**
+| Path contains | Decision |
+|---------------|----------|
+| `Games/Abstracts/` or `Games/Concretes/` | **EditMode** |
+| `Games/Ecs/Systems/` | **PlayMode-ECS** |
+| `Games/Ecs/Components/` or `Games/Ecs/Authorings/` | **NoTest** |
+| `_Framework/` | **EditMode** |
+| `Editor/` | **NoTest** |
+
+**Class type fallback (when path unknown):**
+| Class type | Decision |
+|------------|----------|
+| Extends `LifetimeScope` | **NoTest** |
+| `MonoBehaviour` with no logic (thin adapter) | **NoTest** |
+| `MonoBehaviour` WITH logic | **PlayMode-Scene** |
+| `ISystem` or `SystemBase` | **PlayMode-ECS** |
+| `IComponentData` struct or `Baker<T>` | **NoTest** |
+| Pure C# service/model/util | **EditMode** |
+| `ScriptableObject` config | **NoTest** |
+
+Apply this matrix **per task**. Do NOT guess — if uncertain, prefer `PlayMode-Scene` for MonoBehaviours with logic, `EditMode` for pure C#.
+
 ## Parallel Group Assignment
 
 After writing all tasks, analyze task dependencies and assign `parallel_group` numbers in the Status table:
 
 **Rules:**
-- If Task B's inputs depend on Task A's outputs → they MUST be sequential (no shared group)
-- If two tasks are fully independent (different files, no shared inputs/outputs) → assign the same `parallel_group` number
-- Tasks with no parallel candidate get no `parallel_group` (sequential by default)
+1. **Compile-time dependency (most important):** If Task B's code references a type, interface, or method that Task A *introduces* (even in a different file), Task B MUST be sequential after Task A. Different files ≠ safe to parallelize when there is a type dependency.
+   - Example: Task A creates `IGameFlowService.cs`, Task B creates `InputView.cs` that calls `IGameFlowService.ResumeGame()` → Task B is sequential after Task A.
+2. **File write conflict:** If two tasks write to the same file → they MUST be sequential.
+3. **Independent:** If two tasks write to entirely different files AND neither task's code references types introduced by the other → assign the same `parallel_group` number.
+4. Tasks with no parallel candidate get `—` (sequential by default).
 
 Add a `parallel_group` column to the Status table:
 
