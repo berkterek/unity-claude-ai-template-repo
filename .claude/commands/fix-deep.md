@@ -320,7 +320,28 @@ Debug logs have been left in place for your review — remove them manually or r
 
 ---
 
-## Step 5 — Fix
+## Step 5 — Test Type Decision
+
+Read `.claude/skills/core/test-type-router.md` and apply the decision matrix to the confirmed affected file(s).
+
+Emit the decision block:
+```
+TEST TYPE DECISION
+  Target:   [primary affected file or class]
+  Decision: [EditMode | PlayMode-ECS | PlayMode-Scene | NoTest]
+  Reason:   [one sentence]
+```
+
+- **NoTest** → skip regression test; proceed directly to Step 6 (Fix)
+- **PlayMode-Scene** → write a minimal regression stub after Step 6; note that full scene wiring needs `/create-test-scene`
+- **PlayMode-ECS** → write an isolated World regression test in `[Project]PlayTests` after Step 6
+- **EditMode** → write NUnit + NSubstitute regression test after Step 6
+
+The regression test is written **after the fix** in fix-deep (unlike /fix where it comes before) — the fix is the primary goal, the test guards against regression.
+
+---
+
+## Step 6 — Fix
 
 **Agent routing — decide before spawning:**
 
@@ -363,7 +384,7 @@ Report: DONE or BLOCKED with reason.
 
 ---
 
-## Step 5.5 — Unity Validator
+## Step 6.5 — Unity Validator
 
 Spawn a **reviewer** subagent (always — never Codex, because Codex has no Unity MCP access):
 
@@ -403,7 +424,7 @@ Validator loop: same as `/fix` — max 2 fix passes before stopping and asking u
 
 ---
 
-## Step 6 — Reviewer
+## Step 7 — Reviewer
 
 First try **unity-reviewer**. If unavailable → **Codex** (`codex:rescue`). If unavailable → **reviewer**.
 
@@ -442,7 +463,7 @@ Review loop: max 3 passes (same as `/fix`).
 
 ---
 
-## Step 6.7 — Silent Failure Audit
+## Step 7.7 — Silent Failure Audit
 
 Spawn a **silent-failure-hunter** subagent with this prompt:
 
@@ -480,7 +501,7 @@ Silent failure issues found. Options:
 
 ---
 
-## Step 7 — Committer
+## Step 8 — Committer
 
 Spawn a **committer** subagent:
 

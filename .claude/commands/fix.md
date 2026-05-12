@@ -142,7 +142,26 @@ If **stop** → abort.
 
 ---
 
-## Step 2 — Test Writer
+## Step 2 — Test Type Decision
+
+Read `.claude/skills/core/test-type-router.md` and apply the decision matrix to the affected file(s) from `$DEBUGGER_AFFECTED_FILES`.
+
+Emit the decision block:
+```
+TEST TYPE DECISION
+  Target:   [primary affected file or class]
+  Decision: [EditMode | PlayMode-ECS | PlayMode-Scene | NoTest]
+  Reason:   [one sentence]
+```
+
+- **NoTest** → skip Step 2 (Test Writer); proceed directly to Step 3 (Coder)
+- **PlayMode-Scene** → Test Writer writes the regression stub only; note that `/create-test-scene` is needed for full scene wiring
+- **PlayMode-ECS** → Test Writer writes an isolated World regression test in `[Project]PlayTests`
+- **EditMode** → proceed normally
+
+---
+
+## Step 3 — Test Writer
 
 Spawn a **test-writer** subagent with this prompt:
 
@@ -180,7 +199,7 @@ If test writer reports **BLOCKED** → stop and show the blocker to the user.
 
 ---
 
-## Step 3 — Coder
+## Step 4 — Coder
 
 **Agent routing — decide before spawning:**
 
@@ -225,7 +244,7 @@ If coder reports **BLOCKED** → stop and show the blocker to the user.
 
 ---
 
-## Step 3.5 — Unity Validator (MANDATORY — runs before Reviewer)
+## Step 4.5 — Unity Validator (MANDATORY — runs before Reviewer)
 
 Spawn a **reviewer** subagent (always — never Codex, because Codex has no Unity MCP access) with this prompt:
 
@@ -290,7 +309,7 @@ If still failing after **2 fix passes** → stop and show the user all errors. A
 
 ---
 
-## Step 4 — Reviewer
+## Step 5 — Reviewer
 
 First try **unity-reviewer** subagent. If unavailable → fall back to **Codex** (`codex:rescue` subagent). If Codex is also unavailable → fall back to **reviewer** subagent.
 
@@ -356,7 +375,7 @@ Repeat until APPROVED or stopped (max 3 passes):
 
 ---
 
-## Step 4.5 — Unity Verifier (Final Bounded Check)
+## Step 5.5 — Unity Verifier (Final Bounded Check)
 
 Spawn a **unity-verifier** subagent once with this prompt (max 3 internal iterations):
 
@@ -395,7 +414,7 @@ If unity-verifier reports **VERIFY FAILED** → stop and show the user all remai
 
 ---
 
-## Step 4.7 — Silent Failure Audit
+## Step 5.7 — Silent Failure Audit
 
 Spawn a **silent-failure-hunter** subagent with this prompt:
 
@@ -433,7 +452,7 @@ Silent failure issues found. Options:
 
 ---
 
-## Step 5 — Committer
+## Step 6 — Committer
 
 Spawn a **committer** subagent with this prompt:
 
