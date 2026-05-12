@@ -146,7 +146,7 @@ Detailed coding standards in `.claude/rules/`:
 - `/refine-tdd` — Iterate on an existing TDD
 
 ### Development
-- `/plan-workflow` — Create a phased execution plan from a TDD
+- `/plan-workflow` — Create a phased execution plan from a TDD — assigns integer `parallel_group` numbers (1, 2, `—`) compatible with `/orchestrate`; compile-time type dependencies force sequential even across different files
 - `/new-module` — Generate the 5-file module structure (Interface, Service, Config, Installer, Events)
 - `/add-feature` — **complexity score** → Simple: 3 questions + **unity-coder-lite** / Medium/Complex: **deep-interview** + **unity-coder** → [unity-developer if score ≥ 0.7]; includes unity-setup spawn for prefab/scene wiring
 

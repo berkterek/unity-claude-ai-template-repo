@@ -283,7 +283,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/architect` | Create a Technical Design Document from a GDD (Phase 7 self-critique → **unity-critic** adversarial challenge → developer review) |
 | `/refine-gdd` | Iterate on an existing GDD |
 | `/refine-tdd` | Iterate on an existing TDD |
-| `/plan-workflow` | Create a phased execution plan from a TDD |
+| `/plan-workflow` | Create a phased execution plan from a TDD — assigns integer `parallel_group` numbers (1, 2, `—`) compatible with `/orchestrate`; compile-time type dependencies force sequential even across different files |
 
 ### Pipelines (multi-agent)
 | Command | Description |
@@ -611,6 +611,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns for real MonoBehaviour and prefab integration tests |
 | `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed. Used by all MCP-dependent pipeline commands before spawning agents |
+| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path. Used by `/implement`, `/generate-tests`, `/create-test-scene`, and `/create-plan` before any test writing |
 
 ### Gameplay (`skills/gameplay/`)
 
