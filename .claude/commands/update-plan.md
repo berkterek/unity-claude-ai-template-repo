@@ -98,6 +98,7 @@ After writing all new tasks, analyze dependencies across ALL tasks (existing + n
 4. Add new Task sections at the bottom (Task N+1, Task N+2, etc.) with:
    - Files to modify (exact paths)
    - Numbered steps with [ ] checkboxes
+   - **Test Type:** field — apply `.claude/skills/core/test-type-router.md` decision matrix to the primary file for each new task (EditMode | PlayMode-ECS | PlayMode-Scene | NoTest)
    - Code snippets showing method signatures and key logic (not full implementations)
    - Clear acceptance criteria
 5. Keep existing tasks and content untouched — only append
