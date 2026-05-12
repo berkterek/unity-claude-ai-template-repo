@@ -405,7 +405,10 @@ Validator loop: same as `/fix` — max 2 fix passes before stopping and asking u
 
 ## Step 6 — Reviewer
 
-First try **unity-reviewer**. If unavailable → **Codex** (`codex:rescue`). If unavailable → **reviewer**.
+Reviewer priority — try in order, fall back if unavailable:
+1. Spawn Agent with `subagent_type: "unity-reviewer"`
+2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+3. Spawn Agent with `subagent_type: "claude"` (general reviewer)
 
 ```
 Review this evidence-proven bug fix.

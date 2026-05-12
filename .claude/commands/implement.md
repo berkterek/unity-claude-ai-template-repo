@@ -230,7 +230,10 @@ If still failing after **2 fix passes** → stop and show the user all errors. A
 
 ## Step 3 — Reviewer
 
-First try **unity-reviewer** subagent. If unavailable → fall back to **Codex** (`codex:rescue` subagent). If Codex is also unavailable → fall back to **reviewer** subagent.
+Reviewer priority — try in order, fall back if unavailable:
+1. Spawn Agent with `subagent_type: "unity-reviewer"`
+2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+3. Spawn Agent with `subagent_type: "claude"` (general reviewer)
 
 ```
 Review the following Unity C# implementation.
@@ -282,7 +285,7 @@ Repeat until APPROVED or stopped (max 3 passes):
    Report: DONE or BLOCKED with reason.
    ```
 
-2. After unity-coder fixes → re-run the reviewer (unity-reviewer first, Codex fallback, reviewer agent fallback) with the updated files.
+2. After unity-coder fixes → re-run the reviewer using the same priority order (unity-reviewer → codex:codex-rescue → claude) with the updated files.
 
 3. If APPROVED → proceed to Step 3.5.
 
