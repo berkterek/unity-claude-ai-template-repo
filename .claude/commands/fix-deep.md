@@ -320,24 +320,22 @@ Debug logs have been left in place for your review — remove them manually or r
 
 ---
 
-## Step 5 — Test Type Decision
+## Step 5 — Find Existing Test File
 
-Read `.claude/skills/core/test-type-router.md` and apply the decision matrix to the confirmed affected file(s).
+For each file in `$CONFIRMED_AFFECTED_FILES`, check if a corresponding test file already exists:
 
-Emit the decision block:
-```
-TEST TYPE DECISION
-  Target:   [primary affected file or class]
-  Decision: [EditMode | PlayMode-ECS | PlayMode-Scene | NoTest]
-  Reason:   [one sentence]
+```bash
+find . -name "[ClassName]Tests.cs" -path "*/Tests/*"
 ```
 
-- **NoTest** → skip regression test; proceed directly to Step 6 (Fix)
-- **PlayMode-Scene** → write a minimal regression stub after Step 6; note that full scene wiring needs `/create-test-scene`
-- **PlayMode-ECS** → write an isolated World regression test in `[Project]PlayTests` after Step 6
-- **EditMode** → write NUnit + NSubstitute regression test after Step 6
+**If test file found** → note the path; after the fix a regression test case will be added to that file. Skip the router entirely.
 
-The regression test is written **after the fix** in fix-deep (unlike /fix where it comes before) — the fix is the primary goal, the test guards against regression.
+**If no test file exists** → run `.claude/skills/core/test-type-router.md` once to decide where to create it. Emit the decision block.
+
+- **NoTest** → no regression test needed; proceed directly to Step 6 (Fix)
+- All other decisions → regression test is written after Step 6, in the correct assembly
+
+The regression test is written **after the fix** (unlike `/fix` where it comes before) — the fix is the primary goal, the test guards against regression.
 
 ---
 

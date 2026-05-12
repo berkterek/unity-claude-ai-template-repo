@@ -142,22 +142,20 @@ If **stop** → abort.
 
 ---
 
-## Step 2 — Test Type Decision
+## Step 2 — Find Existing Test File
 
-Read `.claude/skills/core/test-type-router.md` and apply the decision matrix to the affected file(s) from `$DEBUGGER_AFFECTED_FILES`.
+For each file in `$DEBUGGER_AFFECTED_FILES`, check if a corresponding test file already exists:
 
-Emit the decision block:
-```
-TEST TYPE DECISION
-  Target:   [primary affected file or class]
-  Decision: [EditMode | PlayMode-ECS | PlayMode-Scene | NoTest]
-  Reason:   [one sentence]
+```bash
+find . -name "[ClassName]Tests.cs" -path "*/Tests/*"
 ```
 
-- **NoTest** → skip Step 2 (Test Writer); proceed directly to Step 3 (Coder)
-- **PlayMode-Scene** → Test Writer writes the regression stub only; note that `/create-test-scene` is needed for full scene wiring
-- **PlayMode-ECS** → Test Writer writes an isolated World regression test in `[Project]PlayTests`
-- **EditMode** → proceed normally
+**If test file found** → note the path; Test Writer adds a regression test case to that file. Skip the router entirely.
+
+**If no test file exists** → run `.claude/skills/core/test-type-router.md` once to decide where the new test goes. Emit the decision block, then proceed.
+
+- **NoTest** → skip Step 3 (Test Writer); proceed directly to Step 4 (Coder)
+- All other decisions → Test Writer creates the file in the correct assembly
 
 ---
 
