@@ -465,10 +465,10 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 
 | Skill | Covers |
 |-------|--------|
-| `odin-inspector` | Odin attribute'ları, custom drawer'lar, inspector özelleştirme |
-| `primetween` | PrimeTween kurulum, tween API, sequence ve UniTask entegrasyonu |
-| `r3` | R3 (Cysharp) Observable, Subject, ReactiveProperty ve UniTask entegrasyonu |
-| `unitask` | UniTask async/await, CancellationToken, PlayerLoop entegrasyonu |
+| `odin-inspector` | Odin attributes, custom drawers, inspector customization |
+| `primetween` | PrimeTween setup, tween API, sequences, and UniTask integration |
+| `r3` | R3 (Cysharp) Observable, Subject, ReactiveProperty, and UniTask integration |
+| `unitask` | UniTask async/await, CancellationToken, PlayerLoop integration, and common mistakes |
 
 > Skills are read-only reference files. They inform Claude's decisions but do not execute code. The `/learn` command writes new skills to `skills/learned/` based on patterns extracted from your specific project.
 
