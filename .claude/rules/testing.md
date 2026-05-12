@@ -11,7 +11,8 @@ Every class under `_GameFolders/Scripts/` must have a corresponding test. Rule: 
 | Type | Assembly | When |
 |------|----------|------|
 | **Edit Mode** | `[Project]Tests` | Pure C# logic, interface mocking, ECS component tests |
-| **Play Mode** | `[Project]PlayTests` | MonoBehaviour lifecycle, ECS World + System integration |
+| **Play Mode (ECS World)** | `[Project]PlayTests` | ECS System integration with isolated World |
+| **Play Mode (Scene)** | `[Project]PlayTests` | MonoBehaviour lifecycle, VContainer wiring, real prefab behavior |
 
 ---
 
@@ -197,6 +198,146 @@ public IEnumerator EnemyMoveSystem_WhenMoveInputSet_UpdatesTranslation()
     world.Dispose();
 }
 ```
+
+---
+
+## Play Mode Scene Tests
+
+Play Mode scene tests verify real MonoBehaviour and VContainer behavior using actual Unity scenes and prefabs. They complement Edit Mode unit tests — not replace them.
+
+### When to Use
+
+| Use scene test | Use Edit Mode test |
+|---------------|-------------------|
+| MonoBehaviour lifecycle (`Awake`, `Start`, `OnEnable`) | Pure service logic |
+| VContainer injection works correctly in scene | Interface contract behavior |
+| Prefab behaves correctly at runtime | ECS component data |
+| Physics / trigger / collision | Event bus publish/subscribe |
+| Visual state driven by service | Calculation, state machine |
+
+### Folder Structure
+
+```
+_Scenes/
+└── TestScenes/
+    ├── PlayerMovementTest.unity       ← one scene per scenario
+    ├── EnemySpawnTest.unity
+    └── CombatSystemTest.unity
+
+_GameFolders/Prefabs/
+└── TestBootstrap/
+    └── TestBootstrap.prefab           ← shared bootstrap prefab
+
+_GameFolders/Scripts/Tests/
+└── [Project]PlayTests/
+    ├── PlayerMovementTests.cs
+    └── EnemySpawnTests.cs
+```
+
+### TestBootstrap Prefab (NON-NEGOTIABLE)
+
+Every test scene contains exactly **one** `TestBootstrap` prefab instance. No other bootstrap or AppScope is present.
+
+```
+TestBootstrap.prefab
+├── [Feature]TestScope.cs     ← VContainer LifetimeScope for this scenario
+└── [Feature]TestInstaller.cs ← registers only what the scenario needs
+```
+
+`TestScope` is a `LifetimeScope` that registers real or fake services for the scenario. It does **not** extend AppScope — it is a root scope.
+
+```csharp
+// PlayerMovementTestScope.cs
+public sealed class PlayerMovementTestScope : LifetimeScope
+{
+    [SerializeField] private PlayerMovementTestInstaller _installer;
+
+    protected override void Configure(IContainerBuilder builder)
+    {
+        _installer.Install(builder);
+    }
+}
+
+// PlayerMovementTestInstaller.cs
+public sealed class PlayerMovementTestInstaller : MonoBehaviour
+{
+    [SerializeField] private PlayerConfiguration _config;
+
+    public void Install(IContainerBuilder builder)
+    {
+        builder.RegisterInstance(_config);
+        builder.Register<PlayerService>(Lifetime.Singleton).As<IPlayerService>();
+        // Use real services unless the scenario specifically needs a fake
+    }
+}
+```
+
+### Scene Setup Rules
+
+- Scene name: `[Feature]Test.unity` — matches the PlayMode test class name
+- TestBootstrap prefab must be the **first** object in hierarchy
+- All other GameObjects in the scene must be **prefab instances** (same rule as production scenes)
+- No AppScope, no persistent objects, no `DontDestroyOnLoad`
+- Scene must be added to **Build Settings** for CI compatibility
+
+### PlayMode Test Pattern
+
+```csharp
+[TestFixture]
+public class PlayerMovementTests
+{
+    private const string ScenePath = "TestScenes/PlayerMovementTest";
+
+    [UnitySetUp]
+    public IEnumerator SetUp()
+    {
+        yield return SceneManager.LoadSceneAsync(ScenePath, LoadSceneMode.Single);
+        yield return null; // one frame for VContainer to initialize
+    }
+
+    [UnityTest]
+    public IEnumerator Player_WhenMoveInputApplied_MovesInCorrectDirection()
+    {
+        // Arrange
+        var playerView = Object.FindFirstObjectByType<PlayerView>();
+        Assert.IsNotNull(playerView, "PlayerView not found in test scene");
+        var startPos = playerView.transform.position;
+
+        // Act
+        var container = LifetimeScope.Find<PlayerMovementTestScope>().Container;
+        var service = container.Resolve<IPlayerService>();
+        service.SetMoveInput(Vector2.right);
+        yield return new WaitForSeconds(0.3f);
+
+        // Assert
+        Assert.Greater(playerView.transform.position.x, startPos.x);
+    }
+
+    [UnityTearDown]
+    public IEnumerator TearDown()
+    {
+        yield return SceneManager.LoadSceneAsync("Assets/_Scenes/Empty.unity");
+    }
+}
+```
+
+### Rules
+
+| Rule | Reason |
+|------|--------|
+| One `TestBootstrap` per scene | Predictable initialization, no scope conflicts |
+| `TestScope` never extends `AppScope` | Isolation — tests must not depend on global state |
+| Real services unless scenario requires fake | Tests should catch real wiring bugs |
+| `[UnitySetUp]` / `[UnityTearDown]` mandatory | Clean state between tests |
+| One test class per scene | Naming stays 1:1 between scene and test file |
+| `Assert.IsNotNull` on every `FindFirstObjectByType` result | Fails fast with clear message instead of NullRef |
+| Add scene to Build Settings | CI compatibility |
+
+### What NOT to Test in Scene Tests
+
+- Pure C# logic (belongs in Edit Mode)
+- ECS Systems in isolation (use isolated World)
+- Things that can be constructor-injected (use Edit Mode + NSubstitute)
 
 ---
 
