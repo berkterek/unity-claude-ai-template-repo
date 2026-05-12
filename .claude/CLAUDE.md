@@ -82,7 +82,6 @@ Detailed coding standards in `.claude/rules/`:
 | Hook | Blocks |
 |------|--------|
 | `block-git-push.sh` | `git push` — Claude cannot push; user always pushes manually |
-| `block-git-commit.sh` | `git commit` — requires explicit user approval every time; use `/smart-commit` for guided workflow |
 | `block-scene-edit.sh` | Direct editing of `.unity`, `.prefab`, `.asset` files |
 | `guard-editor-runtime.sh` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` or `Games/Abstracts/` / `Games/Concretes/` (non-provider) |
@@ -386,6 +385,10 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `code-simplification` | Chesterton's Fence discipline for `/clean-slop` — understand before removing, behavior-preserving refactor |
 | `commit-trailers` | Conventional commit trailers — co-author, ticket links, sign-off |
 | `event-systems` | IEventBus patterns — pub/sub, struct events, subscribe/unsubscribe lifecycle |
+| `event-bus` | Project-specific IEventBus implementation — location, namespace, and code examples |
+| `logging` | Project-specific DLog pattern — logging implementation, location, and usage |
+| `save-load` | Project-specific SaveLoadSystem pattern — location, namespace, and usage |
+| `tdd-nsubstitute` | Project-specific TDD pattern — assembly structure, test templates, and mock rules |
 | `hud-statusline` | In-session status line rendering for pipeline progress |
 | `object-pooling` | ObjectPool<T> setup, return-to-pool patterns, warm-up |
 | `scriptable-objects` | ScriptableObject config authoring, CreateAssetMenu, validation |
@@ -445,6 +448,8 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `urp-quality-settings` | URP quality tiers (Low/Medium/High/Ultra), runtime asset swap, auto-detect, adaptive performance |
 | `urp-lighting-shadows` | Directional/point/spot lights, shadow cascades, bias tuning, light layers, light cookies, reflection probes |
 | `urp-post-processing` | Bloom, DOF, Motion Blur, SSAO, Tonemapping, Color Grading, Vignette — setup, values, runtime control |
+| `audio-mixer-mcp` | AudioMixer exposed parameters, AudioSource routing — configuration via MCP execute_code |
+| `srp-batcher-mcp` | SRP Batcher enable/verify, UI Raycast Target audit, post-processing Volume cleanup via MCP |
 
 ### Third-Party (`skills/third-party/`)
 
@@ -455,6 +460,15 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `textmeshpro` | Font assets, rich text, SDF materials, localization |
 | `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid |
 | `vcontainer` | Scope hierarchy, registration, lifecycle interfaces, DI failure diagnosis |
+
+### Plugins (`skills/plugins/`)
+
+| Skill | Covers |
+|-------|--------|
+| `odin-inspector` | Odin attribute'ları, custom drawer'lar, inspector özelleştirme |
+| `primetween` | PrimeTween kurulum, tween API, sequence ve UniTask entegrasyonu |
+| `r3` | R3 (Cysharp) Observable, Subject, ReactiveProperty ve UniTask entegrasyonu |
+| `unitask` | UniTask async/await, CancellationToken, PlayerLoop entegrasyonu |
 
 > Skills are read-only reference files. They inform Claude's decisions but do not execute code. The `/learn` command writes new skills to `skills/learned/` based on patterns extracted from your specific project.
 
