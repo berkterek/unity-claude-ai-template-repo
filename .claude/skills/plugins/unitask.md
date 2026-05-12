@@ -1,26 +1,26 @@
 ---
 name: unitask
-description: UniTask kullanım paterni — async/await, CancellationToken, PlayerLoop entegrasyonu ve yaygın hatalar
+description: UniTask usage pattern — async/await, CancellationToken, PlayerLoop integration, and common mistakes
 model-tier: normal
 ---
 
-# UniTask — Kullanım Paterni
+# UniTask — Usage Pattern
 
 ## Namespace
 ```csharp
 using Cysharp.Threading.Tasks;
 ```
 
-## Temel Kurallar (NON-NEGOTIABLE)
+## Core Rules (NON-NEGOTIABLE)
 
-- Coroutine (`IEnumerator`, `StartCoroutine`) yasak — her async iş `UniTask` ile yapılır
-- `async void` yasak — sadece `async UniTask` kullanılır
-- Her `async UniTask` metodu `CancellationToken` parametresi alır
-- Fire-and-forget için `.Forget()` kullanılır, `async void` değil
+- Coroutines (`IEnumerator`, `StartCoroutine`) are forbidden — all async work uses `UniTask`
+- `async void` is forbidden — use `async UniTask` only
+- Every `async UniTask` method takes a `CancellationToken` parameter
+- Use `.Forget()` for fire-and-forget — never `async void`
 
 ---
 
-## Metod İmzaları
+## Method Signatures
 
 ```csharp
 // GOOD
@@ -28,14 +28,14 @@ public async UniTask InitializeAsync(CancellationToken ct) { }
 public async UniTask<int> LoadScoreAsync(CancellationToken ct) { }
 
 // BAD
-public async void Initialize() { }        // async void — exception yutulur
-async Task Initialize() { }              // Task — Unity lifecycle entegrasyonu yok
-IEnumerator Initialize() { yield return; } // coroutine yasak
+public async void Initialize() { }        // async void — exceptions are swallowed
+async Task Initialize() { }              // Task — no Unity lifecycle integration
+IEnumerator Initialize() { yield return; } // coroutine — forbidden
 ```
 
 ---
 
-## CancellationToken Yönetimi
+## CancellationToken Management
 
 ### MonoBehaviour
 
@@ -44,13 +44,13 @@ public sealed class PlayerView : MonoBehaviour
 {
     private void Start()
     {
-        // this.GetCancellationTokenOnDestroy() — object yok edildiğinde otomatik cancel
+        // GetCancellationTokenOnDestroy() — auto-cancels when the object is destroyed
         LoadAsync(this.GetCancellationTokenOnDestroy()).Forget();
     }
 }
 ```
 
-### Plain C# Servis (IInitializable / IDisposable)
+### Plain C# Service (IInitializable / IDisposable)
 
 ```csharp
 public sealed class StoreService : IStoreService, IInitializable, IDisposable
@@ -73,36 +73,36 @@ public sealed class StoreService : IStoreService, IInitializable, IDisposable
 
 ---
 
-## Bekleme
+## Waiting
 
 ```csharp
-// Süre bekle
+// Wait for a duration
 await UniTask.Delay(TimeSpan.FromSeconds(1f), cancellationToken: ct);
 await UniTask.Delay(1000, cancellationToken: ct); // ms
 
-// Frame bekle
+// Wait for frames
 await UniTask.Yield();
 await UniTask.NextFrame();
 await UniTask.WaitForFixedUpdate();
 await UniTask.WaitForEndOfFrame(this);
 
-// Koşul bekle
+// Wait for a condition
 await UniTask.WaitUntil(() => _isReady, cancellationToken: ct);
 await UniTask.WaitWhile(() => _isLoading, cancellationToken: ct);
 ```
 
 ---
 
-## Paralel ve Sıralı Çalıştırma
+## Parallel and Sequential Execution
 
 ```csharp
-// Paralel — ikisi aynı anda çalışır, ikisi bitince devam eder
+// Parallel — both run simultaneously, continues when both finish
 await UniTask.WhenAll(LoadAudioAsync(ct), LoadDataAsync(ct));
 
-// İlk biten kazanır
+// First one to finish wins
 await UniTask.WhenAny(WaitForInputAsync(ct), TimeoutAsync(ct));
 
-// Sıralı
+// Sequential
 await LoadAudioAsync(ct);
 await LoadDataAsync(ct);
 ```
@@ -121,10 +121,10 @@ async void Initialize() { await ...; }
 
 ---
 
-## Addressables ile
+## With Addressables
 
 ```csharp
-// Raw .Task değil, .ToUniTask() kullanılır
+// Use .ToUniTask() — not raw .Task
 var prefab = await Addressables
     .LoadAssetAsync<GameObject>(address)
     .ToUniTask(cancellationToken: ct);
@@ -143,7 +143,7 @@ public async UniTask LoadAsync(CancellationToken ct)
     }
     catch (OperationCanceledException)
     {
-        // cancel normal akış — genellikle sessizce yutulur
+        // cancellation is normal flow — usually silently ignored
     }
     catch (Exception e)
     {
@@ -154,9 +154,9 @@ public async UniTask LoadAsync(CancellationToken ct)
 
 ---
 
-## Test Assembly'de
+## In Test Assemblies
 
-`[UnityTest]` Unity test runner'ın bir kısıtı — bu durumda `IEnumerator` zorunlu. Bu tek istisnadır:
+`[UnityTest]` requires `IEnumerator` due to Unity's test runner — this is the only exception:
 
 ```csharp
 [UnityTest]

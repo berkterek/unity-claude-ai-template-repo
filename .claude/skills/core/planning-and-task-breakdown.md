@@ -1,6 +1,6 @@
 ---
 name: planning-and-task-breakdown
-description: /create-plan ve /plan-workflow için görev ayrıştırma disiplini. Vertical slice, per-task acceptance criteria ve checkpoint'ler. Mevcut planlama pipeline'larını güçlendirir.
+description: Task decomposition discipline for /create-plan and /plan-workflow. Vertical slice, per-task acceptance criteria, and checkpoints. Enhances existing planning pipelines.
 model-tier: heavy
 ---
 

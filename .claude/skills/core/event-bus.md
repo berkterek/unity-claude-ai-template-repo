@@ -1,32 +1,32 @@
 ---
 name: event-bus
-description: IEventBus kullanım paterni — proje içindeki EventBus implementasyonu, konum, namespace ve kod örnekleri
+description: IEventBus usage pattern — project EventBus implementation, location, namespace, and code examples
 model-tier: normal
 ---
 
-# EventBus — Kullanım Paterni
+# EventBus — Usage Pattern
 
-## Konum
+## Location
 `Assets/_AssetFolders/_Framework/Events/`
 Assembly: `FrameworkEventBus` | Namespace: `Framework.Events`
 
-## Yapı
+## Structure
 
 ```
-IEvent         → tüm event struct'larının implement ettiği marker interface
+IEvent         → marker interface implemented by all event structs
 IEventBus      → Subscribe / Unsubscribe / Publish API
-EventBus       → sealed implementasyon, Dictionary<Type, List<object>> ile handler tutar
+EventBus       → sealed implementation, stores handlers in Dictionary<Type, List<object>>
 ```
 
-## Event Tanımlama
+## Defining Events
 
-Event'ler `readonly struct` olarak tanımlanır, `IEvent` implement eder, isim past-tense + `Event` suffix:
+Events are defined as `readonly struct`, implement `IEvent`, and follow the past-tense + `Event` suffix naming:
 
 ```csharp
-// Veri taşımayan event
+// Event with no data
 public struct PlayerDiedEvent : IEvent { }
 
-// Veri taşıyan event
+// Event with data
 public struct CoinsChangedEvent : IEvent
 {
     public readonly int NewAmount;
@@ -34,17 +34,17 @@ public struct CoinsChangedEvent : IEvent
 }
 ```
 
-Event dosyaları modüle özel `[Module]Events.cs` dosyasına konur — servislerin içine gömülmez.
+Event files go in a module-specific `[Module]Events.cs` file — not embedded inside service classes.
 
 ## Subscribe / Unsubscribe
 
-| Sınıf türü | Subscribe | Unsubscribe |
+| Class type | Subscribe | Unsubscribe |
 |------------|-----------|-------------|
 | Plain C# (`IInitializable`, `IDisposable`) | `Initialize()` | `Dispose()` |
-| MonoBehaviour (enable/disable olabilen) | `OnEnable()` | `OnDisable()` |
+| MonoBehaviour (can be enabled/disabled) | `OnEnable()` | `OnDisable()` |
 
 ```csharp
-// Plain C# servis
+// Plain C# service
 public void Initialize()  => _eventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
 public void Dispose()     => _eventBus.Unsubscribe<PlayerDiedEvent>(OnPlayerDied);
 
@@ -60,9 +60,9 @@ _eventBus.Publish(new PlayerDiedEvent());
 _eventBus.Publish(new CoinsChangedEvent(amount: 100));
 ```
 
-## VContainer Kaydı
+## VContainer Registration
 
-`IEventBus` AppScope'ta global olarak kayıtlı. Yeni modül eklerken yeniden kaydetme — sadece inject et:
+`IEventBus` is registered globally in AppScope. When adding a new module, do not re-register — just inject it:
 
 ```csharp
 public sealed class PlayerService : IPlayerService
@@ -72,16 +72,16 @@ public sealed class PlayerService : IPlayerService
 }
 ```
 
-## ECS Sistemlerinde Kullanım
+## Usage in ECS Systems
 
-ECS sistemleri VContainer injection alamaz. Bunun için `EventBusAccessor` static bridge kullanılır:
+ECS systems cannot receive VContainer injection. Use the `EventBusAccessor` static bridge instead:
 
 ```csharp
 EventBusAccessor.Instance.Publish(new EnemyDiedEvent { ... });
 ```
 
-## EventBus Davranışı
+## EventBus Behavior
 
-- Publish sırasında handler listesinin snapshot'ı alınır — iteration sırasında unsubscribe güvenlidir
-- Publish içindeki handler exception'ları yakalanır, `DLog.Error` ile loglanır, diğer handler'lar etkilenmez
-- Handler kalmayan event tipi otomatik olarak `_handlers` dictionary'den temizlenir
+- A snapshot of the handler list is taken during Publish — unsubscribing during iteration is safe
+- Exceptions thrown by handlers are caught, logged via `DLog.Error`, and do not affect other handlers
+- Event types with no remaining handlers are automatically removed from the `_handlers` dictionary

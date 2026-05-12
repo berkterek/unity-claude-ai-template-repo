@@ -1,6 +1,6 @@
 ---
 name: code-simplification
-description: /clean-slop için Chesterton's Fence disiplini. Kodu silmeden önce neden yazıldığını anla. Davranışı koruyarak karmaşıklığı azaltır.
+description: Chesterton's Fence discipline for /clean-slop. Understand why code was written before removing it. Reduces complexity while preserving behavior.
 model-tier: normal
 ---
 

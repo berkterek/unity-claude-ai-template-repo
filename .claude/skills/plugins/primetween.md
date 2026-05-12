@@ -1,20 +1,20 @@
 ---
 name: primetween
-description: PrimeTween kullanım paterni — kurulum, tween API'si, sequence ve UniTask entegrasyonu
+description: PrimeTween usage pattern — setup, tween API, sequences, and UniTask integration
 model-tier: normal
 ---
 
-# PrimeTween — Kullanım Paterni
+# PrimeTween — Usage Pattern
 
-## Kurulum Notu
-`Assets/Plugins/PrimeTween/` altında geliyor. Scripting Define Symbol olarak `PRIME_TWEEN_INSTALLED` gerekli.
-Kullanım sırasında `#if PRIME_TWEEN_INSTALLED` guard eklenmesi önerilir.
+## Installation Note
+Located at `Assets/Plugins/PrimeTween/`. Requires the `PRIME_TWEEN_INSTALLED` scripting define symbol.
+Add a `#if PRIME_TWEEN_INSTALLED` guard where needed.
 
 ```csharp
 using PrimeTween;
 ```
 
-## Temel Tween API
+## Core Tween API
 
 ```csharp
 // Position
@@ -38,35 +38,35 @@ Tween.Alpha(canvasGroup, targetAlpha, duration);
 Tween.Custom(startValue, endValue, duration, onValueChange: v => myField = v);
 ```
 
-## Ease ve Cycle
+## Ease and Cycles
 
 ```csharp
 Tween.Scale(transform, endScale, 0.3f, Ease.OutBack);
 Tween.Scale(transform, endScale, 0.2f, Ease.OutSine, cycles: 2, CycleMode.Yoyo);
-// CycleMode: Yoyo (gidip gelir), Restart (başa döner), Incremental
+// CycleMode: Yoyo (back and forth), Restart (resets to start), Incremental
 ```
 
-## TweenSettings ile Yapılandırma
+## TweenSettings for Configuration
 
 ```csharp
 var settings = new TweenSettings(duration: 0.4f, Ease.OutBack, endDelay: 0.1f);
 Tween.LocalPosition(transform, new TweenSettings<Vector3>(targetPos, settings));
 ```
 
-## Sequence — Zincirleme ve Gruplama
+## Sequence — Chaining and Grouping
 
 ```csharp
-// Chain: sıralı (bir bittikten sonra diğeri)
+// Chain: sequential (next starts after previous finishes)
 Sequence sequence = Tween.Scale(target, scaleA, 0.15f)
     .Chain(Tween.LocalPositionY(target, 1f, 0.3f))
     .Chain(Tween.LocalPositionY(target, 0f, 0.3f));
 
-// Group: paralel (aynı anda)
+// Group: parallel (all run at the same time)
 Sequence sequence = Sequence.Create()
     .Group(Tween.Scale(target, endScale, 0.3f))
     .Group(Tween.Alpha(canvasGroup, 0f, 0.3f));
 
-// Insert: belirli zamanda başlat
+// Insert: start at a specific time offset
 Sequence sequence = Sequence.Create();
 sequence.Insert(delay: 0.5f, Tween.Scale(target, endScale, 0.3f));
 ```
@@ -74,41 +74,41 @@ sequence.Insert(delay: 0.5f, Tween.Scale(target, endScale, 0.3f));
 ## Tween / Sequence Lifecycle
 
 ```csharp
-// Canlı mı kontrol et
+// Check if alive
 if (!tween.isAlive) { tween = Tween.Scale(...); }
 if (!sequence.isAlive) { sequence = Sequence.Create()...; }
 
-// Durdur
+// Stop
 tween.Stop();
 sequence.Stop();
 
-// Tamamla (sona atla)
+// Complete (jump to end)
 tween.Complete();
 
-// Duraklat / devam ettir
+// Pause / resume
 sequence.isPaused = true;
 sequence.isPaused = false;
 
-// İlerleme
-sequence.progressTotal = 0.5f; // 0-1 arası
+// Progress
+sequence.progressTotal = 0.5f; // 0–1
 ```
 
-## UniTask ile Await
+## Awaiting with UniTask
 
 ```csharp
-// await tween
+// await a tween
 await Tween.Scale(transform, endScale, 0.3f);
 
-// await sequence
+// await a sequence
 await sequence;
 ```
 
-Bu projede coroutine yasak olduğundan UniTask ile await kullanılır, `ToYieldInstruction()` kullanılmaz.
+Coroutines are forbidden in this project, so always await with UniTask — do not use `ToYieldInstruction()`.
 
-## Bu Projedeki Kurallar
+## Project Rules
 
-- Tween'ler View/Provider katmanında kullanılır — Service sınıflarında değil
-- Servis, animasyonu tetikler; View/Provider PrimeTween çağrılarını yapar
-- `Tween` ve `Sequence` alanları `private` field olarak saklanır, her frame yeni tween oluşturulmaz
-- `isAlive` kontrolü yapılmadan yeni tween başlatılmaz (üst üste binmeyi önler)
-- Capacity ayarı Awake'te yapılır: `PrimeTweenConfig.SetTweensCapacity(100)`
+- Tweens are used in View/Provider layer — not in Service classes
+- The service triggers the animation; View/Provider makes the PrimeTween calls
+- `Tween` and `Sequence` fields are stored as `private` fields — do not create new tweens every frame
+- Always check `isAlive` before starting a new tween to prevent overlapping animations
+- Set capacity in Awake: `PrimeTweenConfig.SetTweensCapacity(100)`

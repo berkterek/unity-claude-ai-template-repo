@@ -1,76 +1,76 @@
 ---
 name: save-load
-description: SaveLoadSystem kullanım paterni — proje içindeki kayıt/yükleme implementasyonu, konum, namespace ve kod örnekleri
+description: SaveLoadSystem usage pattern — project save/load implementation, location, namespace, and code examples
 model-tier: normal
 ---
 
-# SaveLoadSystem — Kullanım Paterni
+# SaveLoadSystem — Usage Pattern
 
-## Konum
+## Location
 `Assets/_AssetFolders/_Framework/SaveLoadSystems/`
 Assembly: `FrameworkSaveLoadSystems` | Namespace: `Framework.SaveLoadSystems`
 
-## Yapı
+## Structure
 
 ```
-ISaveLoadDal       → storage erişim soyutlaması (PlayerPrefs, cloud, db vb.)
-ISaveLoadService   → oyun kodunun kullandığı üst seviye API
-SaveLoadManager    → ISaveLoadService implementasyonu, ISaveLoadDal'a delege eder
-LocalSaveLoadDal   → ISaveLoadDal implementasyonu, PlayerPrefs + Newtonsoft.Json kullanır
+ISaveLoadDal       → storage access abstraction (PlayerPrefs, cloud, db, etc.)
+ISaveLoadService   → high-level API used by game code
+SaveLoadManager    → ISaveLoadService implementation, delegates to ISaveLoadDal
+LocalSaveLoadDal   → ISaveLoadDal implementation using PlayerPrefs + Newtonsoft.Json
 ```
 
-## VContainer Kaydı
+## VContainer Registration
 
 ```csharp
 builder.Register<LocalSaveLoadDal>(Lifetime.Singleton).As<ISaveLoadDal>();
 builder.Register<SaveLoadManager>(Lifetime.Singleton).As<ISaveLoadService>();
 ```
 
-Oyun kodunda her zaman `ISaveLoadService` inject edilir — `SaveLoadManager` veya `LocalSaveLoadDal` doğrudan kullanılmaz.
+Always inject `ISaveLoadService` in game code — never use `SaveLoadManager` or `LocalSaveLoadDal` directly.
 
-## Plain C# Verisi Kaydetme / Yükleme
+## Saving / Loading Plain C# Data
 
-`LocalSaveLoadDal` plain C# nesneleri için Newtonsoft.Json kullanır:
+`LocalSaveLoadDal` uses Newtonsoft.Json for plain C# objects:
 
 ```csharp
-// Kaydet
+// Save
 _saveLoadService.SaveDataProcess("player_coins", 500);
 _saveLoadService.SaveDataProcess("player_data", new PlayerData { Level = 3, Name = "Ali" });
 
-// Yükle
+// Load
 int coins = _saveLoadService.LoadDataProcess<int>("player_coins");
 PlayerData data = _saveLoadService.LoadDataProcess<PlayerData>("player_data");
 
-// Key kontrolü
+// Key check
 if (_saveLoadService.HasKeyAvailable("player_coins")) { }
 
-// Silme
+// Delete
 _saveLoadService.DeleteData("player_coins");
 ```
 
-## Unity Object Kaydetme / Yükleme
+## Saving / Loading Unity Objects
 
-Unity Object'leri (ScriptableObject vb.) için `JsonUtility` kullanılır:
+For Unity Objects (ScriptableObject etc.) `JsonUtility` is used:
 
 ```csharp
 _saveLoadService.SaveUnityObjectProcess("config", myScriptableObject);
 MyConfig loaded = _saveLoadService.LoadUnityObjectProcess<MyConfig>("config");
 ```
 
-## Yeni Storage Backend Ekleme
+## Adding a New Storage Backend
 
-`ISaveLoadDal`'ı implement eden yeni bir sınıf yaz (örn. `CloudSaveLoadDal`), VContainer kaydını güncelle. `SaveLoadManager` ve oyun kodu değişmez.
+Write a new class implementing `ISaveLoadDal` (e.g. `CloudSaveLoadDal`) and update the VContainer registration. `SaveLoadManager` and game code remain unchanged.
 
 ```csharp
 public class CloudSaveLoadDal : ISaveLoadDal
 {
-    // ISaveLoadDal metodlarını cloud API ile implement et
+    // implement ISaveLoadDal methods using cloud API
 }
 ```
 
 ## LogTag
 
-SaveLoad operasyonları `LogTag.SaveLoad` tag'i ile loglanır. Debug sırasında açmak için:
+SaveLoad operations are logged with `LogTag.SaveLoad`. To enable during debugging:
 
 ```csharp
 DLog.Enable(LogTag.SaveLoad);

@@ -1,6 +1,6 @@
 ---
 name: source-driven-development
-description: Unity API çağrısı yazmadan önce resmi Unity dökümanını fetch et ve kaynak URL'i belirt. URP, DOTS, Addressables, Input System gibi hızlı değişen API'ler için zorunludur.
+description: Fetch official Unity documentation before writing API calls and cite the source URL. Required for fast-changing APIs such as URP, DOTS, Addressables, and Input System.
 model-tier: normal
 ---
 

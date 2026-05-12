@@ -1,32 +1,32 @@
 ---
 name: odin-inspector
-description: Odin Inspector kullanım paterni — attribute'lar, custom drawer'lar ve inspector özelleştirme örnekleri
+description: Odin Inspector usage pattern — attributes, custom drawers, and inspector customization examples
 model-tier: normal
 ---
 
-# Odin Inspector (Sirenix) — Kullanım Paterni
+# Odin Inspector (Sirenix) — Usage Pattern
 
-## Konum
-`Assets/Plugins/Sirenix/` — DLL tabanlı, kaynak kodu yok.
+## Location
+`Assets/Plugins/Sirenix/` — DLL-based, no source code.
 
 ```csharp
 using Sirenix.OdinInspector;
 ```
 
-## Inspector Attribute'ları
+## Inspector Attributes
 
-### Görünürlük ve Düzenleme
+### Visibility and Editing
 
 ```csharp
-[ShowInInspector]          // property veya private field'ı inspector'da göster (serialize etmez)
-[HideInInspector]          // public field'ı inspector'dan gizle
-[ReadOnly]                 // inspector'da göster ama düzenlemeyi engelle
-[ShowIf("_isEnabled")]     // koşullu göster
-[HideIf("_isEnabled")]     // koşullu gizle
-[EnableIf("_isEnabled")]   // koşullu aktifleştir
+[ShowInInspector]          // show a property or private field in the inspector (does not serialize)
+[HideInInspector]          // hide a public field from the inspector
+[ReadOnly]                 // show in inspector but prevent editing
+[ShowIf("_isEnabled")]     // conditionally show
+[HideIf("_isEnabled")]     // conditionally hide
+[EnableIf("_isEnabled")]   // conditionally enable
 ```
 
-### Gruplama ve Layout
+### Grouping and Layout
 
 ```csharp
 [FoldoutGroup("Settings")]
@@ -47,11 +47,11 @@ using Sirenix.OdinInspector;
 [SerializeField] private AudioClip _clip;
 ```
 
-### Validasyon
+### Validation
 
 ```csharp
-[Required]                              // null olamaz, inspector'da uyarı gösterir
-[ValidateInput("IsPositive", "Pozitif olmalı")]
+[Required]                              // cannot be null, shows warning in inspector
+[ValidateInput("IsPositive", "Must be positive")]
 private float _speed;
 private bool IsPositive(float value) => value > 0;
 
@@ -59,25 +59,25 @@ private bool IsPositive(float value) => value > 0;
 [MaxValue(100)]
 [SerializeField] private float _health;
 
-[AssetsOnly]    // sadece project asset'i kabul et
-[SceneObjectsOnly]  // sadece sahnedeki object'i kabul et
+[AssetsOnly]        // only accepts project assets
+[SceneObjectsOnly]  // only accepts scene objects
 ```
 
-### Buton
+### Buttons
 
 ```csharp
 [Button]
 private void ResetStats() { }
 
-[Button("Sıfırla", ButtonSizes.Large)]
+[Button("Reset All", ButtonSizes.Large)]
 private void ResetAll() { }
 
 [Button]
-[GUIColor(1f, 0.5f, 0.5f)]   // kırmızımsı buton
+[GUIColor(1f, 0.5f, 0.5f)]   // reddish button
 private void DeleteData() { }
 ```
 
-### Değer Dropdown
+### Value Dropdown
 
 ```csharp
 [ValueDropdown("GetOptions")]
@@ -86,7 +86,7 @@ private void DeleteData() { }
 private IEnumerable<string> GetOptions() => new[] { "Option A", "Option B", "Option C" };
 ```
 
-### Range ve Progress
+### Range and Progress
 
 ```csharp
 [ProgressBar(0, 100)]
@@ -96,17 +96,17 @@ private IEnumerable<string> GetOptions() => new[] { "Option A", "Option B", "Opt
 [SerializeField] private float _volume;
 ```
 
-### Info Kutuları
+### Info Boxes
 
 ```csharp
-[InfoBox("Bu alan çok önemli!")]
-[InfoBox("Dikkat: negatif değer girme!", InfoMessageType.Warning)]
-[InfoBox("Hata!", InfoMessageType.Error)]
+[InfoBox("This field is important!")]
+[InfoBox("Warning: do not enter negative values!", InfoMessageType.Warning)]
+[InfoBox("Error!", InfoMessageType.Error)]
 ```
 
-## ScriptableObject ile Kullanım
+## Usage with ScriptableObjects
 
-Bu projede ScriptableObject config sınıflarında Odin attribute'ları kullanılır:
+Odin attributes are used on ScriptableObject config classes in this project:
 
 ```csharp
 [CreateAssetMenu(menuName = "Hospital/Player Configuration")]
@@ -130,10 +130,10 @@ public sealed class PlayerConfiguration : ScriptableObject
 }
 ```
 
-## Bu Projedeki Kurallar
+## Project Rules
 
-- Odin attribute'ları sadece inspector organizasyonu ve validasyon için kullanılır — runtime logic'e karışmaz
-- `[ShowInInspector]` sadece debug/monitor amacıyla kullanılır, serialize etmez
-- `[Required]` tüm ScriptableObject referanslarına eklenir — null config'i önceden yakalar
-- `[Button]` sadece Editor context'te anlamlı işlemler için (reset, test vb.)
-- Runtime kodunda Odin namespace import'u `#if UNITY_EDITOR` guard'ı gerektirmez (Odin runtime DLL'leri var)
+- Odin attributes are used only for inspector organization and validation — they do not affect runtime logic
+- `[ShowInInspector]` is used for debug/monitor purposes only; it does not serialize
+- `[Required]` is added to all ScriptableObject references — catches null configs early
+- `[Button]` is only for editor-context operations (reset, test, etc.)
+- Odin namespace imports in runtime code do not require a `#if UNITY_EDITOR` guard (Odin ships runtime DLLs)

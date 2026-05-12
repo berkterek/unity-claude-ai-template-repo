@@ -1,37 +1,37 @@
 ---
 name: tdd-nsubstitute
-description: TDD ve NSubstitute kullanım paterni — proje assembly yapısı, test şablonları ve mock kuralları
+description: TDD and NSubstitute usage pattern — project assembly structure, test templates, and mock rules
 model-tier: normal
 ---
 
-# TDD ve NSubstitute — Kullanım Paterni
+# TDD and NSubstitute — Usage Pattern
 
-## Assembly Yapısı
+## Assembly Structure
 
 ```
 Tests/
-├── HospitalEditModeTests/   → Edit Mode, pure C# logic, NSubstitute mock
+├── HospitalEditModeTests/   → Edit Mode, pure C# logic, NSubstitute mocks
 │   └── HospitalEditModeTests.asmdef
 └── HospitalPlayModelTests/  → Play Mode, MonoBehaviour lifecycle, ECS World
     └── HospitalPlayModelTests.asmdef
 ```
 
-Her iki asmdef'te `overrideReferences: true` ve `precompiledReferences` altında:
+Both asmdefs require `overrideReferences: true` and the following under `precompiledReferences`:
 - `nunit.framework.dll`
 - `NSubstitute.dll`
 
 ---
 
-## Test Dosyası Kuralları
+## Test File Rules
 
-- Dosya adı: `[TestedClass]Tests.cs` — örn. `PlayerServiceTests.cs`
-- Sınıf adı dosya adıyla aynı, `public` ve `sealed` değil
-- Unity'nin default scaffold'u (`first_test_editmodel.cs`, `first_playmode_test.cs`) silinir
-- Her sınıf için ayrı test dosyası — birden fazla sınıfı tek dosyada test etme
+- File name: `[TestedClass]Tests.cs` — e.g. `PlayerServiceTests.cs`
+- Class name matches the file name, `public` (not `sealed`)
+- Delete Unity's default scaffold files (`first_test_editmodel.cs`, `first_playmode_test.cs`)
+- One test file per class — do not test multiple classes in a single file
 
 ---
 
-## Test Metod Adlandırma
+## Test Method Naming
 
 ```
 MethodName_WhenCondition_ExpectedBehavior
@@ -46,9 +46,9 @@ MethodName_WhenCondition_ExpectedBehavior
 
 ---
 
-## AAA Pattern (Zorunlu)
+## AAA Pattern (Mandatory)
 
-Her test `// Arrange`, `// Act`, `// Assert` yorumlarıyla bölümlenir:
+Every test is divided with `// Arrange`, `// Act`, `// Assert` comments:
 
 ```csharp
 [Test]
@@ -68,58 +68,58 @@ public void TakeDamage_WhenDamageExceedsHealth_SetsHealthToZero()
 
 ---
 
-## NSubstitute — Temel Kullanım
+## NSubstitute — Basic Usage
 
-### Mock Oluşturma
+### Creating Mocks
 
 ```csharp
-// SADECE interface mock'lanır — concrete class değil
+// ONLY interfaces are mocked — concrete classes are forbidden
 var eventBus   = Substitute.For<IEventBus>();
 var saveLoad   = Substitute.For<ISaveLoadService>();
 var spawner    = Substitute.For<IEnemySpawner>();
 
-// BAD — concrete mock yasak
+// BAD — concrete mock is forbidden
 var service = Substitute.For<PlayerService>();
 ```
 
-### Return Değeri Tanımlama
+### Configuring Return Values
 
 ```csharp
 saveLoad.LoadDataProcess<int>("coins").Returns(100);
 saveLoad.HasKeyAvailable("coins").Returns(true);
 
-// Exception fırlat
+// Throw an exception
 saveLoad.When(x => x.SaveDataProcess(Arg.Any<string>(), Arg.Any<object>()))
         .Do(_ => throw new IOException());
 ```
 
-### Çağrı Doğrulama
+### Verifying Calls
 
 ```csharp
-// Tam olarak 1 kez çağrıldı mı
+// Called exactly once
 eventBus.Received(1).Publish(Arg.Any<PlayerDiedEvent>());
 
-// Hiç çağrılmadı mı
+// Never called
 eventBus.DidNotReceive().Publish(Arg.Any<LevelWonEvent>());
 
-// En az 1 kez
+// Called at least once
 eventBus.Received().Publish(Arg.Any<CoinsChangedEvent>());
 
-// Spesifik argümanla çağrıldı mı
+// Called with a specific argument
 eventBus.Received(1).Publish(Arg.Is<CoinsChangedEvent>(e => e.NewAmount == 100));
 ```
 
 ### Arg Matchers
 
 ```csharp
-Arg.Any<int>()              // herhangi bir int
-Arg.Is<int>(x => x > 0)    // koşulu sağlayan int
-Arg.Is("specific-key")      // tam eşleşme
+Arg.Any<int>()              // any int
+Arg.Is<int>(x => x > 0)    // int satisfying a condition
+Arg.Is("specific-key")      // exact match
 ```
 
 ---
 
-## Edit Mode Test Şablonu
+## Edit Mode Test Template
 
 ```csharp
 using NSubstitute;
@@ -143,7 +143,6 @@ public class PlayerServiceTests
     [TearDown]
     public void TearDown()
     {
-        // IDisposable ise dispose et
         (_sut as System.IDisposable)?.Dispose();
     }
 
@@ -178,7 +177,7 @@ public class PlayerServiceTests
 
 ---
 
-## Play Mode Test Şablonu (ECS)
+## Play Mode Test Template (ECS)
 
 ```csharp
 using NUnit.Framework;
@@ -193,7 +192,7 @@ public class EnemyMoveSystemTests
     [SetUp]
     public void SetUp()
     {
-        // Her test kendi izole World'ünü oluşturur
+        // Each test creates its own isolated World
         _world = World.CreateWorld("TestWorld");
     }
 
@@ -224,38 +223,38 @@ public class EnemyMoveSystemTests
 
 ---
 
-## Neyin Test Edildiği / Edilmediği
+## What to Test / Not Test
 
-| Katman | Test türü | Araç |
-|--------|-----------|------|
-| `Games/Abstracts/` (interface, abstract) | Edit Mode | NUnit + NSubstitute |
-| `Games/Concretes/` (servisler) | Edit Mode | NUnit + NSubstitute |
+| Layer | Test type | Tool |
+|-------|-----------|------|
+| `Games/Abstracts/` (interfaces, abstract) | Edit Mode | NUnit + NSubstitute |
+| `Games/Concretes/` (services) | Edit Mode | NUnit + NSubstitute |
 | `Games/Ecs/Systems/` | Play Mode | NUnit + ECS World |
-| `Games/Ecs/Components/` | Test gerekmez | — veri struct'ı |
-| `Games/Ecs/Authorings/` | Test gerekmez | — bake-time |
-| MonoBehaviour View'ları | Test gerekmez | — ince adapter |
+| `Games/Ecs/Components/` | No test needed | — data struct |
+| `Games/Ecs/Authorings/` | No test needed | — bake-time |
+| MonoBehaviour Views | No test needed | — thin adapters |
 
 ---
 
-## Sık Yapılan Hatalar
+## Common Mistakes
 
 ```csharp
-// 1. Concrete mock — YANLIŞ
-var service = Substitute.For<PlayerService>(); // yasak
+// 1. Concrete mock — WRONG
+var service = Substitute.For<PlayerService>(); // forbidden
 
-// 2. AAA yorumları eksik — YANLIŞ
+// 2. Missing AAA comments — WRONG
 [Test]
 public void Test()
 {
     var sut = new PlayerService(Substitute.For<IEventBus>());
     sut.TakeDamage(10);
-    Assert.AreEqual(90, sut.Health); // hangi bölüm ne?
+    Assert.AreEqual(90, sut.Health); // which section is this?
 }
 
-// 3. ECS testinde default World kullanmak — YANLIŞ
+// 3. Using the default World in ECS tests — WRONG
 var system = World.DefaultGameObjectInjectionWorld.GetOrCreateSystem<EnemyMoveSystem>();
 
-// 4. Test metodunda belirsiz isim — YANLIŞ
+// 4. Unclear test method names — WRONG
 [Test] public void TestDamage() { }
 [Test] public void Test1() { }
 ```

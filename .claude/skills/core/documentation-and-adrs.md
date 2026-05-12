@@ -1,6 +1,6 @@
 ---
 name: documentation-and-adrs
-description: Mimari kararları ADR (Architecture Decision Record) olarak kaydet. /adr komutuyla tetiklenir. Neden VContainer, neden struct event, neden UniTask gibi kararları docs/decisions/ klasörüne yazar.
+description: Record architectural decisions as ADRs (Architecture Decision Records). Triggered by the /adr command. Writes decisions such as why VContainer, why struct events, why UniTask to docs/decisions/.
 model-tier: normal
 ---
 

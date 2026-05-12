@@ -1,56 +1,56 @@
 ---
 name: logging
-description: DLog kullanım paterni — proje içindeki logging implementasyonu, konum, namespace ve kod örnekleri
+description: DLog usage pattern — project logging implementation, location, namespace, and code examples
 model-tier: normal
 ---
 
-# DLog — Kullanım Paterni
+# DLog — Usage Pattern
 
-## Konum
+## Location
 `Assets/_AssetFolders/_Framework/Logging/`
 Assembly: `FramworkLogging` | Namespace: `Framework.Logging`
 
-## Yapı
+## Structure
 
 ```
-LogTag    → enum, hangi sistemin log attığını belirtir
-DLog      → static wrapper, [Conditional] ile production'da sıfır maliyet
+LogTag    → enum, identifies which system is logging
+DLog      → static wrapper, zero cost in production via [Conditional]
 ```
 
-## Mevcut LogTag'ler
+## Available LogTags
 
 ```csharp
 public enum LogTag
 {
-    General,   // genel amaçlı
-    EventBus,  // EventBus subscribe/publish logları
-    SaveLoad   // kayıt/yükleme operasyonları
+    General,   // general purpose
+    EventBus,  // EventBus subscribe/publish logs
+    SaveLoad   // save/load operations
 }
 ```
 
-Yeni bir sistem eklendiğinde `LogTag` enum'una o sisteme ait tag eklenir.
+When adding a new system, add a corresponding tag to the `LogTag` enum.
 
-## Kullanım
-
-```csharp
-DLog.Log(LogTag.General, "Mesaj");
-DLog.Warning(LogTag.SaveLoad, "Uyarı mesajı");
-DLog.Error(LogTag.EventBus, "Hata mesajı");
-```
-
-## Tag Aktifleştirme / Deaktifleştirme
-
-Varsayılan olarak sadece `LogTag.General` aktif. Diğer tag'leri runtime'da açıp kapatmak için:
+## Usage
 
 ```csharp
-DLog.Enable(LogTag.EventBus);   // EventBus loglarını aç
-DLog.Disable(LogTag.EventBus);  // EventBus loglarını kapat
+DLog.Log(LogTag.General, "Message");
+DLog.Warning(LogTag.SaveLoad, "Warning message");
+DLog.Error(LogTag.EventBus, "Error message");
 ```
 
-Bu sayede sadece debug ettiğin sisteme ait logları görebilirsin.
+## Enabling / Disabling Tags
 
-## Önemli Davranış
+By default only `LogTag.General` is active. To enable or disable other tags at runtime:
 
-- Tüm metodlar `[Conditional("UNITY_EDITOR")]` ve `[Conditional("DEVELOPMENT_BUILD")]` ile işaretli
-- Production build'lerde (`DEVELOPMENT_BUILD` olmayan) tüm DLog çağrıları derleme sırasında kaldırılır — runtime maliyeti sıfır
-- `Debug.Log` yerine doğrudan `DLog` kullanılır, production'da log kalmaz
+```csharp
+DLog.Enable(LogTag.EventBus);   // enable EventBus logs
+DLog.Disable(LogTag.EventBus);  // disable EventBus logs
+```
+
+This lets you see only the logs for the system you are currently debugging.
+
+## Important Behavior
+
+- All methods are marked with `[Conditional("UNITY_EDITOR")]` and `[Conditional("DEVELOPMENT_BUILD")]`
+- In production builds (without `DEVELOPMENT_BUILD`) all DLog calls are stripped at compile time — zero runtime cost
+- Use `DLog` instead of `Debug.Log` directly so no logs leak into production
