@@ -56,9 +56,19 @@ For each auto-fixable issue:
 
 ### Step 4: Test
 
-If MCP is available:
+Read and apply `.claude/skills/core/mcp-preflight.md` before calling any MCP tool.
+
+**State 1 (connected):**
 - Call `read_console` to check for compilation errors
 - If `run_tests` is available, run the test suite
+
+**State 2 (disconnected):**
+- Fall back to dotnet CLI: `dotnet build` for compile check, `dotnet test` for test run
+- Note in the report that MCP was unavailable and CLI was used
+
+**State 3 (not installed):**
+- Fall back to dotnet CLI silently
+- Note in the report that MCP tools were absent
 
 If tests fail due to a fix you just made, **revert that specific fix** and flag it for human review.
 

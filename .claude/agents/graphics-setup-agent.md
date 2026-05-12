@@ -20,6 +20,16 @@ Before touching any asset, read:
 
 ---
 
+## Step 0 — MCP Preflight
+
+Read and apply `.claude/skills/core/mcp-preflight.md`.
+
+- **State 1** (connected) → continue
+- **State 2** (disconnected) → report BLOCKED: "MCP disconnected — cannot create URP assets. Open Unity Editor, activate MCP plugin, and retry."
+- **State 3** (not installed) → report BLOCKED with the same message; URP asset creation requires MCP
+
+---
+
 ## Step 1 — Ensure Folder Exists
 
 ```

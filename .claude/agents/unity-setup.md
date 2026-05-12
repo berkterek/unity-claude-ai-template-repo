@@ -123,18 +123,21 @@ This is a critical setup step. Games ship broken when input is not wired. Follow
 - Callbacks not subscribed (subscribed in Awake instead of OnEnable)
 - VContainer can't find InputView (not registered in LifetimeScope)
 
-## Unity MCP Usage
+## MCP Availability
 
-When Unity MCP tools are available, use them to:
-- Create and modify GameObjects in the scene
-- Add and configure components
-- Create and configure prefabs
-- Run the game for testing
-- Check for errors in the console
+Before calling any `mcp__unityMCP__*` tool, read and apply `.claude/skills/core/mcp-preflight.md`.
 
-When Unity MCP is NOT available, generate:
-- Editor scripts that set up the scene programmatically
-- A setup guide document listing all manual steps needed
+**State 1 (connected):** Use MCP tools to create GameObjects, add components, configure prefabs, run the game, and check the console.
+
+**State 2 (disconnected):** Stop immediately. Report BLOCKED with:
+```
+⛔ MCP disconnected — cannot perform Unity Editor operations.
+Open Unity Editor, activate the MCP plugin, and retry.
+```
+
+**State 3 (not installed):** Switch to code-only mode silently. Generate:
+- Editor scripts that set up the scene programmatically (menu item: `Tools/Setup/<TaskName>`)
+- A numbered manual steps document: exact menu paths, drag-drop instructions, field values to set
 
 ## MonoBehaviour Adapter Pattern
 
