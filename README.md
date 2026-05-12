@@ -237,8 +237,8 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-pure-csharp` | `using UnityEngine` inside `_Framework/` or service classes in `Abstracts/Concretes/` |
 | `check-input-system` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
-| `guard-critical-files` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation |
-| `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` |
+| `guard-critical-files` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — exception: files under `TestScopes/` or `Tests/` |
+| `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exception: test assemblies (`PlayTests`, `EditTests`, `.Tests`) |
 | `gateguard` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 
 ### Warnings (logged to stderr, does not block)
@@ -391,7 +391,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
 | `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
-| `unity-test-scene-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test-scene` |
+| `unity-test-scene-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test-scene` — spawned as `unity-scene-builder` (FleetView) with embedded instructions |
 | `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
 
 ---
@@ -610,6 +610,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `serialization-safety` | FormerlySerializedAs, SerializeReference, Unity null semantics |
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns for real MonoBehaviour and prefab integration tests |
+| `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed. Used by all MCP-dependent pipeline commands before spawning agents |
 
 ### Gameplay (`skills/gameplay/`)
 
