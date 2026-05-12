@@ -19,9 +19,21 @@ If no argument is given, ask: "What needs to be implemented?"
 
 ---
 
-## Step 0 — Complexity Scoring
+## Step 0 — MCP Preflight
 
-**Step 0a — Read Review Mode**
+Read and apply `.claude/skills/core/mcp-preflight.md`.
+
+- **State 1** (connected) → continue; unity-verifier will use MCP for compile + test checks
+- **State 2** (disconnected) → stop; offer to run pipeline without MCP validation (Steps 2.5 and 3.5 will fall back to dotnet CLI)
+- **State 3** (not installed) → continue in code-only mode; Steps 2.5 and 3.5 use dotnet CLI fallback automatically
+
+---
+
+## Step 0a — Complexity Scoring
+
+**Step 0b — Read Review Mode**
+
+**Step 0b — Read Review Mode**
 
 Read `production/review-mode.txt` (default: `lean` if file missing). This controls pipeline depth:
 

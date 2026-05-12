@@ -21,7 +21,17 @@ If no argument is given, ask: "Which platform? (mobile / pc)"
 
 ---
 
-## Step 0 — Parse Argument
+## Step 0 — MCP Preflight
+
+Read and apply `.claude/skills/core/mcp-preflight.md`.
+
+- **State 1** (connected) → continue
+- **State 2** (disconnected) → stop; this command requires MCP to create URP assets. Print: "Open Unity Editor, activate the MCP plugin, and run `/graphics-setup` again."
+- **State 3** (not installed) → stop with the same message; URP asset creation cannot be done without MCP
+
+---
+
+## Step 0a — Parse Argument
 
 ```
 $PLATFORM = $ARGUMENTS (mobile | pc)

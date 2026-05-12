@@ -17,10 +17,20 @@ If no argument is given, scan ALL `.unity` files under `Assets/_Scene/`.
 
 ---
 
+## Step 0 — MCP Preflight
+
+Read and apply `.claude/skills/core/mcp-preflight.md`.
+
+- **State 1** (connected) → continue
+- **State 2** (disconnected) → stop; scene inspection and prefab creation require MCP. Print: "Open Unity Editor, activate the MCP plugin, and run `/create-prefab-scene` again."
+- **State 3** (not installed) → stop with the same message; all steps depend on MCP scene queries
+
+---
+
 ## Pipeline
 
 ```
-[1] ANALYZER      → MCP ile sahneleri açar, hiyerarşiyi + componentleri sorgular
+[1] ANALYZER      → Opens scenes via MCP, queries hierarchy + components
 [2] PLANNER       → builds PrefabInventory.md (what to create, what's a variant)
 [3] UNITY-SETUP   → creates prefabs via MCP following prefab rules
 [4] UNITY-DEV     → reviews prefab structure (prefab rules 8-10)

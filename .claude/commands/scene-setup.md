@@ -11,9 +11,21 @@ Sets up a new scene or prefab: coder writes the C# scripts, unity-setup wires ev
 
 If no argument is given, ask: "What needs to be set up in the scene?"
 
-## Step 0 — Complexity Scoring
+## Step 0 — MCP Preflight
 
-**Step 0a — Read Review Mode**
+Read and apply `.claude/skills/core/mcp-preflight.md`.
+
+- **State 1** (connected) → continue to complexity scoring
+- **State 2** (disconnected) → stop; offer to run code-only (skip unity-setup step 1b, list manual wiring steps instead)
+- **State 3** (not installed) → skip Step 1b entirely; after coder completes, print manual wiring checklist
+
+---
+
+## Step 0a — Complexity Scoring
+
+**Step 0b — Read Review Mode**
+
+**Step 0b — Read Review Mode**
 
 Read `production/review-mode.txt` (default: `lean` if file missing). This controls pipeline depth:
 
