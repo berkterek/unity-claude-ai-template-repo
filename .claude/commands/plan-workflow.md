@@ -58,7 +58,7 @@ For each task, define:
 - **Description**: Detailed implementation instructions referencing specific TDD sections
 - **Acceptance Criteria**: Exact, verifiable conditions for "done"
 - **Estimated Complexity**: `S` (< 100 LOC) | `M` (100-300 LOC) | `L` (300-600 LOC) | `XL` (600+ LOC, should be split)
-- **Parallelism Group**: Which tasks can run simultaneously with this one
+- **parallel_group**: Integer (1, 2, 3…) if this task can run simultaneously with other tasks in the same group; `—` if sequential. See Parallel Group Rules below.
 
 ### Step 4: Agent Team Plan
 Based on task analysis, recommend:
@@ -66,6 +66,24 @@ Based on task analysis, recommend:
 - Number of tester agents needed per phase
 - Review checkpoints (after which tasks should reviewer run?)
 - Unity MCP setup scheduling
+
+### Parallel Group Rules
+
+Apply these rules when assigning `parallel_group` numbers:
+
+1. **Compile-time dependency (most important):** If Task B's code references a type, interface, or method that Task A *introduces* (even in a different file), Task B MUST be sequential after Task A — different files ≠ safe to parallelize when there is a type dependency.
+   - Example: Task A creates `IEnemyService.cs`, Task B creates `EnemyService.cs` that implements `IEnemyService` → Task B is sequential after Task A.
+2. **File write conflict:** If two tasks write to the same file → they MUST be sequential.
+3. **Independent:** If two tasks write to entirely different files AND neither references types introduced by the other → assign the same integer `parallel_group` number.
+4. Tasks with no parallel candidate get `—`.
+
+**Format required by `/orchestrate`** — use integer column, NOT string labels like `P1-A`:
+
+| parallel_group | Meaning |
+|---------------|---------|
+| `1` | Can run simultaneously with other group-1 tasks |
+| `2` | Can run simultaneously with other group-2 tasks |
+| `—` | Sequential (no parallel candidate or has a dependency) |
 
 ### Step 5: Risk Assessment
 Identify:
@@ -129,7 +147,7 @@ Mermaid diagram syntax for visualization.
   - [ ] Zero allocation on Publish (pre-allocated lists)
   - [ ] Thread-safe if required by TDD
 - **Complexity:** M
-- **Parallel Group:** P1-A (can run with P1.T2, P1.T3)
+- **parallel_group:** 1
 
 #### P1.T2: [Next Task]
 ...
