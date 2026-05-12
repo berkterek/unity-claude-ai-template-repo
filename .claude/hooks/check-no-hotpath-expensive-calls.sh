@@ -19,8 +19,9 @@ trap '_hook_log $?' EXIT
 # --- End Hook Audit Logging ---
 # Hook: Warns if expensive Unity calls are used inside hot path methods
 # Expensive: GetComponent, Camera.main, FindObjectOfType, FindObjectsOfType,
-#            transform (field access as property), tag == "..."
-# Hot paths: Update, FixedUpdate, LateUpdate, Tick, Execute, OnUpdate
+#            bare transform property, tag == "...", SendMessage
+# Hot paths: Update, FixedUpdate, LateUpdate, Tick, FixedTick, LateTick,
+#            Execute, OnUpdate, Process
 
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
@@ -41,25 +42,28 @@ fi
 STRIPPED=$(sed 's|//.*||g; s/"[^"]*"/""/g' "$FILE_PATH" 2>/dev/null)
 
 # Find hot path method bodies (line numbers of method declarations)
-HOT_METHOD_LINES=$(echo "$STRIPPED" | grep -nE "(void|IEnumerator|UniTask)\s+(Update|FixedUpdate|LateUpdate|Tick|Execute|OnUpdate|Process)\s*\(" | cut -d: -f1)
+HOT_METHOD_LINES=$(echo "$STRIPPED" | grep -nE "(void|IEnumerator|UniTask)\s+(Update|FixedUpdate|LateUpdate|Tick|FixedTick|LateTick|Execute|OnUpdate|Process)\s*\(" | cut -d: -f1)
 
 if [ -z "$HOT_METHOD_LINES" ]; then
     exit 0
 fi
 
+# Check if file has a cached _transform field declared at class level
+HAS_CACHED_TRANSFORM=$(grep -cE "private\s+(readonly\s+)?Transform\s+_transform\b" "$FILE_PATH" 2>/dev/null)
+
 WARNINGS=""
 
 for METHOD_LINE in $HOT_METHOD_LINES; do
     # Extract method name for reporting
-    METHOD_NAME=$(echo "$STRIPPED" | sed -n "${METHOD_LINE}p" | grep -oE "(Update|FixedUpdate|LateUpdate|Tick|Execute|OnUpdate|Process)")
+    METHOD_NAME=$(echo "$STRIPPED" | sed -n "${METHOD_LINE}p" | grep -oE "(Update|FixedUpdate|LateUpdate|Tick|FixedTick|LateTick|Execute|OnUpdate|Process)")
 
     # Scan ~50 lines from method declaration (reasonable method body window)
     END_LINE=$((METHOD_LINE + 50))
     BODY=$(echo "$STRIPPED" | sed -n "${METHOD_LINE},${END_LINE}p")
 
     # Check for each expensive call pattern
-    if echo "$BODY" | grep -qE "GetComponent\s*(<|\()"; then
-        HITS=$(echo "$STRIPPED" | grep -n "GetComponent\s*(<|\()" | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
+    if echo "$BODY" | grep -qE "GetComponent\s*[<(]"; then
+        HITS=$(echo "$STRIPPED" | grep -nE "GetComponent\s*[<(]" | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
         WARNINGS="${WARNINGS}\n  [${METHOD_NAME}] GetComponent<T>() — cache in Awake instead:\n$(echo "$HITS" | sed 's/^/    Line /')"
     fi
 
@@ -79,8 +83,19 @@ for METHOD_LINE in $HOT_METHOD_LINES; do
     fi
 
     if echo "$BODY" | grep -qE "SendMessage\s*\(|BroadcastMessage\s*\("; then
-        HITS=$(echo "$STRIPPED" | grep -n "SendMessage\s*(\|BroadcastMessage\s*(" | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
+        HITS=$(echo "$STRIPPED" | grep -nE "SendMessage\s*\(|BroadcastMessage\s*\(" | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
         WARNINGS="${WARNINGS}\n  [${METHOD_NAME}] SendMessage/BroadcastMessage — slow reflection; use IEventBus or direct reference:\n$(echo "$HITS" | sed 's/^/    Line /')"
+    fi
+
+    # Bare transform property access: matches "transform." but not "_transform."
+    # Allow if class already has a cached _transform field
+    if [ "$HAS_CACHED_TRANSFORM" -eq 0 ]; then
+        if echo "$BODY" | grep -qE "(^|[^_a-zA-Z0-9])transform\."; then
+            HITS=$(echo "$STRIPPED" | grep -n -E "(^|[^_a-zA-Z0-9])transform\." | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
+            if [ -n "$HITS" ]; then
+                WARNINGS="${WARNINGS}\n  [${METHOD_NAME}] Bare transform property — cache it:\n    private Transform _transform;\n    void Awake() => _transform = transform;\n  Then use _transform in hot paths:\n$(echo "$HITS" | sed 's/^/    Line /')"
+            fi
+        fi
     fi
 done
 
