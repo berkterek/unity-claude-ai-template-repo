@@ -112,8 +112,11 @@ Do NOT truncate existing content.
 
 ## Step 3 — Reviewer
 
-First try **Codex** (`codex:rescue` subagent):
+Reviewer priority — try in order, fall back if unavailable:
+1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+2. Spawn Agent with `subagent_type: "claude"` (general reviewer)
 
+Reviewer prompt:
 ```
 Review the following plan update for a Unity project.
 
@@ -215,7 +218,7 @@ $PLAN_FILE
 
 Each parallel task subagent uses this same prompt with its specific task ID and title scoped in.
 
-After implementer finishes → spawn the **Reviewer** (Codex first, fall back to general-purpose) with:
+After implementer finishes → spawn the **Reviewer** using priority order (codex:codex-rescue → claude) with:
 
 ```
 Review the implementation of the following plan.

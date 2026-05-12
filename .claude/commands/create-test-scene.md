@@ -212,7 +212,10 @@ Check if `_GameFolders/Prefabs/TestBootstrap/TestBootstrap.prefab` exists.
 
 ## Step 5 — Review
 
-**Reviewer priority:** Try **unity-reviewer** first. If unavailable → **codex:rescue**. If also unavailable → review inline with Claude.
+**Reviewer priority — try in order, fall back if unavailable:**
+1. Spawn Agent with `subagent_type: "unity-reviewer"`
+2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+3. If both unavailable → review inline with Claude (no subagent)
 
 Spawn the reviewer with this prompt:
 

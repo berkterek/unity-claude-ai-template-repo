@@ -130,7 +130,10 @@ Capture as `$ROOT_CAUSE`, `$EVIDENCE`, `$PROPOSED_SOLUTION`, `$CONFIDENCE`.
 
 **Iteration counter starts at 1. Max 5 iterations.**
 
-**Reviewer priority:** First try **unity-reviewer** subagent. If unavailable → fall back to **Codex** (`codex:rescue`). If Codex is also unavailable → fall back to **reviewer** subagent.
+**Reviewer priority — try in order, fall back if unavailable:**
+1. Spawn Agent with `subagent_type: "unity-reviewer"`
+2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+3. Spawn Agent with `subagent_type: "claude"` (general reviewer)
 
 Spawn the reviewer with this prompt:
 

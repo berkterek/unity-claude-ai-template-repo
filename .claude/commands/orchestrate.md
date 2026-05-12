@@ -282,7 +282,10 @@ Exit.
 
 #### Step 3 — Reviewer
 
-First try **unity-reviewer** subagent. If unavailable or errors → fall back to **Codex** (`codex:rescue` subagent). If Codex also unavailable → fall back to **reviewer** subagent.
+Reviewer priority — try in order, fall back if unavailable:
+1. Spawn Agent with `subagent_type: "unity-reviewer"`
+2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+3. Spawn Agent with `subagent_type: "claude"` (general reviewer)
 
 **Reviewer prompt:**
 ```
@@ -340,7 +343,7 @@ On **CHANGES NEEDED** → automatically enter the review loop (no user prompt ne
    Report: DONE or BLOCKED with reason.
    ```
 
-2. Re-run the reviewer (unity-reviewer first, Codex second, fall back to reviewer agent) with the updated files.
+2. Re-run the reviewer using the same priority order (unity-reviewer → codex:codex-rescue → claude) with the updated files.
 
 3. If APPROVED → proceed to Step 3 (Committer).
 

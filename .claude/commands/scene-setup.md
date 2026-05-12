@@ -139,7 +139,10 @@ If BLOCKED → stop and show the user.
 
 ## Step 2 — Reviewer
 
-First try **unity-reviewer** subagent. If unavailable → fall back to **Codex** (`codex:rescue` subagent). If Codex also unavailable → fall back to **reviewer** subagent.
+Reviewer priority — try in order, fall back if unavailable:
+1. Spawn Agent with `subagent_type: "unity-reviewer"`
+2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+3. Spawn Agent with `subagent_type: "claude"` (general reviewer)
 
 ```
 Review this Unity scene setup implementation.
@@ -163,8 +166,6 @@ $UNITY_SETUP_OUTPUT
 ## Output Format
 APPROVED or CHANGES NEEDED with file:line issues.
 ```
-
-If Codex unavailable → fall back to **reviewer** subagent.
 
 ### Review Loop
 
@@ -190,7 +191,7 @@ Repeat until APPROVED or stopped (max 3 passes):
    Report: DONE or BLOCKED with reason.
    ```
 
-2. After coder fixes → re-run the reviewer (unity-reviewer first, Codex second, fall back to reviewer agent) with the updated files.
+2. After coder fixes → re-run the reviewer using the same priority order (unity-reviewer → codex:codex-rescue → claude) with the updated files.
 
 3. If APPROVED → proceed to Step 3.
 

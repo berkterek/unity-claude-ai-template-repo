@@ -147,8 +147,11 @@ If BLOCKED → stop and show the user.
 
 ## Step 3 — Reviewer
 
-First try **Codex** (`codex:rescue` subagent):
+Reviewer priority — try in order, fall back if unavailable:
+1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+2. Spawn Agent with `subagent_type: "claude"` (general reviewer)
 
+Reviewer prompt:
 ```
 Review this code migration.
 
@@ -169,8 +172,6 @@ $MIGRATOR_OUTPUT
 ## Output Format
 APPROVED or CHANGES NEEDED with file:line issues.
 ```
-
-If Codex unavailable → fall back to **reviewer** subagent.
 
 ### Review Loop
 
@@ -195,7 +196,7 @@ Repeat until APPROVED or stopped (max 3 passes):
    Report: DONE or BLOCKED with reason.
    ```
 
-2. After migrator fixes → re-run the reviewer (Codex first, fall back to reviewer agent) with the updated files.
+2. After migrator fixes → re-run the reviewer using the same priority order (codex:codex-rescue → claude) with the updated files.
 
 3. If APPROVED → proceed to Step 3.
 
