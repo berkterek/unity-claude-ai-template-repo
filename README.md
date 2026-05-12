@@ -247,6 +247,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 |------|--------------|
 | `check-naming-conventions` | Wrong field/type naming (underscore, PascalCase rules) |
 | `check-no-linq-hotpath` | LINQ inside `Update` / `FixedUpdate` / `LateUpdate` |
+| `check-no-hotpath-expensive-calls` | `GetComponent`, `Camera.main`, `FindObjectOfType`, `tag ==`, `SendMessage` inside hot path methods |
 | `check-no-runtime-instantiate` | `new GameObject()`, `Instantiate()`, `Destroy()` |
 | `check-test-exists` | Logic class with no matching test file |
 | `check-compile` | Basic C# syntax errors |
