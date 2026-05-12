@@ -107,7 +107,7 @@ Before executing tasks in a phase, check for `parallel_group` annotations in WOR
    ⚠ PARALLEL CONFLICT: [T1] and [T2] both write to [file]
    [T2] demoted to sequential. Running [T1] first.
    ```
-3. Execute tasks in the same group simultaneously. Each spawns its own full pipeline (test-writer → coder → verifier → reviewer).
+3. Execute tasks in the same group simultaneously. Each spawns its own full pipeline (tester → coder → verifier → reviewer).
 4. Wait for all tasks in the group to complete before starting the next group or sequential task.
 5. If any task in a group fails → stop the entire group. Report all failures. Do not proceed until user resolves.
 6. Commit all group outputs in a single commit after the group completes.
@@ -139,7 +139,7 @@ Each task runs four steps in sequence (TDD: tests first, then implementation). A
 
 If `Agent: unity-setup` → skip this step, go directly to Step 2.
 
-Spawn a **test-writer** subagent with this prompt:
+Spawn a **tester** subagent with this prompt:
 
 ```
 You are a senior C# Unity test engineer. Write failing unit tests BEFORE any implementation exists.
@@ -174,7 +174,7 @@ Fix this before continuing. Run /orchestrate to resume.
 Update PROGRESS.md with blocked status.
 Append to `docs/EVENTS.jsonl`:
 ```jsonl
-{"event":"TASK_BLOCKED","phase":[N],"task":[P],"id":"P{phase}.T{task}","step":"test-writer","reason":"[reason]","timestamp":"[ISO8601]"}
+{"event":"TASK_BLOCKED","phase":[N],"task":[P],"id":"P{phase}.T{task}","step":"tester","reason":"[reason]","timestamp":"[ISO8601]"}
 ```
 Exit.
 
@@ -198,7 +198,7 @@ Title: [task title]
 Description: [full task description from WORKFLOW.md]
 
 ## Existing Tests (make these pass)
-[test-writer output — list of test files and what they cover]
+[tester output — list of test files and what they cover]
 
 ## Input Files (read these first)
 [list every input file path]

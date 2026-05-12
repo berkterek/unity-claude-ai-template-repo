@@ -92,7 +92,7 @@ For **Complex** tasks: after the standard Reviewer step passes, spawn a **unity-
 
 ## Step 1 — Test Writer
 
-Spawn a **test-writer** subagent with this prompt:
+Spawn a **tester** subagent with this prompt:
 
 ```
 You are a senior C# Unity test engineer. Write failing unit tests BEFORE any implementation exists.

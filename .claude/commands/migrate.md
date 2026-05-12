@@ -72,7 +72,7 @@ Review Mode: [solo | lean | full]
 
 > **Skip this step if complexity score is Simple (0.0–0.3) and review mode is not `full`.**
 
-Spawn a **test-writer** subagent with this prompt:
+Spawn a **tester** subagent with this prompt:
 
 ```
 You are a senior C# Unity test engineer. Before a migration begins, ensure tests exist to verify behavior is preserved.

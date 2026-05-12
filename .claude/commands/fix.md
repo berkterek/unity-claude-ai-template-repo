@@ -161,7 +161,7 @@ find . -name "[ClassName]Tests.cs" -path "*/Tests/*"
 
 ## Step 3 — Test Writer
 
-Spawn a **test-writer** subagent with this prompt:
+Spawn a **tester** subagent with this prompt:
 
 ```
 You are a senior C# Unity test engineer. Write a failing regression test that reproduces this bug BEFORE any fix is applied.
