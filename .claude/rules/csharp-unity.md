@@ -61,9 +61,13 @@ private static readonly int ColorId  = Shader.PropertyToID("_Color");
 private const int    MAX_RETRY_COUNT   = 3;
 private const string DEFAULT_SOUND_ID  = "tap";
 
-// [SerializeField] — only when a designer needs to configure in Inspector
+// [SerializeField] — two valid uses:
+//   1. Designer-configurable values (floats, curves, SO configs)
+//   2. Component references on the same GO or its children (Rigidbody, Animator, Transform…)
 [SerializeField] private float _moveSpeed = 5f;
 [SerializeField] private AudioConfiguration _config;
+[SerializeField] private Rigidbody _rigidbody;    // assigned in Inspector, not GetComponent
+[SerializeField] private Transform _transform;    // assigned in Inspector, not cached in Awake
 
 // Public fields — only in [Serializable] data classes and ScriptableObject configs
 public float SfxVolume = 1f;
@@ -76,7 +80,7 @@ public bool HapticOn = true;
 
 Everything is `private` unless there is a concrete caller that requires otherwise.
 
-- Fields: `private` by default. `[SerializeField]` only when a designer actually tweaks the value in Inspector — never speculatively.
+- Fields: `private` by default. `[SerializeField]` for two cases only: (1) designer-configurable values, (2) component references on the same GO or its children — never speculatively. `GetComponent` in Awake is forbidden when the component exists at edit time; assign via Inspector instead.
 - Methods: `public` only when another class actually calls it today.
 - Properties: expose getter only when another class reads it; expose setter only when another class writes it.
 
