@@ -1,0 +1,5 @@
+# Ignore live session runtime files — written/appended every session
+session-cost.jsonl
+session-start-time
+session.json
+instincts/observations.jsonl
