@@ -169,8 +169,6 @@ The full pipeline from idea to shippable game, using the commands in this templa
 | Command | What it does |
 |---------|-------------|
 | `/setup-project` | Generates folder structure, `.asmdef` files (Framework + Game + Editor + Test asmdefs, optional ECS), base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), NSubstitute test assembly config. Gated: runtime packages must be confirmed before .asmdef/C# generation; NSubstitute DLL must be confirmed before test templates. Prints a manual checklist for anything remaining. |
-| `/graphics-setup <mobile\|pc>` | Creates URP Pipeline Assets (Low/Medium/High), Renderer Data, and URPQualityConfiguration for the target platform via MCP |
-| `/audio-clip-setup [path]` | Applies optimized AudioClip import settings (format, load type, platform overrides) across the project |
 
 ### Phase 4 — Implementation
 
@@ -204,9 +202,7 @@ The full pipeline from idea to shippable game, using the commands in this templa
 ### Full Flow
 
 ```
-/game-idea → /architect → /plan-workflow → /setup-project → /graphics-setup → /audio-clip-setup
-                                                                                       ↓
-                                                                              /orchestrate
+/game-idea → /architect → /plan-workflow → /setup-project → /orchestrate
                                                                                        ↓
                                                          /validate → /review-code → /ralph
                                                                                        ↓
