@@ -284,11 +284,11 @@ Named prompts that pause the pipeline and wait for human approval before continu
 
 | Gate | Commands | When it fires | What you decide |
 |------|----------|--------------|-----------------|
-| `SCOPE_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/add-feature`, `/orchestrate` | After complexity scoring, before any agent spawns | Confirm scope matches intent — type `go` or redirect |
+| `SCOPE_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/add-feature`, `/orchestrate`, `/create-prefab-scene` | After complexity scoring, before any agent spawns | Confirm scope matches intent — type `go` or redirect |
 | `ARCHITECTURE_GATE` | `/implement`, `/scene-setup`, `/add-feature`, `/new-module` | When new module folder detected (+0.3 signal), or always in `/new-module` | Approve proposed module structure (interface/service/installer/scope) |
 | `BREAKING_GATE` | `/fix` (>3 files), `/fix-deep` (>3 files), `/migrate` (>5 files) | After affected files identified | Confirm wide-blast-radius change is intentional |
 | `QUALITY_GATE` | All pipeline commands | After reviewer returns CHANGES NEEDED | Choose: `fix` / `skip` / `stop` |
-| `COMMIT_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup` | After all verification, immediately before committer | Final sign-off on staged files — type `go` or `stop` |
+| `COMMIT_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/create-prefab-scene` | After all verification, immediately before committer | Final sign-off on staged files — type `go` or `stop` |
 
 ## Engine Version Reference
 

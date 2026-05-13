@@ -17,7 +17,16 @@ If no argument is given, scan ALL `.unity` files under `Assets/_Scene/`.
 
 ---
 
-## Step 0 — MCP Preflight
+## Step 0 — SCOPE_GATE
+
+Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
+Pass: target scene(s), operation ("legacy scene migration — bare GameObjects → prefabs").
+Note: this operation modifies scenes and creates prefab assets — partially reversible via git, but MCP scene changes are harder to undo.
+Wait for `go` before proceeding.
+
+---
+
+## Step 0b — MCP Preflight
 
 Read and apply `.claude/skills/core/mcp-preflight.md`.
 
@@ -270,6 +279,14 @@ If **FAIL** → spawn **unity-setup** subagent again with only the failing items
 If still FAIL after 3 passes → stop, show user all remaining issues. Ask:
 - `skip` → proceed to commit (user accepts responsibility)
 - `stop` → abort, leave files uncommitted
+
+---
+
+### COMMIT_GATE
+
+Show the user the COMMIT_GATE block from `.claude/docs/director-gates.md`.
+Pass: scenes analyzed, prefabs created (list), scenes modified, reviewer verdict.
+Wait for `go` before spawning the committer. `stop` → leave files staged, print summary without committing.
 
 ---
 
