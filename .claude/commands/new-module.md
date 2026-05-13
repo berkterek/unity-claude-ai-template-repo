@@ -24,8 +24,12 @@ _GameFolders/Scripts/Games/Concretes/[ModuleName]/
 2. Ask: "Does this module need a Unity provider (AudioSource, UnityIAP, etc.) or is it pure C#?"
 3. Ask: "What are the main operations this service will expose?" (e.g. `PlaySound`, `AddCoins`)
 4. Ask: "Does this module publish or subscribe to any events?"
-5. Generate all files with proper naming, namespace, and VContainer registration.
-6. Print the **Portability Checklist** for the generated module.
+5. Fire **ARCHITECTURE_GATE** (see `.claude/docs/director-gates.md`). Show the proposed module structure:
+   - Interface, Service, Configuration, Installer, Events (if any), Provider (if Unity API needed)
+   - Scope it will be registered in (AppScope / GameScope / MenuScope)
+   - Wait for `go` before generating any files.
+6. Generate all files with proper naming, namespace, and VContainer registration.
+7. Print the **Portability Checklist** for the generated module.
 
 ## Code Rules
 

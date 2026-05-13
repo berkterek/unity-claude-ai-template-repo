@@ -50,6 +50,14 @@ Review Mode: [solo | lean | full]
 
 For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after unity-reviewer APPROVED, spawn a **unity-developer** subagent review pass before the committer.
 
+If the feature creates a new module folder (complexity score includes the +0.3 new-module signal): fire **ARCHITECTURE_GATE** (see `.claude/docs/director-gates.md`). Show the proposed module structure (interface, service, config, installer, events) and wait for `go` before continuing.
+
+### SCOPE_GATE
+
+Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
+Pass: feature description, complexity score, impacted systems (if known from initial description).
+Wait for `go` before reading GDD/TDD/WORKFLOW or spawning any agents.
+
 ---
 
 ## Initialization

@@ -49,6 +49,14 @@ Review Mode: [solo | lean | full]
 
 For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after the standard unity-reviewer step passes for each task, spawn a **unity-developer** subagent review pass before the committer.
 
+### SCOPE_GATE
+
+Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
+Pass: WORKFLOW.md plan name, total phases and tasks, complexity score.
+Wait for `go` before reading WORKFLOW.md or spawning any agents.
+
+Note: per-task COMMIT_GATE is intentionally omitted — orchestration is designed to run tasks hands-free. The Phase Gate ("Proceed? yes / no / stop") at the end of each phase serves as the human checkpoint before the next phase begins.
+
 ---
 
 ## Initialization

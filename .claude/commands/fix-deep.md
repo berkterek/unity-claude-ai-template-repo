@@ -43,6 +43,12 @@ Complexity: [score] — [Label]
 Rationale: [one sentence]
 ```
 
+### SCOPE_GATE
+
+Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
+Pass: bug description, complexity score.
+Wait for `go` before proceeding to log intake or spawning any agents.
+
 ---
 
 ## Step 0b — Log Intake
@@ -288,7 +294,7 @@ Suggested action: <what the developer should do next in the editor>
 
 ### Gate Decision
 
-**PROVEN** → proceed to Step 5 (Fix).
+**PROVEN** → if the number of files in `$AFFECTED_FILES` is **more than 3**: fire **BREAKING_GATE** (see `.claude/docs/director-gates.md`) before proceeding. Show the full affected file list and wait for `go` or `stop`. Then proceed to Step 5 (Fix).
 
 **REFUTED** → print the revised hypothesis. Ask:
 - `retry` → go back to Step 2 with the revised hypothesis (max 2 revision cycles)
@@ -480,6 +486,14 @@ Silent failure issues found. Options:
 - `fix` → spawn **unity-coder** with all findings as a fix list, then re-run hunter once. Proceed to committer regardless of result.
 - `skip` → proceed to committer.
 - `stop` → abort.
+
+---
+
+### COMMIT_GATE
+
+Show the user the COMMIT_GATE block from `.claude/docs/director-gates.md`.
+Pass: bug description, all changed files (with [FIX-DEEP] logs removed), reviewer verdict, verifier verdict.
+Wait for `go` before spawning the committer. `stop` → leave files staged, print summary without committing.
 
 ---
 
