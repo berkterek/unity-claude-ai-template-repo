@@ -542,6 +542,8 @@ The checkpoint file (`.claude/state/checkpoint.md`) is deleted after it is read 
 
 ## Architecture in a Nutshell
 
+> Full architecture diagrams (pipeline flow, agent pipeline, VContainer scope hierarchy, layer dependencies, hook flow): **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+
 The rules enforce this structure across all projects:
 
 ```
