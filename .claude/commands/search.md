@@ -1,6 +1,6 @@
 # /search — Research → Review → Present Pipeline
 
-Investigates a query, produces a root cause + solution, validates with the reviewer chain (unity-reviewer → Codex → reviewer), and presents the result to the user.
+Investigates a query about the codebase, writes findings to a persistent file, validates completeness with a reviewer, presents the result to the user, then recommends the appropriate next action. Never executes any follow-up command automatically.
 
 ## Usage
 
@@ -18,7 +18,15 @@ If no argument is given, ask: "What should I investigate?"
 ## Pipeline
 
 ```
-[Step 0] Complexity Score → [Phase 1] Research → [Phase 2] Review ⟲ (max 5 iter) → [Phase 3] Present
+[Step 0] Complexity Score
+    ↓
+[Phase 1] Research → write .claude/state/search-findings.md
+    ↓
+[Phase 2] Reviewer reads file → COMPLETE / INCOMPLETE / REJECT
+    ↓ (loop max 5 if INCOMPLETE)
+[Phase 3] Present findings to user
+    ↓
+[Phase 4] Action Router → recommend next command
 ```
 
 ---
@@ -39,7 +47,7 @@ Score the query complexity on a 0.0–1.0 scale before spawning any agents:
 - Query involves ECS, Addressables, or async lifecycle? +0.3
 - Simple "where is X defined" or "how does X work" lookup? −0.3
 
-**Print before proceeding:**
+Print before proceeding:
 ```
 Complexity: [score] — [Label]
 Rationale: [one sentence]
@@ -49,9 +57,9 @@ Rationale: [one sentence]
 
 ## Phase 1 — Research
 
-**If complexity score ≥ 0.4 (Medium/Complex):** Spawn **Explore** and **unity-scout** simultaneously. Proceed once both complete.
+**If complexity ≥ 0.4 (Medium/Complex):** Spawn **Explore** and **unity-scout** simultaneously. Wait for both to complete, then merge.
 
-**If complexity score < 0.4 (Simple):** Spawn Explore only — skip unity-scout.
+**If complexity < 0.4 (Simple):** Spawn Explore only.
 
 ### Explore Agent Prompt
 
@@ -60,24 +68,22 @@ You are a research agent investigating a query in a Unity project.
 
 QUERY: $QUERY
 ITERATION: $ITERATION / 5
-PREVIOUS_REVIEWER_FEEDBACK: $FEEDBACK
+PREVIOUS_REVIEWER_FEEDBACK: $FEEDBACK (empty on first run)
 
 ## Instructions
 
 1. Search the codebase for files, classes, and patterns relevant to the query.
-   - Use file reads, grep patterns, and directory listings.
-   - Focus on: .claude/rules/, _Framework/, _GameFolders/Scripts/Games/
-2. If the query mentions a Unity API, package name, or error message → use web search for Unity documentation or known issues.
-3. If PREVIOUS_REVIEWER_FEEDBACK is not empty → specifically address the gap flagged. Don't repeat the same evidence.
+   Focus on: .claude/rules/, _Framework/, _GameFolders/Scripts/Games/
+2. If the query mentions a Unity API, package, or error message → web search for Unity docs or known issues.
+3. If PREVIOUS_REVIEWER_FEEDBACK is not empty → specifically address the gap flagged. Do not repeat the same evidence.
 
 ## Output Format (REQUIRED)
 
 CODEBASE_FINDINGS:
-- [file path or pattern] — [how it supports the query]
-- [...]
+- [file:line] — [relevance to query]
 
-PROPOSED_SOLUTION:
-[Concrete steps. Reference specific files and classes. No vague language.]
+PROPOSED_ANSWER:
+[Concrete explanation. Reference specific files and classes. No vague language.]
 
 CONFIDENCE: low | medium | high
 ```
@@ -85,16 +91,14 @@ CONFIDENCE: low | medium | high
 ### unity-scout Agent Prompt (complexity ≥ 0.4 only)
 
 ```
-You are a Unity risk analyst. Scan the project for Unity-specific issues related to the following query.
+You are a Unity risk analyst. Scan the project for Unity-specific issues related to the query.
 
 QUERY: $QUERY
 
-## Instructions
-
-Investigate for Unity-specific risks:
+Investigate for:
 - VContainer registration gaps or missing .As<IInterface>() calls
 - UniTask async methods missing CancellationToken
-- Input System lifecycle violations (missing Enable/Disable in OnEnable/OnDisable)
+- Input System lifecycle violations (missing Enable/Disable)
 - ECS structural changes outside EntityCommandBuffer
 - Addressables handles not released in Dispose()
 - Unity null check violations (?. or is null on UnityEngine objects)
@@ -106,128 +110,178 @@ UNITY_RISKS:
 OR: UNITY_RISKS: none
 ```
 
-### Merge (after both agents complete)
+### Write Findings to File
 
-Synthesize into unified research output:
+After both agents complete, merge into a single markdown file and **write** it to `.claude/state/search-findings.md`:
 
+```markdown
+# Search Findings
+**Query:** $QUERY
+**Iteration:** $ITERATION
+**Complexity:** $COMPLEXITY_LABEL ($SCORE)
+
+## Root Cause / Answer
+$COMBINED_ROOT_CAUSE
+
+## Evidence
+$EVIDENCE_LIST (file:line entries)
+
+## Unity Risks
+$UNITY_RISKS (or "none")
+
+## Proposed Answer
+$PROPOSED_ANSWER
+
+## Confidence
+$CONFIDENCE
 ```
-COMBINED_ROOT_CAUSE: [one sentence — synthesize CODEBASE_FINDINGS + UNITY_RISKS]
 
-EVIDENCE:
-- [from CODEBASE_FINDINGS]
-- [from UNITY_RISKS if any]
-
-PROPOSED_SOLUTION: [from Explore, refined with any Unity risk findings]
-
-CONFIDENCE: [take the lower of the two if they differ]
-```
-
-Capture as `$ROOT_CAUSE`, `$EVIDENCE`, `$PROPOSED_SOLUTION`, `$CONFIDENCE`.
+Capture as `$ROOT_CAUSE`, `$EVIDENCE`, `$PROPOSED_ANSWER`, `$CONFIDENCE`.
 
 ---
 
-## Phase 2 — Review Loop
+## Phase 2 — Completeness Review Loop
 
 **Iteration counter starts at 1. Max 5 iterations.**
 
-**Reviewer priority — try in order, fall back if unavailable:**
-1. Spawn Agent with `subagent_type: "unity-reviewer"`
-2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
-3. Spawn Agent with `subagent_type: "claude"` (general reviewer)
+Reviewer priority — try in order, fall back if unavailable:
+1. `subagent_type: "unity-reviewer"`
+2. `subagent_type: "codex:codex-rescue"`
+3. `subagent_type: "claude"`
 
 Spawn the reviewer with this prompt:
 
 ```
-You are a code reviewer validating a research finding in a Unity project.
+You are a completeness reviewer for a codebase investigation.
+
+Read the findings file at: .claude/state/search-findings.md
 
 ORIGINAL_QUERY: $QUERY
-ROOT_CAUSE: $ROOT_CAUSE
-EVIDENCE:
-$EVIDENCE
-PROPOSED_SOLUTION:
-$PROPOSED_SOLUTION
 
-## Your Job
+## Your Job — Three verdicts only:
 
-1. Does the EVIDENCE actually support the ROOT_CAUSE?
-   - Is it a real problem or just a suspicious pattern?
-   - Are the referenced files/lines real and relevant?
-2. Is the PROPOSED_SOLUTION consistent with this project's architecture?
-   - No singletons (VContainer only)
-   - No coroutines (UniTask only)
-   - No legacy Input API (New Input System only)
-   - No cross-module concrete dependencies (interfaces only)
-   - No UnityEngine in service classes (Provider pattern)
-   - IEventBus for cross-system communication
-3. Does the PROPOSED_SOLUTION fully address the ROOT_CAUSE, or does it only treat a symptom?
+**COMPLETE** — The findings fully answer the query with real evidence (file:line). The proposed answer is consistent with this project's architecture rules:
+- No singletons (VContainer only)
+- No coroutines (UniTask only)
+- No legacy Input API (New Input System only)
+- No cross-module concrete dependencies
+- No UnityEngine in service classes (Provider pattern)
+- IEventBus for cross-system communication
 
-## Output Format (REQUIRED — do not deviate)
+**INCOMPLETE** — The findings partially answer the query but have a specific gap. Name the gap precisely: which file, claim, or question is unresolved. Research must run again.
 
-VERDICT: APPROVED | MISMATCH
+**REJECT** — The findings contradict the evidence, reference non-existent files, or the proposed answer violates architecture rules. Name what is wrong.
+
+## Output Format (REQUIRED)
+
+VERDICT: COMPLETE | INCOMPLETE | REJECT
 
 REASON: [one sentence]
 
-FEEDBACK_FOR_RESEARCH: [if MISMATCH only — the specific gap or contradiction the research agent must address in the next iteration. Be precise: name the file, claim, or architecture rule that failed.]
+GAP: [INCOMPLETE/REJECT only — exact gap or violation the next research iteration must address]
 ```
 
 ### Loop Logic
 
-**If VERDICT is MISMATCH and iteration < 5:**
-- Increment iteration counter.
-- Go back to Phase 1 with `$FEEDBACK = FEEDBACK_FOR_RESEARCH`.
-
-**If VERDICT is MISMATCH and iteration == 5:**
-- Skip to Phase 3 with `$STATUS = INCONCLUSIVE`.
-
-**If VERDICT is APPROVED:**
-- Set `$STATUS = APPROVED`.
-- Proceed to Phase 3.
+- **COMPLETE** → set `$STATUS = COMPLETE`, proceed to Phase 3.
+- **INCOMPLETE** and iteration < 5 → increment counter, go back to Phase 1 with `$FEEDBACK = GAP`.
+- **REJECT** and iteration < 5 → increment counter, go back to Phase 1 with `$FEEDBACK = GAP`.
+- Any verdict at iteration == 5 → set `$STATUS = INCONCLUSIVE`, proceed to Phase 3.
 
 ---
 
-## Phase 3 — Present to User
+## Phase 3 — Present Findings to User
 
-### If STATUS == APPROVED
+**Do NOT execute any follow-up command. Present only.**
+
+### If STATUS == COMPLETE
 
 ```
 SEARCH COMPLETE ✓  (approved in $ITERATION iteration(s))
 
-PROBLEM
+QUERY
+  $QUERY
+
+ANSWER
   $ROOT_CAUSE
-  Files: $EVIDENCE_FILES
 
-SOLUTION
-  $PROPOSED_SOLUTION
+EVIDENCE
+  $EVIDENCE (file:line list)
 
-NEXT STEPS
-  [see routing table below]
+UNITY RISKS
+  $UNITY_RISKS (or "none found")
+
+PROPOSED ANSWER
+  $PROPOSED_ANSWER
 ```
-
-Append the appropriate next step based on the query type:
-
-| Query type | Next step |
-|------------|-----------|
-| Clear bug with stack trace | `→ /fix <root cause summary>` |
-| Logic bug, race condition, intermittent | `→ /fix-deep <root cause summary>` |
-| Missing feature or architectural gap | `→ /implement <solution summary>` |
-| Pure exploration (how does X work) | `→ no action needed` |
 
 ### If STATUS == INCONCLUSIVE
 
 ```
 SEARCH INCONCLUSIVE — no definitive result after 5 iterations.
 
+QUERY
+  $QUERY
+
 BEST GUESS (not reviewer-approved)
-  ROOT_CAUSE: $LAST_ROOT_CAUSE
-  PROPOSED_SOLUTION: $LAST_PROPOSED_SOLUTION
+  $LAST_ROOT_CAUSE
 
-REVIEWER CONCERN (unresolved)
-  $LAST_FEEDBACK_FOR_RESEARCH
+UNRESOLVED GAP
+  $LAST_GAP
 
-SUGGESTION
-  More evidence needed. Options:
-  → /fix-deep <description>   (let the evidence-first pipeline investigate)
-  → /debug-session            (structured manual investigation)
+PROPOSED ANSWER (unverified)
+  $LAST_PROPOSED_ANSWER
 ```
+
+---
+
+## Phase 4 — Action Router
+
+After presenting findings, spawn an **action router** agent to recommend the appropriate next command. Do not execute it — only recommend.
+
+```
+You are an action router. You have just seen a codebase investigation result.
+
+QUERY: $QUERY
+STATUS: $STATUS
+ROOT_CAUSE: $ROOT_CAUSE
+PROPOSED_ANSWER: $PROPOSED_ANSWER
+UNITY_RISKS: $UNITY_RISKS
+
+## Your Job
+
+Decide which single action the developer should take next. Choose from:
+
+| Action | When to recommend |
+|--------|------------------|
+| `/fix <summary>` | Clear bug with a known root cause and stack trace pointing to a specific file |
+| `/fix-deep <summary>` | Logic bug, intermittent issue, or race condition where root cause is still uncertain |
+| `/implement <summary>` | Missing feature, architectural gap, or something that needs to be built |
+| `/create-plan <file> <summary>` | Complex change spanning multiple modules that needs a phased plan before implementation |
+| `/update-plan <file> <summary>` | Existing plan or WORKFLOW.md needs to be updated based on the findings |
+| `no action` | Pure exploration query ("how does X work") — findings are informational only |
+
+## Output Format (REQUIRED)
+
+RECOMMENDED_ACTION: [the exact command string, or "no action"]
+
+REASON: [one sentence — why this action fits the findings]
+```
+
+Print the recommendation to the user:
+
+```
+NEXT ACTION
+  $RECOMMENDED_ACTION
+  $REASON
+```
+
+**The user decides whether to run it.**
+
+---
+
+## Completion
+
+Delete `.claude/state/search-findings.md` after presenting, unless the recommended action is `/create-plan` or `/update-plan` — in that case keep it as input context.
 
 $ARGUMENTS

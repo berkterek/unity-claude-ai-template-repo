@@ -172,7 +172,7 @@ Detailed coding standards in `.claude/rules/`:
 ### Session & Context
 - `/checkpoint` — Save current conversation summary to `.claude/state/checkpoint.md`, then run `/clear` to free context; next session auto-reads the checkpoint and resumes
 - `/context-prime` — Brief Claude on project context at the start of a session
-- `/search <query>` — **complexity score** → Phase 1: **Explore** + **unity-scout** simultaneously (complexity ≥ 0.4) → reviewer chain (unity-reviewer → Codex → reviewer, max 5 iterations) → structured result report with next-step routing
+- `/search <query>` — **complexity score** → Phase 1: **Explore** + **unity-scout** simultaneously (complexity ≥ 0.4) → write findings to `.claude/state/search-findings.md` → Phase 2: reviewer validates **completeness** (COMPLETE / INCOMPLETE / REJECT, max 5 iter) → Phase 3: present findings to user → Phase 4: **action router** recommends next command (`/fix`, `/fix-deep`, `/implement`, `/create-plan`, `/update-plan`, or no action) — never executes automatically
 - `/dump` — Save current session notes to `.claude/logs/` as markdown
 - `/five` — 5 Whys root cause analysis for a bug or architectural problem
 - `/continue` — Resume an interrupted orchestration run from the event journal (picks up where it left off)
