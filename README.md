@@ -82,7 +82,7 @@ Different tasks need different models. Use the right tier to balance speed and c
 |------|-------|-------|----------|
 | **light** | Haiku | `claude-light` | `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
 | **normal** | Sonnet | `claude-normal` | `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/new-module`, `/performance-audit`, `/clean-slop`, `/catch-up` |
-| **heavy** | Opus | `claude-heavy` | `/architect`, `/plan-workflow`, `/game-idea`, `/add-feature`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
+| **heavy** | Opus | `claude-heavy` | `/architect`, `/plan-workflow`, `/game-idea`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
 
 ### Setup
 
@@ -229,7 +229,7 @@ Every command in the full flow is **manually triggered** — there is no automat
 
 #### When to run `/qa`
 
-Run `/qa` after any implementation work outside of `/orchestrate` — e.g. after `/implement`, `/fix`, `/add-feature`, or any multi-file change. It is your pre-commit quality gate.
+Run `/qa` after any implementation work outside of `/orchestrate` — e.g. after `/implement`, `/fix`, or any multi-file change. It is your pre-commit quality gate.
 
 Skip `/qa` if you're inside an active `/orchestrate` run — the phase gate already covers it.
 
@@ -239,8 +239,7 @@ All incremental commands are **manually triggered**. Once started, internal step
 
 | Command | How it runs | When to use |
 |---------|------------|-------------|
-| `/add-feature` | Manual to start. Inside: interview → coder → [unity-developer if complex] run **automatically** | Add a feature — deep-interview gates ambiguous requirements |
-| `/implement` | Manual to start. Inside: test writer → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Implement a single well-defined task with TDD |
+| `/implement` | Manual to start. Inside: test writer → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Implement a feature or task with full TDD pipeline |
 | `/fix` | Manual to start. Inside: unity-fixer + unity-scout → test writer → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Bug fix when stack trace clearly points to root cause |
 | `/fix-deep` | Manual to start. Inside: log intake → hypothesis → debug injection → evidence gate → fix (only if proven) → committer run **automatically**. **Refuses to fix if root cause is unproven** | Logic bugs, intermittent issues, or any uncertain root cause |
 | `/new-module` | Manual — single step | Scaffold a 5-file module (Interface, Service, Config, Installer, Events) |
@@ -343,7 +342,6 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | Command | How it runs | Description |
 |---------|------------|-------------|
 | `/new-module` | Manual — single step | Generate the 5-file module structure (Interface, Service, Config, Installer, Events) |
-| `/add-feature` | Manual to start. Inside: interview → coder → [unity-developer if complex] run **automatically** | Add a feature — deep-interview gates ambiguous requirements before implementation |
 
 ### Quality
 
@@ -406,7 +404,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 
 | Agent | Role |
 |-------|------|
-| `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Abstracts/`, and pure C# targets in complexity-scored pipelines (`/orchestrate`, `/add-feature`, `/migrate`). |
+| `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Abstracts/`, and pure C# targets in complexity-scored pipelines (`/orchestrate`, `/migrate`). |
 | `tester` | NUnit + NSubstitute test writer — AAA pattern, interface-only mocks |
 | `reviewer` | Principal-level code review — architecture, naming, performance |
 | `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle, prefab structure (logic/visual separation, Prefab Variants, domain folders) |
@@ -425,7 +423,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
 | `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
 | `unity-build-runner` | CI/build pipeline — platform flags, build profiles, addressables baking |
-| `unity-coder` | **Primary Unity coder for Medium/Complex tasks.** Full Unity C# — MonoBehaviours, providers, installers, scene wiring. Used in `/implement`, `/fix`, `/scene-setup`, `/orchestrate`, `/add-feature`, `/migrate` when complexity ≥ 0.4. |
+| `unity-coder` | **Primary Unity coder for Medium/Complex tasks.** Full Unity C# — MonoBehaviours, providers, installers, scene wiring. Used in `/implement`, `/fix`, `/scene-setup`, `/orchestrate`, `/migrate` when complexity ≥ 0.4. |
 | `unity-coder-lite` | Lightweight Unity coder for small isolated changes |
 | `unity-fixer` | Bug fixer with full context — reads surrounding code before patching |
 | `unity-fixer-lite` | Quick targeted fix for a single well-scoped defect |
