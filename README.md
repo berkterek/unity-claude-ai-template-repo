@@ -202,23 +202,47 @@ The full pipeline from idea to shippable game, using the commands in this templa
 
 ### Full Flow
 
+Every command in the full flow is **manually triggered** — there is no automatic chaining between phases. Each arrow below requires you to run the next command yourself.
+
 ```
 /game-idea → /architect → /plan-workflow → /setup-project → /orchestrate
-                                                                                       ↓
-                                                         /validate → /review-code → /ralph
-                                                                                       ↓
-                                                                       /learn → /smart-commit
+                                                                    ↓
+                                                    /qa → /review-code → /performance-audit
+                                                                    ↓
+                                                         /learn → /smart-commit
 ```
+
+#### What runs automatically vs. manually
+
+| Command | How it runs |
+|---------|------------|
+| `/game-idea`, `/architect`, `/plan-workflow` | Manual — you run each one |
+| `/setup-project` | Manual |
+| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → reviewer → verifier → committer pipeline runs automatically. **Between phases:** pauses and asks `Proceed? (yes / no / stop)` — you decide |
+| `/continue` | Manual — resumes an interrupted `/orchestrate` from where it left off |
+| `/qa` | Manual. When run, chains **ralph → silent-failure-hunt → validate** automatically in sequence |
+| `/review-code`, `/performance-audit` | Manual — always run individually |
+| `/learn`, `/smart-commit` | Manual |
+
+> **Note:** `/orchestrate` also runs the ralph → silent-failure-hunt → validate sequence automatically at each phase gate — so if you stay inside `/orchestrate`, you don't need to run `/qa` separately between phases.
+
+#### When to run `/qa`
+
+Run `/qa` after any implementation work outside of `/orchestrate` — e.g. after `/implement`, `/fix`, `/add-feature`, or any multi-file change. It is your pre-commit quality gate.
+
+Skip `/qa` if you're inside an active `/orchestrate` run — the phase gate already covers it.
 
 ### Incremental Development (existing project or single feature)
 
-| Command | When to use |
-|---------|-------------|
-| `/add-feature` | Add a feature to an existing game — `deep-interview` gates ambiguous requirements |
-| `/implement` | Implement a single well-defined task with TDD |
-| `/fix` | **Complexity score** → **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → test writer → **unity-coder** → reviewer → **silent failure audit** (changed files) → committer |
-| `/fix-deep` | **Complexity score** → evidence-first pipeline — **proves the root cause before touching code**; **unity-fixer** + **unity-scout** simultaneously in evidence collection (complexity ≥ 0.4); **silent failure audit** (changed files) → committer; refuses to fix if root cause cannot be proven |
-| `/new-module` | Scaffold a 5-file module (Interface, Service, Config, Installer, Events) |
+All incremental commands are **manually triggered**. Once started, internal steps run automatically.
+
+| Command | How it runs | When to use |
+|---------|------------|-------------|
+| `/add-feature` | Manual to start. Inside: interview → coder → [unity-developer if complex] run **automatically** | Add a feature — deep-interview gates ambiguous requirements |
+| `/implement` | Manual to start. Inside: test writer → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Implement a single well-defined task with TDD |
+| `/fix` | Manual to start. Inside: unity-fixer + unity-scout → test writer → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Bug fix when stack trace clearly points to root cause |
+| `/fix-deep` | Manual to start. Inside: log intake → hypothesis → debug injection → evidence gate → fix (only if proven) → committer run **automatically**. **Refuses to fix if root cause is unproven** | Logic bugs, intermittent issues, or any uncertain root cause |
+| `/new-module` | Manual — single step | Scaffold a 5-file module (Interface, Service, Config, Installer, Events) |
 
 ---
 
@@ -272,89 +296,106 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 ## Slash Commands
 
 ### First-time project setup
-| Command | Description |
-|---------|-------------|
-| `/setup-project` | Generate assembly definitions, base classes, NSubstitute config, and manual setup checklist |
-| `/create-prefab-scene` | **Legacy migration:** scan existing scenes for bare GameObjects, build a prefab inventory, create proper prefabs via MCP (logic/visual separation, Prefab Variants, correct domain folders), review, commit |
+
+All setup commands are **manually triggered — single step each**.
+
+| Command | How it runs | Description |
+|---------|------------|-------------|
+| `/setup-project` | Manual — single step | Generate assembly definitions, base classes, NSubstitute config, and manual setup checklist |
+| `/create-prefab-scene` | Manual — single step | **Legacy migration:** scan existing scenes for bare GameObjects, build a prefab inventory, create proper prefabs via MCP (logic/visual separation, Prefab Variants, correct domain folders), review, commit |
 
 ### Design
-| Command | Description |
-|---------|-------------|
-| `/game-idea` | Refine a raw idea into a GDD (assumption surfacing + "Not Doing" list included) |
-| `/architect` | Create a Technical Design Document from a GDD (Phase 7 self-critique → **unity-critic** adversarial challenge → developer review) |
-| `/grill-me [plan or file]` | Stress-test a plan or decision — one pointed question at a time, offers recommended answer, produces a Decision Record on `/done` |
-| `/refine-gdd` | Iterate on an existing GDD |
-| `/refine-tdd` | Iterate on an existing TDD |
-| `/plan-workflow` | Create a phased execution plan from a TDD — assigns integer `parallel_group` numbers (1, 2, `—`) compatible with `/orchestrate`; compile-time type dependencies force sequential even across different files |
+
+All design commands are **manually triggered — single step each** (interactive conversation with Claude).
+
+| Command | How it runs | Description |
+|---------|------------|-------------|
+| `/game-idea` | Manual — single step | Refine a raw idea into a GDD (assumption surfacing + "Not Doing" list included) |
+| `/architect` | Manual — single step | Create a Technical Design Document from a GDD (Phase 7 self-critique → **unity-critic** adversarial challenge → developer review) |
+| `/grill-me [plan or file]` | Manual — single step | Stress-test a plan or decision — one pointed question at a time, offers recommended answer, produces a Decision Record on `/done` |
+| `/refine-gdd` | Manual — single step | Iterate on an existing GDD |
+| `/refine-tdd` | Manual — single step | Iterate on an existing TDD |
+| `/plan-workflow` | Manual — single step | Create a phased execution plan from a TDD — assigns integer `parallel_group` numbers compatible with `/orchestrate` |
 
 ### Pipelines (multi-agent)
-| Command | Description |
-|---------|-------------|
-| `/implement <task>` | **Complexity score** → Test Writer → **unity-coder** → **unity-verifier** → Reviewer priority: **unity-reviewer** → Codex → reviewer → [Unity Developer if complex] → **silent failure audit** (changed files) → Committer |
-| `/fix <bug>` | **Complexity score** → Step 1: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → Test Writer → **unity-coder** → **unity-verifier** → Reviewer priority: **unity-reviewer** → Codex → reviewer → [Unity Developer if complex] → **silent failure audit** (changed files) → Committer |
-| `/fix-deep <bug>` | **Complexity score** → Log intake (file/text/MCP) → Hypothesis → Debug injection → Step 3: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → **Evidence gate** (proven/refuted/inconclusive) → Fix only if proven → **unity-verifier** → **unity-reviewer** → **silent failure audit** (changed files) → Committer |
-| `/migrate <pattern> in <scope>` | **Complexity score** → [test guard if Medium/Complex] → **migrator** / **unity-migrator** → Reviewer → [unity-developer if complex] → Committer |
-| `/scene-setup <description>` | **Complexity score** → **unity-coder-lite** (Simple) / **unity-coder** (Medium/Complex) + Unity-Setup → **unity-verifier** → **unity-reviewer** → Codex → reviewer → [unity-developer if complex] → Committer |
-| `/create-plan <file> <what>` | Researcher → **Complexity-aware Planner** (assigns `parallel_group` to independent tasks) → Reviewer (loop) → Save → optional Implementer (parallel spawn for grouped tasks if complexity ≥ 0.4) |
-| `/update-plan <file> <change>` | Analyzer → Planner (updates `parallel_group` annotations) → Reviewer (loop) → Save → optional Implementer (parallel spawn for grouped tasks if complexity ≥ 0.4) |
-| `/smart-commit` | Analyze dirty working tree → group into logical atomic commits → commit |
-| `/orchestrate` | **Complexity score** → Read `WORKFLOW.md` → check `parallel_group` annotations → per-task: **coder** (pure C#) / **unity-coder-lite** (Simple Unity) / **unity-coder** (Medium/Complex Unity) → **unity-verifier** → **unity-reviewer** → Codex → reviewer → [unity-developer if complex] → committer; tasks with same `parallel_group` run simultaneously (complexity ≥ 0.4); phase gate runs **ralph → silent-failure-hunt → validate** automatically before asking to proceed; emits `VERIFICATION_PASSED` event on success |
 
-> Reviewer priority across all pipelines: unity-reviewer → Codex → reviewer (falls back in order if unavailable). Reviewer loops: CHANGES NEEDED → unity-coder fixes → reviewer re-checks → repeat until APPROVED (max 3 passes).
+All pipeline commands are **manually triggered**. Once started, internal steps run automatically until done or blocked.
 
-> **`/fix` vs `/fix-deep`:** Use `/fix` when the stack trace clearly points to the root cause. Use `/fix-deep` for logic bugs, "sometimes happens" issues, wrong values at runtime, or any case where the root cause is uncertain — it injects debug logs, collects evidence, and **refuses to fix until the root cause is proven**.
+| Command | How it runs | Description |
+|---------|------------|-------------|
+| `/implement <task>` | Manual to start. Inside: test writer → coder → verifier → reviewer → silent failure audit → committer run **automatically** | TDD implementation pipeline for a single well-defined task |
+| `/fix <bug>` | Manual to start. Inside: unity-fixer + unity-scout → test writer → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Bug fix pipeline — use when stack trace points to root cause |
+| `/fix-deep <bug>` | Manual to start. Inside: log intake → hypothesis → debug injection → evidence gate → fix (only if proven) → verifier → reviewer → silent failure audit → committer run **automatically**. **Refuses to fix if root cause is unproven** | Evidence-first bug fix — use for logic bugs or intermittent issues |
+| `/migrate <pattern> in <scope>` | Manual to start. Inside: test guard → migrator → reviewer → committer run **automatically** | Legacy pattern migration (coroutine→UniTask, singleton→VContainer, etc.) |
+| `/scene-setup <description>` | Manual to start. Inside: coder + unity-setup → verifier → reviewer → committer run **automatically** | Scene and prefab wiring pipeline |
+| `/create-plan <file> <what>` | Manual to start. Inside: researcher → planner → reviewer loop → save run **automatically**. Optional implementer (parallel) spawned if complexity ≥ 0.4 | Create a phased WORKFLOW.md plan from a spec |
+| `/update-plan <file> <change>` | Manual to start. Inside: analyzer → planner → reviewer loop → save run **automatically**. Optional implementer (parallel) if complexity ≥ 0.4 | Update an existing plan |
+| `/smart-commit` | Manual to start. Inside: analyze dirty tree → group commits → commit run **automatically** | Group working tree changes into logical semantic commits |
+| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier → reviewer → committer run **automatically**. **Between phases:** pauses and asks `Proceed?` — you decide | Execute WORKFLOW.md end-to-end, phase by phase |
+
+> Reviewer priority across all pipelines: unity-reviewer → Codex → reviewer (falls back in order). Review loops: CHANGES NEEDED → coder fixes → reviewer re-checks → repeat until APPROVED (max 3 passes).
+
+> **`/fix` vs `/fix-deep`:** Use `/fix` when the stack trace clearly points to the root cause. Use `/fix-deep` for logic bugs, "sometimes happens" issues, or any case where the root cause is uncertain — it **refuses to fix until root cause is proven**.
 
 ### Development
-| Command | Description |
-|---------|-------------|
-| `/new-module` | Generate the 5-file module structure (Interface, Service, Config, Installer, Events) |
-| `/add-feature` | **Complexity score** → Simple: 3 questions + **unity-coder-lite** / Medium/Complex: **deep-interview** + **unity-coder** → [unity-developer if complex]; includes unity-setup spawn for prefab/scene wiring |
+
+| Command | How it runs | Description |
+|---------|------------|-------------|
+| `/new-module` | Manual — single step | Generate the 5-file module structure (Interface, Service, Config, Installer, Events) |
+| `/add-feature` | Manual to start. Inside: interview → coder → [unity-developer if complex] run **automatically** | Add a feature — deep-interview gates ambiguous requirements before implementation |
 
 ### Quality
-| Command | Description |
-|---------|-------------|
-| `/review-code` | Code review on specific files via **unity-reviewer** |
-| `/validate` | Validate a completed phase; **unity-verifier** via MCP tried first, dotnet CLI fallback |
-| `/check-portability` | Audit a module for copy-paste portability to another project |
-| `/clean-slop` | Remove AI-generated bloat (dead code, useless abstractions) |
-| `/learn` | Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow |
-| `/discover [--dry-run\|--write] [--only <pkg>]` | Walk `Packages/manifest.json`, summarize each Unity package, and emit per-package skill drafts to `.claude/skills/third-party/<pkg>/`. Small packages produce a single `SKILL.md`; large packages (50+ prefabs) produce a multi-file folder (`SKILL.md`, `api.md`, `prefabs.md`, `integration.md`, `test-strategy.md`, `samples.md`). Supports `--dry-run` (default), `--write`, `--only <pkg>`, `--include-assets-plugins`. |
-| `/catch-up` | Generate a human-readable codebase guide |
-| `/generate-tests` | Write missing tests for an existing class |
-| `/create-test-scene <FeatureName>` | Create a complete Play Mode test scene: TestScope, TestInstaller, PlayMode test stub, and scene via MCP; prints manual wiring steps |
-| `/graphics-setup <mobile\|pc>` | Show Low/Medium/High tier plan, await approval, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP, wire into Quality Settings |
-| `/audio-clip-setup [path]` | Scan AudioClip assets, categorize (Music/SFX/UI/Voice), apply optimized import settings via temp Editor script + MCP; reports per-clip changes + summary + commit option |
-| `/performance-audit` | Audit files for allocations and hot-path violations |
-| `/debug-session` | Structured root cause analysis; routes to **unity-fixer** or **unity-fixer-lite** after root cause; **learner** skill runs on completion |
-| `/silent-failure-hunt` | Audit files for swallowed exceptions and silent error patterns |
-| `/ralph` | Relentless verify-fix loop (max 10 outer iterations) — refuses to stop until compile and tests are green or stuck is detected |
-| `/qa` | Full quality pipeline: **ralph** (compile + tests) → **silent-failure-hunt** → **validate** — run after any implementation, accepts `--phase N` and `--files <path>` |
+
+| Command | How it runs | Description |
+|---------|------------|-------------|
+| `/qa` | Manual to start. Inside: **ralph → silent-failure-hunt → validate** run **automatically** in sequence | Full quality pipeline — run after any implementation or before push |
+| `/ralph` | Manual to start. Inside: compile + test → fix loop (max 10 iterations) run **automatically** | Relentless verify-fix loop — refuses to stop until green or stuck |
+| `/validate` | Manual — single step | Validate a completed phase via unity-verifier (MCP first, dotnet CLI fallback) |
+| `/review-code` | Manual — single step | Deep code review on specific files via unity-reviewer |
+| `/silent-failure-hunt` | Manual — single step | Audit files for swallowed exceptions and silent error patterns |
+| `/performance-audit` | Manual — single step | Hot path allocation and draw call audit |
+| `/debug-session` | Manual to start. Inside: root cause analysis → routes to unity-fixer or unity-fixer-lite → learner skill runs on completion, **automatically** | Structured root cause analysis session |
+| `/clean-slop` | Manual — single step | Remove AI-generated bloat (dead code, useless abstractions) |
+| `/check-portability` | Manual — single step | Audit a module for copy-paste portability to another project |
+| `/learn` | Manual — single step | Extract project-specific patterns into `.claude/skills/learned/` |
+| `/generate-tests` | Manual — single step | Write missing tests for an existing class |
+| `/create-test-scene <FeatureName>` | Manual — single step | Create Play Mode test scene: TestScope, TestInstaller, PlayMode test stub, scene via MCP |
+| `/graphics-setup <mobile\|pc>` | Manual to start. Pauses for your approval before creating assets | Show tier plan, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP |
+| `/audio-clip-setup [path]` | Manual to start. Pauses for commit confirmation at the end | Scan AudioClip assets, categorize, apply optimized import settings via MCP |
+| `/discover [--dry-run\|--write] [--only <pkg>]` | Manual — single step (`--dry-run` default, no writes until `--write`) | Walk `Packages/manifest.json`, emit per-package skill drafts to `.claude/skills/third-party/` |
 
 ### Session & Context
-| Command | Description |
-|---------|-------------|
-| `/caveman` | Ultra-compressed communication mode (~75% fewer tokens). Drops filler, keeps technical accuracy. Exit with `/normal`. |
-| `/checkpoint` | Save current conversation summary to `.claude/state/checkpoint.md`, then run `/clear` to free context; next session auto-reads the checkpoint and resumes from where you left off |
-| `/context-prime` | Brief Claude on project context at the start of a session (reads git log + key files) |
-| `/search <query>` | **Complexity score** → Phase 1: **Explore** + **unity-scout** simultaneously (complexity ≥ 0.4) → write findings to `.claude/state/search-findings.md` → Phase 2: reviewer validates **completeness** (COMPLETE / INCOMPLETE / REJECT, max 5 iter) → Phase 3: present findings to user → Phase 4: **action router** recommends next command (`/fix`, `/fix-deep`, `/implement`, `/create-plan`, `/update-plan`, or no action) — never executes automatically |
-| `/dump` | Save current session notes and decisions to `.claude/logs/` as markdown |
-| `/five` | 5 Whys root cause analysis — drill down from symptom to root cause |
-| `/continue` | Resume an interrupted orchestration run from the event journal — picks up exactly where it left off |
-| `/status` | Report current pipeline stage: GDD → TDD → WORKFLOW progress summary |
-| `/dry-run` | Preview the orchestration plan for a WORKFLOW.md without executing any tasks |
-| `/instincts` | Manage instinct library: status, list, evolve, promote, export, import |
+
+All Session & Context commands are **manually triggered**. Some chain internal steps automatically once started.
+
+| Command | How it runs | Description |
+|---------|------------|-------------|
+| `/caveman` | Manual — mode toggle | Ultra-compressed communication mode (~75% fewer tokens). Exit with `/normal`. |
+| `/checkpoint` | Manual — saves file, then **you** run `/clear` and send the resume message | Save conversation summary to `.claude/state/checkpoint.md`; next session reads it and resumes |
+| `/context-prime` | Manual — single step | Brief Claude on project context at the start of a session |
+| `/search <query>` | Manual to start. Inside: Explore + unity-scout → reviewer loop (max 5) → findings → action router all run **automatically**. Recommended action is **never** executed automatically | Codebase investigation pipeline — presents findings and recommends a next command |
+| `/dump` | Manual — single step | Save current session notes and decisions to `.claude/logs/` |
+| `/five` | Manual — single step | 5 Whys root cause analysis |
+| `/continue` | Manual — resumes orchestrate | Resume an interrupted `/orchestrate` run from the event journal |
+| `/status` | Manual — single step | Report current pipeline stage: GDD → TDD → WORKFLOW progress summary |
+| `/dry-run` | Manual — single step | Preview the orchestration plan for a WORKFLOW.md without executing |
+| `/instincts` | Manual — single step | Manage instinct library: status, list, evolve, promote, export, import |
 
 ### Documentation
-| Command | Description |
-|---------|-------------|
-| `/catch-up` | Generate a human-readable codebase guide at `docs/CATCH_UP.md` |
-| `/adr <decision>` | Record an Architecture Decision — e.g. `/adr why VContainer over Zenject`; writes to `docs/decisions/NNN-topic.md` |
+
+All documentation commands are **manually triggered — single step each**.
+
+| Command | How it runs | Description |
+|---------|------------|-------------|
+| `/catch-up` | Manual — single step | Generate a human-readable codebase guide at `docs/CATCH_UP.md` |
+| `/adr <decision>` | Manual — single step | Record an Architecture Decision — e.g. `/adr why VContainer over Zenject`; writes to `docs/decisions/NNN-topic.md` |
 
 ### Changelog & Diagrams
-| Command | Description |
-|---------|-------------|
-| `/create-changelog` | Create or update `CHANGELOG.md` from recent git commits |
-| `/mermaid` | Generate a Mermaid architecture diagram for a module or system |
+
+| Command | How it runs | Description |
+|---------|------------|-------------|
+| `/create-changelog` | Manual — single step | Create or update `CHANGELOG.md` from recent git commits |
+| `/mermaid` | Manual — single step | Generate a Mermaid architecture diagram for a module or system |
 
 ---
 
