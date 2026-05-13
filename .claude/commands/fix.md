@@ -55,6 +55,14 @@ Rationale: [one sentence]
 Pipeline: [which variant]
 ```
 
+### SCOPE_GATE
+
+Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
+Pass: bug description, complexity score.
+Wait for `go` before spawning any agents.
+
+---
+
 For **Complex** tasks: after the standard Reviewer step passes, spawn a **unity-developer** subagent with the same changed files list and the review criteria from `.claude/agents/unity-developer.md` before proceeding to the Committer.
 
 ---
@@ -139,6 +147,8 @@ UNITY_RISKS (parallel scan):
 Show the debugger output to the user. Ask: "Root cause found — proceed with fix? (yes / stop)"
 
 If **stop** → abort.
+
+If the number of affected files in `$DEBUGGER_AFFECTED_FILES` is **more than 3**: fire **BREAKING_GATE** (see `.claude/docs/director-gates.md`) before proceeding to the Test Writer. Show the full affected file list and wait for `go` or `stop`.
 
 ---
 
@@ -450,6 +460,14 @@ Silent failure issues found. Options:
 - `fix` → spawn **unity-coder** with all findings as a fix list, then re-run hunter once. Proceed to committer regardless of result.
 - `skip` → proceed to committer.
 - `stop` → abort.
+
+---
+
+### COMMIT_GATE
+
+Show the user the COMMIT_GATE block from `.claude/docs/director-gates.md`.
+Pass: bug description, all changed files, reviewer verdict, verifier verdict.
+Wait for `go` before spawning the committer. `stop` → leave files staged, print summary without committing.
 
 ---
 

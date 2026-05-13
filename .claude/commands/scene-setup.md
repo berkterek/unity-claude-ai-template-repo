@@ -62,6 +62,14 @@ Coder Agent: [unity-coder-lite | unity-coder]
 Review Mode: [solo | lean | full]
 ```
 
+If the task creates a new module folder (complexity score includes the +0.3 new-module signal): fire **ARCHITECTURE_GATE** immediately (see `.claude/docs/director-gates.md`). Show the proposed module/prefab structure and wait for `go`.
+
+### SCOPE_GATE
+
+Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
+Pass: scene setup description, complexity score, expected scripts and Unity assets.
+Wait for `go` before spawning any agents.
+
 For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after unity-reviewer APPROVED, spawn a **unity-developer** subagent review pass before the committer.
 
 ---
@@ -227,6 +235,14 @@ Report: VERIFIED or ISSUES FOUND with details.
 If **VERIFIED** → proceed to Step 3 Committer.
 If **ISSUES FOUND** and fixed → proceed to Step 3 Committer.
 If **cannot fix** → stop and surface blockers to the developer before committing.
+
+---
+
+### COMMIT_GATE
+
+Show the user the COMMIT_GATE block from `.claude/docs/director-gates.md`.
+Pass: setup description, all changed .cs and Unity asset files, reviewer verdict, verifier verdict.
+Wait for `go` before spawning the committer. `stop` → leave files staged, print summary without committing.
 
 ---
 

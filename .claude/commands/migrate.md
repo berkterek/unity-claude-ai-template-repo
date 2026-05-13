@@ -58,6 +58,14 @@ Pipeline: [which variant]
 Review Mode: [solo | lean | full]
 ```
 
+### SCOPE_GATE
+
+Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
+Pass: migration description, complexity score, known affected files or folder.
+Wait for `go` before proceeding.
+
+If the migration scope touches more than 5 files (scoring signal "+0.3 Touches more than 5 files"): also fire **BREAKING_GATE** (see `.claude/docs/director-gates.md`). Show all files in scope and wait for `go` or `stop`.
+
 ---
 
 ## Pipeline
@@ -233,6 +241,14 @@ CHANGES NEEDED:
 ```
 
 If CHANGES NEEDED → spawn **unity-migrator** to fix, then re-run unity-developer (max 2 passes).
+
+---
+
+### COMMIT_GATE
+
+Show the user the COMMIT_GATE block from `.claude/docs/director-gates.md`.
+Pass: migration description, all changed files, reviewer verdict.
+Wait for `go` before spawning the committer. `stop` → leave files staged, print summary without committing.
 
 ---
 

@@ -65,6 +65,8 @@ Rationale: [one sentence]
 Pipeline: [which variant]
 ```
 
+If the task creates a new module folder (complexity score includes the +0.3 new-module signal): fire **ARCHITECTURE_GATE** immediately after printing the complexity block (see `.claude/docs/director-gates.md`). Show the proposed module structure (interface, service, config, installer, events) and wait for `go` before continuing.
+
 ---
 
 ## Step 0c — Test Type Routing
@@ -83,6 +85,14 @@ TEST TYPE DECISION
 - **NoTest** → skip Step 1 (Test Writer) entirely; proceed directly to Step 2 (Coder)
 - **PlayMode-Scene** → Test Writer writes the stub only; note that `/create-test-scene` must be run separately for scene + TestBootstrap wiring
 - **EditMode** or **PlayMode-ECS** → proceed normally; Test Writer uses the correct assembly
+
+---
+
+### SCOPE_GATE
+
+Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
+Pass: task description, complexity score, and known affected files (if any).
+Wait for `go` before spawning any agents.
 
 ---
 
@@ -366,6 +376,14 @@ Silent failure issues found. Options:
 - `fix` → spawn **unity-coder** with all findings as a fix list, then re-run hunter once. Proceed to committer regardless of result.
 - `skip` → proceed to committer.
 - `stop` → abort.
+
+---
+
+### COMMIT_GATE
+
+Show the user the COMMIT_GATE block from `.claude/docs/director-gates.md`.
+Pass: task description, all changed files, reviewer verdict, verifier verdict.
+Wait for `go` before spawning the committer. `stop` → leave files staged, print summary without committing.
 
 ---
 
