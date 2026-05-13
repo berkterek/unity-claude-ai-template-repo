@@ -35,44 +35,49 @@ if [ ! -f "$FILE_PATH" ]; then
     exit 0
 fi
 
-# Skip pool/factory implementations (they're allowed to instantiate)
-if echo "$FILE_PATH" | grep -qiE "(Pool|Factory|Spawner)\.cs$"; then
-    exit 0
-fi
-
 # Skip test files
-if echo "$FILE_PATH" | grep -qiE "(Tests?|Spec)/"; then
+if echo "$FILE_PATH" | grep -qiE "(EditModeTest|PlayModeTest)/"; then
     exit 0
 fi
-
-ISSUES=""
 
 # Strip comments and string literals to avoid false positives
 STRIPPED=$(sed 's|//.*||g; s/"[^"]*"/""/g' "$FILE_PATH" 2>/dev/null | sed ':a;N;$!ba;s|/\*[^*]*\*\+\([^/*][^*]*\*\+\)*/||g')
 
-# Check for Instantiate calls (not inside pool/factory context)
-INSTANTIATE=$(echo "$STRIPPED" | grep -nE "\bInstantiate\s*[<(]")
-if [ -n "$INSTANTIATE" ]; then
-    ISSUES="${ISSUES}\nInstantiate() calls found (use object pooling instead):\n${INSTANTIATE}\n"
+# --- BLOCKING: new GameObject() ---
+# Exception: Pool, Factory, Spawner files may create GameObjects as part of their purpose
+NEW_GO=""
+if ! echo "$FILE_PATH" | grep -qiE "(Pool|Factory|Spawner)\.cs$"; then
+    NEW_GO=$(echo "$STRIPPED" | grep -nE "\bnew\s+GameObject\s*\(")
 fi
 
-# Check for new GameObject
-NEW_GO=$(echo "$STRIPPED" | grep -nE "\bnew\s+GameObject\s*\(")
 if [ -n "$NEW_GO" ]; then
-    ISSUES="${ISSUES}\nnew GameObject() calls found (use pre-created prefabs from pools):\n${NEW_GO}\n"
+    echo "BLOCKED: new GameObject() is forbidden outside Pool/Factory/Spawner classes."
+    echo ""
+    echo "File: $FILE_PATH"
+    echo "Lines:"
+    echo "$NEW_GO"
+    echo ""
+    echo "Rule: GameObjects must always come from prefabs."
+    echo "  GOOD: Instantiate(prefab, parent, false)"
+    echo "  GOOD: Addressables.InstantiateAsync(address)"
+    echo "  BAD:  new GameObject(\"name\")"
+    echo ""
+    echo "If this is a pool or factory, rename the file to end with Pool.cs, Factory.cs, or Spawner.cs."
+    exit 2
 fi
 
-# Check for Destroy (should use pool.Return instead)
+WARNINGS=""
+
+# Check for Destroy (warning only — Addressables.ReleaseInstance or pool.Return preferred)
 DESTROY=$(echo "$STRIPPED" | grep -nE "\bDestroy\s*\(" | grep -v "OnDestroy")
 if [ -n "$DESTROY" ]; then
-    ISSUES="${ISSUES}\nDestroy() calls found (use pool.Return() or SetActive(false) instead):\n${DESTROY}\n"
+    WARNINGS="${WARNINGS}\nDestroy() found — use pool.Return() / SetActive(false) or Addressables.ReleaseInstance() instead:\n${DESTROY}\n"
 fi
 
-if [ -n "$ISSUES" ]; then
-    echo "WARNING: Runtime GameObject creation/destruction detected!"
+if [ -n "$WARNINGS" ]; then
+    echo "WARNING: Potentially unsafe GameObject destruction detected."
     echo "File: $FILE_PATH"
-    echo -e "$ISSUES"
-    echo "Constraint: No runtime GameObject creation. Use object pools and prefabs."
+    echo -e "$WARNINGS"
     exit 0
 fi
 
