@@ -136,7 +136,7 @@ Detailed coding standards in `.claude/rules/`:
 > Reviewer priority: unity-reviewer → Codex → reviewer (falls back in order if unavailable).
 
 ### Project Setup
-- `/setup-project` — Initialize a new project: folder structure, .asmdef files, base framework classes, NSubstitute setup, manual checklist
+- `/setup-project` — Initialize a new project: folder structure, .asmdef files (including Framework asmdefs), base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), NSubstitute setup, manual checklist. Gated: runtime packages (VContainer/UniTask/Input System) must be confirmed before .asmdef + C# generation; NSubstitute DLL must be confirmed before test templates.
 - `/graphics-setup <mobile|pc>` — Show Low/Medium/High URP tier plan, await approval, create Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP, wire into Quality Settings, commit option
 - `/audio-clip-setup [path]` — Scan AudioClip assets, categorize (Music/SFX/UI/Voice), apply optimized import settings via temp Editor script + MCP; reports per-clip changes + summary + commit option
 - `/create-prefab-scene` — **Legacy migration:** scan existing scenes for bare GameObjects, build a prefab inventory, create proper prefabs via MCP, review, commit. Use for scenes built before the prefab rules were in place.
@@ -315,7 +315,7 @@ Logs rotate daily and are stored in `.claude/logs/`.
 
 After running `/setup-project`, complete these steps manually (Claude cannot do them):
 
-- [ ] **NSubstitute DLL** — Download from NuGet, place `NSubstitute.dll` in `Assets/Plugins/NSubstitute/`
+- [ ] **NSubstitute DLL** — Download from [NuGet](https://www.nuget.org/packages/NSubstitute): click "Download package", rename `.nupkg` to `.zip`, extract, take `NSubstitute.dll` from the `lib/` folder, place in `Assets/Plugins/NSubstitute/`
 - [ ] **VContainer** — Install via Package Manager or openupm (`jp.hadashikick.vcontainer`)
 - [ ] **UniTask** — Install via Package Manager or openupm (`com.cysharp.unitask`)
 - [ ] **New Input System** — Install via Package Manager (`com.unity.inputsystem`); set active input handling to "Input System Package (New)" in Project Settings → Player
@@ -511,9 +511,11 @@ Omit `model-tier` to inherit from the calling command. Use `light` for lookup/re
 ## Project-Specific Setup
 
 When first adding this template to a new project, run `/setup-project` to generate:
-- Assembly definition files with correct project name
-- Base framework classes (IEventBus, ModuleInstaller, AppScope)
-- NSubstitute test assembly configuration
-- Sample test templates
+- Assembly definition files with correct project name (including `FrameworkEvents`, `FrameworkLogging`, `FrameworkSaveLoadSystems`, and optional ECS asmdef)
+- Base framework classes: `IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`
+- NSubstitute test assembly configuration (gated on DLL presence)
+- Sample test templates (gated on NSubstitute DLL)
 
-Then follow the **Manual Setup Checklist** it prints (NSubstitute DLL, VContainer, UniTask, Input System, AppScope scene wiring).
+The command asks about ALL packages before running — runtime packages gate .asmdef + C# generation; NSubstitute gates test templates. If anything is missing, it generates only what it can and prints the checklist.
+
+Then follow the **Manual Setup Checklist** it prints (NSubstitute DLL, VContainer, UniTask, Input System, AppScope scene wiring). **Note:** `.unity` scene files must be created manually in Unity Editor — Claude cannot write scene files (`block-scene-edit.sh` blocks all `.unity` writes).
