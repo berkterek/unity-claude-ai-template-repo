@@ -337,7 +337,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 |---------|-------------|
 | `/checkpoint` | Save current conversation summary to `.claude/state/checkpoint.md`, then run `/clear` to free context; next session auto-reads the checkpoint and resumes from where you left off |
 | `/context-prime` | Brief Claude on project context at the start of a session (reads git log + key files) |
-| `/search <query>` | **Complexity score** → Phase 1: **Explore** + **unity-scout** simultaneously (complexity ≥ 0.4) → reviewer chain (unity-reviewer → Codex → reviewer, max 5 iterations) → structured result with next-step routing |
+| `/search <query>` | **Complexity score** → Phase 1: **Explore** + **unity-scout** simultaneously (complexity ≥ 0.4) → write findings to `.claude/state/search-findings.md` → Phase 2: reviewer validates **completeness** (COMPLETE / INCOMPLETE / REJECT, max 5 iter) → Phase 3: present findings to user → Phase 4: **action router** recommends next command (`/fix`, `/fix-deep`, `/implement`, `/create-plan`, `/update-plan`, or no action) — never executes automatically |
 | `/dump` | Save current session notes and decisions to `.claude/logs/` as markdown |
 | `/five` | 5 Whys root cause analysis — drill down from symptom to root cause |
 | `/continue` | Resume an interrupted orchestration run from the event journal — picks up exactly where it left off |
@@ -587,7 +587,6 @@ Create scenes manually in Unity Editor (File → New Scene → Save As):
 2. Create empty GameObject named `AppScope`, add `AppScope` component
 3. Right-click `Assets/Configs` → Create → Game/Infrastructure/App Installer → name it `AppInstaller`
 4. Assign `AppInstaller.asset` to `AppScope._appInstaller` in Inspector
-5. Create stubs for `UIRoot`, `AudioRoot`, `PoolRoot` (empty `MonoBehaviour` classes) to avoid compile errors on first run
 
 ---
 
