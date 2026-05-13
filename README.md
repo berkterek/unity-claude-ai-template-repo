@@ -82,7 +82,7 @@ Different tasks need different models. Use the right tier to balance speed and c
 |------|-------|-------|----------|
 | **light** | Haiku | `claude-light` | `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
 | **normal** | Sonnet | `claude-normal` | `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/new-module`, `/performance-audit`, `/clean-slop`, `/catch-up` |
-| **heavy** | Opus | `claude-heavy` | `/architect`, `/plan-workflow`, `/game-idea`, `/add-feature`, `/refine-gdd`, `/refine-tdd` |
+| **heavy** | Opus | `claude-heavy` | `/architect`, `/plan-workflow`, `/game-idea`, `/add-feature`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
 
 ### Setup
 
@@ -156,6 +156,7 @@ The full pipeline from idea to shippable game, using the commands in this templa
 |---------|-------------|
 | `/game-idea` | Refines a raw idea into a **GDD** — surfaces assumptions, defines scope, creates a "Not Doing" list |
 | `/architect` | Converts the GDD into a **TDD** — `unity-critic` adversarially challenges the design before you review |
+| `/grill-me [plan or file]` | Stress-tests a plan or decision — one pointed question at a time, recommends an answer, ends with a Decision Record |
 
 ### Phase 2 — Planning
 
@@ -281,6 +282,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 |---------|-------------|
 | `/game-idea` | Refine a raw idea into a GDD (assumption surfacing + "Not Doing" list included) |
 | `/architect` | Create a Technical Design Document from a GDD (Phase 7 self-critique → **unity-critic** adversarial challenge → developer review) |
+| `/grill-me [plan or file]` | Stress-test a plan or decision — one pointed question at a time, offers recommended answer, produces a Decision Record on `/done` |
 | `/refine-gdd` | Iterate on an existing GDD |
 | `/refine-tdd` | Iterate on an existing TDD |
 | `/plan-workflow` | Create a phased execution plan from a TDD — assigns integer `parallel_group` numbers (1, 2, `—`) compatible with `/orchestrate`; compile-time type dependencies force sequential even across different files |
