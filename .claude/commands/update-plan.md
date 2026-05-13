@@ -140,7 +140,7 @@ Do NOT truncate existing content.
 
 Reviewer priority — try in order, fall back if unavailable:
 1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
-2. Spawn Agent with `subagent_type: "claude"` (general reviewer)
+2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 Reviewer prompt:
 ```

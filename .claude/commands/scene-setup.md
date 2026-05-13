@@ -75,7 +75,7 @@ After receiving `go` → run:
 mkdir -p .claude/state && echo '{"gate":"SCOPE_GATE","pipeline":"scene-setup","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
 ```
 
-For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after unity-reviewer APPROVED, spawn a **unity-developer** subagent review pass before the committer.
+For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after reviewer APPROVED, spawn a **unity-developer** subagent review pass before the committer.
 
 ---
 
@@ -153,9 +153,8 @@ If BLOCKED → stop and show the user.
 ## Step 2 — Reviewer
 
 Reviewer priority — try in order, fall back if unavailable:
-1. Spawn Agent with `subagent_type: "unity-reviewer"`
-2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
-3. Spawn Agent with `subagent_type: "claude"` (general reviewer)
+1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 ```
 Review this Unity scene setup implementation.
@@ -204,7 +203,7 @@ Repeat until APPROVED or stopped (max 3 passes):
    Report: DONE or BLOCKED with reason.
    ```
 
-2. After coder fixes → re-run the reviewer using the same priority order (unity-reviewer → codex:codex-rescue → claude) with the updated files.
+2. After coder fixes → re-run the reviewer using the same priority order (codex:codex-rescue → unity-reviewer) with the updated files.
 
 3. If APPROVED → proceed to Step 3.
 

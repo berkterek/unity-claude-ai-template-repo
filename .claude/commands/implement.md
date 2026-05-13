@@ -181,7 +181,7 @@ If coder reports **BLOCKED** → stop, show the blocker to the user, do not cont
 
 ## Step 2.5 — Unity Validator (MANDATORY — runs before Reviewer)
 
-Spawn a **reviewer** subagent (always — never Codex, because Codex has no Unity MCP access) with this prompt:
+Spawn a **unity-verifier** subagent with this prompt:
 
 ```
 You are a Unity build validator. Your only job is to verify that the project compiles and all tests pass.
@@ -246,9 +246,8 @@ If still failing after **2 fix passes** → stop and show the user all errors. A
 ## Step 3 — Reviewer
 
 Reviewer priority — try in order, fall back if unavailable:
-1. Spawn Agent with `subagent_type: "unity-reviewer"`
-2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
-3. Spawn Agent with `subagent_type: "claude"` (general reviewer)
+1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 ```
 Review the following Unity C# implementation.
@@ -300,7 +299,7 @@ Repeat until APPROVED or stopped (max 3 passes):
    Report: DONE or BLOCKED with reason.
    ```
 
-2. After unity-coder fixes → re-run the reviewer using the same priority order (unity-reviewer → codex:codex-rescue → claude) with the updated files.
+2. After unity-coder fixes → re-run the reviewer using the same priority order (codex:codex-rescue → unity-reviewer) with the updated files.
 
 3. If APPROVED → proceed to Step 3.5.
 

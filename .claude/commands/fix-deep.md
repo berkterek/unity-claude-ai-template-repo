@@ -376,7 +376,7 @@ Report: DONE or BLOCKED with reason.
 
 ## Step 5.5 — Unity Validator
 
-Spawn a **reviewer** subagent (always — never Codex, because Codex has no Unity MCP access):
+Spawn a **unity-verifier** subagent:
 
 ```
 You are a Unity build validator.
@@ -417,9 +417,8 @@ Validator loop: same as `/fix` — max 2 fix passes before stopping and asking u
 ## Step 6 — Reviewer
 
 Reviewer priority — try in order, fall back if unavailable:
-1. Spawn Agent with `subagent_type: "unity-reviewer"`
-2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
-3. Spawn Agent with `subagent_type: "claude"` (general reviewer)
+1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 ```
 Review this evidence-proven bug fix.

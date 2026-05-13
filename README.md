@@ -260,9 +260,10 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-pure-csharp` | `using UnityEngine` inside `_Framework/` or service classes in `Abstracts/Concretes/` |
 | `check-input-system` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
-| `guard-critical-files` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — exception: files under `TestScopes/` or `Tests/` |
-| `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exception: test assemblies (`PlayTests`, `EditTests`, `.Tests`) |
+| `guard-critical-files` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — exception: files under `TestScopes/`, `EditModeTest/`, or `PlayModeTest/` |
+| `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exception: test assemblies (`EditModeTest`, `PlayModeTest`) |
 | `gateguard` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
+| `check-no-runtime-instantiate` | `new GameObject()` — blocked outside `Pool/Factory/Spawner` files and test assemblies (`Instantiate(prefab)` is allowed) |
 
 ### Warnings (logged to stderr, does not block)
 
@@ -272,7 +273,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-no-linq-hotpath` | LINQ inside `Update` / `FixedUpdate` / `LateUpdate` |
 | `check-no-hotpath-expensive-calls` | `GetComponent`, `Camera.main`, `FindObjectOfType`, bare `transform.`, `tag ==`, `SendMessage` inside Update/FixedUpdate/LateUpdate/Tick/FixedTick/LateTick — suppressed if `_transform` field is cached |
 | `check-getcomponent-in-awake` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment for all components including `Transform`; only acceptable when component is added dynamically at runtime |
-| `check-no-runtime-instantiate` | `new GameObject()`, `Instantiate()`, `Destroy()` |
+| `check-no-runtime-instantiate` (Destroy) | `Destroy()` — use `pool.Return()` / `SetActive(false)` or `Addressables.ReleaseInstance()` instead |
 | `check-test-exists` | Logic class with no matching test file |
 | `check-compile` | Basic C# syntax errors |
 | `warn-serialization` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
@@ -333,7 +334,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/smart-commit` | Manual to start. Inside: analyze dirty tree → group commits → commit run **automatically** | Group working tree changes into logical semantic commits |
 | `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier → reviewer → committer run **automatically**. **Between phases:** pauses and asks `Proceed?` — you decide | Execute WORKFLOW.md end-to-end, phase by phase |
 
-> Reviewer priority across all pipelines: unity-reviewer → Codex → reviewer (falls back in order). Review loops: CHANGES NEEDED → coder fixes → reviewer re-checks → repeat until APPROVED (max 3 passes).
+> Reviewer priority across all pipelines: Codex → unity-reviewer (falls back to unity-reviewer if Codex is unavailable). Review loops: CHANGES NEEDED → coder fixes → reviewer re-checks → repeat until APPROVED (max 3 passes).
 
 > **`/fix` vs `/fix-deep`:** Use `/fix` when the stack trace clearly points to the root cause. Use `/fix-deep` for logic bugs, "sometimes happens" issues, or any case where the root cause is uncertain — it **refuses to fix until root cause is proven**.
 

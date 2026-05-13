@@ -47,7 +47,7 @@ Coder Agent: [coder | unity-coder-lite | unity-coder] (per task)
 Review Mode: [solo | lean | full]
 ```
 
-For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after the standard unity-reviewer step passes for each task, spawn a **unity-developer** subagent review pass before the committer.
+For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after the standard reviewer step passes for each task, spawn a **unity-developer** subagent review pass before the committer.
 
 ### SCOPE_GATE
 
@@ -296,9 +296,8 @@ Exit.
 #### Step 3 — Reviewer
 
 Reviewer priority — try in order, fall back if unavailable:
-1. Spawn Agent with `subagent_type: "unity-reviewer"`
-2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
-3. Spawn Agent with `subagent_type: "claude"` (general reviewer)
+1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 **Reviewer prompt:**
 ```
@@ -356,7 +355,7 @@ On **CHANGES NEEDED** → automatically enter the review loop (no user prompt ne
    Report: DONE or BLOCKED with reason.
    ```
 
-2. Re-run the reviewer using the same priority order (unity-reviewer → codex:codex-rescue → claude) with the updated files.
+2. Re-run the reviewer using the same priority order (codex:codex-rescue → unity-reviewer) with the updated files.
 
 3. If APPROVED → proceed to Step 3 (Committer).
 
@@ -556,7 +555,7 @@ On startup, read this file and skip already-completed tasks.
 - **Phase gates are mandatory.** Always pause and ask between phases.
 - **One pipeline per task.** Never batch multiple tasks into one subagent call.
 - **Subagents get no session history.** Write every prompt as if they know nothing about this conversation.
-- **Reviewer tries unity-reviewer first.** Fall back to Codex, then to Claude reviewer agent if both are unavailable.
+- **Reviewer tries Codex first.** Fall back to unity-reviewer if Codex is unavailable.
 
 ---
 

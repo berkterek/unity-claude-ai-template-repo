@@ -88,7 +88,7 @@ Detailed coding standards in `.claude/rules/`:
 | `check-input-system.sh` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-vcontainer-singleton.sh` | Static singleton patterns outside of `EventBusAccessor` |
 | `guard-critical-files.sh` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — **exception: files under `TestScopes/` or `Tests/` paths** |
-| `check-config-protection.sh` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — **exception: test assemblies (`PlayTests`, `EditTests`, `.Tests`)** |
+| `check-config-protection.sh` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — **exception: test assemblies (`EditModeTest`, `PlayModeTest`)** |
 | `gateguard.sh` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 
 ### Warning (exit 0 — logs to stderr, does not block)
@@ -99,7 +99,7 @@ Detailed coding standards in `.claude/rules/`:
 | `check-no-linq-hotpath.sh` | LINQ in Update/FixedUpdate/LateUpdate |
 | `check-no-hotpath-expensive-calls.sh` | `GetComponent`, `Camera.main`, `FindObjectOfType`, bare `transform.`, `tag ==`, `SendMessage` inside Update/FixedUpdate/LateUpdate/Tick/FixedTick/LateTick — suppressed if `_transform` field is cached |
 | `check-getcomponent-in-awake.sh` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment for all components including `Transform`; only acceptable when component is added dynamically at runtime |
-| `check-no-runtime-instantiate.sh` | `Instantiate()`, `new GameObject()`, `Destroy()` |
+| `check-no-runtime-instantiate.sh` | `new GameObject()` — **blocked** outside Pool/Factory/Spawner and Editor files; `Destroy()` — warning only (`Instantiate(prefab)` is allowed) |
 | `check-test-exists.sh` | Logic class with no corresponding test file |
 | `check-compile.sh` | Basic C# syntax (braces, namespace, type declaration) |
 | `warn-serialization.sh` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
@@ -133,7 +133,7 @@ Detailed coding standards in `.claude/rules/`:
 - `/smart-commit` — analyze dirty working tree → group into logical commits → commit
 - `/orchestrate` — **complexity score** → read WORKFLOW.md → check `parallel_group` annotations → per-task: **coder** (pure C#) / **unity-coder-lite** (Simple Unity) / **unity-coder** (Medium/Complex Unity) → **unity-verifier** → **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → committer; tasks with same `parallel_group` run simultaneously (complexity ≥ 0.4); phase gate runs **ralph → silent-failure-hunt → validate** automatically before asking to proceed; emits `VERIFICATION_PASSED` event on success
 
-> Reviewer priority: unity-reviewer → Codex → reviewer (falls back in order if unavailable).
+> Reviewer priority: Codex → unity-reviewer (falls back to unity-reviewer if Codex is unavailable).
 
 ### Project Setup
 - `/setup-project` — Initialize a new project: folder structure, .asmdef files (including Framework asmdefs), base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), NSubstitute setup, manual checklist. Gated: runtime packages (VContainer/UniTask/Input System) must be confirmed before .asmdef + C# generation; NSubstitute DLL must be confirmed before test templates.
@@ -367,8 +367,8 @@ _GameFolders/
       Concretes/         ← Unity providers, MonoBehaviours
       Ecs/               ← Authorings, Components, Systems
     Tests/
-      [Project]Tests/    ← Edit Mode (NUnit + NSubstitute)
-      [Project]PlayTests/ ← Play Mode (ECS World integration)
+      [ProjectName]EditModeTest/    ← Edit Mode (NUnit + NSubstitute)
+      [ProjectName]PlayModeTest/    ← Play Mode (ECS World integration)
   Prefabs/
     Enemies/
     UI/

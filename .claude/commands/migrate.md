@@ -34,7 +34,7 @@ Before spawning any agents, score the migration complexity on a 0.0–1.0 scale:
 |-------|-------|---------|-----------------|
 | 0.0–0.3 | **Simple** | Single file, mechanical substitution (e.g. one coroutine) | migrator/unity-migrator → reviewer → committer |
 | 0.4–0.6 | **Medium** | Multiple files, interface changes, or VContainer rewiring | test guard → migrator/unity-migrator → reviewer → committer |
-| 0.7–1.0 | **Complex** | Cross-module migration, ECS involvement, or Addressables | test guard → migrator/unity-migrator → unity-reviewer → unity-developer → committer |
+| 0.7–1.0 | **Complex** | Cross-module migration, ECS involvement, or Addressables | test guard → migrator/unity-migrator → codex:codex-rescue reviewer → unity-developer → committer |
 
 **Migrator agent routing — decide before spawning:**
 
@@ -162,7 +162,7 @@ If BLOCKED → stop and show the user.
 
 Reviewer priority — try in order, fall back if unavailable:
 1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
-2. Spawn Agent with `subagent_type: "claude"` (general reviewer)
+2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 Reviewer prompt:
 ```
@@ -209,7 +209,7 @@ Repeat until APPROVED or stopped (max 3 passes):
    Report: DONE or BLOCKED with reason.
    ```
 
-2. After migrator fixes → re-run the reviewer using the same priority order (codex:codex-rescue → claude) with the updated files.
+2. After migrator fixes → re-run the reviewer using the same priority order (codex:codex-rescue → unity-reviewer) with the updated files.
 
 3. If APPROVED → proceed to Step 3.
 
@@ -219,7 +219,7 @@ Repeat until APPROVED or stopped (max 3 passes):
 
 ### unity-developer Pass (Complex only)
 
-If complexity score ≥ 0.7 and review mode is `lean` or `full`: after unity-reviewer reports APPROVED, spawn a **unity-developer** subagent with this prompt:
+If complexity score ≥ 0.7 and review mode is `lean` or `full`: after reviewer reports APPROVED, spawn a **unity-developer** subagent with this prompt:
 
 ```
 Review this migration for Unity-specific correctness.

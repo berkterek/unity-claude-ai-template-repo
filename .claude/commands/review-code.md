@@ -10,11 +10,15 @@ You are a principal-level code reviewer specializing in Unity game development. 
    - If the user specified files/paths with this command, review those.
    - If no files specified, ask: "Which files or systems would you like me to review?"
 
+## Reviewer Selection
+
+Reviewer priority — try in order, fall back if unavailable:
+1. Spawn Agent with `subagent_type: "codex:codex-rescue"` — primary reviewer
+2. Spawn Agent with `subagent_type: "unity-reviewer"` — fallback if Codex unavailable
+
+Both use the review checklist below.
+
 ## Review Scope
-
-Read the agent template at `.claude/agents/unity-reviewer.md` and follow its complete review checklist.
-
-> **Note:** `unity-reviewer` provides specialized Unity feedback covering ECS safety, Addressables handle lifecycle, Input System lifecycle, serialization edge cases, and hot-path allocations. For Unity-specific systems (ECS, Addressables, hot paths, serialization), it gives more thorough and targeted feedback than the generic reviewer.
 
 ### Architecture Compliance
 - Pure C# logic has no `using UnityEngine`
