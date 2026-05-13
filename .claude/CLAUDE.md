@@ -330,6 +330,18 @@ After running `/setup-project`, complete these steps manually (Claude cannot do 
   }
   ```
 
+## NON-NEGOTIABLE: Director Gate Rules
+
+NEVER spawn a `tester`, `coder`, `unity-coder`, `unity-coder-lite`, `unity-fixer`, `unity-fixer-lite`, `committer`, `unity-migrator`, `migrator`, or `unity-setup` agent without first:
+
+1. Showing the required Director Gate (SCOPE_GATE or ARCHITECTURE_GATE) to the user
+2. Receiving explicit `go` from the user
+3. Writing `.claude/state/gate-cleared` via Bash
+
+Skipping a gate is a critical violation — the `guard-gate-cleared.sh` hook will block the agent spawn with exit 2. After the pipeline completes, delete `.claude/state/gate-cleared`.
+
+---
+
 ## Key Architecture Rules (summary)
 
 - **No singletons** — VContainer only. Register in AppScope (global) or scene scopes.

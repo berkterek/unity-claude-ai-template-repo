@@ -28,7 +28,12 @@ _GameFolders/Scripts/Games/Concretes/[ModuleName]/
    - Interface, Service, Configuration, Installer, Events (if any), Provider (if Unity API needed)
    - Scope it will be registered in (AppScope / GameScope / MenuScope)
    - Wait for `go` before generating any files.
+   - After receiving `go` → run:
+     ```bash
+     mkdir -p .claude/state && echo '{"gate":"ARCHITECTURE_GATE","pipeline":"new-module","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
+     ```
 6. Generate all files with proper naming, namespace, and VContainer registration.
+7. After all files written → run: `rm -f .claude/state/gate-cleared`
 7. Print the **Portability Checklist** for the generated module.
 
 ## Code Rules

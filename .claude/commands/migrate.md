@@ -64,6 +64,11 @@ Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
 Pass: migration description, complexity score, known affected files or folder.
 Wait for `go` before proceeding.
 
+After receiving `go` → run:
+```bash
+mkdir -p .claude/state && echo '{"gate":"SCOPE_GATE","pipeline":"migrate","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
+```
+
 If the migration scope touches more than 5 files (scoring signal "+0.3 Touches more than 5 files"): also fire **BREAKING_GATE** (see `.claude/docs/director-gates.md`). Show all files in scope and wait for `go` or `stop`.
 
 ---
@@ -277,6 +282,8 @@ $MIGRATOR_OUTPUT
 ---
 
 ## Completion
+
+Run: `rm -f .claude/state/gate-cleared`
 
 Print:
 ```

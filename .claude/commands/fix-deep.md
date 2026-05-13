@@ -49,6 +49,11 @@ Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
 Pass: bug description, complexity score.
 Wait for `go` before proceeding to log intake or spawning any agents.
 
+After receiving `go` → run:
+```bash
+mkdir -p .claude/state && echo '{"gate":"SCOPE_GATE","pipeline":"fix-deep","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
+```
+
 ---
 
 ## Step 0b — Log Intake
@@ -526,6 +531,8 @@ $CODER_OUTPUT
 ---
 
 ## Completion
+
+Run: `rm -f .claude/state/gate-cleared`
 
 Invoke the **learner** skill to capture debugging insights.
 

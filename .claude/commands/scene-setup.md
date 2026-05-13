@@ -70,6 +70,11 @@ Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
 Pass: scene setup description, complexity score, expected scripts and Unity assets.
 Wait for `go` before spawning any agents.
 
+After receiving `go` → run:
+```bash
+mkdir -p .claude/state && echo '{"gate":"SCOPE_GATE","pipeline":"scene-setup","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
+```
+
 For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after unity-reviewer APPROVED, spawn a **unity-developer** subagent review pass before the committer.
 
 ---
@@ -271,6 +276,8 @@ $UNITY_SETUP_OUTPUT
 ---
 
 ## Completion
+
+Run: `rm -f .claude/state/gate-cleared`
 
 Print:
 ```

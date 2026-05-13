@@ -94,6 +94,11 @@ Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
 Pass: task description, complexity score, and known affected files (if any).
 Wait for `go` before spawning any agents.
 
+After receiving `go` → run:
+```bash
+mkdir -p .claude/state && echo '{"gate":"SCOPE_GATE","pipeline":"implement","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
+```
+
 ---
 
 For **Complex** tasks: after the standard Reviewer step passes, spawn a **unity-developer** subagent with the same changed files list and the review criteria from `.claude/agents/unity-developer.md` before proceeding to the Committer.
@@ -412,6 +417,8 @@ $CODER_OUTPUT
 ---
 
 ## Completion
+
+Run: `rm -f .claude/state/gate-cleared`
 
 Print:
 ```

@@ -24,6 +24,11 @@ Pass: target scene(s), operation ("legacy scene migration — bare GameObjects �
 Note: this operation modifies scenes and creates prefab assets — partially reversible via git, but MCP scene changes are harder to undo.
 Wait for `go` before proceeding.
 
+After receiving `go` → run:
+```bash
+mkdir -p .claude/state && echo '{"gate":"SCOPE_GATE","pipeline":"create-prefab-scene","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
+```
+
 ---
 
 ## Step 0b — MCP Preflight
@@ -318,6 +323,8 @@ $UNITY_SETUP_OUTPUT
 ---
 
 ## Completion
+
+Run: `rm -f .claude/state/gate-cleared`
 
 Print:
 ```

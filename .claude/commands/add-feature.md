@@ -58,6 +58,11 @@ Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
 Pass: feature description, complexity score, impacted systems (if known from initial description).
 Wait for `go` before reading GDD/TDD/WORKFLOW or spawning any agents.
 
+After receiving `go` → run:
+```bash
+mkdir -p .claude/state && echo '{"gate":"SCOPE_GATE","pipeline":"add-feature","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
+```
+
 ---
 
 ## Initialization
@@ -148,6 +153,9 @@ After developer confirms the design:
 Present all changes for review. Get confirmation before saving.
 
 ### Step 6: Execution Option
+
+Run: `rm -f .claude/state/gate-cleared`
+
 Ask: "Would you like me to `/orchestrate` this feature's workflow now, or will you handle it manually?"
 
 ### Step 7: Unity Setup (if feature needs prefabs or scene wiring)
