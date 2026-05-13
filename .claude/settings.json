@@ -15,6 +15,17 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/guard-gate-cleared.sh",
+            "timeout": 3000,
+            "statusMessage": "Checking Director Gate..."
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write",
         "hooks": [
           {
