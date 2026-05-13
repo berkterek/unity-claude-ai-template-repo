@@ -527,11 +527,6 @@ namespace Game.Concretes.Infrastructure
 
         [SerializeField] private AppInstaller _appInstaller;
 
-        [Header("Scene Infrastructure")]
-        [SerializeField] private UIRoot    _uiRoot;
-        [SerializeField] private AudioRoot _audioRoot;
-        [SerializeField] private PoolRoot  _poolRoot;
-
         #endregion
 
         #region Lifecycle
@@ -539,10 +534,6 @@ namespace Game.Concretes.Infrastructure
         protected override void Configure(IContainerBuilder builder)
         {
             builder.Register<EventBus>(Lifetime.Singleton).As<IEventBus>();
-
-            if (_uiRoot    != null) builder.RegisterComponent(_uiRoot);
-            if (_audioRoot != null) builder.RegisterComponent(_audioRoot);
-            if (_poolRoot  != null) builder.RegisterComponent(_poolRoot);
 
             _appInstaller?.Install(builder);
 
@@ -556,8 +547,6 @@ namespace Game.Concretes.Infrastructure
     }
 }
 ```
-
-> `UIRoot`, `AudioRoot`, and `PoolRoot` are infrastructure MonoBehaviours you will create later. The null-guards above let the scene compile before those classes exist. Remove the guards once the classes are created.
 
 ---
 
@@ -664,11 +653,4 @@ https://github.com/Cysharp/UniTask
 3. Add AppScope component
 4. Right-click Assets/Configs → Create → Game/Infrastructure/App Installer → name it AppInstaller
 5. Drag AppInstaller asset onto AppScope._appInstaller field
-6. Create UIRoot, AudioRoot, PoolRoot GameObjects and assign them
-
-### Infrastructure MonoBehaviours (stubs — create before first compile)
-AppScope.cs references UIRoot, AudioRoot, PoolRoot. Create minimal stubs to avoid compile errors:
-- Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/UIRoot.cs    → public sealed class UIRoot : MonoBehaviour {}
-- Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/AudioRoot.cs → public sealed class AudioRoot : MonoBehaviour {}
-- Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/PoolRoot.cs  → public sealed class PoolRoot : MonoBehaviour {}
 ```

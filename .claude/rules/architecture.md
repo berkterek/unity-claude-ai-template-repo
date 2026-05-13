@@ -118,22 +118,18 @@ AppScope (Bootstrap scene — DontDestroyOnLoad, persistent root)
 // AppScope.cs — Bootstrap scene (this file never changes)
 public sealed class AppScope : LifetimeScope
 {
-    [SerializeField] private AppInstaller     _appInstaller;
-    [SerializeField] private AppConfiguration _appConfiguration;
-
-    [Header("Scene Infrastructure")]
-    [SerializeField] private UIRoot    _uiRoot;
-    [SerializeField] private AudioRoot _audioRoot;
-    [SerializeField] private PoolRoot  _poolRoot;
+    [SerializeField] private AppInstaller _appInstaller;
 
     protected override void Configure(IContainerBuilder builder)
     {
-        builder.RegisterInstance(_appConfiguration);
-        builder.RegisterComponent(_uiRoot);
-        builder.RegisterComponent(_audioRoot);
-        builder.RegisterComponent(_poolRoot);
+        builder.Register<EventBus>(Lifetime.Singleton).As<IEventBus>();
 
-        _appInstaller.Install(builder);
+        _appInstaller?.Install(builder);
+
+        builder.RegisterBuildCallback(container =>
+        {
+            EventBusAccessor.Initialize(container.Resolve<IEventBus>());
+        });
     }
 }
 ```

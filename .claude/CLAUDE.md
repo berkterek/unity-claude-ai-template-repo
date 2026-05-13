@@ -320,7 +320,7 @@ After running `/setup-project`, complete these steps manually (Claude cannot do 
 - [ ] **UniTask** — Install via Package Manager or openupm (`com.cysharp.unitask`)
 - [ ] **New Input System** — Install via Package Manager (`com.unity.inputsystem`); set active input handling to "Input System Package (New)" in Project Settings → Player
 - [ ] **Addressables** — Install via Package Manager (`com.unity.addressables`); initialize via Window → Asset Management → Addressables → Groups
-- [ ] **AppScope scene** — Create a Bootstrap scene (Build index 0), add `AppScope` component, wire `AppInstaller` and infrastructure roots (`UIRoot`, `AudioRoot`, `PoolRoot`)
+- [ ] **AppScope scene** — Create a Bootstrap scene (Build index 0), add `AppScope` component, wire `AppInstaller`
 - [ ] **Build settings** — Add Bootstrap scene as index 0; add Menu and Game scenes
 - [ ] **`check-test-scene-exists.sh` hook** — Add to `.claude/settings.json` PostToolUse section (Claude cannot edit settings.json due to config-protection hook):
   ```json
