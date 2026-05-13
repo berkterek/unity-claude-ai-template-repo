@@ -137,8 +137,6 @@ Detailed coding standards in `.claude/rules/`:
 
 ### Project Setup
 - `/setup-project` — Initialize a new project: folder structure, .asmdef files (including Framework asmdefs), base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), NSubstitute setup, manual checklist. Gated: runtime packages (VContainer/UniTask/Input System) must be confirmed before .asmdef + C# generation; NSubstitute DLL must be confirmed before test templates.
-- `/graphics-setup <mobile|pc>` — Show Low/Medium/High URP tier plan, await approval, create Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP, wire into Quality Settings, commit option
-- `/audio-clip-setup [path]` — Scan AudioClip assets, categorize (Music/SFX/UI/Voice), apply optimized import settings via temp Editor script + MCP; reports per-clip changes + summary + commit option
 - `/create-prefab-scene` — **Legacy migration:** scan existing scenes for bare GameObjects, build a prefab inventory, create proper prefabs via MCP, review, commit. Use for scenes built before the prefab rules were in place.
 
 ### Design & Architecture
@@ -371,7 +369,7 @@ _GameFolders/
 |-------|---------|--------------|
 | 1 — Idea & Design | `/game-idea`, `/architect` | GDD → TDD with adversarial review |
 | 2 — Planning | `/plan-workflow`, `/dry-run` | WORKFLOW.md phases, preview without execution |
-| 3 — Project Setup | `/setup-project`, `/graphics-setup`, `/audio-clip-setup` | Folder structure, .asmdefs, base classes, URP quality tiers, audio import settings |
+| 3 — Project Setup | `/setup-project` | Folder structure, .asmdefs, base classes, URP quality tiers, audio import settings |
 | 4 — Implementation | `/orchestrate`, `/continue` | Execute WORKFLOW.md phase by phase |
 | 5 — Quality | `/validate`, `/review-code`, `/ralph`, `/performance-audit` | Compile + tests green, code review, fix loops, hot path audit |
 | 6 — Documentation | `/learn`, `/catch-up`, `/adr`, `/smart-commit` | Extract patterns, generate CATCH_UP.md, record decisions, commit |
