@@ -152,53 +152,54 @@ The full pipeline from idea to shippable game, using the commands in this templa
 
 ### Phase 1 — Idea & Design
 
-| Command | What it does |
-|---------|-------------|
-| `/game-idea` | Refines a raw idea into a **GDD** — surfaces assumptions, defines scope, creates a "Not Doing" list |
-| `/architect` | Converts the GDD into a **TDD** — `unity-critic` adversarially challenges the design before you review |
-| `/grill-me [plan or file]` | Stress-tests a plan or decision — one pointed question at a time, recommends an answer, ends with a Decision Record |
+| Command | How it runs | What it does |
+|---------|------------|-------------|
+| `/game-idea` | Manual — single step | Refines a raw idea into a **GDD** — surfaces assumptions, defines scope, creates a "Not Doing" list |
+| `/architect` | Manual — single step | Converts the GDD into a **TDD** — `unity-critic` adversarially challenges the design before you review |
+| `/grill-me [plan or file]` | Manual — single step | Stress-tests a plan or decision — one pointed question at a time, recommends an answer, ends with a Decision Record |
 
 ### Phase 2 — Planning
 
-| Command | What it does |
-|---------|-------------|
-| `/plan-workflow` | Breaks the TDD into phases and tasks with agent types, inputs/outputs, and acceptance criteria → **WORKFLOW.md** |
-| `/dry-run` | *(optional)* Preview the orchestration plan without executing — shows agent assignments, phase count, risk points |
+| Command | How it runs | What it does |
+|---------|------------|-------------|
+| `/plan-workflow` | Manual — single step | Breaks the TDD into phases and tasks with agent types, inputs/outputs, and acceptance criteria → **WORKFLOW.md** |
+| `/dry-run` | Manual — single step | *(optional)* Preview the orchestration plan without executing — shows agent assignments, phase count, risk points |
 
 ### Phase 3 — Project Setup
 
-| Command | What it does |
-|---------|-------------|
-| `/setup-project` | Generates folder structure, `.asmdef` files (Framework + Game + Editor + Test asmdefs, optional ECS), base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), NSubstitute test assembly config. Gated: runtime packages must be confirmed before .asmdef/C# generation; NSubstitute DLL must be confirmed before test templates. Prints a manual checklist for anything remaining. |
+| Command | How it runs | What it does |
+|---------|------------|-------------|
+| `/setup-project` | Manual — single step | Generates folder structure, `.asmdef` files (Framework + Game + Editor + Test asmdefs, optional ECS), base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), NSubstitute test assembly config. Gated: runtime packages must be confirmed before .asmdef/C# generation; NSubstitute DLL must be confirmed before test templates. Prints a manual checklist for anything remaining. |
 
 ### Phase 4 — Implementation
 
-| Command | What it does |
-|---------|-------------|
-| `/orchestrate` | Executes `WORKFLOW.md` end-to-end. Per task: coder routing (pure C# → **coder** / Simple Unity → **unity-coder-lite** / Medium/Complex → **unity-coder**) → **unity-verifier** → **unity-reviewer** → committer. Tasks with same `parallel_group` run simultaneously (complexity ≥ 0.4). Phase gate runs **ralph → silent-failure-hunt → validate** automatically before asking to proceed; emits `VERIFICATION_PASSED` event on success |
-| `/continue` | Resumes an interrupted orchestration run from the event journal |
+| Command | How it runs | What it does |
+|---------|------------|-------------|
+| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier → reviewer → committer run **automatically**. **Between phases:** pauses and asks `Proceed?` — you decide | Executes `WORKFLOW.md` end-to-end, phase by phase. Phase gate runs ralph → silent-failure-hunt → validate automatically before asking to proceed |
+| `/continue` | Manual — resumes interrupted orchestrate | Resumes an interrupted orchestration run from the event journal |
 
 ### Phase 5 — Quality
 
-| Command | What it does |
-|---------|-------------|
-| `/validate` | Verifies exit criteria for a completed phase |
-| `/review-code` | Deep review of specific files via `unity-reviewer` |
-| `/silent-failure-hunt` | Audits for swallowed exceptions, async void, event leaks |
-| `/performance-audit` | Hot path allocation and draw call audit |
-| `/ralph` | Relentless verify-fix loop — refuses to stop until the project is clean (max 10 iterations) |
-| `/graphics-setup <mobile\|pc>` | Tune or recreate URP quality tiers after gameplay is stable |
-| `/audio-clip-setup [path]` | Audit and fix AudioClip import settings before a build |
+| Command | How it runs | What it does |
+|---------|------------|-------------|
+| `/qa` | Manual to start. Inside: **ralph → silent-failure-hunt → validate** run **automatically** | Full quality pipeline — preferred entry point for Phase 5 |
+| `/validate` | Manual — single step | Verifies exit criteria for a completed phase |
+| `/review-code` | Manual — single step | Deep review of specific files via `unity-reviewer` |
+| `/silent-failure-hunt` | Manual — single step | Audits for swallowed exceptions, async void, event leaks |
+| `/performance-audit` | Manual — single step | Hot path allocation and draw call audit |
+| `/ralph` | Manual to start. Inside: compile + test → fix loop (max 10 iterations) run **automatically** | Relentless verify-fix loop — refuses to stop until the project is clean |
+| `/graphics-setup <mobile\|pc>` | Manual to start. Pauses for approval before creating assets | Tune or recreate URP quality tiers after gameplay is stable |
+| `/audio-clip-setup [path]` | Manual to start. Pauses for commit confirmation at the end | Audit and fix AudioClip import settings before a build |
 
 ### Phase 6 — Documentation & Learning
 
-| Command | What it does |
-|---------|-------------|
-| `/learn` | Extracts project-specific patterns into `.claude/skills/learned/` |
-| `/catch-up` | Generates a human-readable codebase guide at `docs/CATCH_UP.md` |
-| `/adr <decision>` | Records an Architecture Decision Record to `docs/decisions/` |
-| `/create-changelog` | Creates or updates `CHANGELOG.md` |
-| `/smart-commit` | Groups dirty working tree into logical commits |
+| Command | How it runs | What it does |
+|---------|------------|-------------|
+| `/learn` | Manual — single step | Extracts project-specific patterns into `.claude/skills/learned/` |
+| `/catch-up` | Manual — single step | Generates a human-readable codebase guide at `docs/CATCH_UP.md` |
+| `/adr <decision>` | Manual — single step | Records an Architecture Decision Record to `docs/decisions/` |
+| `/create-changelog` | Manual — single step | Creates or updates `CHANGELOG.md` |
+| `/smart-commit` | Manual to start. Inside: analyze → group → commit run **automatically** | Groups dirty working tree into logical commits |
 
 ### Full Flow
 
