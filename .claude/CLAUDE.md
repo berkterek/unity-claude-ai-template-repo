@@ -47,7 +47,7 @@ Claude Code supports multiple models. Start your session with the right model fo
 |------|-------|-------|-------------|
 | **light** | `claude-haiku-4-5` | `claude-light` | Quick tasks: `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
 | **normal** | `claude-sonnet-4-6` | `claude-normal` | Balanced work: `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/performance-audit`, `/new-module`, `/check-portability`, `/clean-slop`, `/catch-up`, `/learn` |
-| **heavy** | `claude-opus-4-7` | `claude-heavy` | Deep thinking: `/architect`, `/plan-workflow`, `/game-idea`, `/add-feature`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
+| **heavy** | `claude-opus-4-7` | `claude-heavy` | Deep thinking: `/architect`, `/plan-workflow`, `/game-idea`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
 
 Setup aliases once in your shell profile — see `.claude/aliases.sh`.
 
@@ -149,7 +149,6 @@ Detailed coding standards in `.claude/rules/`:
 ### Development
 - `/plan-workflow` — Create a phased execution plan from a TDD — assigns integer `parallel_group` numbers (1, 2, `—`) compatible with `/orchestrate`; compile-time type dependencies force sequential even across different files
 - `/new-module` — Generate the 5-file module structure (Interface, Service, Config, Installer, Events)
-- `/add-feature` — **complexity score** → Simple: 3 questions + **unity-coder-lite** / Medium/Complex: **deep-interview** + **unity-coder** → [unity-developer if score ≥ 0.7]; includes unity-setup spawn for prefab/scene wiring
 
 ### Quality
 - `/review-code` — Code review on specific files via **unity-reviewer**
@@ -194,7 +193,7 @@ Detailed coding standards in `.claude/rules/`:
 
 | Agent | Role |
 |-------|------|
-| `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Abstracts/`, and pure C# targets in complexity-scored pipelines (`/orchestrate`, `/add-feature`, `/migrate`). |
+| `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Abstracts/`, and pure C# targets in complexity-scored pipelines (`/orchestrate`, `/migrate`). |
 | `tester` | Test writer — NSubstitute + AAA |
 | `reviewer` | General code review |
 | `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle + prefab structure (10-point checklist) |
@@ -213,7 +212,7 @@ Detailed coding standards in `.claude/rules/`:
 | `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
 | `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
 | `unity-build-runner` | CI/build pipeline — platform flags, build profiles, addressables baking |
-| `unity-coder` | **Primary Unity coder for Medium/Complex tasks.** Full Unity C# — MonoBehaviours, providers, installers, scene wiring. Used in `/implement`, `/fix`, `/scene-setup`, `/orchestrate`, `/add-feature`, `/migrate` when complexity ≥ 0.4. |
+| `unity-coder` | **Primary Unity coder for Medium/Complex tasks.** Full Unity C# — MonoBehaviours, providers, installers, scene wiring. Used in `/implement`, `/fix`, `/scene-setup`, `/orchestrate`, `/migrate` when complexity ≥ 0.4. |
 | `unity-coder-lite` | Lightweight Unity coder for small isolated changes |
 | `unity-fixer` | Bug fixer with full context — reads surrounding code before patching |
 | `unity-fixer-lite` | Quick targeted fix for a single well-scoped defect |
@@ -284,8 +283,8 @@ Named prompts that pause the pipeline and wait for human approval before continu
 
 | Gate | Commands | When it fires | What you decide |
 |------|----------|--------------|-----------------|
-| `SCOPE_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/add-feature`, `/orchestrate`, `/create-prefab-scene` | After complexity scoring, before any agent spawns | Confirm scope matches intent — type `go` or redirect |
-| `ARCHITECTURE_GATE` | `/implement`, `/scene-setup`, `/add-feature`, `/new-module` | When new module folder detected (+0.3 signal), or always in `/new-module` | Approve proposed module structure (interface/service/installer/scope) |
+| `SCOPE_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/orchestrate`, `/create-prefab-scene` | After complexity scoring, before any agent spawns | Confirm scope matches intent — type `go` or redirect |
+| `ARCHITECTURE_GATE` | `/implement`, `/scene-setup`, `/new-module` | When new module folder detected (+0.3 signal), or always in `/new-module` | Approve proposed module structure (interface/service/installer/scope) |
 | `BREAKING_GATE` | `/fix` (>3 files), `/fix-deep` (>3 files), `/migrate` (>5 files) | After affected files identified | Confirm wide-blast-radius change is intentional |
 | `QUALITY_GATE` | All pipeline commands | After reviewer returns CHANGES NEEDED | Choose: `fix` / `skip` / `stop` |
 | `COMMIT_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/create-prefab-scene` | After all verification, immediately before committer | Final sign-off on staged files — type `go` or `stop` |
@@ -388,7 +387,7 @@ _GameFolders/
 | 5 — Quality | `/validate`, `/review-code`, `/ralph`, `/performance-audit` | Compile + tests green, code review, fix loops, hot path audit |
 | 6 — Documentation | `/learn`, `/catch-up`, `/adr`, `/smart-commit` | Extract patterns, generate CATCH_UP.md, record decisions, commit |
 
-For incremental feature work on an existing game: `/add-feature` (interviews requirements, then implements).
+For incremental feature work on an existing game: `/implement <description>` (complexity scored, full pipeline).
 
 ## Skills Library (`.claude/skills/`)
 
