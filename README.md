@@ -455,7 +455,19 @@ Change mode: `echo "full" > production/review-mode.txt`
 
 ## Director Gates
 
-Named review prompts in `.claude/docs/director-gates.md` — referenced by ID across all pipeline commands to prevent prompt drift:
+Human-pause checkpoints defined in `.claude/docs/director-gates.md`. Every pipeline command stops at the relevant gate and waits for `go` before spawning any agents. The `guard-gate-cleared.sh` hook enforces this at the tool level — agents cannot be spawned without a cleared gate file.
+
+### Human-Pause Gates
+
+| Gate | Commands | When it fires | What you decide |
+|------|----------|--------------|-----------------|
+| `SCOPE_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/orchestrate`, `/create-prefab-scene` | After complexity scoring, before any agent spawns | Confirm scope matches intent — type `go` or redirect |
+| `ARCHITECTURE_GATE` | `/implement`, `/scene-setup`, `/new-module` | When new module folder detected, or always in `/new-module` | Approve proposed module structure (interface/service/installer/scope) |
+| `BREAKING_GATE` | `/fix` (>3 files), `/fix-deep` (>3 files), `/migrate` (>5 files) | After affected files identified | Confirm wide-blast-radius change is intentional |
+| `QUALITY_GATE` | All pipeline commands | After reviewer returns CHANGES NEEDED | Choose: `fix` / `skip` / `stop` |
+| `COMMIT_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/create-prefab-scene` | After all verification, immediately before committer | Final sign-off on staged files — type `go` or `stop` |
+
+### Automated Check Gates
 
 | Gate | Checks |
 |------|--------|
