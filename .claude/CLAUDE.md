@@ -87,7 +87,7 @@ Detailed coding standards in `.claude/rules/`:
 | `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` or `Games/Abstracts/` / `Games/Concretes/` (non-provider) |
 | `check-input-system.sh` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-vcontainer-singleton.sh` | Static singleton patterns outside of `EventBusAccessor` |
-| `guard-critical-files.sh` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — **exception: files under `TestScopes/` or `Tests/` paths** |
+| `guard-critical-files.sh` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — **exception: files under `TestScopes/`, `EditModeTest/`, or `PlayModeTest/` paths** |
 | `check-config-protection.sh` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — **exception: test assemblies (`EditModeTest`, `PlayModeTest`)** |
 | `gateguard.sh` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 
@@ -121,17 +121,17 @@ Detailed coding standards in `.claude/rules/`:
 ## Commands (slash commands)
 
 ### Pipelines (multi-agent)
-- `/implement <task>` — **complexity score** → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → **silent failure audit** (changed files) → committer
-- `/fix <bug>` — **complexity score** → Step 1: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → **silent failure audit** (changed files) → committer
+- `/implement <task>` — **complexity score** → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → **silent failure audit** (changed files) → committer
+- `/fix <bug>` — **complexity score** → Step 1: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → **silent failure audit** (changed files) → committer
 - `/fix-deep <bug>` — **complexity score** → **evidence-first pipeline**: log intake (file / text / MCP) → hypothesis → debug injection → Step 3: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → **evidence gate** (proven / refuted / inconclusive) → fix only if proven → validator → reviewer → **silent failure audit** (changed files) → committer; refuses to fix if root cause cannot be proven
   - Use for: logic bugs, "sometimes happens" issues, wrong values at runtime, NullRef with unclear source
   - Use `/fix` when: stack trace clearly points to root cause
-- `/scene-setup <description>` — **complexity score** → **unity-coder-lite** (Simple) / **unity-coder** (Medium/Complex) + unity-setup → **unity-verifier** → **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → committer
+- `/scene-setup <description>` — **complexity score** → **unity-coder-lite** (Simple) / **unity-coder** (Medium/Complex) + unity-setup → **unity-verifier** → **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → committer
 - `/migrate <pattern> in <scope>` — **complexity score** → [test guard if Medium/Complex] → **migrator** / **unity-migrator** → reviewer → [unity-developer if score ≥ 0.7] → committer
 - `/create-plan <file> <what>` — researcher → **complexity-aware planner** (opus, assigns `parallel_group` to independent tasks) → reviewer → save → optional implementer (parallel spawn for grouped tasks if complexity ≥ 0.4)
 - `/update-plan <file> <change>` — analyzer → planner (opus, updates `parallel_group` annotations) → reviewer → save → optional implementer (parallel spawn for grouped tasks if complexity ≥ 0.4)
 - `/smart-commit` — analyze dirty working tree → group into logical commits → commit
-- `/orchestrate` — **complexity score** → read WORKFLOW.md → check `parallel_group` annotations → per-task: **coder** (pure C#) / **unity-coder-lite** (Simple Unity) / **unity-coder** (Medium/Complex Unity) → **unity-verifier** → **unity-reviewer** → Codex → reviewer → [unity-developer if score ≥ 0.7] → committer; tasks with same `parallel_group` run simultaneously (complexity ≥ 0.4); phase gate runs **ralph → silent-failure-hunt → validate** automatically before asking to proceed; emits `VERIFICATION_PASSED` event on success
+- `/orchestrate` — **complexity score** → read WORKFLOW.md → check `parallel_group` annotations → per-task: **coder** (pure C#) / **unity-coder-lite** (Simple Unity) / **unity-coder** (Medium/Complex Unity) → **unity-verifier** → **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → committer; tasks with same `parallel_group` run simultaneously (complexity ≥ 0.4); phase gate runs **ralph → silent-failure-hunt → validate** automatically before asking to proceed; emits `VERIFICATION_PASSED` event on success
 
 > Reviewer priority: Codex → unity-reviewer (falls back to unity-reviewer if Codex is unavailable).
 
@@ -273,7 +273,7 @@ Control pipeline depth by prefixing any pipeline command:
 |------|---------|---------|
 | **solo** | `/solo /implement …` | unity-coder only — no reviewer, no committer |
 | **lean** | `/lean /implement …` | unity-coder → unity-reviewer → committer |
-| **full** | `/full /implement …` (default) | unity-coder → unity-reviewer → Codex → reviewer → committer |
+| **full** | `/full /implement …` (default) | unity-coder → Codex → unity-reviewer → committer |
 
 Use `solo` for exploratory spikes, `lean` for low-risk changes, `full` for production features.
 
