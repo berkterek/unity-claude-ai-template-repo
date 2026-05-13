@@ -6,7 +6,8 @@
 # being spawned unless a Director Gate has been shown and cleared first.
 #
 # Gate is cleared by writing .claude/state/gate-cleared (done by Claude after
-# user types `go`). File expires after 30 minutes.
+# user types `go`). The file is valid until the pipeline completes and Claude
+# deletes it — no time-based expiry (pipelines can run for hours).
 # ============================================================================
 # Trigger: PreToolUse on Agent
 # Exit:    2 = block, 0 = allow
@@ -34,7 +35,6 @@ fi
 
 GATE_FILE=".claude/state/gate-cleared"
 
-# Check file exists
 if [ ! -f "$GATE_FILE" ]; then
     echo "" >&2
     echo "  GATE VIOLATION ─────────────────────────────────────────────" >&2
@@ -50,26 +50,6 @@ if [ ! -f "$GATE_FILE" ]; then
     echo "    3. Run: mkdir -p .claude/state && echo '{\"gate\":\"cleared\"}' > .claude/state/gate-cleared" >&2
     echo "  ────────────────────────────────────────────────────────────" >&2
     exit 2
-fi
-
-# Check file is not expired (30 minutes)
-if command -v stat &>/dev/null; then
-    # macOS
-    MTIME=$(stat -f %m "$GATE_FILE" 2>/dev/null) || MTIME=0
-    # Linux fallback
-    [ "$MTIME" -eq 0 ] && MTIME=$(stat -c %Y "$GATE_FILE" 2>/dev/null) || true
-    NOW=$(date +%s)
-    AGE=$(( NOW - MTIME ))
-
-    if [ "$AGE" -gt 1800 ]; then
-        rm -f "$GATE_FILE"
-        echo "" >&2
-        echo "  GATE EXPIRED ───────────────────────────────────────────────" >&2
-        echo "  The Director Gate was cleared more than 30 minutes ago." >&2
-        echo "  Show the gate to the user again and wait for 'go'." >&2
-        echo "  ────────────────────────────────────────────────────────────" >&2
-        exit 2
-    fi
 fi
 
 exit 0
