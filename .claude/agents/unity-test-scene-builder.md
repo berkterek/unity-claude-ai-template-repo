@@ -15,7 +15,7 @@ You build Play Mode test scenes. You do not write production code — only test 
 1. **Test scene** — `_Scenes/TestScenes/[Feature]Test.unity` via MCP
 2. **TestScope script** — `_GameFolders/Scripts/Games/TestScopes/[Feature]TestScope.cs`
 3. **TestInstaller script** — `_GameFolders/Scripts/Games/TestScopes/[Feature]TestInstaller.cs`
-4. **PlayMode test stub** — `_GameFolders/Scripts/Tests/[Project]PlayTests/[Feature]Tests.cs`
+4. **PlayMode test stub** — `_GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/[Feature]Tests.cs`
 5. **TestBootstrap prefab** update — wire TestScope + TestInstaller into the prefab via MCP
 
 ## Step 0 — Read Project Context
@@ -23,7 +23,7 @@ You build Play Mode test scenes. You do not write production code — only test 
 1. Read `.claude/CLAUDE.md` — get project name and namespace
 2. Read `.claude/rules/testing.md` — PlayMode scene testing rules
 3. Read `.claude/skills/core/playmode-scene-testing.md` — full pattern reference
-4. Find the project's PlayTests assembly: `find . -name "*PlayTests*.asmdef"`
+4. Find the project's PlayModeTest assembly: `find . -name "*PlayModeTest*.asmdef"`
 5. Find existing TestScopes (if any): `find . -path "*/TestScopes/*.cs" | head -5`
 
 ## Step 1 — Gather Feature Info
@@ -167,7 +167,7 @@ Check if `_GameFolders/Prefabs/TestBootstrap/TestBootstrap.prefab` exists.
 - Scene:      _Scenes/TestScenes/[Feature]Test.unity
 - TestScope:  _GameFolders/Scripts/Games/TestScopes/[Feature]TestScope.cs
 - Installer:  _GameFolders/Scripts/Games/TestScopes/[Feature]TestInstaller.cs
-- Test stub:  _GameFolders/Scripts/Tests/[Project]PlayTests/[Feature]Tests.cs
+- Test stub:  _GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/[Feature]Tests.cs
 
 ### Manual Steps Required
 - [ ] Add _Scenes/TestScenes/[Feature]Test.unity to Build Settings

@@ -37,7 +37,7 @@ Do NOT place it in a folder named `Editor/` — it must be accessible at runtime
 
 The test `.asmdef` MUST have `overrideReferences: true` or NSubstitute will be silently excluded.
 
-**`[Project]Tests.asmdef`** (Edit Mode — `includePlatforms: ["Editor"]`):
+**`[ProjectName]EditModeTest.asmdef`** (Edit Mode — `includePlatforms: ["Editor"]`):
 
 ```json
 {

@@ -64,7 +64,7 @@ Read `.claude/skills/core/test-type-router.md` and apply the decision matrix to 
    ⚠ Test scene already exists: _Scenes/TestScenes/[Feature]Test.unity
    To recreate it, delete the scene first.
    ```
-4. Find the PlayTests assembly path for the project.
+4. Find the PlayModeTest assembly path for the project.
 5. Find existing TestScope files to understand the project namespace.
 
 ---
@@ -76,7 +76,7 @@ Read `.claude/skills/core/test-type-router.md` and apply the decision matrix to 
 ### 3a — Read Project Context
 
 1. Read `.claude/CLAUDE.md` — get project name and namespace
-2. Find the project's PlayTests assembly: `find . -name "*PlayTests*.asmdef"`
+2. Find the project's PlayModeTest assembly: `find . -name "*PlayModeTest*.asmdef"`
 3. Find existing TestScopes (if any): `find . -path "*/TestScopes/*.cs" | head -5`
 4. If any TestScope found, read one to confirm namespace and pattern
 
@@ -142,7 +142,7 @@ namespace [Namespace].Tests
 
 ### 3d — Write PlayMode Test Stub
 
-File: `_GameFolders/Scripts/Tests/[Project]PlayTests/[Feature]Tests.cs`
+File: `_GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/[Feature]Tests.cs`
 
 ```csharp
 using System.Collections;
@@ -213,9 +213,8 @@ Check if `_GameFolders/Prefabs/TestBootstrap/TestBootstrap.prefab` exists.
 ## Step 5 — Review
 
 **Reviewer priority — try in order, fall back if unavailable:**
-1. Spawn Agent with `subagent_type: "unity-reviewer"`
-2. Spawn Agent with `subagent_type: "codex:codex-rescue"`
-3. If both unavailable → review inline with Claude (no subagent)
+1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 Spawn the reviewer with this prompt:
 
@@ -225,7 +224,7 @@ Review the following generated test infrastructure files for a Unity Play Mode t
 ## Files to Review
 - TestScope:  _GameFolders/Scripts/Games/TestScopes/[FEATURE]TestScope.cs
 - Installer:  _GameFolders/Scripts/Games/TestScopes/[FEATURE]TestInstaller.cs
-- Test stub:  _GameFolders/Scripts/Tests/[Project]PlayTests/[FEATURE]Tests.cs
+- Test stub:  _GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/[FEATURE]Tests.cs
 
 ## Review Checklist
 
@@ -268,7 +267,7 @@ After review passes (or max iterations reached), print:
 - Scene:     _Scenes/TestScenes/[FEATURE]Test.unity
 - TestScope: _GameFolders/Scripts/Games/TestScopes/[FEATURE]TestScope.cs
 - Installer: _GameFolders/Scripts/Games/TestScopes/[FEATURE]TestInstaller.cs
-- Test stub: _GameFolders/Scripts/Tests/[Project]PlayTests/[FEATURE]Tests.cs
+- Test stub: _GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/[FEATURE]Tests.cs
 
 ### Review: [APPROVED ✓ | ISSUES REMAIN ⚠]
 [list any unresolved issues if applicable]

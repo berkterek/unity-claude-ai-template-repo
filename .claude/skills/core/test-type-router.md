@@ -82,7 +82,7 @@ No test file will be created for this target.
 
 **If decision is PlayMode-ECS**, also emit:
 ```
-→ Write an isolated World test in [Project]PlayTests assembly.
+→ Write an isolated World test in [ProjectName]PlayModeTest assembly.
    Do NOT use /create-test-scene — no scene needed for ECS system tests.
 ```
 

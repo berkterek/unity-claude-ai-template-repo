@@ -27,10 +27,10 @@ Assets/
     ├── Games/
     │   └── [Project]Games.asmdef     ← References Framework
     └── Tests/
-        ├── [Project]Tests/
-        │   └── [Project]Tests.asmdef ← Edit Mode, references Games + NSubstitute
-        └── [Project]PlayTests/
-            └── [Project]PlayTests.asmdef ← Play Mode, references Games + NSubstitute
+        ├── [ProjectName]EditModeTest/
+        │   └── [ProjectName]EditModeTest.asmdef ← Edit Mode, references Games + NSubstitute
+        └── [ProjectName]PlayModeTest/
+            └── [ProjectName]PlayModeTest.asmdef ← Play Mode, references Games + NSubstitute
 ```
 
 ---
@@ -78,7 +78,7 @@ Assets/
 
 `_Framework` must NOT reference `_GameFolders` assemblies. Dependency direction is enforced by the assembly graph.
 
-### Edit Mode Test Assembly (`[Project]Tests.asmdef`)
+### Edit Mode Test Assembly (`[ProjectName]EditModeTest.asmdef`)
 
 ```json
 {
@@ -102,13 +102,13 @@ Assets/
 }
 ```
 
-### Play Mode Test Assembly (`[Project]PlayTests.asmdef`)
+### Play Mode Test Assembly (`[ProjectName]PlayModeTest.asmdef`)
 
 Same as Edit Mode but with `"includePlatforms": []` (all platforms):
 
 ```json
 {
-    "name": "MyProjectPlayTests",
+    "name": "MyProjectPlayModeTest",
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",

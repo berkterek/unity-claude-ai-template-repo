@@ -10,9 +10,9 @@ Every class under `_GameFolders/Scripts/` must have a corresponding test. Rule: 
 
 | Type | Assembly | When |
 |------|----------|------|
-| **Edit Mode** | `[Project]Tests` | Pure C# logic, interface mocking, ECS component tests |
-| **Play Mode (ECS World)** | `[Project]PlayTests` | ECS System integration with isolated World |
-| **Play Mode (Scene)** | `[Project]PlayTests` | MonoBehaviour lifecycle, VContainer wiring, real prefab behavior |
+| **Edit Mode** | `[ProjectName]EditModeTest` | Pure C# logic, interface mocking, ECS component tests |
+| **Play Mode (ECS World)** | `[ProjectName]PlayModeTest` | ECS System integration with isolated World |
+| **Play Mode (Scene)** | `[ProjectName]PlayModeTest` | MonoBehaviour lifecycle, VContainer wiring, real prefab behavior |
 
 ---
 
@@ -31,13 +31,13 @@ Every class under `_GameFolders/Scripts/` must have a corresponding test. Rule: 
 ## Assembly Definition Setup
 
 ```json
-// [Project]Tests.asmdef  (Edit Mode — includePlatforms: ["Editor"])
+// [ProjectName]EditModeTest.asmdef  (Edit Mode — includePlatforms: ["Editor"])
 {
-    "name": "[Project]Tests",
+    "name": "[ProjectName]EditModeTest",
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "[Project]Games"
+        "[ProjectName]Games"
     ],
     "overrideReferences": true,
     "precompiledReferences": [
@@ -47,13 +47,13 @@ Every class under `_GameFolders/Scripts/` must have a corresponding test. Rule: 
     "defineConstraints": ["UNITY_INCLUDE_TESTS"]
 }
 
-// [Project]PlayTests.asmdef  (Play Mode — all platforms)
+// [ProjectName]PlayModeTest.asmdef  (Play Mode — all platforms)
 {
-    "name": "[Project]PlayTests",
+    "name": "[ProjectName]PlayModeTest",
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "[Project]Games"
+        "[ProjectName]Games"
     ],
     "overrideReferences": true,
     "precompiledReferences": [
@@ -76,9 +76,9 @@ _GameFolders/Scripts/
 │   └── Concretes/
 │       └── EnemySpawner.cs          ← class under test
 └── Tests/
-    ├── [Project]Tests/
+    ├── [ProjectName]EditModeTest/
     │   └── EnemySpawnerTests.cs     ← Edit Mode test
-    └── [Project]PlayTests/
+    └── [ProjectName]PlayModeTest/
         └── EnemyMoveSystemTests.cs  ← Play Mode ECS test
 ```
 
@@ -229,7 +229,7 @@ _GameFolders/Prefabs/
     └── TestBootstrap.prefab           ← shared bootstrap prefab
 
 _GameFolders/Scripts/Tests/
-└── [Project]PlayTests/
+└── [ProjectName]PlayModeTest/
     ├── PlayerMovementTests.cs
     └── EnemySpawnTests.cs
 ```

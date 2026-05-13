@@ -29,7 +29,7 @@ if [ -z "$FILE_PATH" ]; then
 fi
 
 # Only check PlayMode test files
-if ! echo "$FILE_PATH" | grep -qiE "PlayTests?/.*\.cs$"; then
+if ! echo "$FILE_PATH" | grep -qiE "PlayModeTest/.*\.cs$"; then
     exit 0
 fi
 

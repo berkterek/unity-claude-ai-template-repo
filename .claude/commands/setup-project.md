@@ -107,8 +107,8 @@ Assets/
         │       └── Systems/
         ├── Editors/                ← [ProjectName]Editor.asmdef
         └── Tests/
-            ├── [ProjectName]Tests/       ← Edit Mode
-            └── [ProjectName]PlayTests/   ← Play Mode
+            ├── [ProjectName]EditModeTest/       ← Edit Mode
+            └── [ProjectName]PlayModeTest/   ← Play Mode
 ```
 
 ---
@@ -220,13 +220,13 @@ Replace `[ProjectName]` with the actual project name the developer provided.
 }
 ```
 
-#### `_GameFolders/Scripts/Tests/[ProjectName]Tests/[ProjectName]Tests.asmdef`
+#### `_GameFolders/Scripts/Tests/[ProjectName]EditModeTest/[ProjectName]EditModeTest.asmdef`
 
 **With NSubstitute (Gate B passed):**
 ```json
 {
-    "name": "[ProjectName]Tests",
-    "rootNamespace": "Game.Tests",
+    "name": "[ProjectName]EditModeTest",
+    "rootNamespace": "Game.EditModeTest",
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
@@ -254,8 +254,8 @@ Replace `[ProjectName]` with the actual project name the developer provided.
 **Without NSubstitute (Gate B not passed — omit precompiledReferences):**
 ```json
 {
-    "name": "[ProjectName]Tests",
-    "rootNamespace": "Game.Tests",
+    "name": "[ProjectName]EditModeTest",
+    "rootNamespace": "Game.EditModeTest",
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
@@ -277,13 +277,13 @@ Replace `[ProjectName]` with the actual project name the developer provided.
 }
 ```
 
-#### `_GameFolders/Scripts/Tests/[ProjectName]PlayTests/[ProjectName]PlayTests.asmdef`
+#### `_GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/[ProjectName]PlayModeTest.asmdef`
 
 **With NSubstitute (Gate B passed):**
 ```json
 {
-    "name": "[ProjectName]PlayTests",
-    "rootNamespace": "Game.PlayTests",
+    "name": "[ProjectName]PlayModeTest",
+    "rootNamespace": "Game.PlayModeTest",
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
@@ -309,8 +309,8 @@ Replace `[ProjectName]` with the actual project name the developer provided.
 **Without NSubstitute (Gate B not passed):**
 ```json
 {
-    "name": "[ProjectName]PlayTests",
-    "rootNamespace": "Game.PlayTests",
+    "name": "[ProjectName]PlayModeTest",
+    "rootNamespace": "Game.PlayModeTest",
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
@@ -554,13 +554,13 @@ namespace Game.Concretes.Infrastructure
 
 **Gate A and Gate B must both pass before this step.**
 
-#### `_GameFolders/Scripts/Tests/[ProjectName]Tests/SampleEditModeTests.cs`
+#### `_GameFolders/Scripts/Tests/[ProjectName]EditModeTest/SampleEditModeTests.cs`
 ```csharp
 using Framework.Events;
 using NSubstitute;
 using NUnit.Framework;
 
-namespace Game.Tests
+namespace Game.EditModeTest
 {
     public class SampleEditModeTests
     {
@@ -582,13 +582,13 @@ namespace Game.Tests
 }
 ```
 
-#### `_GameFolders/Scripts/Tests/[ProjectName]PlayTests/SamplePlayModeTests.cs`
+#### `_GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/SamplePlayModeTests.cs`
 ```csharp
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
-namespace Game.PlayTests
+namespace Game.PlayModeTest
 {
     public class SamplePlayModeTests
     {

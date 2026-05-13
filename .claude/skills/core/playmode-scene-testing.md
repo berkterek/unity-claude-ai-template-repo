@@ -30,7 +30,7 @@ _GameFolders/Scripts/
             [Feature]TestScope.cs
             [Feature]TestInstaller.cs
     Tests/
-        [Project]PlayTests/
+        [ProjectName]PlayModeTest/
             [Feature]Tests.cs
 ```
 

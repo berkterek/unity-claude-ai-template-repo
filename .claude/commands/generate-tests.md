@@ -26,7 +26,7 @@ TEST TYPE DECISION
   > "This class does not require tests (data struct, authoring baker, thin view adapter, or config SO). No test file will be created."
 - **PlayMode-Scene** → stop:
   > "This class requires a Play Mode scene test. Run `/create-test-scene [FeatureName]` to scaffold the scene, TestBootstrap, and test stub."
-- **PlayMode-ECS** → continue; write an isolated World test in `[Project]PlayTests` assembly (not a scene test)
+- **PlayMode-ECS** → continue; write an isolated World test in `[ProjectName]PlayModeTest` assembly (not a scene test)
 - **EditMode** → continue normally with NUnit + NSubstitute
 
 ---
@@ -62,7 +62,7 @@ For every `public` method and every meaningful `private` method that contains lo
 
 ## Test Structure Rules
 
-**File location:** `_GameFolders/Scripts/Tests/[Project]Tests/[ClassName]Tests.cs`
+**File location:** `_GameFolders/Scripts/Tests/[ProjectName]EditModeTest/[ClassName]Tests.cs`
 
 **Naming:** `MethodName_WhenCondition_ExpectedBehavior`
 

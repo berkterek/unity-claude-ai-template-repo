@@ -36,9 +36,9 @@ BLOCKED=false
 REASON=""
 
 # Assembly definition files — changing references or constraints breaks compile
-# Exception: test assembly definitions (PlayTests, EditTests, Tests) may need precompiledReferences updates
+# Exception: test assembly definitions (EditModeTest, PlayModeTest) may need precompiledReferences updates
 if [ "$EXT" = "asmdef" ]; then
-    if echo "$FILE_PATH" | grep -qiE "(PlayTests|EditTests|\.Tests)"; then
+    if echo "$FILE_PATH" | grep -qiE "(EditModeTest|PlayModeTest)"; then
         : # test assembly — allowed
     else
         BLOCKED=true
