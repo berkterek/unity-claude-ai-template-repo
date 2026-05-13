@@ -142,6 +142,7 @@ Detailed coding standards in `.claude/rules/`:
 ### Design & Architecture
 - `/game-idea` — Refine a raw game idea into a GDD (includes assumption surfacing + "Not Doing" list)
 - `/architect` — Create a Technical Design Document from a GDD (auto-runs Phase 7 self-critique → **unity-critic** adversarial challenge → developer review)
+- `/grill-me [plan or file]` — Stress-test a plan or design decision — asks one pointed question at a time, offers a recommended answer, resolves every branch; ends with a Decision Record
 - `/refine-gdd` — Iterate on an existing GDD
 - `/refine-tdd` — Iterate on an existing TDD
 
@@ -389,6 +390,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 |-------|--------|
 | `model-routing` | Automatic model selection heuristics — file count, complexity, risk factors |
 | `deep-interview` | 5-dimension ambiguity gating before implementation starts |
+| `grill-me` | One-question-at-a-time design stress-test — challenges an existing plan, resolves branches, produces a Decision Record |
 | `learner` | Post-debug insight extraction — writes findings to CLAUDE.md Project Learnings |
 | `unity-instincts` | Instinct system for learned Unity patterns — capture, score, promote, apply |
 | `assembly-definitions` | .asmdef authoring — references, platforms, define constraints |
