@@ -9,6 +9,20 @@ This is a personal Unity development template for Claude Code. It enforces archi
 - `skills/genre/` and `skills/gameplay/` were removed. Use `/skill-creator` to generate project-specific genre/gameplay skills when needed.
 - Command `/create-test-scene` was renamed to `/create-test`. Agent `unity-test-scene-builder` was renamed to `unity-test-builder`.
 
+## Optional Plugins (Claude Code)
+
+These plugins enhance pipelines when installed. All are optional — commands fall back gracefully if unavailable.
+
+| Plugin | Commands | What it adds |
+|--------|----------|--------------|
+| `superpowers` | `/implement`, `/fix` | `brainstorming` (score ≥ 0.7), `test-driven-development` (TDD setup), `systematic-debugging` (score ≥ 0.4), `verification-before-completion` |
+| `skill-creator` | `/learn` | Structured skill drafting |
+| `code-simplifier` | `/clean-slop`, `/implement` | Post-implementation quality pass |
+| `claude-md-management` | `/implement`, `/fix` | Auto-updates CLAUDE.md with learnings |
+| `code-review` | `/review-code` | Extra review checklist layer |
+
+Each pipeline command prints a preflight status line: `Plugins: superpowers:systematic-debugging [✓] | claude-md-management [✗]`
+
 ## Required Stack
 
 | Package | Source | Purpose |
