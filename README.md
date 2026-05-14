@@ -296,7 +296,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-async-void` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation` | `async UniTask` methods missing `CancellationToken` parameter |
 | `check-null-propagation` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
-| `check-test-scene-exists` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test-scene` |
+| `check-test-scene-exists` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test` |
 | `instinct-capture` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
@@ -370,7 +370,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/check-portability` | Manual — single step | Audit a module for copy-paste portability to another project |
 | `/learn` | Manual — single step | Extract project-specific patterns into `.claude/skills/learned/` |
 | `/generate-tests` | Manual — single step | Write missing tests for an existing class |
-| `/create-test-scene <FeatureName>` | Manual — single step | Create Play Mode test scene: TestScope, TestInstaller, PlayMode test stub, scene via MCP |
+| `/create-test <FeatureName>` | Manual — single step | Unified test generator — runs test-type-router and creates: EditMode unit test, PlayMode-ECS world test, or PlayMode-Scene (TestScope + TestInstaller + stub + scene via MCP) |
 | `/graphics-setup <mobile\|pc>` | Manual to start. Pauses for your approval before creating assets | Show tier plan, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP |
 | `/audio-clip-setup [path]` | Manual to start. Pauses for commit confirmation at the end | Scan AudioClip assets, categorize, apply optimized import settings via MCP |
 | `/discover [--dry-run\|--write] [--only <pkg>]` | Manual — single step (`--dry-run` default, no writes until `--write`) | Walk `Packages/manifest.json`, emit per-package skill drafts to `.claude/skills/third-party/`. Includes compliance scan — detects rule violations (singleton, legacy Input, coroutines, Resources.Load, etc.) and writes `compliance.md` per package when violations exist |
@@ -446,7 +446,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
 | `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
-| `unity-test-scene-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test-scene` — spawned as `unity-scene-builder` (FleetView) with embedded instructions |
+| `unity-test-scene-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test` — spawned as `unity-scene-builder` (FleetView) with embedded instructions |
 | `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
 
 ---
@@ -687,7 +687,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns for real MonoBehaviour and prefab integration tests |
 | `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed. Used by all MCP-dependent pipeline commands before spawning agents |
-| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path. Used by `/implement`, `/generate-tests`, `/create-test-scene`, and `/create-plan` before any test writing |
+| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path. Used by `/implement`, `/generate-tests`, `/create-test`, and `/create-plan` before any test writing |
 
 ### Gameplay (`skills/gameplay/`)
 
@@ -699,23 +699,6 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `procedural-generation` | Noise-based map gen, seeded randomness, chunking |
 | `save-system` | Serialization, slot management, async save/load via UniTask |
 | `state-machine` | Enum FSM, scriptable state pattern, VContainer wiring |
-
-### Genre Templates (`skills/genre/`)
-
-| Skill | Covers |
-|-------|--------|
-| `card-game` | Deck, hand, drag-drop, turn flow |
-| `endless-runner` | Chunk spawning, speed ramp, obstacle pools |
-| `hyper-casual` | One-tap input, minimal UI, fast loop |
-| `idle-clicker` | Offline progress, prestige, big-number formatting |
-| `match3` | Grid, swap logic, cascade, scoring |
-| `platformer-2d` | Coyote time, jump buffer, one-way platforms |
-| `puzzle` | Undo stack, level serialization, hint system |
-| `racing` | Waypoint AI, lap timing, drift |
-| `roguelike` | Room generation, loot tables, permadeath |
-| `rpg` | Stats, leveling, equipment, quest log |
-| `topdown` | 8-directional move, aim, minimap |
-| `tower-defense` | Wave spawner, targeting, upgrade tree |
 
 ### Platform (`skills/platform/`)
 

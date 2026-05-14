@@ -73,7 +73,7 @@ if [ ${#MISSING[@]} -gt 0 ]; then
         echo "  Missing: ${s}.unity"
     done
     echo ""
-    echo "Run /create-test-scene <feature> to create the scene and TestBootstrap prefab."
+    echo "Run /create-test <feature> to create the scene and TestBootstrap prefab."
     echo "Or create the scene manually and add it to Build Settings."
 fi
 

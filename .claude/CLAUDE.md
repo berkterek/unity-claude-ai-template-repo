@@ -118,7 +118,7 @@ Detailed coding standards in `.claude/rules/`:
 | `check-async-void.sh` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation.sh` | `async UniTask` methods without `CancellationToken` parameter |
 | `check-null-propagation.sh` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
-| `check-test-scene-exists.sh` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test-scene` — skipped if `testing=false` |
+| `check-test-scene-exists.sh` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test` — skipped if `testing=false` |
 | `instinct-capture.sh` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker.sh` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `instinct-distill.sh` (Stop) | Distills captured observations into confidence-scored instincts |
@@ -165,7 +165,7 @@ Detailed coding standards in `.claude/rules/`:
 - `/learn` — Extract project-specific patterns into `.claude/skills/learned/` + generates `PROMPTS.md` documenting the workflow
 - `/discover [--dry-run|--write] [--only <pkg>]` — Walk `Packages/manifest.json`, summarize each Unity package, and emit per-package skill drafts to `.claude/skills/third-party/<pkg>/`. Small packages produce a single `SKILL.md`; large packages (50+ prefabs) produce a multi-file folder (`SKILL.md`, `api.md`, `prefabs.md`, `integration.md`, `test-strategy.md`, `samples.md`). Supports `--dry-run` (default), `--write`, `--only <pkg>`, `--include-assets-plugins`.
 - `/generate-tests` — Write missing tests for an existing class
-- `/create-test-scene <FeatureName>` — Create a complete Play Mode test scene: TestScope, TestInstaller, PlayMode test stub, and scene via MCP; prints manual wiring steps
+- `/create-test <FeatureName>` — Unified test generator: runs test-type-router to determine EditMode / PlayMode-ECS / PlayMode-Scene, then generates the full test infrastructure for the chosen type. EditMode → NSubstitute unit test. PlayMode-ECS → isolated World test. PlayMode-Scene → TestScope + TestInstaller + test stub + scene via MCP.
 - `/graphics-setup <mobile|pc>` — Show tier plan (Low/Medium/High), await approval, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP, wire into Quality Settings, commit option
 - `/audio-clip-setup [path]` — Scan AudioClip assets, categorize (Music/SFX/UI/Voice), apply optimized import settings via temp Editor script + MCP; reports per-clip changes + summary + commit option
 - `/performance-audit` — Audit files for allocations and hot-path violations
@@ -230,7 +230,7 @@ Detailed coding standards in `.claude/rules/`:
 | `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
 | `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
-| `unity-test-scene-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test-scene` — **note: spawned as `unity-scene-builder` (FleetView) with embedded instructions** |
+| `unity-test-scene-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test` (PlayMode-Scene path) — **note: spawned as `unity-scene-builder` (FleetView) with embedded instructions** |
 | `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
 
 ## Context Management
@@ -429,7 +429,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns for real MonoBehaviour and prefab integration tests |
 | `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed. Used by all MCP-dependent pipeline commands before spawning agents |
-| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path. Used by `/implement`, `/generate-tests`, `/create-test-scene`, and `/create-plan` before any test writing |
+| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path. Used by `/implement`, `/generate-tests`, `/create-test`, `/create-plan` before any test writing |
 
 ### Gameplay (`skills/gameplay/`)
 
@@ -441,23 +441,6 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `procedural-generation` | Noise-based map gen, seeded randomness, chunking |
 | `save-system` | Serialization, slot management, async save/load via UniTask |
 | `state-machine` | Enum FSM, scriptable state pattern, VContainer wiring |
-
-### Genre Templates (`skills/genre/`)
-
-| Skill | Covers |
-|-------|--------|
-| `card-game` | Deck, hand, drag-drop, turn flow |
-| `endless-runner` | Chunk spawning, speed ramp, obstacle pools |
-| `hyper-casual` | One-tap input, minimal UI, fast loop |
-| `idle-clicker` | Offline progress, prestige, big-number formatting |
-| `match3` | Grid, swap logic, cascade, scoring |
-| `platformer-2d` | Coyote time, jump buffer, one-way platforms |
-| `puzzle` | Undo stack, level serialization, hint system |
-| `racing` | Waypoint AI, lap timing, drift |
-| `roguelike` | Room generation, loot tables, permadeath |
-| `rpg` | Stats, leveling, equipment, quest log |
-| `topdown` | 8-directional move, aim, minimap |
-| `tower-defense` | Wave spawner, targeting, upgrade tree |
 
 ### Platform (`skills/platform/`)
 
