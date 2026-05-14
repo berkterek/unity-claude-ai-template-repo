@@ -29,6 +29,13 @@ if [ -z "$FILE_PATH" ] || [[ "$FILE_PATH" != *.cs ]]; then
     exit 0
 fi
 
+# Skip if ECS feature is disabled in project-features.json
+_CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+if [ -n "$_CWD" ] && [ -f "$_CWD/.claude/project-features.json" ]; then
+    _ECS=$(jq -r '.ecs // "true"' "$_CWD/.claude/project-features.json" 2>/dev/null)
+    if [ "$_ECS" = "false" ]; then exit 0; fi
+fi
+
 # Only check ECS system files
 if ! echo "$FILE_PATH" | grep -qE "Games/Ecs/Systems/"; then
     exit 0

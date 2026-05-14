@@ -22,11 +22,13 @@ Ask the developer ALL of these questions before doing anything else:
 2. **Unity version** (e.g. `6000.0.x`)
 3. **Scenes**: Default is Bootstrap + Menu + Game. Any additions?
 4. **Does the project use ECS DOTS?** (yes/no) — adds `Games/Ecs/` folder, ECS asmdef, and ECS bridge files
-5. **Packages installed?**
+5. **Does the project use Addressables?** (yes/no) — if no, `Resources.Load` restriction still applies but Addressables-specific rules, skills, and hooks are skipped
+6. **Does the project use Testing / NSubstitute?** (yes/no) — if no, test folders, test asmdefs, test template files, and test-related hooks are all skipped
+7. **Packages installed?**
    - VContainer (required) — installed?
    - UniTask (required) — installed?
    - New Input System (required) — installed?
-   - **NSubstitute DLL** — have you placed `NSubstitute.dll` in `Assets/Plugins/NSubstitute/`? (required for tests, cannot be installed via Package Manager)
+   - **NSubstitute DLL** — only relevant if Testing=yes. Have you placed `NSubstitute.dll` in `Assets/Plugins/NSubstitute/`?
    - TextMeshPro — installed?
    - DOTween — installed?
    - Other?
@@ -58,14 +60,34 @@ Evaluate readiness for each generation phase separately.
 
 #### Gate B — NSubstitute (blocks Step 5 and NSubstitute refs in test .asmdef files)
 
-**If NSubstitute DLL is NOT confirmed present at `Assets/Plugins/NSubstitute/`:**
+**If Testing=no:** Skip Gate B entirely. Do not generate test folders, test asmdefs, or test templates. Jump directly to Step 2.
+
+**If Testing=yes and NSubstitute DLL is NOT confirmed present at `Assets/Plugins/NSubstitute/`:**
 - Generate test `.asmdef` files WITHOUT `precompiledReferences` and WITHOUT `overrideReferences: true`.
 - **Skip Step 5** (do not generate test template files).
 - Note in checklist: "After placing NSubstitute.dll, re-run `/setup-project` or manually add `\"precompiledReferences\": [\"NSubstitute.dll\"]` and `\"overrideReferences\": true` to your test .asmdef files, then run Step 5 manually."
 
-**If NSubstitute DLL IS confirmed present:**
+**If Testing=yes and NSubstitute DLL IS confirmed present:**
 - Generate test `.asmdef` files with full NSubstitute references.
 - Run Step 5 normally.
+
+---
+
+### Step 1c — Write project-features.json
+
+After collecting all answers, write `.claude/project-features.json` to the project root using Bash:
+
+```bash
+cat > .claude/project-features.json << 'EOF'
+{
+  "addressables": <true|false>,
+  "testing": <true|false>,
+  "ecs": <true|false>
+}
+EOF
+```
+
+Replace `<true|false>` with the actual answers. This file is read by hooks and commands to skip irrelevant checks.
 
 ---
 
@@ -106,9 +128,9 @@ Assets/
         │       ├── Components/
         │       └── Systems/
         ├── Editors/                ← [ProjectName]Editor.asmdef
-        └── Tests/
+        └── Tests/                          ← only if Testing=yes
             ├── [ProjectName]EditModeTest/       ← Edit Mode
-            └── [ProjectName]PlayModeTest/   ← Play Mode
+            └── [ProjectName]PlayModeTest/       ← Play Mode
 ```
 
 ---
@@ -612,6 +634,111 @@ namespace Game.PlayModeTest
 
 ---
 
+### Step 5b — Remove Disabled Feature Hooks from settings.json
+
+Use python3 via Bash to remove hooks for disabled features. This keeps settings.json clean — disabled hooks never fire.
+
+Run this Bash command (adjust the `disabled_hooks` list based on answers):
+
+```bash
+python3 - << 'PYEOF'
+import json, re
+
+with open('.claude/settings.json', 'r') as f:
+    content = f.read()
+
+data = json.loads(content)
+
+# Hooks to remove when feature is disabled
+# Testing=no  → remove these hook commands
+testing_hooks = {
+    '.claude/hooks/check-test-exists.sh',
+    '.claude/hooks/check-test-scene-exists.sh',
+}
+# ECS=no → remove these hook commands
+ecs_hooks = {
+    '.claude/hooks/check-ecs-structural-changes.sh',
+}
+
+# Build set of hooks to remove based on answers
+to_remove = set()
+# if testing == False: to_remove |= testing_hooks
+# if ecs == False:     to_remove |= ecs_hooks
+
+if not to_remove:
+    print("No hooks to remove.")
+    exit(0)
+
+def filter_hooks(hook_list):
+    result = []
+    for item in hook_list:
+        filtered = [h for h in item.get('hooks', []) if h.get('command') not in to_remove]
+        if filtered:
+            result.append({**item, 'hooks': filtered})
+    return result
+
+hooks = data.get('hooks', {})
+for event in list(hooks.keys()):
+    hooks[event] = filter_hooks(hooks[event])
+
+with open('.claude/settings.json', 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+
+print(f"Removed hooks: {to_remove}")
+PYEOF
+```
+
+**Instruction:** Before running, replace the two `# if` comment lines with actual `if` statements matching the feature answers. Example if testing=no and ecs=no:
+```python
+to_remove |= testing_hooks
+to_remove |= ecs_hooks
+```
+
+---
+
+### Step 5c — Add Project Features Header to CLAUDE.md
+
+Prepend a `## Project Features` section to `.claude/CLAUDE.md` using Bash. This section tells Claude which rules, skills, and agents to skip for this project.
+
+```bash
+python3 - << 'PYEOF'
+import json
+
+with open('.claude/project-features.json') as f:
+    features = json.load(f)
+
+lines = ["## Project Features\n\n"]
+lines.append("These features were configured during `/setup-project`. Skip rules, hooks, agents, and skills for disabled features.\n\n")
+lines.append("| Feature | Status |\n")
+lines.append("|---------|--------|\n")
+lines.append(f"| Addressables | {'**enabled**' if features.get('addressables') else '~~disabled~~ — skip `addressables.md` rules and Addressables skills'} |\n")
+lines.append(f"| Testing / NSubstitute | {'**enabled**' if features.get('testing') else '~~disabled~~ — skip `testing.md` rules, test agents, test commands'} |\n")
+lines.append(f"| ECS DOTS | {'**enabled**' if features.get('ecs') else '~~disabled~~ — skip `ecs-dots.md` rules and ECS-related guidance'} |\n")
+lines.append("\n---\n\n")
+
+header = "".join(lines)
+
+with open('.claude/CLAUDE.md', 'r') as f:
+    existing = f.read()
+
+# Only prepend if not already present
+if "## Project Features" not in existing:
+    with open('.claude/CLAUDE.md', 'w') as f:
+        f.write(header + existing)
+    print("Project Features section added to CLAUDE.md")
+else:
+    # Update existing section
+    import re
+    updated = re.sub(r'## Project Features\n.*?---\n\n', header, existing, flags=re.DOTALL)
+    with open('.claude/CLAUDE.md', 'w') as f:
+        f.write(updated)
+    print("Project Features section updated in CLAUDE.md")
+PYEOF
+```
+
+---
+
 ### Step 6 — Print Manual Setup Checklist
 
 Always end with this checklist:
@@ -626,7 +753,7 @@ Create these scenes manually in Unity Editor (File → New Scene → Save):
 - Assets/_Scenes/Game.unity
 After creating Bootstrap.unity: set it as Build Index 0 in Build Settings.
 
-### NSubstitute (REQUIRED for tests)
+### NSubstitute (only if Testing=yes)
 NSubstitute cannot be installed via Package Manager.
 1. Download NSubstitute.dll from NuGet: https://www.nuget.org/packages/NSubstitute — click "Download package", rename .nupkg to .zip, extract, take NSubstitute.dll from the lib/ folder
 2. Place at: Assets/Plugins/NSubstitute/NSubstitute.dll  (NOT inside _GameFolders)

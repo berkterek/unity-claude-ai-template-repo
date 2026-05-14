@@ -27,6 +27,13 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
+# Skip if testing feature is disabled in project-features.json
+_CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+if [ -n "$_CWD" ] && [ -f "$_CWD/.claude/project-features.json" ]; then
+    _TESTING=$(jq -r '.testing // "true"' "$_CWD/.claude/project-features.json" 2>/dev/null)
+    if [ "$_TESTING" = "false" ]; then exit 0; fi
+fi
+
 # Only check C# files in logic directories
 if ! echo "$FILE_PATH" | grep -qiE "(Logic|Core|Systems|Domain|Services)/.*\.cs$"; then
     exit 0
