@@ -44,8 +44,16 @@ fi
 # Check if Codex already reviewed this pipeline pass
 REVIEWED_FILE=".claude/state/codex-reviewed"
 
+GATE_FILE=".claude/state/gate-cleared"
+
 if [ -f "$REVIEWED_FILE" ]; then
-    exit 0  # Codex ran first — unity-reviewer allowed as secondary pass
+    # Stale check: gate-cleared is written at pipeline start; codex-reviewed is written mid-pipeline.
+    # If gate-cleared is NEWER than codex-reviewed, the marker is from a previous run — ignore it.
+    if [ -f "$GATE_FILE" ] && [ "$GATE_FILE" -nt "$REVIEWED_FILE" ]; then
+        : # stale marker — fall through and block
+    else
+        exit 0  # Valid marker — Codex ran in this pipeline pass
+    fi
 fi
 
 echo "" >&2
