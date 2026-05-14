@@ -126,6 +126,63 @@ public sealed class HealthService : IHealthService
 
 ---
 
+## Pattern 4: UI Toolkit Button Events — Code-Only (APPROVED)
+
+UI Toolkit's `Button.clicked` and similar element events are **C# `event Action`** under the hood — not UnityEvent. They are approved and must be subscribed **in code**, never wired in Inspector.
+
+```csharp
+public sealed class MainMenuView : MonoBehaviour
+{
+    [SerializeField] private UIDocument _document;
+
+    private IMenuService _menuService;
+    private Button _playButton;
+    private Button _settingsButton;
+
+    [Inject]
+    public void Construct(IMenuService menuService) => _menuService = menuService;
+
+    private void OnEnable()
+    {
+        var root = _document.rootVisualElement;
+        _playButton = root.Q<Button>("play-button");
+        _settingsButton = root.Q<Button>("settings-button");
+
+        _playButton.clicked += OnPlayClicked;
+        _settingsButton.clicked += OnSettingsClicked;
+    }
+
+    private void OnDisable()
+    {
+        _playButton.clicked -= OnPlayClicked;
+        _settingsButton.clicked -= OnSettingsClicked;
+    }
+
+    private void OnPlayClicked()    => _menuService.StartGame();
+    private void OnSettingsClicked() => _menuService.OpenSettings();
+}
+```
+
+**Rules:**
+- Subscribe in `OnEnable()`, unsubscribe in `OnDisable()` — every `+=` must have a matching `-=`
+- Query elements once in `OnEnable()` with `root.Q<Button>("id")` — do not call `Q<>()` every frame
+- The View calls the Service — zero game logic in the View
+- Other UI Toolkit events follow the same pattern: `TextField.RegisterValueChangedCallback`, `Toggle.RegisterValueChangedCallback`, `ListView.onSelectionChange`, etc.
+
+```csharp
+// Other approved UI Toolkit event subscriptions
+_nameField.RegisterValueChangedCallback(OnNameChanged);
+_volumeToggle.RegisterValueChangedCallback(OnVolumeToggled);
+_itemList.onSelectionChange += OnItemSelected;
+
+// Unregister counterparts
+_nameField.UnregisterValueChangedCallback(OnNameChanged);
+_volumeToggle.UnregisterValueChangedCallback(OnVolumeToggled);
+_itemList.onSelectionChange -= OnItemSelected;
+```
+
+---
+
 ## Forbidden Patterns
 
 | Forbidden | Use Instead |
