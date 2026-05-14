@@ -287,6 +287,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-no-runtime-instantiate` (Destroy) | `Destroy()` — use `pool.Return()` / `SetActive(false)` or `Addressables.ReleaseInstance()` instead |
 | `check-test-exists` | Logic class with no matching test file |
 | `check-compile` | Basic C# syntax errors |
+| `warn-reviewer-priority` (PreToolUse) | `unity-reviewer` spawned without Codex being tried first — reminder of correct priority |
 | `warn-serialization` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
 | `warn-filename` | C# filename doesn't match primary class name |
 | `check-unused-code` | Unused private members and imports |

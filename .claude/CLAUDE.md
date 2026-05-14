@@ -109,6 +109,7 @@ Detailed coding standards in `.claude/rules/`:
 | `check-no-runtime-instantiate.sh` | `new GameObject()` — **blocked** outside Pool/Factory/Spawner and Editor files; `Destroy()` — warning only (`Instantiate(prefab)` is allowed) |
 | `check-test-exists.sh` | Logic class with no corresponding test file — skipped if `testing=false` in `project-features.json` |
 | `check-compile.sh` | Basic C# syntax (braces, namespace, type declaration) |
+| `warn-reviewer-priority.sh` (PreToolUse) | `unity-reviewer` spawned without Codex being tried first — reminder of correct priority |
 | `warn-serialization.sh` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
 | `warn-filename.sh` | C# filename doesn't match primary class name |
 | `check-unused-code.sh` | Unused private members, unused imports |
