@@ -66,6 +66,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 |------|---------------|----------------|
 | `check-vcontainer-singleton` | Static singletons | Migrate to VContainer registration — or temporarily disable the hook |
 | `check-input-system` | `Input.GetKey` / `Input.GetAxis` | Replace with New Input System + `InputView` |
+| `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` | Use `IEventBus`, `Action`/`Func`, or C# `event` keyword |
 | `check-pure-csharp` | `using UnityEngine` in `_Framework/` | Move Unity calls to provider classes |
 | `guard-editor-runtime` | Unguarded `UnityEditor` in runtime code | Wrap with `#if UNITY_EDITOR` |
 
@@ -270,6 +271,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `guard-editor-runtime` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `check-pure-csharp` | `using UnityEngine` inside `_Framework/` or service classes in `Abstracts/Concretes/` |
 | `check-input-system` | Legacy `Input.GetKey` / `Input.GetAxis` API |
+| `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |
 | `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
 | `guard-critical-files` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — exception: files under `TestScopes/`, `EditModeTest/`, or `PlayModeTest/` |
 | `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exception: test assemblies (`EditModeTest`, `PlayModeTest`) |

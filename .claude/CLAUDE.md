@@ -81,6 +81,7 @@ Detailed coding standards in `.claude/rules/`:
 | `testing.md` | NSubstitute, AAA pattern, test naming, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
+| `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 
 ## Hooks (auto-enforced on every Write/Edit)
 
@@ -93,6 +94,7 @@ Detailed coding standards in `.claude/rules/`:
 | `guard-editor-runtime.sh` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` or `Games/Abstracts/` / `Games/Concretes/` (non-provider) |
 | `check-input-system.sh` | Legacy `Input.GetKey` / `Input.GetAxis` API |
+| `check-unity-event.sh` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |
 | `check-vcontainer-singleton.sh` | Static singleton patterns outside of `EventBusAccessor` |
 | `guard-critical-files.sh` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — **exception: files under `TestScopes/`, `EditModeTest/`, or `PlayModeTest/` paths** |
 | `check-config-protection.sh` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — **exception: test assemblies (`EditModeTest`, `PlayModeTest`)** |
