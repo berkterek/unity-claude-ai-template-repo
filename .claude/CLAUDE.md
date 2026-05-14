@@ -122,7 +122,7 @@ Detailed coding standards in `.claude/rules/`:
 | `guard-critical-files.sh` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — **exception: files under `TestScopes/`, `EditModeTest/`, or `PlayModeTest/` paths** |
 | `check-config-protection.sh` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — **exception: test assemblies (`EditModeTest`, `PlayModeTest`)** |
 | `gateguard.sh` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
-| `guard-reviewer-order.sh` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass — bypass: `touch .claude/state/codex-reviewed` |
+| `guard-reviewer-order.sh` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass — uses `gate-cleared` timestamp to detect stale markers from previous runs; bypass: `touch .claude/state/codex-reviewed` |
 
 ### Warning (exit 0 — logs to stderr, does not block)
 
