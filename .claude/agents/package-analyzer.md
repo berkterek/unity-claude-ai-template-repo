@@ -143,7 +143,7 @@ description: <one-line description>
 type: plugin
 source: <package_path>
 triggers:
-  commands: ["/implement", "/add-feature", "/scene-setup", "/create-test-scene", "/review-code"]
+  commands: ["/implement", "/add-feature", "/scene-setup", "/create-test", "/review-code"]
   keywords: [<3–8 domain keywords>]
 ---
 ```
