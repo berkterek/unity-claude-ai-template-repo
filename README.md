@@ -67,6 +67,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 | `check-vcontainer-singleton` | Static singletons | Migrate to VContainer registration — or temporarily disable the hook |
 | `check-input-system` | `Input.GetKey` / `Input.GetAxis` | Replace with New Input System + `InputView` |
 | `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` | Use `IEventBus`, `Action`/`Func`, or C# `event` keyword |
+| `check-time-scale` | `Time.timeScale =` assignment | Use IEventBus + PauseService pattern |
 | `check-pure-csharp` | `using UnityEngine` in `_Framework/` | Move Unity calls to provider classes |
 | `guard-editor-runtime` | Unguarded `UnityEditor` in runtime code | Wrap with `#if UNITY_EDITOR` |
 
@@ -117,6 +118,28 @@ claude-heavy   # architecture, planning, game design
 ```
 
 The alias file lives at `.claude/aliases.sh`.
+
+---
+
+## Recommended Plugins
+
+These Claude Code plugins enhance the pipeline when installed. All are **optional** — every command falls back gracefully when a plugin is unavailable.
+
+Install via `/plugin` in Claude Code:
+
+| Plugin | Commands that use it | What it adds |
+|--------|---------------------|--------------|
+| `superpowers` | `/implement`, `/fix`, `/fix-deep` | TDD discipline, brainstorming before complex features, systematic debugging, verification before completion |
+| `skill-creator` | `/learn` | Structured skill drafting with description optimization — replaces raw markdown skill writing |
+| `code-simplifier` | `/clean-slop`, `/implement` (completion) | Post-implementation quality pass — reuse, efficiency, clarity |
+| `claude-md-management` | `/implement`, `/fix` (completion) | Automatically updates CLAUDE.md with session learnings |
+| `code-review` | `/review-code` | Additional review checklist layer on top of Codex/unity-reviewer |
+
+**Availability check:** Each command that uses plugins prints a preflight status line before starting:
+```
+Plugins: superpowers:systematic-debugging [✓] | claude-md-management [✗]
+```
+`✓` = available and will be used · `✗` = not installed, fallback active
 
 ---
 
@@ -211,6 +234,7 @@ The full pipeline from idea to shippable game, using the commands in this templa
 | `/catch-up` | Manual — single step | Generates a human-readable codebase guide at `docs/CATCH_UP.md` |
 | `/adr <decision>` | Manual — single step | Records an Architecture Decision Record to `docs/decisions/` |
 | `/create-changelog` | Manual — single step | Creates or updates `CHANGELOG.md` |
+| `/update-claude-md` | Manual — single step | Syncs CLAUDE.md tables with actual project state (hooks, rules, commands, agents) — shows diff, waits for confirmation |
 | `/smart-commit` | Manual to start. Inside: analyze → group → commit run **automatically** | Groups dirty working tree into logical commits |
 
 ### Full Flow
@@ -272,6 +296,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-pure-csharp` | `using UnityEngine` inside `_Framework/` or service classes in `Abstracts/Concretes/` |
 | `check-input-system` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |
+| `check-time-scale` | `Time.timeScale =` assignment |
 | `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
 | `guard-critical-files` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — exception: files under `TestScopes/`, `EditModeTest/`, or `PlayModeTest/` |
 | `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exception: test assemblies (`EditModeTest`, `PlayModeTest`) |
@@ -289,7 +314,6 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-no-runtime-instantiate` (Destroy) | `Destroy()` — use `pool.Return()` / `SetActive(false)` or `Addressables.ReleaseInstance()` instead |
 | `check-test-exists` | Logic class with no matching test file |
 | `check-compile` | Basic C# syntax errors |
-| `warn-reviewer-priority` (PreToolUse) | `unity-reviewer` spawned without Codex being tried first — reminder of correct priority |
 | `warn-serialization` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
 | `warn-filename` | C# filename doesn't match primary class name |
 | `check-unused-code` | Unused private members and imports |
@@ -410,6 +434,7 @@ All documentation commands are **manually triggered — single step each**.
 |---------|------------|-------------|
 | `/create-changelog` | Manual — single step | Create or update `CHANGELOG.md` from recent git commits |
 | `/mermaid` | Manual — single step | Generate a Mermaid architecture diagram for a module or system |
+| `/update-claude-md [--section]` | Manual — single step | Sync CLAUDE.md tables with actual project state — hooks from `settings.json`, rules from `rules/`, commands from `commands/`, agents from `agents/`. Shows diff before writing. |
 
 ---
 
@@ -691,17 +716,6 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns for real MonoBehaviour and prefab integration tests |
 | `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed. Used by all MCP-dependent pipeline commands before spawning agents |
 | `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path. Used by `/implement`, `/generate-tests`, `/create-test`, and `/create-plan` before any test writing |
-
-### Gameplay (`skills/gameplay/`)
-
-| Skill | Covers |
-|-------|--------|
-| `character-controller` | Movement, jumping, collision, physics-based character setup |
-| `dialogue-system` | Branching dialogue, scriptable data, event triggers |
-| `inventory-system` | Item data, slot management, persistence |
-| `procedural-generation` | Noise-based map gen, seeded randomness, chunking |
-| `save-system` | Serialization, slot management, async save/load via UniTask |
-| `state-machine` | Enum FSM, scriptable state pattern, VContainer wiring |
 
 ### Platform (`skills/platform/`)
 

@@ -2,6 +2,13 @@
 
 This is a personal Unity development template for Claude Code. It enforces architecture, coding standards, and quality rules automatically through hooks and provides slash commands for common workflows.
 
+## Important Constraints
+
+- `settings.json` cannot be edited by Claude — `check-config-protection.sh` blocks it. User must add hook entries manually after any new hook is created.
+- Hook exit 0 = warning only (pipeline continues). Exit 2 = blocking. A hook that only warns has minimal enforcement value.
+- `skills/genre/` and `skills/gameplay/` were removed. Use `/skill-creator` to generate project-specific genre/gameplay skills when needed.
+- Command `/create-test-scene` was renamed to `/create-test`. Agent `unity-test-scene-builder` was renamed to `unity-test-builder`.
+
 ## Required Stack
 
 | Package | Source | Purpose |
@@ -95,6 +102,8 @@ Detailed coding standards in `.claude/rules/`:
 | `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` or `Games/Abstracts/` / `Games/Concretes/` (non-provider) |
 | `check-input-system.sh` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-unity-event.sh` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |
+| `check-time-scale.sh` | `Time.timeScale =` assignment — use IEventBus + PauseService instead |
+| `check-enum-byte-base.sh` | `enum` without `: byte` base in ECS component or IEvent files — use `ushort` if 255+ values needed |
 | `check-vcontainer-singleton.sh` | Static singleton patterns outside of `EventBusAccessor` |
 | `guard-critical-files.sh` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — **exception: files under `TestScopes/`, `EditModeTest/`, or `PlayModeTest/` paths** |
 | `check-config-protection.sh` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — **exception: test assemblies (`EditModeTest`, `PlayModeTest`)** |
@@ -111,7 +120,6 @@ Detailed coding standards in `.claude/rules/`:
 | `check-no-runtime-instantiate.sh` | `new GameObject()` — **blocked** outside Pool/Factory/Spawner and Editor files; `Destroy()` — warning only (`Instantiate(prefab)` is allowed) |
 | `check-test-exists.sh` | Logic class with no corresponding test file — skipped if `testing=false` in `project-features.json` |
 | `check-compile.sh` | Basic C# syntax (braces, namespace, type declaration) |
-| `warn-reviewer-priority.sh` (PreToolUse) | `unity-reviewer` spawned without Codex being tried first — reminder of correct priority |
 | `warn-serialization.sh` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
 | `warn-filename.sh` | C# filename doesn't match primary class name |
 | `check-unused-code.sh` | Unused private members, unused imports |
@@ -191,6 +199,7 @@ Detailed coding standards in `.claude/rules/`:
 
 ### Changelog
 - `/create-changelog` — Create or update `CHANGELOG.md` with recent changes
+- `/update-claude-md [--section hooks|rules|commands|agents]` — Sync CLAUDE.md tables with actual project state (settings.json hooks, rules/ files, commands/ files, agents/ files). Shows diff, waits for confirmation before writing.
 
 ### Diagrams
 - `/mermaid` — Generate a Mermaid architecture diagram for a module or system
@@ -433,17 +442,6 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns for real MonoBehaviour and prefab integration tests |
 | `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed. Used by all MCP-dependent pipeline commands before spawning agents |
 | `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path. Used by `/implement`, `/generate-tests`, `/create-test`, `/create-plan` before any test writing |
-
-### Gameplay (`skills/gameplay/`)
-
-| Skill | Covers |
-|-------|--------|
-| `character-controller` | Movement, jumping, collision, physics-based character setup |
-| `dialogue-system` | Branching dialogue, scriptable data, event triggers |
-| `inventory-system` | Item data, slot management, persistence |
-| `procedural-generation` | Noise-based map gen, seeded randomness, chunking |
-| `save-system` | Serialization, slot management, async save/load via UniTask |
-| `state-machine` | Enum FSM, scriptable state pattern, VContainer wiring |
 
 ### Platform (`skills/platform/`)
 
