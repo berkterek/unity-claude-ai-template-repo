@@ -446,7 +446,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
 | `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
-| `unity-test-scene-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test` — spawned as `unity-scene-builder` (FleetView) with embedded instructions |
+| `unity-test-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test` |
 | `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
 
 ---
