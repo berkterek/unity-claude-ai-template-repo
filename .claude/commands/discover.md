@@ -44,6 +44,16 @@ argument-hint: "[--dry-run] [--write] [--only <pkg>] [--include-assets-plugins]"
 
    If all packages have `demo_scenes: []`, print: `Demo Scenes: (none detected)`
 
+   Then print the **Compliance Summary** table (only rows where violations > 0):
+
+   | package | must-fix | should-fix | consider | compliance.md |
+   |---------|----------|------------|---------|---------------|
+
+   - `must-fix` / `should-fix` / `consider` = count of findings per severity
+   - `compliance.md` = `will be written` or `—` (no violations)
+
+   If all packages have `violations: []`, print: `Compliance: (no violations detected — all packages comply with project rules)`
+
 4. Print this note verbatim:
    ```
    Note: --write only documents prefab duplication targets inside skill files. It does not duplicate any prefab.
@@ -68,6 +78,7 @@ argument-hint: "[--dry-run] [--write] [--only <pkg>] [--include-assets-plugins]"
 - `--write` does NOT create, copy, or move any `.prefab` file. It only writes skill `.md` files.
 - Dry-run (default) produces no file writes of any kind.
 - All skill files are written under `.claude/skills/third-party/<pkg>/` — never under `skills/plugins/`.
+- `compliance.md` is only written when `violations` is non-empty. Clean packages produce no compliance file.
 
 ## Error Surfaces
 
