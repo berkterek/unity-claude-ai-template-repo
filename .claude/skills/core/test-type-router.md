@@ -1,6 +1,6 @@
 ---
 name: test-type-router
-description: Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from a class name, file path, or task description. Used by /implement, /generate-tests, /create-test-scene, and /create-plan before any test writing begins.
+description: Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from a class name, file path, or task description. Used by /implement, /generate-tests, /create-test, and /create-plan before any test writing begins.
 model-tier: light
 ---
 
@@ -77,13 +77,13 @@ No test file will be created for this target.
 
 **If decision is PlayMode-Scene**, also emit:
 ```
-→ Use /create-test-scene [FeatureName] to scaffold the scene and TestBootstrap.
+→ Use /create-test [FeatureName] to scaffold the scene and TestBootstrap.
 ```
 
 **If decision is PlayMode-ECS**, also emit:
 ```
 → Write an isolated World test in [ProjectName]PlayModeTest assembly.
-   Do NOT use /create-test-scene — no scene needed for ECS system tests.
+   Do NOT use /create-test — no scene needed for ECS system tests.
 ```
 
 ---
@@ -101,13 +101,13 @@ Reason: [from router output]
 ```
 
 If **NoTest** → skip Step 1 (Test Writer) entirely.
-If **PlayMode-Scene** → note that `/create-test-scene` should be run separately for the scene; test-writer writes the test stub only.
+If **PlayMode-Scene** → note that `/create-test` should be run separately for the scene; test-writer writes the test stub only.
 
 ### /generate-tests
 
 Run router first. If NoTest → stop with explanation. Otherwise proceed with correct assembly and test pattern.
 
-### /create-test-scene
+### /create-test
 
 Run router in Step 2 pre-check. If decision is not PlayMode-Scene → stop:
 ```
