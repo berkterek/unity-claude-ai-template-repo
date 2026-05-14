@@ -17,16 +17,23 @@ Claude Code reads the `.claude/` folder when it opens a project. This template p
 
 ## Stack
 
-This template assumes the following packages are (or will be) installed in your Unity project:
+### Required
 
 | Package | Role |
 |---------|------|
 | **VContainer** | Dependency injection |
 | **UniTask** | Async/await (replaces coroutines) |
 | **New Input System** | Input handling |
-| **Addressables** | Runtime asset loading (Resources.Load forbidden) |
-| **NSubstitute** | Test mocking (manual DLL install) |
-| **Unity ECS DOTS** | Optional — hooks and rules are active if you use it |
+
+### Optional (selected during `/setup-project`)
+
+| Package | Role | When disabled |
+|---------|------|---------------|
+| **Addressables** | Runtime asset loading | Addressables rules and skills are skipped |
+| **NSubstitute** | Test mocking (manual DLL install) | Test folders, asmdefs, and test hooks are skipped |
+| **Unity ECS DOTS** | Data-oriented systems | ECS folder, asmdef, and ECS hooks are skipped |
+
+`/setup-project` asks about each optional feature upfront and writes `.claude/project-features.json`. Hooks and commands automatically skip disabled features — no false warnings, no irrelevant rules.
 
 ---
 
@@ -140,9 +147,13 @@ claude
 /setup-project
 ```
 
-This generates project-specific boilerplate: assembly definition files (with your project name, including Framework asmdefs), base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), NSubstitute test assembly config, and a manual setup checklist.
+This generates project-specific boilerplate: assembly definition files, base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), and a manual setup checklist.
 
-> **Package gating:** `/setup-project` asks about all packages upfront. If VContainer/UniTask/Input System are missing, it creates only the folder structure and stops. If NSubstitute DLL is missing, it skips test `.asmdef` references and test templates. Re-run once packages are installed to continue.
+**Feature selection:** `/setup-project` asks about Addressables, Testing, and ECS DOTS. Based on your answers it writes `.claude/project-features.json`, skips irrelevant folders and asmdefs, removes disabled hooks from `settings.json`, and adds a `## Project Features` header to `CLAUDE.md`.
+
+**Conflict detection (Step 0):** If `.claude/project-features.json` already exists, setup compares it against the actual project (folder presence, `manifest.json`) and reports any conflicts — useful after a partial or manual cleanup. It can sync settings only without regenerating files.
+
+> **Package gating:** If VContainer/UniTask/Input System are missing, setup creates only the folder structure and stops. If NSubstitute DLL is missing (and Testing=yes), test `.asmdef` references and test templates are skipped. Re-run once packages are installed to continue.
 
 ---
 
@@ -169,7 +180,7 @@ The full pipeline from idea to shippable game, using the commands in this templa
 
 | Command | How it runs | What it does |
 |---------|------------|-------------|
-| `/setup-project` | Manual — single step | Generates folder structure, `.asmdef` files (Framework + Game + Editor + Test asmdefs, optional ECS), base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), NSubstitute test assembly config. Gated: runtime packages must be confirmed before .asmdef/C# generation; NSubstitute DLL must be confirmed before test templates. Prints a manual checklist for anything remaining. |
+| `/setup-project` | Manual — single step | Detects existing state → asks feature questions (Addressables / Testing / ECS) → generates folder structure, `.asmdef` files, and base framework classes. Writes `project-features.json`, removes disabled hooks from `settings.json`, adds `## Project Features` header to `CLAUDE.md`. Package-gated: runtime packages must be confirmed before .asmdef/C# generation; NSubstitute DLL before test templates. |
 
 ### Phase 4 — Implementation
 
@@ -302,7 +313,7 @@ All setup commands are **manually triggered — single step each**.
 
 | Command | How it runs | Description |
 |---------|------------|-------------|
-| `/setup-project` | Manual — single step | Generate assembly definitions, base classes, NSubstitute config, and manual setup checklist |
+| `/setup-project` | Manual — single step | Detect existing state → ask feature questions (Addressables/Testing/ECS) → generate assembly definitions, base classes, and manual setup checklist. Writes `project-features.json`, removes disabled hooks from `settings.json`, updates `CLAUDE.md` header. |
 | `/create-prefab-scene` | Manual — single step | **Legacy migration:** scan existing scenes for bare GameObjects, build a prefab inventory, create proper prefabs via MCP (logic/visual separation, Prefab Variants, correct domain folders), review, commit |
 
 ### Design
@@ -607,7 +618,7 @@ The log is capped at 5000 lines and rotates automatically. It is global across a
 
 Some things Claude cannot do inside Unity Editor — you do these once per project:
 
-**NSubstitute**
+**NSubstitute** _(only if Testing=yes during `/setup-project`)_
 1. Download `NSubstitute.dll` from [NuGet](https://www.nuget.org/packages/NSubstitute) — click "Download package", rename `.nupkg` to `.zip`, extract, take `NSubstitute.dll` from the `lib/` folder
 2. Place at `Assets/Plugins/NSubstitute/NSubstitute.dll`
 3. The `.asmdef` files generated by `/setup-project` already reference it via `precompiledReferences`
@@ -625,7 +636,7 @@ Install via Unity Package Manager — add by git URL from the UniTask repository
 3. Create `Assets/Input/[ProjectName]Controls.inputactions`
 4. Enable "Generate C# Class" in the `.inputactions` inspector
 
-**Addressables**
+**Addressables** _(only if Addressables=yes during `/setup-project`)_
 1. Install via Package Manager: `com.unity.addressables`
 2. Mark runtime assets as Addressable in the Inspector
 3. Use `AssetAddresses` constants class for address strings — no hardcoded strings
@@ -801,4 +812,4 @@ docs/                      ← GDD, TDD, WORKFLOW, PROGRESS (generated by comman
 
 ## License
 
-MIT
+Copyright (c) 2026 Berk Terek — All rights reserved.

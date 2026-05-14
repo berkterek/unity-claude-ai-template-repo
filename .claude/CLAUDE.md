@@ -9,14 +9,21 @@ This is a personal Unity development template for Claude Code. It enforces archi
 | **VContainer** | openupm / Package Manager | Dependency injection — replaces all singletons |
 | **UniTask** | openupm / Package Manager | Async/await — replaces all coroutines |
 | **New Input System** | Package Manager (com.unity.inputsystem) | Input — legacy Input API is blocked |
-| **Addressables** | Package Manager (com.unity.addressables) | Asset loading — Resources.Load is forbidden |
-| **NSubstitute** | Manual DLL install | Test mocking — place in `Assets/Plugins/NSubstitute/` |
-| **Unity ECS DOTS** | Package Manager (optional) | Data-oriented systems when performance demands it |
+
+## Optional Features
+
+Selected during `/setup-project`. Choices are saved to `.claude/project-features.json`. Disabled features have their hooks removed from `settings.json` and their rules skipped per the `## Project Features` header in this file (written by setup).
+
+| Package | Source | Feature flag | When disabled |
+|---------|--------|--------------|---------------|
+| **Addressables** | Package Manager (com.unity.addressables) | `addressables` | Addressables rules and skills skipped |
+| **NSubstitute** | Manual DLL install | `testing` | Test folders, asmdefs, test hooks skipped |
+| **Unity ECS DOTS** | Package Manager (optional) | `ecs` | ECS folder, asmdef, ECS hooks skipped |
 
 ## Quick Start
 
 1. Copy the `.claude/` folder into your Unity project root
-2. Run `/setup-project` to generate folder structure, .asmdef files, and base classes
+2. Run `/setup-project` — it detects existing state, asks about optional features (Addressables / Testing / ECS), generates folder structure, .asmdef files, and base classes, then writes `.claude/project-features.json`
 3. Complete the **Manual Setup Checklist** printed by `/setup-project`
 
 For an existing project with legacy code, see **Adding to an Existing Project** below.
@@ -100,18 +107,18 @@ Detailed coding standards in `.claude/rules/`:
 | `check-no-hotpath-expensive-calls.sh` | `GetComponent`, `Camera.main`, `FindObjectOfType`, bare `transform.`, `tag ==`, `SendMessage` inside Update/FixedUpdate/LateUpdate/Tick/FixedTick/LateTick — suppressed if `_transform` field is cached |
 | `check-getcomponent-in-awake.sh` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment for all components including `Transform`; only acceptable when component is added dynamically at runtime |
 | `check-no-runtime-instantiate.sh` | `new GameObject()` — **blocked** outside Pool/Factory/Spawner and Editor files; `Destroy()` — warning only (`Instantiate(prefab)` is allowed) |
-| `check-test-exists.sh` | Logic class with no corresponding test file |
+| `check-test-exists.sh` | Logic class with no corresponding test file — skipped if `testing=false` in `project-features.json` |
 | `check-compile.sh` | Basic C# syntax (braces, namespace, type declaration) |
 | `warn-serialization.sh` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
 | `warn-filename.sh` | C# filename doesn't match primary class name |
 | `check-unused-code.sh` | Unused private members, unused imports |
 | `check-namespace-format.sh` | Namespace not in `Layer.Module` format |
 | `check-event-naming.sh` | `IEvent` struct without `Event` suffix or not past tense |
-| `check-ecs-structural-changes.sh` | `EntityManager.AddComponent/RemoveComponent/DestroyEntity` inside ECS system (use ECB) |
+| `check-ecs-structural-changes.sh` | `EntityManager.AddComponent/RemoveComponent/DestroyEntity` inside ECS system (use ECB) — skipped if `ecs=false` in `project-features.json` |
 | `check-async-void.sh` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation.sh` | `async UniTask` methods without `CancellationToken` parameter |
 | `check-null-propagation.sh` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
-| `check-test-scene-exists.sh` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test-scene` |
+| `check-test-scene-exists.sh` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test-scene` — skipped if `testing=false` |
 | `instinct-capture.sh` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker.sh` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `instinct-distill.sh` (Stop) | Distills captured observations into confidence-scored instincts |
@@ -136,7 +143,7 @@ Detailed coding standards in `.claude/rules/`:
 > Reviewer priority: Codex → unity-reviewer (falls back to unity-reviewer if Codex is unavailable).
 
 ### Project Setup
-- `/setup-project` — Initialize a new project: folder structure, .asmdef files (including Framework asmdefs), base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), NSubstitute setup, manual checklist. Gated: runtime packages (VContainer/UniTask/Input System) must be confirmed before .asmdef + C# generation; NSubstitute DLL must be confirmed before test templates.
+- `/setup-project` — **Step 0:** detect existing state, compare against `project-features.json` (if any), offer sync-only mode on conflict. **Step 1:** ask feature questions (Addressables / Testing / ECS) + package gates. Generates folder structure, .asmdef files, base framework classes, and manual checklist. Writes `.claude/project-features.json`, removes disabled hooks from `settings.json`, adds `## Project Features` header to `CLAUDE.md`.
 - `/create-prefab-scene` — **Legacy migration:** scan existing scenes for bare GameObjects, build a prefab inventory, create proper prefabs via MCP, review, commit. Use for scenes built before the prefab rules were in place.
 
 ### Design & Architecture
@@ -522,12 +529,13 @@ Omit `model-tier` to inherit from the calling command. Use `light` for lookup/re
 
 ## Project-Specific Setup
 
-When first adding this template to a new project, run `/setup-project` to generate:
-- Assembly definition files with correct project name (including `FrameworkEvents`, `FrameworkLogging`, `FrameworkSaveLoadSystems`, and optional ECS asmdef)
-- Base framework classes: `IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`
-- NSubstitute test assembly configuration (gated on DLL presence)
-- Sample test templates (gated on NSubstitute DLL)
+When first adding this template to a new project, run `/setup-project`. It:
 
-The command asks about ALL packages before running — runtime packages gate .asmdef + C# generation; NSubstitute gates test templates. If anything is missing, it generates only what it can and prints the checklist.
+1. **Detects existing state** — checks folder structure and `manifest.json`, compares against `project-features.json` if it exists, reports conflicts and offers sync-only mode
+2. **Asks feature questions** — Addressables (yes/no), Testing (yes/no), ECS (yes/no) — with detected signals as defaults
+3. **Writes `.claude/project-features.json`** — hooks and commands read this to skip disabled features
+4. **Generates** assembly definitions, base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), and test templates (if Testing=yes + NSubstitute present)
+5. **Cleans settings.json** — removes hooks for disabled features
+6. **Updates CLAUDE.md** — prepends `## Project Features` section listing enabled/disabled features
 
-Then follow the **Manual Setup Checklist** it prints (NSubstitute DLL, VContainer, UniTask, Input System, AppScope scene wiring). **Note:** `.unity` scene files must be created manually in Unity Editor — Claude cannot write scene files (`block-scene-edit.sh` blocks all `.unity` writes).
+Then follow the **Manual Setup Checklist** it prints. **Note:** `.unity` scene files must be created manually in Unity Editor — Claude cannot write scene files (`block-scene-edit.sh` blocks all `.unity` writes).
