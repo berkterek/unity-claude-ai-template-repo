@@ -19,7 +19,26 @@ If no argument is given, ask: "What needs to be implemented?"
 
 ---
 
-## Step 0 — MCP Preflight
+## Step 0 — Plugin Preflight
+
+**Plugin availability check:**
+Check which of these plugins are available in the skill list:
+
+| Plugin | Used in | Fallback |
+|--------|---------|---------|
+| `superpowers:test-driven-development` | Step 0c — TDD constraint setup | Proceed with built-in test-type-router only |
+| `superpowers:brainstorming` | Complex tasks (score ≥ 0.7) — design exploration before coding | Skip brainstorming |
+| `code-simplifier` | Post-implementation quality pass | Skip simplification step |
+| `claude-md-management:revise-claude-md` | Completion — update CLAUDE.md with learnings | Skip |
+
+Print availability status before proceeding:
+```
+Plugins: superpowers:test-driven-development [✓/✗] | superpowers:brainstorming [✓/✗] | code-simplifier [✓/✗] | claude-md-management [✓/✗]
+```
+
+---
+
+## Step 0.5 — MCP Preflight
 
 Read and apply `.claude/skills/core/mcp-preflight.md`.
 
@@ -29,9 +48,15 @@ Read and apply `.claude/skills/core/mcp-preflight.md`.
 
 ---
 
-## Step 0a — Complexity Scoring
+## Step 0a — Brainstorming (Complex tasks only)
 
-**Step 0b — Read Review Mode**
+If complexity score ≥ 0.7 AND `superpowers:brainstorming` is available → invoke `superpowers:brainstorming` before writing any code. Use it to surface design alternatives and tradeoffs for the new module or cross-system feature. Document the chosen approach in one paragraph, then proceed.
+
+---
+
+## Step 0b — Complexity Scoring
+
+**Step 0c — Read Review Mode**
 
 Read `production/review-mode.txt` (default: `lean` if file missing). This controls pipeline depth:
 
@@ -419,12 +444,19 @@ $CODER_OUTPUT
 
 Run: `rm -f .claude/state/gate-cleared`
 
+If `superpowers:verification-before-completion` is available → invoke it before reporting done.
+
+If `claude-md-management:revise-claude-md` is available → invoke it to update CLAUDE.md with any new patterns or constraints discovered during this implementation.
+
+If `code-simplifier` is available → run a final simplification pass on all changed files.
+
 Print:
 ```
 ## ✓ Implemented
 Task: [task description]
 Commit: [hash] — [message]
 Reviewer: [Codex | Claude] — APPROVED
+Plugins used: [list of plugin skills invoked, or "none"]
 ```
 
 $ARGUMENTS

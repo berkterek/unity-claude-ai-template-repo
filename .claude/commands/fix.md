@@ -19,7 +19,24 @@ If no argument is given, ask: "Describe the bug."
 
 ---
 
-## Step 0 — Complexity Scoring
+## Step 0 — Plugin Preflight
+
+**Plugin availability check:**
+Check which of these plugins are available in the skill list:
+
+| Plugin | Used in | Fallback |
+|--------|---------|---------|
+| `superpowers:systematic-debugging` | Step 1 — root cause analysis before spawning agents | Proceed with unity-fixer directly |
+| `claude-md-management:revise-claude-md` | Completion — update CLAUDE.md with session learnings | Skip |
+
+Print availability before proceeding:
+```
+Plugins: superpowers:systematic-debugging [✓/✗] | claude-md-management [✓/✗]
+```
+
+---
+
+## Step 0.5 — Complexity Scoring
 
 **Step 0a — Read Review Mode**
 
@@ -73,6 +90,8 @@ For **Complex** tasks: after the standard Reviewer step passes, spawn a **unity-
 ---
 
 ## Step 1 — Debugger
+
+**If `superpowers:systematic-debugging` is available AND complexity score ≥ 0.4:** Invoke `superpowers:systematic-debugging` first to structure the root cause hypothesis before spawning unity-fixer. Pass the bug description and any stack traces. Use its output to enrich the unity-fixer prompt below.
 
 **If complexity score ≥ 0.4:** Spawn **unity-fixer** and **unity-scout** simultaneously. Proceed once both complete.
 
@@ -507,6 +526,8 @@ $CODER_OUTPUT
 Run: `rm -f .claude/state/gate-cleared`
 
 Invoke the **learner** skill to capture debugging insights from this session — extract non-obvious root causes, codebase-specific patterns, and hard-won fixes into `.claude/skills/learned/` and append to CLAUDE.md's `## Project Learnings` section.
+
+If `claude-md-management:revise-claude-md` is available → invoke it to update CLAUDE.md with any architectural decisions or constraints discovered during this fix session.
 
 Print:
 ```

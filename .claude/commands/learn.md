@@ -38,7 +38,11 @@ Categories to look for:
 
 ### Step 3: Draft Skills
 
-For each candidate, draft a skill file:
+**Plugin availability check:**
+Check if `skill-creator:skill-creator` is listed in the available skills.
+
+- **Available** → Use `skill-creator:skill-creator` to draft each skill. The skill-creator handles frontmatter, description optimization, and quality gates automatically. Follow its interview process for each pattern.
+- **Not available** → Draft manually using the template below:
 
 ```yaml
 ---
