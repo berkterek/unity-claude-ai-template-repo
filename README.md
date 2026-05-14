@@ -301,6 +301,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `guard-critical-files` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — exception: files under `TestScopes/`, `EditModeTest/`, or `PlayModeTest/` |
 | `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exception: test assemblies (`EditModeTest`, `PlayModeTest`) |
 | `gateguard` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
+| `guard-reviewer-order` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass — bypass: `touch .claude/state/codex-reviewed` |
 | `check-no-runtime-instantiate` | `new GameObject()` — blocked outside `Pool/Factory/Spawner` files and test assemblies (`Instantiate(prefab)` is allowed) |
 
 ### Warnings (logged to stderr, does not block)
@@ -324,6 +325,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-unitask-cancellation` | `async UniTask` methods missing `CancellationToken` parameter |
 | `check-null-propagation` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
 | `check-test-scene-exists` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test` |
+| `track-codex-review` (PostToolUse) | Creates `.claude/state/codex-reviewed` when `codex:codex-rescue` completes — enables `unity-reviewer` as fallback in reviewer-order enforcement |
 | `instinct-capture` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
