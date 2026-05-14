@@ -83,7 +83,7 @@ TEST TYPE DECISION
 ```
 
 - **NoTest** → skip Step 1 (Test Writer) entirely; proceed directly to Step 2 (Coder)
-- **PlayMode-Scene** → Test Writer writes the stub only; note that `/create-test-scene` must be run separately for scene + TestBootstrap wiring
+- **PlayMode-Scene** → Test Writer writes the stub only; note that `/create-test` must be run separately for scene + TestBootstrap wiring
 - **EditMode** or **PlayMode-ECS** → proceed normally; Test Writer uses the correct assembly
 
 ---
