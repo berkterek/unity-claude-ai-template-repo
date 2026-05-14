@@ -118,6 +118,39 @@
         "hooks": [
           {
             "type": "command",
+            "command": ".claude/hooks/check-unity-event.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking UnityEvent usage..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-time-scale.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking Time.timeScale assignment..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-enum-byte-base.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking enum byte base in ECS/IEvent..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
             "command": ".claude/hooks/check-config-protection.sh",
             "timeout": 5000,
             "statusMessage": "Checking config file protection..."
