@@ -14,6 +14,66 @@ You generate all of these.
 
 ## Your Process
 
+### Step 0 — Detect Existing State (always runs first)
+
+Before asking any questions, run these Bash commands to detect current project state:
+
+```bash
+# 1. Does project-features.json already exist?
+[ -f ".claude/project-features.json" ] && echo "FEATURES_JSON=yes" || echo "FEATURES_JSON=no"
+
+# 2. Detect actual feature signals in the project
+[ -d "Assets/_GameFolders/Scripts/Games/Ecs" ] && echo "ECS_DIR=yes" || echo "ECS_DIR=no"
+[ -d "Assets/_GameFolders/Scripts/Tests" ] && echo "TESTS_DIR=yes" || echo "TESTS_DIR=no"
+grep -q "com.unity.addressables" Packages/manifest.json 2>/dev/null && echo "ADDRESSABLES_PKG=yes" || echo "ADDRESSABLES_PKG=no"
+
+# 3. If project-features.json exists, read current declared values
+[ -f ".claude/project-features.json" ] && cat .claude/project-features.json || echo "{}"
+```
+
+#### Decision Tree
+
+**A — project-features.json does NOT exist**
+→ This is a fresh setup. Proceed to Step 1 normally.
+→ Pre-fill answers from detected signals as defaults (e.g. if `Ecs/` exists → suggest ECS=yes).
+
+**B — project-features.json EXISTS and matches detected state**
+→ Print: "Project already configured. Features: addressables=[x], testing=[x], ecs=[x]"
+→ Ask: "Re-run setup to regenerate files, or sync settings only?"
+→ If sync: run Steps 5b + 5c only (update settings.json and CLAUDE.md header), then stop.
+→ If regenerate: continue from Step 1.
+
+**C — project-features.json EXISTS but CONFLICTS with detected state**
+→ Print a conflict table, for example:
+```
+⚠ Feature configuration conflict detected:
+
+  Feature        | project-features.json | Detected in project
+  ---------------|----------------------|--------------------
+  ecs            | true                 | NO (Ecs/ folder missing)
+  testing        | true                 | NO (Tests/ folder missing)
+  addressables   | false                | YES (manifest.json has it)
+
+Fix these conflicts before proceeding? (y/n)
+```
+→ If y: update project-features.json to match detected state, then run Steps 5b + 5c to sync settings.json and CLAUDE.md. Report what changed and stop.
+→ If n: continue to Step 1 for full re-setup.
+
+**D — project-features.json does NOT exist but partial setup is detected**
+→ (e.g. Tests/ folder exists but no json)
+→ Print detected state as suggested defaults:
+```
+Detected in project:
+  - Tests/ folder: YES  → Testing default: yes
+  - Ecs/ folder: NO     → ECS default: no
+  - Addressables in manifest: NO → Addressables default: no
+
+These will be used as defaults in Step 1. Override any during setup.
+```
+→ Proceed to Step 1 with these defaults pre-filled.
+
+---
+
 ### Step 1 — Gather Info
 
 Ask the developer ALL of these questions before doing anything else:
