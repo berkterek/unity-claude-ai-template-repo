@@ -156,6 +156,17 @@
             "statusMessage": "Checking config file protection..."
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/guard-reviewer-order.sh",
+            "timeout": 3000,
+            "statusMessage": "Checking reviewer order (Codex first)..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -363,6 +374,17 @@
             "command": ".claude/hooks/cost-tracker.sh",
             "timeout": 2000,
             "statusMessage": "Tracking cost..."
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/track-codex-review.sh",
+            "timeout": 3000,
+            "statusMessage": "Tracking Codex review completion..."
           }
         ]
       }
