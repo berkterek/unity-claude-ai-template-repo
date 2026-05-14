@@ -126,60 +126,66 @@ public sealed class HealthService : IHealthService
 
 ---
 
-## Pattern 4: UI Toolkit Button Events — Code-Only (APPROVED)
+## Pattern 4: UGUI Button.onClick — Code-Only (APPROVED EXCEPTION)
 
-UI Toolkit's `Button.clicked` and similar element events are **C# `event Action`** under the hood — not UnityEvent. They are approved and must be subscribed **in code**, never wired in Inspector.
+`Button.onClick` is a built-in UnityEvent on Unity's standard UI components. It is **allowed only when subscribed in code** — never wired in the Inspector. This is the only approved UnityEvent usage in the project.
 
 ```csharp
 public sealed class MainMenuView : MonoBehaviour
 {
-    [SerializeField] private UIDocument _document;
+    [SerializeField] private Button _playButton;
+    [SerializeField] private Button _settingsButton;
 
     private IMenuService _menuService;
-    private Button _playButton;
-    private Button _settingsButton;
 
     [Inject]
     public void Construct(IMenuService menuService) => _menuService = menuService;
 
     private void OnEnable()
     {
-        var root = _document.rootVisualElement;
-        _playButton = root.Q<Button>("play-button");
-        _settingsButton = root.Q<Button>("settings-button");
-
-        _playButton.clicked += OnPlayClicked;
-        _settingsButton.clicked += OnSettingsClicked;
+        _playButton?.onClick.AddListener(OnPlayClicked);
+        _settingsButton?.onClick.AddListener(OnSettingsClicked);
     }
 
     private void OnDisable()
     {
-        _playButton.clicked -= OnPlayClicked;
-        _settingsButton.clicked -= OnSettingsClicked;
+        _playButton?.onClick.RemoveListener(OnPlayClicked);
+        _settingsButton?.onClick.RemoveListener(OnSettingsClicked);
     }
 
-    private void OnPlayClicked()    => _menuService.StartGame();
+    private void OnPlayClicked()     => _menuService.StartGame();
     private void OnSettingsClicked() => _menuService.OpenSettings();
 }
 ```
 
 **Rules:**
-- Subscribe in `OnEnable()`, unsubscribe in `OnDisable()` — every `+=` must have a matching `-=`
-- Query elements once in `OnEnable()` with `root.Q<Button>("id")` — do not call `Q<>()` every frame
+- `AddListener` in `OnEnable()`, `RemoveListener` in `OnDisable()` — mandatory pair
+- Inspector'da onClick listesi **boş kalmalı** — tüm bağlantılar kodda yapılır
 - The View calls the Service — zero game logic in the View
-- Other UI Toolkit events follow the same pattern: `TextField.RegisterValueChangedCallback`, `Toggle.RegisterValueChangedCallback`, `ListView.onSelectionChange`, etc.
+- `Dropdown.onValueChanged`, `Toggle.onValueChanged`, `Slider.onValueChanged` aynı pattern'ı takip eder
 
 ```csharp
-// Other approved UI Toolkit event subscriptions
-_nameField.RegisterValueChangedCallback(OnNameChanged);
-_volumeToggle.RegisterValueChangedCallback(OnVolumeToggled);
-_itemList.onSelectionChange += OnItemSelected;
+// Other approved UGUI event subscriptions — code only, never Inspector
+_dropdown.onValueChanged.AddListener(OnDifficultyChanged);
+_toggle.onValueChanged.AddListener(OnSoundToggled);
+_slider.onValueChanged.AddListener(OnVolumeChanged);
 
-// Unregister counterparts
-_nameField.UnregisterValueChangedCallback(OnNameChanged);
-_volumeToggle.UnregisterValueChangedCallback(OnVolumeToggled);
-_itemList.onSelectionChange -= OnItemSelected;
+// Matching remove in OnDisable
+_dropdown.onValueChanged.RemoveListener(OnDifficultyChanged);
+_toggle.onValueChanged.RemoveListener(OnSoundToggled);
+_slider.onValueChanged.RemoveListener(OnVolumeChanged);
 ```
+
+**What is NOT allowed:**
+- `[SerializeField] UnityEvent myEvent` — declaring your own UnityEvent field
+- Inspector'da onClick'e method sürüklemek
+- `onClick.AddListener` dışında herhangi bir yerde `UnityEvent` kullanımı
+
+---
+
+## UI Toolkit — Editor Only
+
+UI Toolkit (`UIDocument`, `VisualElement`) bu projede **yalnızca Editor araçları** için kullanılır. Runtime UI için UGUI (Canvas tabanlı) kullanılır. Editor script'lerinde UI Toolkit olayları `#if UNITY_EDITOR` guard'ı altında normal C# event olarak kullanılabilir.
 
 ---
 

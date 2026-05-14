@@ -254,3 +254,35 @@ _GameFolders/Scripts/Games/Ecs/
 ```
 
 ECS components and systems never go into `Abstracts/` or `Concretes/` — they stay in `Ecs/`.
+
+---
+
+## 11. Enum Base Type in ECS and IEvent Structs
+
+Enums declared inside `IComponentData` structs or `IEvent` structs must inherit from `byte`.
+
+**Why:** Each ECS component lives in a chunk. A default `int` enum costs 4 bytes; a `byte` enum costs 1 byte. In a struct with multiple fields this adds up quickly and reduces entities per chunk, hurting cache performance. `IEvent` structs benefit for the same reason — smaller allocation on publish.
+
+```csharp
+// BAD — default int base wastes 3 bytes per entity
+public struct EnemyStateData : IComponentData
+{
+    public EnemyState State;
+}
+
+public enum EnemyState { Idle, Moving, Attacking }
+
+// GOOD — byte base, 1 byte per entity
+public struct EnemyStateData : IComponentData
+{
+    public EnemyState State;
+}
+
+public enum EnemyState : byte { Idle, Moving, Attacking }
+```
+
+**Rules:**
+- All enums used inside `IComponentData` or `IEvent` structs → `: byte`
+- If more than 255 values are genuinely needed → `: ushort`
+- Enums in service classes, ScriptableObjects, or config data → no constraint (default `int` is fine)
+- The `check-enum-byte-base.sh` hook warns when a non-byte enum is found in ECS or IEvent files
