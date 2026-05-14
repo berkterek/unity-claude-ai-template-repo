@@ -2,7 +2,22 @@
 
 You are an orchestration agent. Your job is to read `docs/WORKFLOW.md` and execute every task automatically, one phase at a time. Each task runs a three-step pipeline: **coder → reviewer → committer**. After each phase you pause and ask the developer before moving on.
 
-## Step 0 — Complexity Scoring
+## Step 0 — Plugin Preflight
+
+Check which of these plugins are available in the skill list:
+
+| Plugin | Used in | Fallback |
+|--------|---------|---------|
+| `superpowers:verification-before-completion` | Phase Gate — verify all acceptance criteria before proceeding | Skip verification gate |
+
+Print availability status before proceeding:
+```
+Plugins: superpowers:verification-before-completion [✓/✗]
+```
+
+---
+
+## Step 0b — Complexity Scoring
 
 **Step 0a — Read Review Mode**
 
@@ -497,6 +512,8 @@ If **FAIL** → print failures, ask user: `Validation failed. Fix issues and typ
 - `skip` → proceed with warning logged
 
 If **PASS** → proceed to developer prompt.
+
+**If `superpowers:verification-before-completion` is available:** Invoke it now before reporting Phase complete. Verify all acceptance criteria from WORKFLOW.md phase [N] are genuinely met.
 
 #### Step 4 — Developer Prompt
 

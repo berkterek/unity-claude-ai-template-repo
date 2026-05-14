@@ -11,13 +11,36 @@ Sets up a new scene or prefab: coder writes the C# scripts, unity-setup wires ev
 
 If no argument is given, ask: "What needs to be set up in the scene?"
 
-## Step 0 — MCP Preflight
+## Step 0 — Plugin Preflight
+
+Check which of these plugins are available in the skill list:
+
+| Plugin | Used in | Fallback |
+|--------|---------|---------|
+| `superpowers:brainstorming` | Step 0a — design exploration before coder (complexity ≥ 0.7) | Skip brainstorming |
+
+Print availability status before proceeding:
+```
+Plugins: superpowers:brainstorming [✓/✗]
+```
+
+---
+
+## Step 0a — MCP Preflight
 
 Read and apply `.claude/skills/core/mcp-preflight.md`.
 
 - **State 1** (connected) → continue to complexity scoring
 - **State 2** (disconnected) → stop; offer to run code-only (skip unity-setup step 1b, list manual wiring steps instead)
 - **State 3** (not installed) → skip Step 1b entirely; after coder completes, print manual wiring checklist
+
+---
+
+## Step 0b — Complexity Scoring
+
+**Step 0c — Brainstorming (Complex tasks only)**
+
+If complexity score ≥ 0.7 AND `superpowers:brainstorming` is available → invoke `superpowers:brainstorming` before spawning the coder. Use it to explore alternative scene/prefab structures and VContainer scope placement. Document the chosen approach in one paragraph, then proceed.
 
 ---
 

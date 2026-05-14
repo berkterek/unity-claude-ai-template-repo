@@ -14,7 +14,22 @@ If no argument is given, ask:
 1. What pattern needs migrating? (coroutine→UniTask, singleton→VContainer, Debug.Log→wrapper, Input.GetKey→New Input System, other)
 2. Which files or folder?
 
-## Step 0 — Complexity Scoring
+## Step 0 — Plugin Preflight
+
+Check which of these plugins are available in the skill list:
+
+| Plugin | Used in | Fallback |
+|--------|---------|---------|
+| `superpowers:verification-before-completion` | Completion — verify migration is complete before commit (complexity ≥ 0.7) | Skip verification gate |
+
+Print availability status before proceeding:
+```
+Plugins: superpowers:verification-before-completion [✓/✗]
+```
+
+---
+
+## Step 0b — Complexity Scoring
 
 **Step 0a — Read Review Mode**
 
@@ -284,6 +299,8 @@ $MIGRATOR_OUTPUT
 ## Completion
 
 Run: `rm -f .claude/state/gate-cleared`
+
+**If `superpowers:verification-before-completion` is available AND complexity score ≥ 0.7:** Invoke it before reporting done. Verify every old pattern instance was replaced and no orphaned references remain.
 
 Print:
 ```

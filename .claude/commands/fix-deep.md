@@ -21,7 +21,22 @@ If no argument is given, ask: "Describe the bug. Paste any logs or error text if
 
 ---
 
-## Step 0 — Complexity Scoring
+## Step 0 — Plugin Preflight
+
+Check which of these plugins are available in the skill list:
+
+| Plugin | Used in | Fallback |
+|--------|---------|---------|
+| `superpowers:systematic-debugging` | Step 1 — root cause hypothesis (complexity ≥ 0.4) | Proceed with unity-fixer hypothesis directly |
+
+Print availability status before proceeding:
+```
+Plugins: superpowers:systematic-debugging [✓/✗]
+```
+
+---
+
+## Step 0b — Complexity Scoring
 
 Score the bug complexity on a 0.0–1.0 scale before spawning any agents:
 
@@ -106,6 +121,8 @@ Wait for user input. If "proceed" → continue with empty evidence, clearly mark
 ---
 
 ## Step 1 — Hypothesis Formation
+
+**If `superpowers:systematic-debugging` is available AND complexity score ≥ 0.4:** Invoke `superpowers:systematic-debugging` first to structure the root cause hypothesis. Pass the bug description and log evidence. Use its output (hypothesis + confidence + injection plan) to enrich the unity-fixer prompt below.
 
 Spawn a **unity-fixer** subagent with this prompt:
 

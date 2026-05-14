@@ -2,6 +2,21 @@
 
 You are starting a structured debugging session. Follow the Debugger agent protocol.
 
+## Plugin Preflight
+
+Check which of these plugins are available in the skill list:
+
+| Plugin | Used in | Fallback |
+|--------|---------|---------|
+| `superpowers:systematic-debugging` | Step 1 — root cause analysis | Proceed with manual investigation |
+
+Print availability status before proceeding:
+```
+Plugins: superpowers:systematic-debugging [✓/✗]
+```
+
+---
+
 ## Initialization
 
 Ask the developer:
@@ -16,6 +31,9 @@ Do not proceed until you have at least the symptom and reproduction condition.
 ## Process
 
 ### Step 1 — Understand the symptom
+
+**If `superpowers:systematic-debugging` is available:** Invoke it now with the symptom, reproduction condition, recent changes, and stack trace. Use its structured output (root cause hypothesis, confidence, injection plan) before proceeding to Step 2.
+
 Read the stack trace or behavior description. Identify:
 - Which file and line is the immediate failure point?
 - Which system/module is involved? (VContainer, ECS, UniTask, Input, etc.)

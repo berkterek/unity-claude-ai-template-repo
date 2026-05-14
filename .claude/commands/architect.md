@@ -72,7 +72,25 @@ These are hard requirements. Every architectural decision must satisfy ALL of th
 - Consider ScriptableObject-based event system (Ryan Hipple pattern)
 - ScriptableObject-based enums where appropriate
 
+## Plugin Preflight
+
+Check which of these plugins are available in the skill list:
+
+| Plugin | Used in | Fallback |
+|--------|---------|---------|
+| `superpowers:brainstorming` | Phase 1 — explore alternative architectures before settling on design | Skip brainstorming |
+| `superpowers:verification-before-completion` | Completion — verify TDD is complete and consistent | Skip verification gate |
+
+Print availability status before proceeding:
+```
+Plugins: superpowers:brainstorming [✓/✗] | superpowers:verification-before-completion [✓/✗]
+```
+
+---
+
 ## Your Architectural Process
+
+**If `superpowers:brainstorming` is available:** Invoke it now before system identification. Use it to explore alternative architectural approaches (e.g. ECS vs OOP, event-driven vs direct coupling, VContainer scope hierarchy options). Document the chosen approach in one paragraph before proceeding.
 
 ### Phase 1: System Identification
 From the GDD, identify and list every system needed:
@@ -309,7 +327,11 @@ You are an adversarial Unity architect. Challenge this Technical Design Document
 Report: List every concern with severity (CRITICAL / MAJOR / MINOR). Be direct and specific.
 ```
 
-After unity-critic reports, incorporate all CRITICAL and MAJOR feedback into the TDD before presenting it to the developer. MINOR items may be listed as open questions. Then ask the developer to review. Make requested changes. Once confirmed, inform: "TDD is complete. Run `/plan-workflow` to generate the execution plan."
+After unity-critic reports, incorporate all CRITICAL and MAJOR feedback into the TDD before presenting it to the developer. MINOR items may be listed as open questions. Then ask the developer to review. Make requested changes.
+
+**If `superpowers:verification-before-completion` is available:** Invoke it before declaring the TDD complete. Verify every GDD system has TDD coverage, no section is left as "TBD", and no circular dependencies remain.
+
+Once confirmed, inform: "TDD is complete. Run `/plan-workflow` to generate the execution plan."
 
 ## Rules
 

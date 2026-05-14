@@ -18,6 +18,21 @@ Runs a three-stage quality check on the current codebase state: compile + test g
 
 ---
 
+## Plugin Preflight
+
+Check which of these plugins are available in the skill list:
+
+| Plugin | Used in | Fallback |
+|--------|---------|---------|
+| `superpowers:verification-before-completion` | Final Report — evidence gate before declaring CLEAN | Skip verification gate |
+
+Print availability status before proceeding:
+```
+Plugins: superpowers:verification-before-completion [✓/✗]
+```
+
+---
+
 ## Pipeline
 
 ```
@@ -116,6 +131,8 @@ Stage 3 — Validate:        ✓ PASS   |  ⚠ FAIL ([N criteria])
 ─────────────────────────────────────
 Overall: CLEAN ✓  |  ISSUES FOUND ⚠
 ```
+
+**If `superpowers:verification-before-completion` is available AND overall status is CLEAN:** Invoke it before reporting done. Confirm all three stages passed with evidence.
 
 If **CLEAN** → print: `Project is clean. Safe to proceed.`
 

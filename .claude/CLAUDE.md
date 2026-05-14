@@ -15,7 +15,7 @@ These plugins enhance pipelines when installed. All are optional — commands fa
 
 | Plugin | Commands | What it adds |
 |--------|----------|--------------|
-| `superpowers` | `/implement`, `/fix` | `brainstorming` (score ≥ 0.7), `test-driven-development` (TDD setup), `systematic-debugging` (score ≥ 0.4), `verification-before-completion` |
+| `superpowers` | `/implement`, `/fix`, `/fix-deep`, `/debug-session`, `/migrate`, `/scene-setup`, `/architect`, `/orchestrate`, `/qa`, `/validate` | `brainstorming` (score ≥ 0.7), `test-driven-development` (TDD setup), `systematic-debugging` (score ≥ 0.4), `verification-before-completion` |
 | `skill-creator` | `/learn` | Structured skill drafting |
 | `code-simplifier` | `/clean-slop`, `/implement` | Post-implementation quality pass |
 | `claude-md-management` | `/implement`, `/fix` | Auto-updates CLAUDE.md with learnings |

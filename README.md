@@ -129,7 +129,7 @@ Install via `/plugin` in Claude Code:
 
 | Plugin | Commands that use it | What it adds |
 |--------|---------------------|--------------|
-| `superpowers` | `/implement`, `/fix` | TDD discipline, brainstorming before complex features, systematic debugging, verification before completion |
+| `superpowers` | `/implement`, `/fix`, `/fix-deep`, `/debug-session`, `/migrate`, `/scene-setup`, `/architect`, `/orchestrate`, `/qa`, `/validate` | TDD discipline, brainstorming before complex features, systematic debugging, verification before completion |
 | `skill-creator` | `/learn` | Structured skill drafting with description optimization — replaces raw markdown skill writing |
 | `code-simplifier` | `/clean-slop`, `/implement` (completion) | Post-implementation quality pass — reuse, efficiency, clarity |
 | `claude-md-management` | `/implement`, `/fix` (completion) | Automatically updates CLAUDE.md with session learnings |
