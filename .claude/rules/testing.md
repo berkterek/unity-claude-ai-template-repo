@@ -6,13 +6,38 @@ Every class under `_GameFolders/Scripts/` must have a corresponding test. Rule: 
 
 ---
 
+## Test Type Decision Tree
+
+Before writing any test, apply this tree top-to-bottom — stop at the first match:
+
+```
+Is the target a MonoBehaviour?
+├── NO  → Is it an ISystem / SystemBase?
+│         ├── YES → PlayMode-ECS  (isolated World, no scene)
+│         └── NO  → EditMode  (pure C# / NSubstitute)
+└── YES → Does Unity lifecycle (Awake / OnEnable / OnDisable / Update) matter?
+          ├── NO  → EditMode  (if logic is fully injectable, no lifecycle needed)
+          └── YES → PlayMode
+                    └── Does the test require ANY of:
+                        • VContainer scope hierarchy (AppScope → GameScope)
+                        • Physics, triggers, or collisions
+                        • Real prefab loaded from disk
+                        • Wiring between multiple scene objects
+                        ├── YES → PlayMode-Scene  (load scene + TestBootstrap)
+                        └── NO  → PlayMode-Programmatic
+                                  (new GameObject().AddComponent<>(), no scene)
+```
+
+**Key insight:** A MonoBehaviour that only subscribes to a service in `OnEnable` and updates a value does NOT need a scene. `PlayMode-Programmatic` covers ~80% of MonoBehaviour tests. Reserve `PlayMode-Scene` for production wiring verification.
+
 ## Test Types
 
 | Type | Assembly | When |
 |------|----------|------|
 | **Edit Mode** | `[ProjectName]EditModeTest` | Pure C# logic, interface mocking, ECS component tests |
-| **Play Mode (ECS World)** | `[ProjectName]PlayModeTest` | ECS System integration with isolated World |
-| **Play Mode (Scene)** | `[ProjectName]PlayModeTest` | MonoBehaviour lifecycle, VContainer wiring, real prefab behavior |
+| **Play Mode — Programmatic** | `[ProjectName]PlayModeTest` | MonoBehaviour lifecycle tested via `new GameObject().AddComponent<>()` — no scene loading |
+| **Play Mode — ECS World** | `[ProjectName]PlayModeTest` | ECS System integration with isolated World |
+| **Play Mode — Scene** | `[ProjectName]PlayModeTest` | VContainer scope hierarchy, physics/collision, real prefab wiring across scene objects |
 
 ---
 
@@ -21,8 +46,10 @@ Every class under `_GameFolders/Scripts/` must have a corresponding test. Rule: 
 | Folder | Test Type | Tool |
 |--------|-----------|------|
 | `Games/Abstracts/` | Edit Mode | NUnit + NSubstitute |
-| `Games/Concretes/` | Edit Mode | NUnit + NSubstitute |
-| `Games/Ecs/Systems/` | Play Mode | NUnit + ECS World |
+| `Games/Concretes/` (pure C#) | Edit Mode | NUnit + NSubstitute |
+| `Games/Concretes/` (MonoBehaviour, isolated) | Play Mode — Programmatic | NUnit + new GameObject() |
+| `Games/Concretes/` (MonoBehaviour, scene wiring) | Play Mode — Scene | NUnit + TestBootstrap scene |
+| `Games/Ecs/Systems/` | Play Mode — ECS World | NUnit + isolated World |
 | `Games/Ecs/Components/` | — | Data struct — no test needed |
 | `Games/Ecs/Authorings/` | — | Baker bake-time — no test needed |
 
