@@ -275,25 +275,14 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 ## Step 3 — Committer
 
-Spawn a **committer** subagent with this prompt:
+**Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-```
-You are a release engineer. Commit this scene setup.
-
-## What Was Set Up
-$SETUP_DESCRIPTION
-
-## Files Changed
-$CODER_OUTPUT
-$UNITY_SETUP_OUTPUT
-
-## Rules
-- Run: git status, git diff
-- Stage all related .cs, .unity, .prefab, .asset, .meta files
-- Commit message format: "feat: <short description in English>"
-- Do NOT push
-- Report: commit hash and message
-```
+- What was set up: `$SETUP_DESCRIPTION`
+- Files changed: `$CODER_OUTPUT` + `$UNITY_SETUP_OUTPUT`
+- Run: `git status`, `git diff`
+- Stage all related `.cs`, `.unity`, `.prefab`, `.asset`, `.meta` files
+- Commit message format: `"feat: <short description in English>"`
+- Do NOT push; report: commit hash and message
 
 ---
 

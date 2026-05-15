@@ -100,30 +100,17 @@ If the migration scope touches more than 5 files (scoring signal "+0.3 Touches m
 
 > **Skip this step if complexity score is Simple (0.0–0.3) and review mode is not `full`.**
 
-Spawn a **tester** subagent with this prompt:
+**Write/verify tests directly.** Read `.claude/agents/tester.md` and `.claude/rules/testing.md`, then:
 
-```
-You are a senior C# Unity test engineer. Before a migration begins, ensure tests exist to verify behavior is preserved.
-
-## Migration Task
-$MIGRATION_DESCRIPTION
-
-## Project Rules
-- Read .claude/CLAUDE.md and .claude/rules/testing.md before writing any tests
-- Use NSubstitute for mocking — only mock interfaces
-- Follow AAA pattern (Arrange / Act / Assert)
-- Test method naming: MethodName_WhenCondition_ExpectedBehavior
-
-## Your Task
+- Migration task: `$MIGRATION_DESCRIPTION`
+- Use NSubstitute — only mock interfaces; follow AAA pattern
+- Test naming: `MethodName_WhenCondition_ExpectedBehavior`
 1. Check if tests already exist for the code being migrated.
 2. If tests exist and cover the relevant behavior → report: TESTS EXIST, list them.
-3. If tests are missing → write them now, covering the behavior that must survive the migration.
+3. If tests are missing → write them now, covering behavior that must survive migration.
 4. These tests must pass BEFORE migration starts.
 
-## When Done
-Report: TESTS EXIST or TESTS WRITTEN, with a list of test files and what each covers.
-Report: DONE or BLOCKED with reason.
-```
+Report: TESTS EXIST or TESTS WRITTEN, with list of test files. Report: DONE or BLOCKED.
 
 If BLOCKED → stop and show the user.
 
@@ -131,7 +118,7 @@ If BLOCKED → stop and show the user.
 
 ## Step 2 — Migrator
 
-Spawn a **migrator** subagent with this prompt:
+Spawn Agent with `subagent_type: "unity-migrator"` with this prompt:
 
 ```
 You are a Unity code migration specialist. Migrate legacy patterns in this project.
@@ -274,25 +261,15 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 ## Step 4 — Committer
 
-Spawn a **committer** subagent with this prompt:
+**Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-```
-You are a release engineer. Commit this migration.
-
-## Migration
-$MIGRATION_DESCRIPTION
-
-## Files Changed
-$MIGRATOR_OUTPUT
-
-## Rules
-- Run: git status, git diff
+- Migration: `$MIGRATION_DESCRIPTION`
+- Files changed: `$MIGRATOR_OUTPUT`
+- Run: `git status`, `git diff`
 - Stage only migration-related files
-- Commit message format: "refactor: migrate <pattern> in <scope>"
-- One commit per migration type (if multiple patterns were migrated, split commits)
-- Do NOT push
-- Report: commit hash(es) and message(s)
-```
+- Commit message format: `"refactor: migrate <pattern> in <scope>"`
+- One commit per migration type (if multiple patterns, split commits)
+- Do NOT push; report: commit hash(es) and message(s)
 
 ---
 

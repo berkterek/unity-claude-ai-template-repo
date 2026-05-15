@@ -501,7 +501,7 @@ Files to commit:
 Commit? (go / stop)
 ```
 
-Wait for `go`. On `go` → spawn **committer** with message:
+Wait for `go`. On `go` → **execute commits directly** following `.claude/agents/committer.md`, using commit message:
 - EditMode:               `test([Feature]): add EditMode unit tests`
 - PlayMode-ECS:          `test([Feature]): add PlayMode ECS system tests`
 - PlayMode-Programmatic: `test([Feature]): add PlayMode programmatic MonoBehaviour tests`

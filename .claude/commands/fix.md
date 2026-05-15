@@ -195,37 +195,17 @@ find . -name "[ClassName]Tests.cs" -path "*/Tests/*"
 
 ## Step 3 — Test Writer
 
-Spawn a **tester** subagent with this prompt:
+**Write regression tests directly.** Read `.claude/agents/tester.md` and `.claude/rules/testing.md`, then:
 
-```
-You are a senior C# Unity test engineer. Write a failing regression test that reproduces this bug BEFORE any fix is applied.
-
-## Bug
-$BUG_DESCRIPTION
-
-## Root Cause
-$DEBUGGER_ROOT_CAUSE
-
-## Affected Files
-$DEBUGGER_AFFECTED_FILES
-
-## Project Rules
-- Read .claude/CLAUDE.md and .claude/rules/testing.md before writing any tests
-- Use NSubstitute for mocking — only mock interfaces, never concrete classes
-- Follow AAA pattern (Arrange / Act / Assert)
-- Test method naming: MethodName_WhenCondition_ExpectedBehavior
+- Bug: `$BUG_DESCRIPTION`
+- Root cause: `$DEBUGGER_ROOT_CAUSE`
+- Affected files: `$DEBUGGER_AFFECTED_FILES`
+- Use NSubstitute — only mock interfaces, never concrete classes
+- Follow AAA pattern; test naming: `MethodName_WhenCondition_ExpectedBehavior`
 - The test must FAIL right now — do not fix the bug
+- Write test(s) that: (1) reproduce the bug, (2) pass once root cause is fixed, (3) serve as permanent regression guard
 
-## Your Task
-Write a test (or tests) that:
-1. Directly reproduces the bug described above
-2. Will PASS once the root cause is fixed
-3. Will serve as a permanent regression guard
-
-## When Done
-List every test file you created with a summary of what each test covers.
-Report: DONE or BLOCKED with reason.
-```
+When done: list every test file created with a summary. Report: DONE or BLOCKED with reason.
 
 If test writer reports **BLOCKED** → stop and show the blocker to the user.
 
@@ -496,28 +476,16 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 ## Step 6 — Committer
 
-Spawn a **committer** subagent with this prompt:
+**Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-```
-You are a release engineer. Commit this bug fix.
-
-## Bug Fixed
-$BUG_DESCRIPTION
-
-## Root Cause
-$DEBUGGER_ROOT_CAUSE
-
-## Files Changed
-$CODER_OUTPUT
-
-## Rules
-- Run: git status, git diff
+- Bug fixed: `$BUG_DESCRIPTION`
+- Root cause: `$DEBUGGER_ROOT_CAUSE`
+- Files changed: `$CODER_OUTPUT`
+- Run: `git status`, `git diff`
 - Stage only files related to this fix
-- Commit message format: "fix: <short description in English>"
-- One commit
-- Do NOT push
+- Commit message format: `"fix: <short description in English>"`
+- One commit; do NOT push
 - Report: commit hash and message
-```
 
 ---
 

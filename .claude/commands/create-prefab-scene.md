@@ -297,28 +297,16 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 ## Step 5 — Committer
 
-Spawn a **committer** subagent with this prompt:
+**Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-```
-You are a release engineer. Commit the prefab creation work.
-
-## What Was Done
-Analyzed scenes under _Scene/, created prefabs following project prefab rules.
-
-## Scenes Analyzed
-$SCENE_PATHS
-
-## Prefabs Created
-$UNITY_SETUP_OUTPUT
-
-## Rules
-- Run: git status, git diff --stat
-- Stage: all .prefab, .unity, .asset, .meta files changed + docs/PrefabInventory.md
-- NEVER use git add -A or git add .  — add specific files only
-- Commit message format: "feat(prefabs): <short description>"
-- Do NOT push
-- Report: commit hash and message
-```
+- What was done: Analyzed scenes under `_Scene/`, created prefabs following project prefab rules.
+- Scenes analyzed: `$SCENE_PATHS`
+- Prefabs created: `$UNITY_SETUP_OUTPUT`
+- Run: `git status`, `git diff --stat`
+- Stage: all `.prefab`, `.unity`, `.asset`, `.meta` files changed + `docs/PrefabInventory.md`
+- NEVER use `git add -A` or `git add .` — specific files only
+- Commit message format: `"feat(prefabs): <short description>"`
+- Do NOT push; report: commit hash and message
 
 ---
 

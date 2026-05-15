@@ -132,31 +132,16 @@ For **Complex** tasks: after the standard Reviewer step passes, spawn a **unity-
 
 ## Step 1 — Test Writer
 
-Spawn a **tester** subagent with this prompt:
+**Write tests directly.** Read `.claude/agents/tester.md` and `.claude/rules/testing.md`, then:
 
-```
-You are a senior C# Unity test engineer. Write failing unit tests BEFORE any implementation exists.
+- Task: `$TASK_DESCRIPTION`
+- Use NSubstitute — only mock interfaces, never concrete classes
+- Follow AAA pattern — one assertion per test
+- Test method naming: `MethodName_WhenCondition_ExpectedBehavior`
+- Tests must FAIL right now — no implementation yet
+- Do NOT write any implementation code
 
-## Task
-$TASK_DESCRIPTION
-
-## Project Rules
-- Read .claude/CLAUDE.md and .claude/rules/testing.md before writing any tests
-- Use NSubstitute for mocking — only mock interfaces, never concrete classes
-- Follow AAA pattern (Arrange / Act / Assert) — one assertion per test
-- Test method naming: MethodName_WhenCondition_ExpectedBehavior
-- Test class naming: [ClassName]Tests
-- Place test files in the correct test assembly folder
-
-## Your Task
-1. Identify what class(es) and method(s) this task requires.
-2. Write all tests that define the expected behavior — they must FAIL right now (no implementation yet).
-3. Do NOT write any implementation code.
-
-## When Done
-List every test file you created with a summary of what each test covers.
-Report: DONE or BLOCKED with reason.
-```
+When done: list every test file created with a summary of what each covers. Report: DONE or BLOCKED with reason.
 
 If test writer reports **BLOCKED** → stop, show the blocker to the user, do not continue.
 
@@ -418,25 +403,16 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 ## Step 4 — Committer
 
-Spawn a **committer** subagent with this prompt:
+**Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-```
-You are a release engineer. Commit all staged changes.
-
-## What Was Implemented
-$TASK_DESCRIPTION
-
-## Files Changed
-$CODER_OUTPUT
-
-## Rules
-- Run: git status, git diff to see all changes
+- Task implemented: `$TASK_DESCRIPTION`
+- Files changed: `$CODER_OUTPUT`
+- Run: `git status`, `git diff` to confirm all changes
 - Stage only files related to this task
-- Commit message format: "feat: <short description in English>"
-- One commit unless the changes are clearly separable into logical units
+- Commit message format: `"feat: <short description in English>"`
+- One commit unless changes are clearly separable into logical units
 - Do NOT push — user pushes manually
 - Report: commit hash and message when done
-```
 
 ---
 

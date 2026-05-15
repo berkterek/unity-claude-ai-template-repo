@@ -520,29 +520,17 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 ## Step 7 — Committer
 
-Spawn a **committer** subagent:
+**Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-```
-You are a release engineer. Commit this evidence-proven bug fix.
-
-## Bug Fixed
-$BUG_DESCRIPTION
-
-## Proven Root Cause
-$CONFIRMED_ROOT_CAUSE
-
-## Files Changed
-$CODER_OUTPUT
-
-## Rules
-- Run: git status, git diff
+- Bug fixed: `$BUG_DESCRIPTION`
+- Proven root cause: `$CONFIRMED_ROOT_CAUSE`
+- Files changed: `$CODER_OUTPUT`
+- Run: `git status`, `git diff`
 - Stage only files related to this fix
-- Commit message format: "fix(proven): <short description in English>"
-  Note: "proven" scope signals this fix was evidence-verified, not speculative
-- One commit
-- Do NOT push
+- Commit message format: `"fix(proven): <short description in English>"`
+  Note: `proven` scope signals this fix was evidence-verified, not speculative
+- One commit; do NOT push
 - Report: commit hash and message
-```
 
 ---
 

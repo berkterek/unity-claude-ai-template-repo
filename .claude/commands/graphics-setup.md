@@ -156,14 +156,10 @@ Next steps:
 Commit these changes? (yes / no)
 ```
 
-If `yes`, spawn **committer** agent:
+If `yes`, **execute commits directly** following `.claude/agents/committer.md`:
 
-```
-Commit URP graphics setup assets for $PLATFORM.
-
-Files: all new .asset files under Assets/Settings/URP/
-Commit message: "feat(graphics): add URP quality tier assets for $PLATFORM"
-Do NOT push.
-```
+- Files: all new `.asset` files under `Assets/Settings/URP/`
+- Commit message: `"feat(graphics): add URP quality tier assets for $PLATFORM"`
+- Do NOT push
 
 $ARGUMENTS

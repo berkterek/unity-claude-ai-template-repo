@@ -167,32 +167,17 @@ Each task runs four steps in sequence (TDD: tests first, then implementation). A
 
 If `Agent: unity-setup` → skip this step, go directly to Step 2.
 
-Spawn a **tester** subagent with this prompt:
+**Write tests directly.** Read `.claude/agents/tester.md` and `.claude/rules/testing.md`, then:
 
-```
-You are a senior C# Unity test engineer. Write failing unit tests BEFORE any implementation exists.
-
-## Task
-ID: [P{phase}.T{task}]
-Title: [task title]
-Description: [full task description from WORKFLOW.md]
-
-## Acceptance Criteria (tests must cover these)
-[list every criterion from WORKFLOW.md]
-
-## Project Rules
-- Read .claude/CLAUDE.md and .claude/rules/testing.md before writing any tests
-- Use NSubstitute for mocking — only mock interfaces, never concrete classes
-- Follow AAA pattern (Arrange / Act / Assert) — one assertion per test
-- Test method naming: MethodName_WhenCondition_ExpectedBehavior
-- Test class naming: [ClassName]Tests
+- Task ID: `[P{phase}.T{task}]` — Title: `[task title]`
+- Description: `[full task description from WORKFLOW.md]`
+- Acceptance criteria to cover: `[list every criterion from WORKFLOW.md]`
+- Use NSubstitute — only mock interfaces, never concrete classes
+- Follow AAA pattern — one assertion per test; naming: `MethodName_WhenCondition_ExpectedBehavior`
 - Tests must FAIL right now — no implementation exists yet
+- Do NOT commit anything
 
-## When Done
-List every test file you created with a summary of what each test covers.
-Do NOT commit anything.
-Report: DONE or BLOCKED with reason.
-```
+When done: list every test file created with a summary. Report: DONE or BLOCKED with reason.
 
 If **BLOCKED** → stop immediately. Print:
 ```
@@ -420,25 +405,15 @@ If **cannot fix** → stop. Print blockers and surface to developer before commi
 
 #### Step 4 — Committer
 
-Spawn a **committer** subagent:
+**Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-```
-You are a release engineer. Commit completed work.
-
-## Task Completed
-ID: [P{phase}.T{task}]
-Title: [task title]
-
-## Files Changed
-[coder/unity-setup output — list of files]
-
-## Rules
-- Run: git status, git diff to confirm what changed
+- Task completed: `[P{phase}.T{task}]` — `[task title]`
+- Files changed: `[coder/unity-setup output — list of files]`
+- Run: `git status`, `git diff` to confirm what changed
 - Stage only files related to this task
-- Commit message format: "feat: [P{phase}.T{task}] [task title]"
+- Commit message format: `"feat: [P{phase}.T{task}] [task title]"`
 - Do NOT push — user pushes manually
 - Report: commit hash and message
-```
 
 ---
 
