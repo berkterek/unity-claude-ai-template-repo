@@ -53,7 +53,7 @@ fi
 # Any Installer — registers services into VContainer scope
 # Exception: test infrastructure installers under TestScopes/ or Tests/ paths are safe to create/edit
 if echo "$FILENAME_NO_EXT" | grep -qiE "Installer$"; then
-    if echo "$FILE_PATH" | grep -qiE "(TestScopes|EditModeTest|PlayModeTest)/"; then
+    if echo "$FILE_PATH" | grep -qiE "(TestScopes|EditModeTest|PlayModeTest|EditMode|PlayMode)/"; then
         : # test installer — allowed
     else
         CRITICAL=true
