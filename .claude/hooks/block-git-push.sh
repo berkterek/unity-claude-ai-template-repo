@@ -16,8 +16,8 @@ STRIPPED=$(echo "$CMD" | sed "s/'[^']*'//g" | sed 's/"[^"]*"//g')
 if echo "$STRIPPED" | grep -qE '(^|[;&|]\s*)git\s+push(\s|$)'; then
     echo "BLOCKED: git push is not allowed." >&2
     echo "" >&2
-    echo "  Commit yapilabilir, push senin sorumlulugunda." >&2
-    echo "  Hazir olduğunda kendini push at." >&2
+    echo "  You can commit freely — push is your responsibility." >&2
+    echo "  Push manually when you are ready." >&2
     exit 2
 fi
 

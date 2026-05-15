@@ -25,7 +25,7 @@ Read `production/review-mode.txt` (default: `lean` if file missing). This contro
 
 | Mode | Effect |
 |------|--------|
-| `solo` | Reviewer ve unity-developer yok — coder/unity-coder → committer only. For prototypes/jams. |
+| `solo` | No reviewer or unity-developer — coder/unity-coder → committer only. For prototypes/jams. |
 | `lean` | Standard pipeline. For regular solo development. |
 | `full` | Standard pipeline + unity-developer second reviewer always active (regardless of complexity score). For team review or learning sessions. |
 
