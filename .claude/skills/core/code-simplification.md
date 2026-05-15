@@ -6,62 +6,62 @@ model-tier: normal
 
 # Code Simplification (Unity)
 
-## Genel Bakış
+## Overview
 
-Tam davranışı koruyarak karmaşıklığı azalt. Amaç daha az satır değil — okumak, anlamak, değiştirmek ve debug etmek daha kolay kod. Her sadeleştirme basit bir testi geçmeli: "Yeni bir ekip üyesi bunu orijinalinden daha hızlı anlar mı?"
+Reduce complexity while fully preserving behavior. The goal is not fewer lines — it's code that is easier to read, understand, change, and debug. Every simplification should pass a simple test: "Would a new team member understand this faster than the original?"
 
-## Ne Zaman Kullanılır
+## When to Use
 
-- `/clean-slop` çağrıldığında
-- Bir özellik çalışıyor ve testler yeşil, ama implementasyon olması gerekenden ağır göründüğünde
-- Code review'da okunabilirlik veya karmaşıklık sorunları işaretlendiğinde
-- Zaman baskısı altında yazılmış kodu refactor ederken
+- When `/clean-slop` is invoked
+- When a feature is working and tests are green, but the implementation feels heavier than it needs to be
+- When a code review flags readability or complexity issues
+- When refactoring code written under time pressure
 
-**Ne Zaman Kullanılmaz:**
-- Kod zaten temiz ve okunabilir — sadeleştirme için sadeleştirme yapma
-- Kodu henüz anlamıyorsan — önce anla, sonra sadeleştir
-- Modülü tamamen yeniden yazacaksan — silinecek kodu sadeleştirmek zaman kaybı
+**When NOT to Use:**
+- Code that is already clean and readable — don't simplify for the sake of simplifying
+- Code you don't yet understand — understand it first, then simplify
+- Code you are about to rewrite entirely — simplifying code that will be deleted wastes time
 
-## Beş İlke
+## Five Principles
 
-### 1. Davranışı Tam Koru
+### 1. Preserve Behavior Completely
 
-Kodun ne yaptığını değiştirme — sadece nasıl ifade ettiğini. Tüm girdiler, çıktılar, yan etkiler, hata davranışları ve edge case'ler aynı kalmalı. Bir sadeleştirmenin davranışı koruyup korumadığından emin değilsen yapma.
-
-```
-HER DEĞİŞİKLİKTEN ÖNCE SOR:
-→ Bu, her girdi için aynı çıktıyı üretiyor mu?
-→ Bu, aynı hata davranışını koruyor mu?
-→ Bu, aynı yan etkileri ve sıralamayı koruyor mu?
-→ Tüm mevcut testler değiştirilmeden geçiyor mu?
-```
-
-### 2. Proje Kurallarını Takip Et
-
-Sadeleştirme, kodu codebase ile daha tutarlı yapmak demektir — harici tercihler dayatmak değil. Sadeleştirmeden önce:
+Don't change what the code does — only how it expresses it. All inputs, outputs, side effects, error behaviors, and edge cases must remain the same. If you're not sure a simplification preserves behavior, don't do it.
 
 ```
-1. CLAUDE.md ve .claude/rules/ dosyalarını oku
-2. Komşu kodun benzer pattern'ları nasıl ele aldığını incele
-3. Projenin stilini takip et:
-   - #region yapısı
-   - VContainer registration pattern'ı
-   - Event subscribe/unsubscribe lifecycle'ı
-   - UniTask kullanım pattern'ı
-   - Null check kuralları (Unity == null, not is null)
+ASK BEFORE EVERY CHANGE:
+→ Does this produce the same output for every input?
+→ Does this preserve the same error behavior?
+→ Does this preserve the same side effects and ordering?
+→ Do all existing tests pass without modification?
 ```
 
-Proje tutarlılığını bozan sadeleştirme, sadeleştirme değil — gürültüdür.
+### 2. Follow Project Rules
 
-### 3. Zekice Değil Açık Ol
+Simplification means making code more consistent with the codebase — not imposing external preferences. Before simplifying:
 
-Kompakt kod, ayrıştırmak için zihinsel duraklama gerektiriyorsa açık kod daha iyidir.
+```
+1. Read CLAUDE.md and .claude/rules/ files
+2. Examine how neighboring code handles similar patterns
+3. Follow the project's style:
+   - #region structure
+   - VContainer registration pattern
+   - Event subscribe/unsubscribe lifecycle
+   - UniTask usage pattern
+   - Null check rules (Unity == null, not is null)
+```
+
+A simplification that breaks project consistency is not a simplification — it's noise.
+
+### 3. Be Explicit, Not Clever
+
+If compact code requires a mental pause to parse, explicit code is better.
 
 ```csharp
-// AÇIK DEĞİL: Yoğun ternary zinciri
+// NOT EXPLICIT: Dense ternary chain
 var label = isNew ? "New" : isUpdated ? "Updated" : isArchived ? "Archived" : "Active";
 
-// AÇIK: Okunabilir mapping
+// EXPLICIT: Readable mapping
 private string GetStatusLabel(EnemyState state)
 {
     if (state.IsNew) return "New";
@@ -71,130 +71,130 @@ private string GetStatusLabel(EnemyState state)
 }
 ```
 
-### 4. Dengeyi Koru
+### 4. Maintain Balance
 
-Sadeleştirmenin bir başarısızlık modu var: aşırı sadeleştirme:
+Simplification has a failure mode: over-simplification:
 
-- Çok agresif inlining — bir kavrama isim veren helper'ı kaldırmak, call site'ı daha zor okur yapar
-- İlgisiz mantığı birleştirme — iki basit method'un tek karmaşık method'a birleştirilmesi basit değildir
-- "Gereksiz" soyutlamayı kaldırma — bazı soyutlamalar genişletilebilirlik veya test edilebilirlik için vardır
-- Satır sayısını optimize etme — daha az satır hedef değildir
+- Overly aggressive inlining — removing a helper that gives a concept a name makes the call site harder to read
+- Merging unrelated logic — combining two simple methods into one complex method is not simpler
+- Removing "unnecessary" abstractions — some abstractions exist for extensibility or testability
+- Optimizing for line count — fewer lines is not a goal
 
-### 5. Değişene Odaklan
+### 5. Focus on What Changed
 
-Varsayılan olarak yakın zamanda değiştirilen kodu sadeleştir. Kapsam dışı kodun refactor'ünden kaçın — diff'te gürültü yaratır ve değiştirmeyi planlamadığın kodda regresyon riski oluşturur.
+Default to simplifying recently modified code. Avoid refactoring out-of-scope code — it creates noise in the diff and introduces regression risk in code you weren't planning to change.
 
-## Sadeleştirme Süreci
+## Simplification Process
 
-### Adım 1: Dokunmadan Önce Anla (Chesterton's Fence)
+### Step 1: Understand Before Touching (Chesterton's Fence)
 
-Herhangi bir şeyi değiştirmeden veya silmeden önce neden orada olduğunu anla. Bu Chesterton's Fence'tir: yolun üzerindeki çiti anlayamıyorsan yıkma. Önce nedenini anla, sonra sebebin hâlâ geçerli olup olmadığına karar ver.
+Before changing or deleting anything, understand why it is there. This is Chesterton's Fence: if you can't explain why the fence is in the road, don't tear it down. Understand the reason first, then decide if the reason is still valid.
 
 ```
-SADELEŞTİRMEDEN ÖNCE YANİTLA:
-- Bu kodun sorumluluğu ne?
-- Kim çağırıyor? Neyi çağırıyor?
-- Edge case'ler ve hata yolları neler?
-- Bu davranışı tanımlayan testler var mı?
-- Neden böyle yazılmış olabilir? (Performans? Platform kısıtlaması? Unity lifecycle?)
-- git blame: bu kodun orijinal bağlamı neydi?
+ANSWER BEFORE SIMPLIFYING:
+- What is this code responsible for?
+- Who calls it? What does it call?
+- What are the edge cases and error paths?
+- Are there tests that define this behavior?
+- Why might it have been written this way? (Performance? Platform constraint? Unity lifecycle?)
+- git blame: what was the original context of this code?
 ```
 
-Bunları yanıtlayamıyorsan sadeleştirmeye hazır değilsin. Önce daha fazla bağlam oku.
+If you can't answer these, you are not ready to simplify. Read more context first.
 
-**Unity'e özgü Chesterton Çitleri:**
+**Unity-specific Chesterton Fences:**
 
 ```csharp
-// Bu null check "paranoyak" görünebilir — ama Unity'de gerekli
-if (_target == null) return;  // Silme: destroyed object'i kontrol eder
+// This null check may look "paranoid" — but it's necessary in Unity
+if (_target == null) return;  // Removing this: checks for destroyed objects
 
-// Bu #if bloku gereksiz görünebilir — ama build'i kırar
+// This #if block may look unnecessary — but it breaks the build
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
-// Bu ?.Forget() "şişirilmiş" görünebilir — ama exception'ı yutar
-InitAsync(ct).Forget();  // async void değil; exception handling için kasıtlı
+// This ?.Forget() may look "bloated" — but it swallows exceptions intentionally
+InitAsync(ct).Forget();  // not async void; intentional exception handling
 
-// Bu cache "erken optimizasyon" görünebilir — ama Update'te zorunlu
-private Camera _mainCamera;  // Camera.main her çağrıda FindObjectOfType yapar
+// This cache may look like "premature optimization" — but it's required in Update
+private Camera _mainCamera;  // Camera.main calls FindObjectOfType on every access
 ```
 
-### Adım 2: Sadeleştirme Fırsatlarını Bul
+### Step 2: Find Simplification Opportunities
 
-Bu pattern'ları tara:
+Scan for these patterns:
 
-**Yapısal karmaşıklık:**
+**Structural complexity:**
 
-| Pattern | Sinyal | Sadeleştirme |
-|---------|--------|-------------|
-| 3+ seviye nesting | Kontrol akışını takip etmek zor | Guard clause veya helper method'a çıkar |
-| 50+ satır method | Birden fazla sorumluluk | Odaklı method'lara böl |
-| İç içe ternary | Zihinsel yığın gerektirir | if/else zinciri veya switch |
-| Boolean flag parametreler | `DoThing(true, false, true)` | Options objesi veya ayrı method'lar |
-| Tekrarlanan koşullar | Aynı if kontrolü birden fazla yerde | İyi isimlendirilmiş predicate method'a çıkar |
+| Pattern | Signal | Simplification |
+|---------|--------|----------------|
+| 3+ levels of nesting | Hard to follow control flow | Extract to guard clauses or helper methods |
+| 50+ line method | Multiple responsibilities | Split into focused methods |
+| Nested ternary | Requires mental stack | if/else chain or switch |
+| Boolean flag parameters | `DoThing(true, false, true)` | Options object or separate methods |
+| Repeated conditions | Same if-check in multiple places | Extract to a well-named predicate method |
 
-**İsimlendirme ve okunabilirlik:**
+**Naming and readability:**
 
-| Pattern | Sinyal | Sadeleştirme |
-|---------|--------|-------------|
-| Genel isimler | `data`, `result`, `temp`, `val` | İçeriği tanımla: `enemyStats`, `validationErrors` |
-| Kısaltılmış isimler | `btn`, `evt`, `cfg` | Tam kelime kullan (`id`, `url` gibi evrensel kısaltmalar hariç) |
-| "Ne" açıklayan yorumlar | `// counter'ı artır` üzerinde `_count++` | Yorumu sil — kod yeterince açık |
-| "Neden" açıklayan yorumlar | `// VContainer Dispose sırası belirsiz` | Bunları koru — bu intentional bağlamdır |
+| Pattern | Signal | Simplification |
+|---------|--------|----------------|
+| Generic names | `data`, `result`, `temp`, `val` | Describe the content: `enemyStats`, `validationErrors` |
+| Abbreviated names | `btn`, `evt`, `cfg` | Use full words (except universal abbreviations like `id`, `url`) |
+| "What" comments | `// increment counter` above `_count++` | Delete the comment — code is self-explanatory |
+| "Why" comments | `// VContainer Dispose order is non-deterministic` | Keep these — they are intentional context |
 
-**Fazlalık:**
+**Redundancy:**
 
-| Pattern | Sinyal | Sadeleştirme |
-|---------|--------|-------------|
-| Tekrarlanan logic | Birden fazla yerde aynı 5+ satır | Paylaşılan method'a çıkar |
-| Ölü kod | Erişilemeyen branch, kullanılmayan değişken | Gerçekten ölü olduğunu doğrula, sil |
-| Gereksiz soyutlama | Değer katmayan wrapper | Wrapper'ı inline yap |
-| Aşırı mühendislik | Factory-of-factory, tek stratejili Strategy | Basit doğrudan yaklaşımla değiştir |
+| Pattern | Signal | Simplification |
+|---------|--------|----------------|
+| Repeated logic | Same 5+ lines in multiple places | Extract to a shared method |
+| Dead code | Unreachable branch, unused variable | Verify it's truly dead, then delete |
+| Unnecessary abstraction | Wrapper that adds no value | Inline the wrapper |
+| Over-engineering | Factory-of-factory, single-strategy Strategy | Replace with simple direct approach |
 
-### Adım 3: Değişiklikleri Artımlı Uygula
+### Step 3: Apply Changes Incrementally
 
-Bir seferde bir sadeleştirme yap. Her değişikten sonra testleri çalıştır.
-
-```
-HER SADELEŞTİRME İÇİN:
-1. Değişikliği yap
-2. Test suite'i çalıştır (Unity Test Runner veya dotnet test)
-3. Testler geçiyorsa → devam et
-4. Testler başarısız → geri al ve yeniden düşün
-```
-
-Birden fazla sadeleştirmeyi test edilmeden birleştirme. Bir şey bozulursa hangisinin neden olduğunu bilmen gerekir.
-
-### Adım 4: Sonucu Doğrula
-
-Tüm sadeleştirmelerden sonra:
+Make one simplification at a time. Run tests after each change.
 
 ```
-ÖNCE VE SONRA KARŞILAŞTIR:
-- Sadeleştirilmiş versiyon gerçekten daha kolay anlaşılıyor mu?
-- Codebase ile tutarsız yeni pattern'lar tanıttın mı?
-- Diff temiz ve incelenebilir mi?
-- Bir takım arkadaşı bu değişikliği onaylar mıydı?
+FOR EACH SIMPLIFICATION:
+1. Make the change
+2. Run the test suite (Unity Test Runner or dotnet test)
+3. Tests pass → continue
+4. Tests fail → revert and reconsider
 ```
 
-"Sadeleştirilmiş" versiyon anlamak veya incelemek için daha zorsa geri al. Her sadeleştirme girişimi başarılı olmaz.
+Do not combine multiple simplifications without testing in between. If something breaks, you need to know which one caused it.
 
-## Unity'e Özgü Rehber
+### Step 4: Verify the Result
+
+After all simplifications:
+
+```
+COMPARE BEFORE AND AFTER:
+- Is the simplified version genuinely easier to understand?
+- Did you introduce new patterns inconsistent with the codebase?
+- Is the diff clean and reviewable?
+- Would a team member approve this change as a clear improvement?
+```
+
+If the "simplified" version is harder to understand or review, revert it. Not every simplification attempt succeeds.
+
+## Unity-Specific Guidance
 
 ```csharp
-// SADELEŞTİR: Gereksiz async wrapper
-// Önce
+// SIMPLIFY: Unnecessary async wrapper
+// Before
 public async UniTask<Enemy> GetEnemyAsync(CancellationToken ct)
 {
     return await _spawner.SpawnAsync(ct);
 }
-// Sonra
+// After
 public UniTask<Enemy> GetEnemyAsync(CancellationToken ct)
     => _spawner.SpawnAsync(ct);
 
-// SADELEŞTİR: Gereksiz else branch
-// Önce
+// SIMPLIFY: Unnecessary else branch
+// Before
 public void TakeDamage(int amount)
 {
     if (_health > 0)
@@ -206,48 +206,48 @@ public void TakeDamage(int amount)
         return;
     }
 }
-// Sonra
+// After
 public void TakeDamage(int amount)
 {
     if (_health <= 0) return;
     _health -= amount;
 }
 
-// SADELEŞTİR: Tekrarlanan event subscribe pattern
-// Önce
+// SIMPLIFY: Repeated event subscribe pattern
+// Before
 _eventBus.Subscribe<LevelStartedEvent>(OnLevelStarted);
 _eventBus.Subscribe<LevelEndedEvent>(OnLevelEnded);
 _eventBus.Subscribe<PlayerDiedEvent>(OnPlayerDied);
-// Her biri ayrı yerde unsubscribe...
-// Sonra: varsa proje genelinde SubcriptionList helper pattern'ını kullan
+// Each unsubscribed separately...
+// After: use a project-wide SubscriptionList helper pattern if available
 ```
 
-## Yaygın Bahaneler
+## Common Rationalizations
 
-| Bahane | Gerçek |
-|--------|--------|
-| "Çalışıyor, dokunma" | Okunması zor çalışan kod, bozulduğunda düzeltmesi de zor olacak. |
-| "Daha az satır her zaman daha basittir" | 1 satırlık iç içe ternary, 5 satırlık if/else'den basit değildir. |
-| "Bu ilgisiz kodu da hızlıca sadeleştiririm" | Kapsam dışı sadeleştirme diff'te gürültü yaratır ve kasıtsız regresyon riski oluşturur. |
-| "Orijinal yazarın sebebi vardı" | Belki. git blame — Chesterton's Fence uygula. Ama birikmiş karmaşıklığın çoğunun sebebi yoktur. |
-| "Bu özelliği eklerken refactor da yaparım" | Refactor'ü özellik çalışmasından ayır. Karışık değişiklikler incelemek, geri almak ve geçmişte anlamak için daha zordur. |
+| Rationalization | Reality |
+|-----------------|---------|
+| "It works, don't touch it" | Working code that's hard to read will also be hard to fix when it breaks. |
+| "Fewer lines is always simpler" | A 1-line nested ternary is not simpler than a 5-line if/else. |
+| "I'll quickly simplify this unrelated code too" | Out-of-scope simplification creates noise in the diff and unintentional regression risk. |
+| "The original author had a reason" | Maybe. git blame — apply Chesterton's Fence. But most accumulated complexity has no reason. |
+| "I'll refactor while adding this feature" | Separate refactoring from feature work. Mixed changes are harder to review, revert, and understand in history. |
 
-## Kırmızı Bayraklar
+## Red Flags
 
-- Geçmesi için testleri değiştirmen gereken sadeleştirme (davranışı değiştirmişsindir)
-- Orijinalden daha uzun ve anlaması daha zor "sadeleştirilmiş" kod
-- Unity'e özgü null kontrolünü veya lifecycle guard'ını kaldırma
-- Henüz tam anlamadığın kodu sadeleştirme
-- Birçok sadeleştirmeyi tek büyük, incelemesi zor bir commit'e toplama
+- A simplification that requires modifying tests to pass (you changed behavior)
+- "Simplified" code that is longer and harder to understand than the original
+- Removing a Unity-specific null check or lifecycle guard
+- Simplifying code you don't fully understand yet
+- Bundling many simplifications into one large, hard-to-review commit
 
-## Doğrulama Listesi
+## Verification Checklist
 
-- [ ] Tüm mevcut testler değiştirilmeden geçiyor
-- [ ] Unity compile hatasız
-- [ ] Her sadeleştirme incelenebilir artımlı bir değişiklik
-- [ ] Diff temiz — ilgisiz değişiklikler karışmamış
-- [ ] Sadeleştirilmiş kod proje kurallarını takip ediyor (CLAUDE.md ile kontrol edildi)
-- [ ] Hiçbir hata işleme kaldırılmadı veya zayıflatılmadı
-- [ ] Unity null check'leri (`== null`) korundu (`is null` ile değiştirilmedi)
-- [ ] `#if UNITY_EDITOR` guard'ları korundu
-- [ ] Bir takım arkadaşı veya review agent bu değişikliği net bir iyileştirme olarak onaylar
+- [ ] All existing tests pass without modification
+- [ ] Unity compiles without errors
+- [ ] Each simplification is an incremental, reviewable change
+- [ ] Diff is clean — no unrelated changes mixed in
+- [ ] Simplified code follows project rules (checked against CLAUDE.md)
+- [ ] No error handling removed or weakened
+- [ ] Unity null checks (`== null`) preserved (not replaced with `is null`)
+- [ ] `#if UNITY_EDITOR` guards preserved
+- [ ] A team member or review agent would approve this as a clear improvement

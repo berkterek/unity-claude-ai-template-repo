@@ -6,146 +6,145 @@ model-tier: normal
 
 # Source-Driven Development (Unity)
 
-## Genel Bakış
+## Overview
 
-Her Unity API kararı resmi dökümana dayandırılmalıdır. Eğitim verisi eskiyebilir — Unity 6 ile URP Renderer Features, DOTS API'leri, Input System ve Addressables önemli ölçüde değişti. Bu skill, yazdığın koda güvenilirlik kazandırır çünkü her karar doğrulanabilir bir kaynağa dayanır.
+Every Unity API decision must be grounded in official documentation. Training data can be stale — Unity 6 significantly changed URP Renderer Features, DOTS APIs, Input System, and Addressables. This skill adds reliability to the code you write because every decision is traceable to a verifiable source.
 
-## Ne Zaman Kullanılır
+## When to Use
 
-- Herhangi bir Unity API çağrısı yazmadan önce
-- URP, DOTS, Addressables, Input System, Cinemachine, Physics gibi sürümler arası değişen API'lerde
-- `/implement`, `/fix`, `/add-feature`, `/scene-setup` pipeline'larında Unity'e özgü pattern'lar yazılırken
-- Mevcut kodda "bu doğru mu?" sorusu akla geldiğinde
+- Before writing any Unity API call
+- For APIs that change across versions: URP, DOTS, Addressables, Input System, Cinemachine, Physics
+- When writing Unity-specific patterns in `/implement`, `/fix`, `/add-feature`, `/scene-setup` pipelines
+- Whenever "is this still correct?" comes to mind about existing code
 
-**Ne Zaman Kullanılmaz:**
-- Pure C# logic (döngüler, veri yapıları, matematik) — sürümden bağımsız
-- Dosya taşıma, yeniden adlandırma, typo düzeltme
-- Kullanıcı "hızlı yap, doğrulama" dediğinde
+**When NOT to Use:**
+- Pure C# logic (loops, data structures, math) — version-independent
+- File moves, renames, typo fixes
+- When the user says "do it fast, skip verification"
 
-## Süreç
-
-```
-TESPİT → FETCH → UYGULA → KAYNAK GÖSTER
-```
-
-### Adım 1: Stack ve Sürümü Tespit Et
-
-Projenin Unity sürümünü ve ilgili paket sürümlerini oku:
+## Process
 
 ```
-ProjectSettings/ProjectVersion.txt  → Unity sürümü
-Packages/manifest.json              → Tüm paket sürümleri
-Packages/packages-lock.json         → Kilitli sürümler
+DETECT → FETCH → APPLY → CITE
 ```
 
-Bulduğunu açıkça belirt:
+### Step 1: Detect Stack and Version
+
+Read the project's Unity version and relevant package versions:
 
 ```
-STACK TESPİT EDİLDİ:
-- Unity 6000.0.x (ProjectVersion.txt'den)
+ProjectSettings/ProjectVersion.txt  → Unity version
+Packages/manifest.json              → All package versions
+Packages/packages-lock.json         → Locked versions
+```
+
+State what you find explicitly:
+
+```
+STACK DETECTED:
+- Unity 6000.0.x (from ProjectVersion.txt)
 - com.unity.render-pipelines.universal: 17.0.x
 - com.unity.inputsystem: 1.x
-→ URP 17 dökümanleri fetch ediliyor.
+→ Fetching URP 17 documentation.
 ```
 
-Sürüm belirsizse kullanıcıya sor — tahmin etme.
+If the version is ambiguous, ask the user — do not guess.
 
-### Adım 2: Resmi Dökümanleri Fetch Et
+### Step 2: Fetch Official Documentation
 
-İlgili sayfayı fetch et. Ana sayfayı değil, o özelliğin sayfasını.
+Fetch the relevant page — not the main documentation landing page, but the specific feature page.
 
-**Kaynak hiyerarşisi (öncelik sırasıyla):**
+**Source hierarchy (in priority order):**
 
-| Öncelik | Kaynak | Örnek |
-|---------|--------|-------|
-| 1 | Unity resmi dökümantasyonu | docs.unity3d.com/6000.0/Documentation/Manual/ |
-| 2 | Unity Packages dökümantasyonu | docs.unity3d.com/Packages/com.unity.render-pipelines.universal@17.0/ |
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | Unity official documentation | docs.unity3d.com/6000.0/Documentation/Manual/ |
+| 2 | Unity Packages documentation | docs.unity3d.com/Packages/com.unity.render-pipelines.universal@17.0/ |
 | 3 | Unity Blog / Changelog | blog.unity.com, unity.com/releases |
-| 4 | Unity Forum — resmi Unity yanıtları | forum.unity.com |
+| 4 | Unity Forum — official Unity replies | forum.unity.com |
 
-**Yetkili olmayan kaynaklar — birincil kaynak olarak kullanma:**
+**Non-authoritative sources — do not use as primary sources:**
 - Stack Overflow
-- Blog yazıları, YouTube tutorialları
-- Kendi eğitim verisi (doğrulamadan)
+- Blog posts, YouTube tutorials
+- Your own training data (without verification)
 
-**Spesifik fetch yap:**
-
-```
-YANLIŞ: Unity dökümantasyon ana sayfasını fetch et
-DOĞRU:  docs.unity3d.com/6000.0/Documentation/Manual/urp/renderer-feature-how-to-add.html fetch et
-
-YANLIŞ: "URP Renderer Feature best practices" ara
-DOĞRU:  docs.unity3d.com/Packages/com.unity.render-pipelines.universal@17.0/manual/renderer-features/intro-to-renderer-features.html fetch et
-```
-
-Fetch sonrası: deprecation uyarıları, migration notları ve API signature değişikliklerini not et.
-
-Resmi kaynaklar çelişirse (migration guide vs API referansı) bu durumu kullanıcıya bildir ve hangisinin mevcut sürüme uygulandığını doğrula.
-
-### Adım 3: Dökümana Göre Uygula
-
-- Dokümandaki API signature'ı kullan, hafızadan değil
-- Döküman yeni bir yaklaşım gösteriyorsa yeni yaklaşımı kullan
-- Döküman bir pattern'ı deprecated işaretlediyse kullanma
-- Döküman bir şeyi kapsamıyorsa bunu açıkça belirt
-
-**Mevcut kodla çelişki varsa:**
+**Fetch specifically:**
 
 ```
-ÇAKIŞMA TESPİT EDİLDİ:
-Mevcut kodda OnRenderObject() callback kullanılıyor,
-ancak URP 17 dökümantasyonu bu callback'in URP'de
-çalışmadığını ve RenderPipelineManager.beginCameraRendering
-kullanılması gerektiğini belirtiyor.
-(Kaynak: docs.unity3d.com/Packages/com.unity.render-pipelines.universal@17.0/...)
+WRONG: Fetch the Unity documentation main page
+RIGHT: Fetch docs.unity3d.com/6000.0/Documentation/Manual/urp/renderer-feature-how-to-add.html
 
-Seçenekler:
-A) Yeni yaklaşım — güncel dökümanla uyumlu
-B) Mevcut kod — projeyle tutarlı ama döküman dışı
-→ Hangisini tercih edersiniz?
+WRONG: Search "URP Renderer Feature best practices"
+RIGHT: Fetch docs.unity3d.com/Packages/com.unity.render-pipelines.universal@17.0/manual/renderer-features/intro-to-renderer-features.html
 ```
 
-Sessizce karar verme — çakışmayı kullanıcıya sun.
+After fetching: note deprecation warnings, migration notes, and API signature changes.
 
-### Adım 4: Kaynak Göster
+If official sources conflict (migration guide vs API reference), report this to the user and verify which applies to the current version.
 
-Her Unity'e özgü pattern için kaynak belirt. Kullanıcı her kararı doğrulayabilmeli.
+### Step 3: Apply According to Documentation
 
-**Kod yorumunda:**
+- Use the API signature from the docs, not from memory
+- If the docs show a new approach, use the new approach
+- If the docs mark a pattern as deprecated, don't use it
+- If the docs don't cover something, say so explicitly
+
+**If there is a conflict with existing code:**
+
+```
+CONFLICT DETECTED:
+Existing code uses the OnRenderObject() callback,
+but URP 17 documentation states this callback does not
+work in URP and RenderPipelineManager.beginCameraRendering
+should be used instead.
+(Source: docs.unity3d.com/Packages/com.unity.render-pipelines.universal@17.0/...)
+
+Options:
+A) New approach — aligned with current documentation
+B) Existing code — consistent with project but outside docs
+→ Which do you prefer?
+```
+
+Do not decide silently — present the conflict to the user.
+
+### Step 4: Cite Sources
+
+Cite the source for every Unity-specific pattern. The user should be able to verify every decision.
+
+**In code comments:**
 
 ```csharp
-// URP 17 Renderer Feature kaydı
-// Kaynak: https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@17.0/api/UnityEngine.Rendering.Universal.ScriptableRendererFeature.html
+// URP 17 Renderer Feature registration
+// Source: https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@17.0/api/UnityEngine.Rendering.Universal.ScriptableRendererFeature.html
 public override void Create() { }
 ```
 
-**Konuşmada:**
+**In conversation:**
 
 ```
-InputSystem 1.x'te performed callback kullanıyorum,
-started değil — çünkü performed tetikleyicisi
-basış + bırakışın tamamlanmasını bekler.
-Kaynak: https://docs.unity3d.com/Packages/com.unity.inputsystem@1.x/manual/Actions.html#started-performed-and-canceled-callbacks
+Using the performed callback in InputSystem 1.x, not started —
+because the performed trigger waits for the full press + release cycle to complete.
+Source: https://docs.unity3d.com/Packages/com.unity.inputsystem@1.x/manual/Actions.html#started-performed-and-canceled-callbacks
 ```
 
-**Kaynak kuralları:**
-- Tam URL, kısaltılmış değil
-- Mümkünse anchor ile derin link (`#usage`, `#api-reference`)
-- Açık olmayan kararlar için ilgili pasajı alıntıla
-- Dokümanda bulamazsan açıkça belirt:
+**Citation rules:**
+- Full URL, not shortened
+- Deep link with anchor where possible (`#usage`, `#api-reference`)
+- Quote the relevant passage for non-obvious decisions
+- If you can't find it in the docs, say so explicitly:
 
 ```
-DOĞRULANMADI: Bu pattern için resmi döküman bulunamadı.
-Bu eğitim verisine dayanıyor ve güncel olmayabilir.
-Production'da kullanmadan önce doğrulayın.
+UNVERIFIED: No official documentation found for this pattern.
+This is based on training data and may be outdated.
+Verify before using in production.
 ```
 
-## Unity'e Özgü Doğrulama Listesi
+## Unity-Specific Verification Checklist
 
-- [ ] Unity sürümü ve paket sürümleri `ProjectVersion.txt` / `manifest.json`'dan okundu
-- [ ] İlgili Unity API için resmi döküman fetch edildi
-- [ ] Deprecated API'ler migration guide'dan kontrol edildi
-- [ ] API signature dökümandaki ile eşleşiyor (hafızadan değil)
-- [ ] Her Unity'e özgü pattern için kaynak URL eklendi
-- [ ] Dökümanla çakışan mevcut kod varsa kullanıcıya soruldu
-- [ ] Doğrulanamayan pattern'lar açıkça işaretlendi
+- [ ] Unity version and package versions read from `ProjectVersion.txt` / `manifest.json`
+- [ ] Official documentation fetched for the relevant Unity API
+- [ ] Deprecated APIs checked against migration guide
+- [ ] API signature matches documentation (not memory)
+- [ ] Source URL added for every Unity-specific pattern
+- [ ] User notified about any existing code that conflicts with documentation
+- [ ] Unverifiable patterns explicitly marked

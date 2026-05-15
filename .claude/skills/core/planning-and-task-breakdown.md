@@ -6,203 +6,203 @@ model-tier: heavy
 
 # Planning and Task Breakdown (Unity)
 
-## Genel Bakış
+## Overview
 
-Çalışmayı küçük, doğrulanabilir görevlere ayır — her birinin açık acceptance criteria'sı olsun. İyi task breakdown, güvenilir çıktı üreten agent ile karmaşık bir karmaşa üreten agent arasındaki farktır. Her task; tek odaklı bir oturumda implemente edilebilir, test edilebilir ve doğrulanabilir boyutta olmalı.
+Break work into small, verifiable tasks — each with clear acceptance criteria. Good task breakdown is the difference between an agent that produces reliable output and one that produces complex chaos. Every task should be sized so it can be implemented, tested, and verified in a single focused session.
 
-## Ne Zaman Kullanılır
+## When to Use
 
-- `/create-plan` veya `/plan-workflow` çağrıldığında
-- Bir task başlamak için çok büyük veya belirsiz göründüğünde
-- Paralel agent çalışması planlanırken
-- WORKFLOW.md oluşturulmadan önce
+- When `/create-plan` or `/plan-workflow` is invoked
+- When a task looks too large or ambiguous to start
+- When planning parallel agent work
+- Before creating WORKFLOW.md
 
-## Planlama Süreci
+## Planning Process
 
-### Adım 1: Plan Moduna Gir (Sadece Okuma)
+### Step 1: Enter Plan Mode (Read-Only)
 
-Kod yazmadan önce:
+Before writing any code:
 
-- Spec dosyasını ve ilgili codebase bölümlerini oku
-- Mevcut pattern'ları ve kuralları tespit et (CLAUDE.md, architecture.md)
-- Bileşenler arası bağımlılıkları haritala
-- Riskleri ve bilinmezleri not et
+- Read the spec file and relevant codebase sections
+- Identify existing patterns and rules (CLAUDE.md, architecture.md)
+- Map dependencies between components
+- Note risks and unknowns
 
-**Planlama sırasında kod yazma.** Çıktı bir plan dokümanıdır, implementasyon değil.
+**Do not write code during planning.** The output is a plan document, not an implementation.
 
-### Adım 2: Bağımlılık Grafiğini Çiz
+### Step 2: Draw the Dependency Graph
 
-Ne neye bağımlı, haritala:
+Map what depends on what:
 
 ```
 IEnemyService (interface)
     │
-    ├── EnemyService (implementasyon)
+    ├── EnemyService (implementation)
     │       │
-    │       ├── EnemyInstaller (VContainer kaydı)
+    │       ├── EnemyInstaller (VContainer registration)
     │       │
     │       └── EnemyTests (test)
     │
     └── EnemyProvider (MonoBehaviour — Unity API)
             │
-            └── EnemyAuthoring (ECS baker, varsa)
+            └── EnemyAuthoring (ECS baker, if applicable)
 ```
 
-Uygulama sırası bağımlılık grafiğini aşağıdan yukarıya takip eder: önce temeller.
+Implementation order follows the dependency graph bottom-up: foundations first.
 
-### Adım 3: Dikey Dilimlere Böl (Vertical Slice)
+### Step 3: Slice Vertically (Vertical Slice)
 
-Tüm interface'leri, sonra tüm service'leri, sonra tüm installer'ları yazmak yerine — bir özellik yolunu baştan sona inşa et:
+Instead of writing all interfaces, then all services, then all installers — build one feature path end to end:
 
-**Kötü (yatay dilimleme):**
+**Bad (horizontal slicing):**
 ```
-Task 1: Tüm interface'leri yaz
-Task 2: Tüm service'leri yaz
-Task 3: Tüm installer'ları yaz
-Task 4: Her şeyi bağla
-```
-
-**İyi (dikey dilimleme):**
-```
-Task 1: Düşman spawn olur (IAudioService → AudioService → AudioInstaller → test)
-Task 2: Düşman hasar alır (IHealthService → HealthService → Installer → test)
-Task 3: Düşman ölür (IDeathService → DeathService + event → test)
-Task 4: Düşman animasyonu tetiklenir (Provider + ECS bridge)
+Task 1: Write all interfaces
+Task 2: Write all services
+Task 3: Write all installers
+Task 4: Connect everything
 ```
 
-Her dikey dilim, çalışan ve test edilebilir bir işlev sunar.
+**Good (vertical slicing):**
+```
+Task 1: Enemy spawns (IAudioService → AudioService → AudioInstaller → test)
+Task 2: Enemy takes damage (IHealthService → HealthService → Installer → test)
+Task 3: Enemy dies (IDeathService → DeathService + event → test)
+Task 4: Enemy animation triggers (Provider + ECS bridge)
+```
 
-### Adım 4: Görevleri Yaz
+Each vertical slice delivers a working, testable piece of functionality.
 
-Her görev bu yapıyı takip eder:
+### Step 4: Write the Tasks
+
+Each task follows this structure:
 
 ```markdown
-## Task [N]: [Kısa açıklayıcı başlık]
+## Task [N]: [Short descriptive title]
 
-**Açıklama:** Bu görevin neyi başardığını açıklayan bir paragraf.
+**Description:** One paragraph explaining what this task accomplishes.
 
 **Acceptance Criteria:**
-- [ ] [Spesifik, test edilebilir koşul]
-- [ ] [Spesifik, test edilebilir koşul]
-- [ ] Test yeşil: `dotnet test --filter "ClassName"`
-- [ ] Compile hatasız
+- [ ] [Specific, testable condition]
+- [ ] [Specific, testable condition]
+- [ ] Tests green: `dotnet test --filter "ClassName"`
+- [ ] Compiles without errors
 
-**Bağımlılıklar:** [Bu görevin bağımlı olduğu görev numaraları veya "Yok"]
+**Dependencies:** [Task numbers this task depends on, or "None"]
 
-**Muhtemelen etkilenecek dosyalar:**
+**Files likely affected:**
 - `_GameFolders/Scripts/Games/Abstracts/Audio/IAudioService.cs`
 - `_GameFolders/Scripts/Games/Concretes/Audio/AudioService.cs`
 - `_GameFolders/Scripts/Tests/AudioTests/AudioServiceTests.cs`
 
-**Tahmini kapsam:** [Küçük: 1-2 dosya | Orta: 3-5 dosya | Büyük: 5+ dosya]
+**Estimated scope:** [Small: 1-2 files | Medium: 3-5 files | Large: 5+ files]
 ```
 
-### Adım 5: Sırala ve Checkpoint Ekle
+### Step 5: Order and Add Checkpoints
 
-Görevleri şu şekilde düzenle:
+Arrange tasks so that:
 
-1. Bağımlılıklar karşılandı (önce temel)
-2. Her görev sistemi çalışır durumda bırakır
-3. Her 2-3 görev sonrası doğrulama checkpoint'i
-4. Yüksek riskli görevler erken (hızlı başarısız ol)
+1. Dependencies are satisfied (foundations first)
+2. Each task leaves the system in a working state
+3. A validation checkpoint follows every 2-3 tasks
+4. High-risk tasks come early (fail fast)
 
-Checkpoint'ler açık olsun:
+Checkpoints should be explicit:
 
 ```markdown
-## Checkpoint: Task 1-3 Sonrası
-- [ ] Tüm testler yeşil
-- [ ] Unity compile hatasız
-- [ ] Temel oyuncu akışı uçtan uca çalışıyor
-- [ ] İlerlemeden önce insan onayı
+## Checkpoint: After Tasks 1-3
+- [ ] All tests green
+- [ ] Unity compiles without errors
+- [ ] Core player flow works end to end
+- [ ] Human approval before proceeding
 ```
 
-## Görev Boyutu Rehberi
+## Task Size Guide
 
-| Boyut | Dosya | Kapsam | Örnek |
-|-------|-------|--------|-------|
-| **XS** | 1 | Tek method veya config | Validation kuralı ekle |
-| **S** | 1-2 | Tek component veya servis | Yeni bir event struct yaz |
-| **M** | 3-5 | Bir feature dilimi | AudioService + Installer + test |
-| **L** | 5-8 | Çok bileşenli özellik | Tam spawn sistemi |
-| **XL** | 8+ | **Çok büyük — daha küçüğe böl** | — |
+| Size | Files | Scope | Example |
+|------|-------|-------|---------|
+| **XS** | 1 | Single method or config | Add a validation rule |
+| **S** | 1-2 | Single component or service | Write a new event struct |
+| **M** | 3-5 | One feature slice | AudioService + Installer + test |
+| **L** | 5-8 | Multi-component feature | Full spawn system |
+| **XL** | 8+ | **Too large — split further** | — |
 
-**Görevi daha küçüğe böl eğer:**
-- Task başlığında "ve" geçiyorsa (iki görev işareti)
-- Acceptance criteria 3 maddeden fazlaysa
-- İki veya daha fazla bağımsız sisteme dokunuyorsa
-- VContainer scope değişikliği + ECS değişikliği + UI değişikliği aynı anda
+**Split a task if:**
+- The task title contains "and" (sign of two tasks)
+- Acceptance criteria has more than 3 items
+- It touches two or more independent systems
+- VContainer scope change + ECS change + UI change all at once
 
-## WORKFLOW.md Şablonu
+## WORKFLOW.md Template
 
 ```markdown
-# Uygulama Planı: [Özellik/Proje Adı]
+# Implementation Plan: [Feature/Project Name]
 
-## Genel Bakış
-[Ne inşa ettiğimizin bir paragraflık özeti]
+## Overview
+[One paragraph summary of what we are building]
 
-## Mimari Kararlar
-- [Temel karar 1 ve gerekçe — veya ADR referansı]
-- [Temel karar 2 ve gerekçe]
+## Architectural Decisions
+- [Key decision 1 and rationale — or ADR reference]
+- [Key decision 2 and rationale]
 
-## Görev Listesi
+## Task List
 
-### Faz 1: Temel Altyapı
+### Phase 1: Core Infrastructure
 - [ ] Task 1: ...
 - [ ] Task 2: ...
 
-### Checkpoint: Temel Altyapı
-- [ ] Testler yeşil, compile temiz
+### Checkpoint: Core Infrastructure
+- [ ] Tests green, compile clean
 
-### Faz 2: Çekirdek Özellikler
+### Phase 2: Core Features
 - [ ] Task 3: ...
 - [ ] Task 4: ...
 
-### Checkpoint: Çekirdek Özellikler
-- [ ] Uçtan uca akış çalışıyor
+### Checkpoint: Core Features
+- [ ] End-to-end flow working
 
-### Faz 3: Entegrasyon
+### Phase 3: Integration
 - [ ] Task 5: ...
 
-### Checkpoint: Tamamlandı
-- [ ] Tüm acceptance criteria karşılandı
-- [ ] İncelemeye hazır
+### Checkpoint: Complete
+- [ ] All acceptance criteria met
+- [ ] Ready for review
 
-## Riskler ve Önlemler
-| Risk | Etki | Önlem |
-|------|------|-------|
-| ECS migration sırasında scene referansı kaybolabilir | Yüksek | Önce test scene'de dene |
+## Risks and Mitigations
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Scene reference lost during ECS migration | High | Test in test scene first |
 
-## Açık Sorular
-- [İnsan girdisi gereken soru]
+## Open Questions
+- [Question requiring human input]
 ```
 
-## Paralelleştirme Fırsatları
+## Parallelization Opportunities
 
-Birden fazla agent veya oturum varsa:
+When multiple agents or sessions are available:
 
-- **Paralelleştirebilir:** Bağımsız feature dilimleri, mevcut implementasyon için testler, dokümantasyon
-- **Sıralı olmalı:** Database/schema migrasyonları, paylaşılan state değişiklikleri, bağımlılık zincirleri
-- **Koordinasyon gerektirir:** Ortak interface kullanan özellikler (önce interface'i sabitle, sonra paralelleştir)
+- **Can parallelize:** Independent feature slices, tests for existing implementations, documentation
+- **Must be sequential:** Database/schema migrations, shared state changes, dependency chains
+- **Requires coordination:** Features sharing a common interface (lock the interface first, then parallelize)
 
-WORKFLOW.md'de `parallel_group` annotation'ı kullan — `/orchestrate` bunu otomatik algılar.
+Use `parallel_group` annotations in WORKFLOW.md — `/orchestrate` detects these automatically.
 
-## Yaygın Bahaneler
+## Common Rationalizations
 
-| Bahane | Gerçek |
-|--------|--------|
-| "Geliştirirken çözerim" | Böyle karmaşık kod üretilir ve yeniden yazılır. 10 dakika planlama saatlerce kurtarır. |
-| "Görevler belli" | Yine de yaz. Açık görevler gizli bağımlılıkları ve unutulan edge case'leri ortaya çıkarır. |
-| "Planlamak fazladan iş" | Planlama görevin ta kendisi. Plan olmadan implementasyon sadece yazmaktır. |
-| "Hepsini aklımda tutabilirim" | Context window sonludur. Yazılı planlar oturum sınırlarını aşar. |
+| Rationalization | Reality |
+|-----------------|---------|
+| "I'll figure it out as I go" | This is how complex, tangled code gets written and rewritten. 10 minutes of planning saves hours. |
+| "The tasks are obvious" | Write them anyway. Explicit tasks surface hidden dependencies and forgotten edge cases. |
+| "Planning is extra work" | Planning is the task. Without a plan, implementation is just typing. |
+| "I can keep it all in my head" | The context window is finite. Written plans survive session boundaries. |
 
-## Doğrulama Listesi
+## Verification Checklist
 
-Implementasyona başlamadan önce:
+Before starting implementation:
 
-- [ ] Her görevin acceptance criteria'sı var
-- [ ] Her görevin doğrulama adımı var (test komutu veya manuel kontrol)
-- [ ] Görev bağımlılıkları belirlendi ve sıralandı
-- [ ] Hiçbir görev ~5 dosyadan fazlasına dokunmuyor
-- [ ] Ana fazlar arasında checkpoint'ler var
-- [ ] Paralel çalışabilecek görevler `parallel_group` ile işaretlendi
-- [ ] İnsan plan dokümanını onayladı
+- [ ] Every task has acceptance criteria
+- [ ] Every task has a verification step (test command or manual check)
+- [ ] Task dependencies are identified and ordered
+- [ ] No task touches more than ~5 files
+- [ ] Checkpoints exist between major phases
+- [ ] Tasks that can run in parallel are marked with `parallel_group`
+- [ ] Human has approved the plan document

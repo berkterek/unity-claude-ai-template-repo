@@ -160,9 +160,9 @@ public sealed class MainMenuView : MonoBehaviour
 
 **Rules:**
 - `AddListener` in `OnEnable()`, `RemoveListener` in `OnDisable()` — mandatory pair
-- Inspector'da onClick listesi **boş kalmalı** — tüm bağlantılar kodda yapılır
+- The onClick list in the Inspector must remain **empty** — all wiring is done in code
 - The View calls the Service — zero game logic in the View
-- `Dropdown.onValueChanged`, `Toggle.onValueChanged`, `Slider.onValueChanged` aynı pattern'ı takip eder
+- `Dropdown.onValueChanged`, `Toggle.onValueChanged`, `Slider.onValueChanged` follow the same pattern
 
 ```csharp
 // Other approved UGUI event subscriptions — code only, never Inspector
@@ -178,14 +178,14 @@ _slider.onValueChanged.RemoveListener(OnVolumeChanged);
 
 **What is NOT allowed:**
 - `[SerializeField] UnityEvent myEvent` — declaring your own UnityEvent field
-- Inspector'da onClick'e method sürüklemek
-- `onClick.AddListener` dışında herhangi bir yerde `UnityEvent` kullanımı
+- Dragging methods onto onClick in the Inspector
+- Using `UnityEvent` anywhere outside of `onClick.AddListener`
 
 ---
 
 ## UI Toolkit — Editor Only
 
-UI Toolkit (`UIDocument`, `VisualElement`) bu projede **yalnızca Editor araçları** için kullanılır. Runtime UI için UGUI (Canvas tabanlı) kullanılır. Editor script'lerinde UI Toolkit olayları `#if UNITY_EDITOR` guard'ı altında normal C# event olarak kullanılabilir.
+UI Toolkit (`UIDocument`, `VisualElement`) is used **only for Editor tools** in this project. Runtime UI uses UGUI (Canvas-based). In Editor scripts, UI Toolkit events can be used as normal C# events under `#if UNITY_EDITOR` guards.
 
 ---
 

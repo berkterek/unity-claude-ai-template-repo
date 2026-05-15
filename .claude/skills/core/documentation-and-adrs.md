@@ -6,179 +6,179 @@ model-tier: normal
 
 # Documentation and ADRs (Unity)
 
-## Genel Bakış
+## Overview
 
-Kodu değil kararları belgele. En değerli dokümantasyon *neden* sorusunu yanıtlar — o kararı ortaya çıkaran bağlamı, kısıtlamaları ve trade-off'ları. Kod *neyin* inşa edildiğini gösterir; ADR *neden bu şekilde yapıldığını* ve *hangi alternatiflerin değerlendirildiğini* açıklar.
+Document decisions, not code. The most valuable documentation answers *why* — the context, constraints, and trade-offs that produced a decision. Code shows *what* was built; an ADR explains *why it was done this way* and *which alternatives were considered*.
 
-## Ne Zaman Kullanılır
+## When to Use
 
-- Önemli bir mimari karar alınırken (VContainer vs Zenject, UniTask vs Coroutine, ECS vs MonoBehaviour)
-- Birbiriyle rekabet eden yaklaşımlar arasında seçim yapılırken
-- Yeni bir modül, sistem veya paket eklenmeden önce
-- Projeye yeni bir geliştirici (veya yeni bir Claude oturumu) başladığında "neden böyle yapılmış?" sorusunu önlemek için
-- Aynı şeyi tekrar tekrar açıklarken
+- When making a significant architectural decision (VContainer vs Zenject, UniTask vs Coroutine, ECS vs MonoBehaviour)
+- When choosing between competing approaches
+- Before adding a new module, system, or package
+- To prevent "why was this done this way?" questions when a new developer (or a new Claude session) starts on the project
+- When you find yourself explaining the same thing repeatedly
 
-**Ne Zaman Kullanılmaz:** Açık kodu belgeleme. Kodu zaten anlatan yorumlar yazma. Geçici prototip kodu için ADR açma.
+**When NOT to Use:** Documenting obvious code. Writing comments that just restate what the code does. Opening an ADR for temporary prototype code.
 
 ## Architecture Decision Records (ADRs)
 
-ADR'lar önemli teknik kararların gerekçesini yakalar. Yazılabilecek en değerli dokümantasyon türüdür.
+ADRs capture the rationale behind significant technical decisions. They are the most valuable form of documentation you can write.
 
-### ADR Ne Zaman Yazılır
+### When to Write an ADR
 
-- Framework, kütüphane veya büyük bağımlılık seçimi (VContainer, UniTask, Addressables, DOTS)
-- Render pipeline kararı (Built-in → URP, URP → HDRP)
-- Mimari pattern seçimi (ECS vs MonoBehaviour, event bus vs direct call)
-- Paket versiyonu kararları (neden bu sürümde kalmak, neden upgrade)
-- Geri alınması pahalı olan herhangi bir karar
+- Framework, library, or major dependency selection (VContainer, UniTask, Addressables, DOTS)
+- Render pipeline decision (Built-in → URP, URP → HDRP)
+- Architectural pattern selection (ECS vs MonoBehaviour, event bus vs direct call)
+- Package version decisions (why stay on this version, why upgrade)
+- Any decision that would be expensive to reverse
 
-### ADR Şablonu
+### ADR Template
 
-ADR'ları `docs/decisions/` klasörüne sıralı numaralandırmayla kaydet:
+Save ADRs to `docs/decisions/` with sequential numbering:
 
 ```markdown
-# ADR-001: VContainer Kullanımı (Zenject Yerine)
+# ADR-001: VContainer over Zenject
 
-## Durum
-Kabul Edildi | ADR-XXX tarafından Değiştirildi | Kullanımdan Kaldırıldı
+## Status
+Accepted | Superseded by ADR-XXX | Deprecated
 
-## Tarih
+## Date
 2025-01-15
 
-## Bağlam
-Proje genelinde dependency injection çerçevesi gerekiyor. Temel gereksinimler:
-- Unity 6 uyumluluğu
-- Compile-time güvenlik (runtime reflection yerine)
-- VContainer, Zenject, Manual DI
+## Context
+A dependency injection framework is needed across the project. Core requirements:
+- Unity 6 compatibility
+- Compile-time safety (over runtime reflection)
+- Options considered: VContainer, Zenject, Manual DI
 
-## Karar
-VContainer kullanılacak.
+## Decision
+Use VContainer.
 
-## Değerlendirilen Alternatifler
+## Alternatives Considered
 
 ### Zenject
-- Artılar: Geniş ekosistem, çok sayıda örnek
-- Eksiler: Unity 6'da bakımı yavaş, daha ağır API
-- Reddedildi: VContainer performans açısından üstün ve aktif geliştirilmiş
+- Pros: Large ecosystem, many examples
+- Cons: Slow maintenance for Unity 6, heavier API
+- Rejected: VContainer is superior in performance and actively maintained
 
 ### Manual DI (Factory + Constructor)
-- Artılar: Sıfır bağımlılık, tam kontrol
-- Eksiler: Scope yönetimi elle, Dispose lifecycle manuel
-- Reddedildi: Kapsam ve lifecycle yönetimi project büyüdükçe karmaşıklaşır
+- Pros: Zero dependency, full control
+- Cons: Scope management manual, Dispose lifecycle manual
+- Rejected: Scope and lifecycle management becomes complex as the project grows
 
-## Sonuçlar
-- AppScope → MenuScope → GameScope hiyerarşisi zorunlu
-- Tüm servisler interface üzerinden kaydedilecek
-- Singleton pattern tamamen kaldırıldı
+## Consequences
+- AppScope → MenuScope → GameScope hierarchy is mandatory
+- All services registered via interface
+- Singleton pattern removed entirely
 ```
 
-### ADR Yaşam Döngüsü
+### ADR Lifecycle
 
 ```
-ÖNERILDI → KABUL EDİLDİ → (DEĞİŞTİRİLDİ veya KALDIRILDI)
+PROPOSED → ACCEPTED → (SUPERSEDED or DEPRECATED)
 ```
 
-- **Eski ADR'ları silme.** Tarihsel bağlamı yakalarlar.
-- Bir karar değişince eski ADR'a referans veren yeni bir ADR yaz.
+- **Never delete old ADRs.** They capture historical context.
+- When a decision changes, write a new ADR that references the old one.
 
-## /adr Komutu
+## /adr Command
 
-Kullanıcı bir mimari karar almak istediğinde:
+When the user wants to record an architectural decision:
 
 ```
-/adr VContainer yerine Zenject kullanmama kararı
-/adr UniTask neden Coroutine yerine seçildi
-/adr Addressables ile Resources.Load karşılaştırması
-/adr ECS DOTS ne zaman MonoBehaviour yerine tercih edilmeli
+/adr Decision not to use Zenject in favor of VContainer
+/adr Why UniTask was chosen over Coroutines
+/adr Addressables vs Resources.Load comparison
+/adr When to prefer ECS DOTS over MonoBehaviour
 ```
 
-### Komut Akışı
+### Command Flow
 
-1. `docs/decisions/` klasörünü tara — mevcut ADR sayısını bul (sonraki numara için)
-2. Kullanıcıdan bağlamı al: neden bu karar şu an alınıyor?
-3. En az 2 alternatif değerlendir
-4. ADR dosyasını `docs/decisions/NNN-konu.md` olarak yaz
-5. CLAUDE.md'deki ilgili bölüme referans ekle (gerekiyorsa)
+1. Scan `docs/decisions/` — find current ADR count (for next number)
+2. Ask the user for context: why is this decision being made now?
+3. Evaluate at least 2 alternatives
+4. Write the ADR file as `docs/decisions/NNN-topic.md`
+5. Add a reference to the relevant section in CLAUDE.md (if needed)
 
-## Unity Projesi için Örnek ADR'lar
+## Example ADRs for a Unity Project
 
-Bir template projesinde başlangıçta oluşturulması önerilen ADR'lar:
+Recommended ADRs to create at the start of a template project:
 
-| ADR | Konu |
-|-----|------|
-| ADR-001 | VContainer seçimi |
-| ADR-002 | UniTask ve CancellationToken stratejisi |
-| ADR-003 | IEventBus struct event pattern'ı |
-| ADR-004 | Addressables — Resources.Load yasağı |
-| ADR-005 | New Input System ve InputView mimarisi |
-| ADR-006 | URP render pipeline seçimi |
-| ADR-007 | NSubstitute + AAA test stratejisi |
+| ADR | Topic |
+|-----|-------|
+| ADR-001 | VContainer selection |
+| ADR-002 | UniTask and CancellationToken strategy |
+| ADR-003 | IEventBus struct event pattern |
+| ADR-004 | Addressables — Resources.Load ban |
+| ADR-005 | New Input System and InputView architecture |
+| ADR-006 | URP render pipeline selection |
+| ADR-007 | NSubstitute + AAA test strategy |
 
-## Kod İçi Dokümantasyon
+## Inline Code Documentation
 
-### Ne Zaman Yorum Yazılır
+### When to Write a Comment
 
-*Neden* yorum yaz, *ne* değil:
+Write *why*, not *what*:
 
 ```csharp
-// YANLIŞ: Kodu tekrar eder
-// counter'ı 1 artır
+// WRONG: Repeats the code
+// increment counter
 _retryCount++;
 
-// DOĞRU: Açık olmayan niyeti açıklar
-// VContainer Dispose() sırası garantisiz — önce unsubscribe et,
-// sonra null ata. Aksi halde destroyed object callback'i tetikler.
+// RIGHT: Explains non-obvious intent
+// VContainer Dispose() order is non-deterministic — unsubscribe first,
+// then null the reference. Otherwise destroyed object callback fires.
 _eventBus?.Unsubscribe<LevelStartedEvent>(OnLevelStarted);
 _eventBus = null;
 ```
 
-### Ne Zaman Yorum Yazılmaz
+### When NOT to Write a Comment
 
 ```csharp
-// Açıklayan isimleri olan kodu yorumlama
+// Don't comment code with explanatory names
 public void TakeDamage(int amount) => _health -= amount;
 
-// TODO yorumları bırakma — ya hemen yap ya da ADR'a yaz
-// TODO: null check ekle  ← Hemen ekle
+// Don't leave TODO comments — either do it now or write an ADR
+// TODO: add null check  ← Do it now
 
-// Yorumlanmış kod bırakma — git history var
-// private IEnumerator OldCoroutine() { ... }  ← Sil
+// Don't leave commented-out code — git history exists
+// private IEnumerator OldCoroutine() { ... }  ← Delete it
 ```
 
-### Bilinen Tuzakları Belgele
+### Document Known Pitfalls
 
 ```csharp
-// ÖNEMLI: Bu method AppScope.Configure() içinde çağrılmalı,
-// RegisterBuildCallback'ten önce. Sonra çağrılırsa EventBusAccessor
-// ilk ECS System güncellemesinde null reference verir.
-// Bkz: ADR-003
+// IMPORTANT: This method must be called inside AppScope.Configure(),
+// before RegisterBuildCallback. Called after it, EventBusAccessor
+// gives a null reference on the first ECS System update.
+// See: ADR-003
 public static void Initialize(IEventBus bus) => _instance = bus;
 ```
 
-## CLAUDE.md ve Rules Dosyaları
+## CLAUDE.md and Rules Files
 
-AI agent bağlamı için özel dikkat:
+Special attention for AI agent context:
 
-- **CLAUDE.md** — Proje kuralları güncel tutulmalı; agent her oturumda okur
-- **`.claude/rules/`** — Mimari kararlar burada kurallar olarak yansıtılmalı
-- **ADR'lar** — Agent'ın geçmiş kararları "neden" anlamasını sağlar, yeniden karar vermesini önler
-- **Inline gotcha'lar** — Agent'ın bilinen tuzaklara düşmesini engeller
+- **CLAUDE.md** — Project rules must be kept current; the agent reads this at every session start
+- **`.claude/rules/`** — Architectural decisions should be reflected here as rules
+- **ADRs** — Let the agent understand the *why* behind past decisions, preventing it from relitigating them
+- **Inline gotchas** — Prevent the agent from falling into known pitfalls
 
-## Yaygın Bahaneler
+## Common Rationalizations
 
-| Bahane | Gerçek |
-|--------|--------|
-| "Kod kendini açıklıyor" | Kod neyi gösterir, neden değil. Alternatifleri ve kısıtlamaları açıklamaz. |
-| "API kararlı olunca yazarız" | ADR yazmak tasarımı hızlandırır. ADR, tasarımın ilk testidir. |
-| "Kimse dökümantasyon okumaz" | Agent'lar okur. Gelecekteki geliştiriciler okur. 3 ay sonraki sen okursun. |
-| "ADR fazladan iş" | 10 dakikalık bir ADR, 6 ay sonra aynı konuda yapılacak 2 saatlik tartışmayı önler. |
+| Rationalization | Reality |
+|-----------------|---------|
+| "The code is self-documenting" | Code shows the what, not the why. It doesn't explain alternatives considered or constraints that applied. |
+| "We'll write it when the API stabilizes" | Writing the ADR accelerates design. The ADR is the first test of the design. |
+| "Nobody reads documentation" | Agents do. Future developers do. You will, six months from now. |
+| "ADRs are extra work" | A 10-minute ADR prevents a 2-hour debate about the same topic six months later. |
 
-## Doğrulama Listesi
+## Verification Checklist
 
-- [ ] Önemli mimari kararlar için ADR var
-- [ ] Her ADR en az 2 alternatifi değerlendiriyor
-- [ ] ADR numaralandırması sıralı (`docs/decisions/`)
-- [ ] Bilinen tuzaklar kod içinde belgelenmiş
-- [ ] Yorumlanmış kod yok
-- [ ] CLAUDE.md ve rules dosyaları güncel
-- [ ] ECS, URP, Input System gibi Unity-specific kararlar ADR'da gerekçelendirilmiş
+- [ ] Significant architectural decisions have an ADR
+- [ ] Each ADR evaluates at least 2 alternatives
+- [ ] ADR numbering is sequential (`docs/decisions/`)
+- [ ] Known pitfalls are documented inline
+- [ ] No commented-out code
+- [ ] CLAUDE.md and rules files are current
+- [ ] Unity-specific decisions (ECS, URP, Input System) are justified in an ADR
