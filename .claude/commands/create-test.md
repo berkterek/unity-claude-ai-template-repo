@@ -61,15 +61,16 @@ Read `.claude/skills/core/test-type-router.md` and apply the decision matrix to 
 
 Emit the decision block:
 ```
-Test type decision: [EditMode | PlayMode-ECS | PlayMode-Scene | NoTest]
+Test type decision: [EditMode | PlayMode-ECS | PlayMode-Programmatic | PlayMode-Scene | NoTest]
 Reason: [one sentence]
 ```
 
 Route:
-- `EditMode`       → Step 3-A
-- `PlayMode-ECS`   → Step 3-B
-- `PlayMode-Scene` → Step 3-C (MCP check first — see below)
-- `NoTest`         → stop, explain why
+- `EditMode`                → Step 3-A
+- `PlayMode-ECS`            → Step 3-B
+- `PlayMode-Programmatic`   → Step 3-D (no scene, no MCP)
+- `PlayMode-Scene`          → Step 3-C (MCP check first — see below)
+- `NoTest`                  → stop, explain why
 
 **PlayMode-Scene only — MCP check before Step 3-C:**
 Read and apply `.claude/skills/core/mcp-preflight.md`.
@@ -348,6 +349,8 @@ namespace [Namespace].PlayModeTest
 
 ### C5 — Wait for Compilation + Build Scene via MCP
 
+> Skip to Step 3-D if router returned PlayMode-Programmatic.
+
 1. Call `unity_get_project_info` or `unity_compile` — wait for compilation to finish
 2. If compilation errors → stop, print errors, ask user to fix before continuing
 3. If success → create scene: `unity_create_scene` at `Assets/_Scenes/TestScenes/[Feature]Test`
@@ -357,6 +360,88 @@ namespace [Namespace].PlayModeTest
 7. Wire `_installer` field on TestScope to the TestInstaller component
 8. Save scene
 9. If `Assets/_Scenes/TestScenes/Empty.unity` missing → create minimal empty scene
+
+---
+
+---
+
+## Step 3-D — PlayMode Programmatic Test
+
+**When to use:** MonoBehaviour with lifecycle behavior (OnEnable/OnDisable/Update) where the component can be tested in isolation without a loaded scene. Use `new GameObject().AddComponent<>()` — Unity fully executes lifecycle. No TestBootstrap, no scene file, no MCP calls.
+
+### D1 — Find the Class Under Test
+
+```bash
+find . -name "[Feature].cs" -not -path "*/Tests/*" | head -5
+find . -name "[Feature]Provider.cs" -not -path "*/Tests/*" | head -5
+find . -name "[Feature]View.cs" -not -path "*/Tests/*" | head -5
+```
+
+Read the found file to understand: `[Inject]` fields, `OnEnable`/`OnDisable` subscribe/unsubscribe pairs, `Update` logic, public methods.
+
+### D2 — Write PlayMode Programmatic Test
+
+File: `_GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/[Feature]Tests.cs`
+
+```csharp
+using System.Collections;
+using NSubstitute;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
+
+namespace [Namespace].PlayModeTest
+{
+    [TestFixture]
+    public class [Feature]Tests
+    {
+        private GameObject _go;
+        private [Feature] _sut;
+
+        [UnitySetUp]
+        public IEnumerator SetUp()
+        {
+            _go = new GameObject("[Feature]Test");
+            _sut = _go.AddComponent<[Feature]>();
+            // Inject dependencies via the [Inject] method directly
+            // var fakeService = Substitute.For<I[Feature]Service>();
+            // _sut.Construct(fakeService);
+            yield return null; // one frame — Awake + Start execute
+        }
+
+        [UnityTearDown]
+        public IEnumerator TearDown()
+        {
+            if (_go != null)
+                Object.Destroy(_go);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator [Feature]_When[Condition]_[ExpectedBehavior]()
+        {
+            // Arrange
+            // (dependencies already injected in SetUp)
+
+            // Act
+            yield return null; // allow one frame for Update/lifecycle
+
+            // Assert
+            Assert.Fail("Not implemented — replace with real assertions");
+        }
+    }
+}
+```
+
+**Pattern rules:**
+- `_go = new GameObject(...)` in `[UnitySetUp]` — Unity calls `Awake` immediately on `AddComponent`
+- Call the `[Inject]` method explicitly after `AddComponent` to inject mocked dependencies
+- `Object.Destroy(_go)` in `[UnityTearDown]` — triggers `OnDisable` + `OnDestroy` lifecycle
+- `yield return null` after `AddComponent` if `Start` / `OnEnable` behavior needs to settle
+- Do NOT use `SceneManager.LoadSceneAsync` — no scene loading in this path
+- Test `OnEnable` / `OnDisable` by calling `_go.SetActive(false)` / `_go.SetActive(true)`
+
+### D3 → Review + Commit (Step 4 and Step 5 below)
 
 ---
 
@@ -376,6 +461,14 @@ namespace [Namespace].PlayModeTest
 2. Never uses `World.DefaultGameObjectInjectionWorld`
 3. `[UnityTest]` + `IEnumerator` on all test methods
 4. Namespace matches PlayModeTest assembly
+
+### PlayMode-Programmatic review checklist
+1. `new GameObject()` + `AddComponent<>()` in `[UnitySetUp]`
+2. `[Inject]` method called explicitly after `AddComponent` with substituted dependencies
+3. `Object.Destroy(_go)` in `[UnityTearDown]`
+4. No `SceneManager.LoadSceneAsync` — no scene loading
+5. `[UnityTest]` + `IEnumerator` on all test methods
+6. No production code touched
 
 ### PlayMode-Scene review checklist
 1. TestScope extends `LifetimeScope` (not AppScope), sealed, correct namespace
@@ -409,9 +502,10 @@ Commit? (go / stop)
 ```
 
 Wait for `go`. On `go` → spawn **committer** with message:
-- EditMode:        `test([Feature]): add EditMode unit tests`
-- PlayMode-ECS:   `test([Feature]): add PlayMode ECS system tests`
-- PlayMode-Scene: `test([Feature]): add PlayMode scene test, TestScope, TestInstaller`
+- EditMode:               `test([Feature]): add EditMode unit tests`
+- PlayMode-ECS:          `test([Feature]): add PlayMode ECS system tests`
+- PlayMode-Programmatic: `test([Feature]): add PlayMode programmatic MonoBehaviour tests`
+- PlayMode-Scene:        `test([Feature]): add PlayMode scene test, TestScope, TestInstaller`
 
 ---
 
@@ -420,7 +514,7 @@ Wait for `go`. On `go` → spawn **committer** with message:
 ```
 ## ✓ [TEST_TYPE] Test Ready: [FEATURE]
 
-### Test type: [EditMode | PlayMode-ECS | PlayMode-Scene]
+### Test type: [EditMode | PlayMode-ECS | PlayMode-Programmatic | PlayMode-Scene]
 ### Review: [APPROVED ✓ | ISSUES REMAIN ⚠]
 [unresolved issues if any]
 
@@ -433,6 +527,10 @@ Wait for `go`. On `go` → spawn **committer** with message:
 
 [PlayMode-ECS]
 - Run: Window → General → Test Runner → PlayMode → [FEATURE]SystemTests
+
+[PlayMode-Programmatic]
+- Fill in [UnityTest] stub with real assertions
+- Run: Window → General → Test Runner → PlayMode → [FEATURE]Tests
 
 [PlayMode-Scene]
 - Add Assets/_Scenes/TestScenes/[FEATURE]Test.unity to Build Settings
