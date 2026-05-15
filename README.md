@@ -372,11 +372,15 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-async-void` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation` | `async UniTask` methods missing `CancellationToken` parameter |
 | `check-null-propagation` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
+| `check-enum-byte-base` | `enum` without `: byte` base inside `IComponentData` or `IEvent` structs — use `: ushort` if 255+ values needed |
 | `check-test-scene-exists` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test` |
 | `track-codex-review` (PostToolUse) | Creates `.claude/state/codex-reviewed` when `codex:codex-rescue` completes — enables `unity-reviewer` as fallback in reviewer-order enforcement |
 | `instinct-capture` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
+| `hook-logger` | Central audit logger — called by every hook before exit; writes newline-delimited JSON to `.claude/logs/hooks-<date>.log` |
+| `detect-gaps` (SessionStart) | Scans for undocumented systems, missing tests, and orphaned modules — warnings only, never blocks |
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
+| `post-compact` (PostToolUse) | Runs after context compaction — reminds Claude to restore session state |
 | `session-restore` (SessionStart) | Restores session state from `.claude/state/` on session start |
 | `session-save` (Stop) | Saves current session state to `.claude/state/` on stop |
 

@@ -2,41 +2,41 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** `orchestrate`, `scene-setup`, `migrate`, `add-feature` komutlarına complexity scoring + coder/unity-coder routing eklemek.
+**Goal:** Add complexity scoring + coder/unity-coder routing to the `orchestrate`, `scene-setup`, `migrate`, and `add-feature` commands.
 
-**Architecture:** Her komutun başına `## Step 0 — Complexity Scoring` bloğu eklenir. Mevcut step numaraları kaydırılmaz — scoring bloğu Step 0 olarak eklenir, Step 1'den itibaren devam eder. Her komut complexity score'a ve hedef kod türüne göre agent seçimini ayarlar.
+**Architecture:** A `## Step 0 — Complexity Scoring` block is prepended to each command. Existing step numbers are not shifted — scoring is added as Step 0, continuing from Step 1 onward. Each command adjusts agent selection based on complexity score and target code type.
 
-**Tech Stack:** Claude Code slash commands (`.claude/commands/`), mevcut scoring pattern'i `implement.md` / `fix.md`'den alınır.
+**Tech Stack:** Claude Code slash commands (`.claude/commands/`), existing scoring pattern borrowed from `implement.md` / `fix.md`.
 
 ---
 
 ## File Map
 
-| Dosya | Durum | Değişiklik |
-|-------|-------|-----------|
-| `.claude/commands/orchestrate.md` | Modify | Step 0 scoring + agent routing eklenir |
-| `.claude/commands/scene-setup.md` | Modify | Step 0 scoring + unity-coder-lite/unity-coder routing eklenir |
-| `.claude/commands/migrate.md` | Modify | Step 0 scoring + test guard ve unity-developer koşulları eklenir |
-| `.claude/commands/add-feature.md` | Modify | Step 0 scoring + interview uzunluğu + coder routing eklenir |
+| File | Status | Change |
+|------|--------|--------|
+| `.claude/commands/orchestrate.md` | Modify | Add Step 0 scoring + agent routing |
+| `.claude/commands/scene-setup.md` | Modify | Add Step 0 scoring + unity-coder-lite/unity-coder routing |
+| `.claude/commands/migrate.md` | Modify | Add Step 0 scoring + test guard and unity-developer conditions |
+| `.claude/commands/add-feature.md` | Modify | Add Step 0 scoring + interview length + coder routing |
 
 ---
 
-## Task 1: `orchestrate.md` — Complexity Scoring Ekle
+## Task 1: `orchestrate.md` — Add Complexity Scoring
 
 **Files:**
 - Modify: `.claude/commands/orchestrate.md`
 
-- [ ] **Step 1: Dosyayı oku**
+- [ ] **Step 1: Read the file**
 
 ```bash
 cat .claude/commands/orchestrate.md | head -20
 ```
 
-Beklenen: `# Orchestrate — Automated WORKFLOW.md Executor` ile başlar.
+Expected: starts with `# Orchestrate — Automated WORKFLOW.md Executor`.
 
-- [ ] **Step 2: Initialization bölümünden önce Step 0 bloğunu ekle**
+- [ ] **Step 2: Insert Step 0 block before the Initialization section**
 
-`## Initialization` satırından hemen önce şu bloğu ekle:
+Insert the following block immediately before the `## Initialization` line:
 
 ```markdown
 ## Step 0 — Complexity Scoring
@@ -47,7 +47,7 @@ Read `production/review-mode.txt` (default: `lean` if file missing). This contro
 
 | Mode | Effect |
 |------|--------|
-| `solo` | Reviewer ve unity-developer yok — coder/unity-coder → committer only. For prototypes/jams. |
+| `solo` | No reviewer or unity-developer — coder/unity-coder → committer only. For prototypes/jams. |
 | `lean` | Standard pipeline. For regular solo development. |
 | `full` | Standard pipeline + unity-developer second reviewer always active (regardless of complexity score). For team review or learning sessions. |
 
@@ -89,40 +89,40 @@ For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after the standa
 ---
 ```
 
-- [ ] **Step 3: Task Execution bölümündeki coder spawn satırını güncelle**
+- [ ] **Step 3: Update the coder spawn line in the Task Execution section**
 
-`### Task Execution` içinde coder agent spawn eden prompt'u bul. Mevcut sabit agent adı yerine scoring'e göre seçim yapacak şekilde şu notu ekle, spawn prompt'unun hemen üstüne:
+In `### Task Execution`, find the prompt that spawns the coder agent. Add the following note immediately above the spawn prompt, replacing the hardcoded agent name with a score-based selection:
 
 ```markdown
 **Coder agent:** Determine from Step 0 score and task target location (see routing table above).
 ```
 
-- [ ] **Step 4: Dosyayı doğrula**
+- [ ] **Step 4: Verify the file**
 
 ```bash
 grep -n "Step 0\|Complexity Scoring\|unity-coder-lite\|Agent routing" .claude/commands/orchestrate.md | head -10
 ```
 
-Beklenen: Step 0 satırları görünür.
+Expected: Step 0 lines are visible.
 
 ---
 
-## Task 2: `scene-setup.md` — Complexity Scoring Ekle
+## Task 2: `scene-setup.md` — Add Complexity Scoring
 
 **Files:**
 - Modify: `.claude/commands/scene-setup.md`
 
-- [ ] **Step 1: Dosyayı oku**
+- [ ] **Step 1: Read the file**
 
 ```bash
 cat .claude/commands/scene-setup.md | head -20
 ```
 
-Beklenen: `# /scene-setup` ile başlar.
+Expected: starts with `# /scene-setup`.
 
-- [ ] **Step 2: Pipeline satırından önce Step 0 bloğunu ekle**
+- [ ] **Step 2: Insert Step 0 block before the Pipeline section**
 
-`## Pipeline` satırından hemen önce şu bloğu ekle:
+Insert the following block immediately before the `## Pipeline` line:
 
 ```markdown
 ## Step 0 — Complexity Scoring
@@ -133,7 +133,7 @@ Read `production/review-mode.txt` (default: `lean` if file missing). This contro
 
 | Mode | Effect |
 |------|--------|
-| `solo` | Reviewer ve unity-developer yok — unity-coder/unity-coder-lite → unity-setup → committer only. |
+| `solo` | No reviewer or unity-developer — unity-coder/unity-coder-lite → unity-setup → committer only. |
 | `lean` | Standard pipeline. |
 | `full` | Standard pipeline + unity-developer second reviewer always active. |
 
@@ -169,40 +169,40 @@ For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after unity-revi
 ---
 ```
 
-- [ ] **Step 3: Step 1a — Coder spawn satırını güncelle**
+- [ ] **Step 3: Update Step 1a — Coder spawn line**
 
-`## Step 1a — Coder` altında mevcut `Spawn a **coder** subagent` satırını şu hale getir:
+Under `## Step 1a — Coder`, change the existing `Spawn a **coder** subagent` line to:
 
 ```markdown
 Spawn the coder agent determined in Step 0 (**unity-coder-lite** for Simple, **unity-coder** for Medium/Complex) with this prompt:
 ```
 
-- [ ] **Step 4: Dosyayı doğrula**
+- [ ] **Step 4: Verify the file**
 
 ```bash
 grep -n "Step 0\|Complexity Scoring\|unity-coder-lite\|Review Mode" .claude/commands/scene-setup.md | head -10
 ```
 
-Beklenen: Step 0 satırları görünür.
+Expected: Step 0 lines are visible.
 
 ---
 
-## Task 3: `migrate.md` — Complexity Scoring Ekle
+## Task 3: `migrate.md` — Add Complexity Scoring
 
 **Files:**
 - Modify: `.claude/commands/migrate.md`
 
-- [ ] **Step 1: Dosyayı oku**
+- [ ] **Step 1: Read the file**
 
 ```bash
 cat .claude/commands/migrate.md | head -20
 ```
 
-Beklenen: `# /migrate` ile başlar.
+Expected: starts with `# /migrate`.
 
-- [ ] **Step 2: Pipeline satırından önce Step 0 bloğunu ekle**
+- [ ] **Step 2: Insert Step 0 block before the Pipeline section**
 
-`## Pipeline` satırından hemen önce şu bloğu ekle:
+Insert the following block immediately before the `## Pipeline` line:
 
 ```markdown
 ## Step 0 — Complexity Scoring
@@ -213,7 +213,7 @@ Read `production/review-mode.txt` (default: `lean` if file missing). This contro
 
 | Mode | Effect |
 |------|--------|
-| `solo` | Test guard ve unity-developer yok — migrator → committer only. |
+| `solo` | No test guard or unity-developer — migrator → committer only. |
 | `lean` | Standard pipeline. |
 | `full` | Standard pipeline + unity-developer second reviewer always active. |
 
@@ -252,17 +252,17 @@ Review Mode: [solo | lean | full]
 ---
 ```
 
-- [ ] **Step 3: Simple mode için test guard'ı koşullu yap**
+- [ ] **Step 3: Make the test guard conditional for Simple mode**
 
-`## Step 1 — Test Guard` başlığından önce şu notu ekle:
+Add the following note before the `## Step 1 — Test Guard` heading:
 
 ```markdown
 > **Skip this step if complexity score is Simple (0.0–0.3) and review mode is not `full`.**
 ```
 
-- [ ] **Step 4: Complex mode için unity-developer adımını ekle**
+- [ ] **Step 4: Add the unity-developer step for Complex mode**
 
-`## Step 3 — Reviewer` bölümünün sonuna (APPROVED logundan sonra) şu bloğu ekle:
+After the APPROVED log at the end of `## Step 3 — Reviewer`, add the following block:
 
 ```markdown
 ### unity-developer Pass (Complex only)
@@ -295,32 +295,32 @@ CHANGES NEEDED:
 If CHANGES NEEDED → spawn **unity-migrator** to fix, then re-run unity-developer (max 2 passes).
 ```
 
-- [ ] **Step 5: Dosyayı doğrula**
+- [ ] **Step 5: Verify the file**
 
 ```bash
 grep -n "Step 0\|Complexity Scoring\|unity-migrator\|Skip this step" .claude/commands/migrate.md | head -10
 ```
 
-Beklenen: Step 0 ve migrator routing satırları görünür.
+Expected: Step 0 and migrator routing lines are visible.
 
 ---
 
-## Task 4: `add-feature.md` — Complexity Scoring Ekle
+## Task 4: `add-feature.md` — Add Complexity Scoring
 
 **Files:**
 - Modify: `.claude/commands/add-feature.md`
 
-- [ ] **Step 1: Dosyayı oku**
+- [ ] **Step 1: Read the file**
 
 ```bash
 cat .claude/commands/add-feature.md | head -20
 ```
 
-Beklenen: `# Add Feature Agent` ile başlar.
+Expected: starts with `# Add Feature Agent`.
 
-- [ ] **Step 2: Initialization bölümünden önce Step 0 bloğunu ekle**
+- [ ] **Step 2: Insert Step 0 block before the Initialization section**
 
-`## Initialization` satırından hemen önce şu bloğu ekle:
+Insert the following block immediately before the `## Initialization` line:
 
 ```markdown
 ## Step 0 — Complexity Scoring
@@ -331,7 +331,7 @@ Read `production/review-mode.txt` (default: `lean` if file missing). This contro
 
 | Mode | Effect |
 |------|--------|
-| `solo` | Reviewer ve unity-developer yok — coder/unity-coder → committer only. |
+| `solo` | No reviewer or unity-developer — coder/unity-coder → committer only. |
 | `lean` | Standard pipeline. |
 | `full` | Standard pipeline + unity-developer second reviewer always active. |
 
@@ -374,9 +374,9 @@ For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after unity-revi
 ---
 ```
 
-- [ ] **Step 3: Step 1 — interview koşulunu güncelle**
+- [ ] **Step 3: Update the interview condition in Step 1**
 
-`### Step 1: Understand the Feature` bölümündeki deep-interview çağrısını şu hale getir:
+In `### Step 1: Understand the Feature`, replace the deep-interview call with:
 
 ```markdown
 > **Interview depth from Step 0:**
@@ -384,22 +384,22 @@ For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after unity-revi
 > - Medium/Complex (0.4–1.0): Invoke the **deep-interview** skill — gates requirements through 5 dimensions, requires score 6/10 before implementation.
 ```
 
-- [ ] **Step 4: Dosyayı doğrula**
+- [ ] **Step 4: Verify the file**
 
 ```bash
 grep -n "Step 0\|Complexity Scoring\|unity-coder-lite\|Interview depth" .claude/commands/add-feature.md | head -10
 ```
 
-Beklenen: Step 0 ve Interview satırları görünür.
+Expected: Step 0 and Interview lines are visible.
 
 ---
 
 ## Self-Review Checklist
 
 - [x] Spec coverage: orchestrate ✓, scene-setup ✓, migrate ✓, add-feature ✓
-- [x] Tüm 4 komut için coder/unity-coder routing tablosu var
-- [x] migrate'te test guard skip koşulu var (Simple modda)
-- [x] migrate'te unity-developer pass var (Complex modda)
-- [x] add-feature'da interview uzunluğu scoring'e bağlı
-- [x] Placeholder yok — tüm adımlar somut içerik içeriyor
-- [x] Scoring sinyalleri tüm komutlarda tutarlı
+- [x] Coder/unity-coder routing table present for all 4 commands
+- [x] Test guard skip condition present in migrate (Simple mode)
+- [x] unity-developer pass present in migrate (Complex mode)
+- [x] Interview length tied to scoring in add-feature
+- [x] No placeholders — all steps contain concrete content
+- [x] Scoring signals consistent across all commands

@@ -2,48 +2,48 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** `.claude/commands/search.md` adında bir slash command oluşturmak — araştırma → reviewer doğrulama → kullanıcıya sunum pipeline'ı.
+**Goal:** Create a slash command at `.claude/commands/search.md` — a research → reviewer validation → present pipeline.
 
-**Architecture:** Research aşamasında Explore + unity-scout + opsiyonel web search agent'ları kullanılır. Bulguları reviewer zinciri doğrular: `unity-reviewer` → Codex (`codex:rescue`) → `reviewer` fallback. MISMATCH durumunda max 5 iterasyon döngüsü vardır. APPROVED sonrası kullanıcıya yapılandırılmış rapor sunulur.
+**Architecture:** The research phase uses Explore + unity-scout + optional web search agents. Findings are validated by a reviewer chain: `unity-reviewer` → Codex (`codex:rescue`) → `reviewer` fallback. A MISMATCH triggers a loop with a max of 5 iterations. After APPROVED, a structured report is presented to the user.
 
-**Tech Stack:** Claude Code slash commands (`.claude/commands/`), mevcut agent'lar (Explore, unity-scout, unity-reviewer, codex:rescue, reviewer)
+**Tech Stack:** Claude Code slash commands (`.claude/commands/`), existing agents (Explore, unity-scout, unity-reviewer, codex:rescue, reviewer)
 
 ---
 
 ## File Map
 
-| Dosya | Durum | Ne yapılacak |
-|-------|-------|--------------|
-| `.claude/commands/search.md` | Oluşturulacak | Ana komut tanımı — tüm pipeline |
+| File | Status | What to do |
+|------|--------|------------|
+| `.claude/commands/search.md` | Create | Main command definition — full pipeline |
 
-Tek dosya — başka dosya oluşturulmaz, değiştirilmez.
+Single file — no other files created or modified.
 
 ---
 
-## Task 1: `/search` komutunu oluştur
+## Task 1: Create the `/search` command
 
 **Files:**
 - Create: `.claude/commands/search.md`
 
-- [ ] **Step 1: Dosyayı oluştur**
+- [ ] **Step 1: Create the file**
 
-`.claude/commands/search.md` dosyasını aşağıdaki içerikle oluştur:
+Create `.claude/commands/search.md` with the following content:
 
 ```markdown
 # /search — Research → Review → Present Pipeline
 
-Bir sorguyu araştırır, root cause + çözüm üretir, reviewer zinciri (unity-reviewer → Codex → reviewer) ile doğrular, sonucu kullanıcıya sunar.
+Researches a query, produces a root cause + solution, validates it through the reviewer chain (unity-reviewer → Codex → reviewer), and presents the result to the user.
 
 ## Usage
 
 ```
 /search <query>
-/search "AudioService inject olmuyor"
-/search "EnemyMoveSystem bazen çalışmıyor"
-/search "bu projede event bus nasıl kullanılmış"
+/search "AudioService not injecting"
+/search "EnemyMoveSystem sometimes not running"
+/search "how is the event bus used in this project"
 ```
 
-Argüman verilmezse sor: "Ne araştıralım?"
+If no argument is provided, ask: "What should we research?"
 
 ---
 
@@ -179,7 +179,7 @@ Then append the appropriate next step based on the query type:
 ### If STATUS == INCONCLUSIVE
 
 ```
-SEARCH INCONCLUSIVE — 5 iterasyon sonunda kesin sonuç bulunamadı.
+SEARCH INCONCLUSIVE — no definitive result after 5 iterations.
 
 BEST GUESS (not reviewer-approved)
   ROOT_CAUSE: $LAST_ROOT_CAUSE
@@ -197,41 +197,40 @@ SUGGESTION
 $ARGUMENTS
 ```
 
-- [ ] **Step 2: Dosyanın oluşturulduğunu doğrula**
+- [ ] **Step 2: Verify the file was created**
 
 ```bash
 cat .claude/commands/search.md | head -5
 ```
 
-Beklenen çıktı:
+Expected output:
 ```
 # /search — Research → Review → Present Pipeline
 ```
 
-- [ ] **Step 3: CLAUDE.md'de Commands bölümüne `/search` satırını ekle**
+- [ ] **Step 3: Add `/search` line to the Commands section in CLAUDE.md**
 
-`.claude/CLAUDE.md` dosyasında `### Session & Context` bölümünü bul. Altındaki listeye şu satırı ekle:
+In `.claude/CLAUDE.md`, find the `### Session & Context` section. Add the following line to the list:
 
 ```markdown
-- `/search <query>` — Codebase araştırması: Explore + unity-scout + web search → unity-reviewer doğrulaması → sonuç raporu
+- `/search <query>` — Codebase research: Explore + unity-scout + web search → unity-reviewer validation → result report
 ```
 
-`### Session & Context` bölümünün başına yakın yerleştir (örneğin `/context-prime` satırının hemen altına).
+Place it near the top of the `### Session & Context` section (e.g. immediately below `/context-prime`).
 
-- [ ] **Step 4: Değişikliği commit et**
+- [ ] **Step 4: Commit the change**
 
 ```bash
 git add .claude/commands/search.md .claude/CLAUDE.md
 git commit -m "feat: add /search command — research + review pipeline"
 ```
 
-Beklenen çıktı: commit hash ve mesajı.
+Expected output: commit hash and message.
 
 ---
 
 ## Self-Review Checklist
 
 - [x] Spec coverage: Research (Explore + unity-scout + web search) ✓, Review loop max 5 iter ✓, APPROVED/INCONCLUSIVE outputs ✓, NEXT STEPS routing ✓
-- [x] Placeholder scan: Tüm adımlar somut içerik içeriyor, TBD yok
-- [x] Type consistency: `$QUERY`, `$ITERATION`, `$FEEDBACK`, `$ROOT_CAUSE`, `$EVIDENCE`, `$PROPOSED_SOLUTION`, `$STATUS` — tüm değişkenler tutarlı kullanılmış
-```
+- [x] Placeholder scan: all steps contain concrete content, no TBD
+- [x] Type consistency: `$QUERY`, `$ITERATION`, `$FEEDBACK`, `$ROOT_CAUSE`, `$EVIDENCE`, `$PROPOSED_SOLUTION`, `$STATUS` — all variables used consistently
