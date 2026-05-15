@@ -1,6 +1,6 @@
 ---
 name: test-type-router
-description: Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from a class name, file path, or task description. Used by /implement, /generate-tests, /create-test, and /create-plan before any test writing begins.
+description: Determines test type (EditMode / PlayMode-Programmatic / PlayMode-ECS / PlayMode-Scene / NoTest) from a class name, file path, or task description. Used by /implement, /generate-tests, /create-test, and /create-plan before any test writing begins.
 model-tier: light
 ---
 

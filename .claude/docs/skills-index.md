@@ -31,7 +31,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns for real MonoBehaviour and prefab integration tests |
 | `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed. Used by all MCP-dependent pipeline commands before spawning agents |
-| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path. Used by `/implement`, `/generate-tests`, `/create-test`, `/create-plan` before any test writing |
+| `test-type-router` | Determines test type (EditMode / PlayMode-Programmatic / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path. Used by `/implement`, `/generate-tests`, `/create-test`, `/create-plan` before any test writing |
 
 ## Platform (`skills/platform/`)
 
