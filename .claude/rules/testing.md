@@ -11,6 +11,13 @@ Every class under `_GameFolders/Scripts/` must have a corresponding test. Rule: 
 Before writing any test, apply this tree top-to-bottom — stop at the first match:
 
 ```
+Is it a NoTest type? (stop here if any match)
+├── LifetimeScope subclass       → NoTest  (DI wiring — tested via integration)
+├── ScriptableObject config      → NoTest  (data container — no logic)
+├── IComponentData struct        → NoTest  (data only)
+├── Baker<T> inner class         → NoTest  (bake-time only)
+└── NO → continue below
+
 Is the target a MonoBehaviour?
 ├── NO  → Is it an ISystem / SystemBase?
 │         ├── YES → PlayMode-ECS  (isolated World, no scene)
@@ -52,6 +59,8 @@ Is the target a MonoBehaviour?
 | `Games/Ecs/Systems/` | Play Mode — ECS World | NUnit + isolated World |
 | `Games/Ecs/Components/` | — | Data struct — no test needed |
 | `Games/Ecs/Authorings/` | — | Baker bake-time — no test needed |
+| `LifetimeScope` subclasses | — | DI wiring — tested via integration, not unit tests |
+| `ScriptableObject` configs | — | Data container — no logic to test |
 
 ---
 

@@ -116,7 +116,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-specifics.md` | Editor guards, platform defines, lifecycle order, no coroutines |
-| `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS), NSubstitute, AAA pattern, assembly setup |
+| `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
