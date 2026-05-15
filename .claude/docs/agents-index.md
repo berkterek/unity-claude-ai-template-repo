@@ -1,0 +1,36 @@
+# Agents (`.claude/agents/`)
+
+| Agent | Role |
+|-------|------|
+| `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Abstracts/`, and pure C# targets in complexity-scored pipelines (`/orchestrate`, `/migrate`). |
+| `tester` | Test writer — NSubstitute + AAA |
+| `reviewer` | General code review |
+| `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle + prefab structure (10-point checklist) |
+| `unity-setup` | Unity Editor setup via MCP — scenes, prefabs (root=logic / Body=visual, domain folders, Prefab Variants), ScriptableObjects |
+| `committer` | Staged changes → commit |
+| `debugger` | Root cause analysis |
+| `migrator` | Pattern migration |
+| `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |
+| `unity-shader-dev` | URP shader authoring — ShaderGraph, HLSL, render passes |
+| `unity-ui-builder` | UI Toolkit specialist — UXML, USS, runtime panel setup, data binding |
+| `unity-optimizer` | Runtime performance — allocations, draw calls, ECS hot paths, profiler-guided fixes |
+| `unity-scene-builder` | Scene composition via MCP — hierarchy, lighting, camera, volumes |
+| `graphics-setup-agent` | Creates URP Pipeline Assets (Low/Medium/High) for mobile or pc, configures Renderer Data, wires Quality Settings via MCP |
+| `audio-clip-agent` | Scans AudioClip assets, categorizes them, applies optimized import settings via temp Editor script + MCP |
+| `package-analyzer` | Read-only analyst — walks `Packages/manifest.json` + each package directory, detects prefabs and APIs, and returns skill drafts as JSON for `/discover` to write. |
+| `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
+| `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
+| `unity-build-runner` | CI/build pipeline — platform flags, build profiles, addressables baking |
+| `unity-coder` | **Primary Unity coder for Medium/Complex tasks.** Full Unity C# — MonoBehaviours, providers, installers, scene wiring. Used in `/implement`, `/fix`, `/scene-setup`, `/orchestrate`, `/migrate` when complexity ≥ 0.4. |
+| `unity-coder-lite` | Lightweight Unity coder for small isolated changes |
+| `unity-fixer` | Bug fixer with full context — reads surrounding code before patching |
+| `unity-fixer-lite` | Quick targeted fix for a single well-scoped defect |
+| `unity-git-master` | Git workflow — branching strategy, conflict resolution, history rewrite |
+| `unity-migrator` | Pattern migration specialist — coroutine→UniTask, singleton→VContainer, legacy input |
+| `unity-network-dev` | Netcode for GameObjects / Unity Transport — lobby, relay, RPCs |
+| `unity-prototyper` | Rapid prototype scaffolding — speed over correctness, clearly marked TODOs |
+| `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
+| `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
+| `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
+| `unity-test-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test` (PlayMode-Scene path) |
+| `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
