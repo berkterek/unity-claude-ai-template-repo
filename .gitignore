@@ -7,3 +7,4 @@
 .claude/state/session-start-time
 .claude/state/checkpoint.md
 .claude/state/codex-reviewed
+.claude/state/gate-cleared
