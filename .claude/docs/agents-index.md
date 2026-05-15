@@ -3,11 +3,11 @@
 | Agent | Role |
 |-------|------|
 | `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Abstracts/`, and pure C# targets in complexity-scored pipelines (`/orchestrate`, `/migrate`). |
-| `tester` | Test writer — NSubstitute + AAA |
+| `tester` | NUnit + NSubstitute test writer — AAA pattern, interface-only mocks. Spawned as an isolated `claude` subagent (clean context window) in `/implement`, `/fix`, `/orchestrate`, `/migrate` — prevents implementation context from leaking into test decisions. |
 | `reviewer` | General code review |
 | `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle + prefab structure (10-point checklist) |
 | `unity-setup` | Unity Editor setup via MCP — scenes, prefabs (root=logic / Body=visual, domain folders, Prefab Variants), ScriptableObjects |
-| `committer` | Staged changes → commit |
+| `committer` | Staged changes → semantic git commit. Runs inline (not as subagent). |
 | `debugger` | Root cause analysis |
 | `migrator` | Pattern migration |
 | `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |

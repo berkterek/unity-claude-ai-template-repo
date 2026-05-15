@@ -392,6 +392,8 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier → reviewer → committer. **Between phases:** pauses for `Proceed?` | Execute WORKFLOW.md end-to-end, phase by phase |
 
 > Reviewer priority across all pipelines: Codex → unity-reviewer (falls back if Codex is unavailable). Review loops: CHANGES NEEDED → coder fixes → reviewer re-checks → repeat (max 3 passes).
+>
+> **Tester isolation:** The `tester` step in `/implement`, `/fix`, `/orchestrate`, and `/migrate` runs as an isolated `claude` subagent. It receives a clean context window and reads `tester.md` + `testing.md` directly — preventing implementation context from leaking into test decisions. The `committer` step runs inline since simple git operations don't benefit from isolation.
 
 ### Development
 
@@ -453,10 +455,10 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | Agent | Role |
 |-------|------|
 | `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Abstracts/`, and pure C# targets in complexity-scored pipelines. |
-| `tester` | NUnit + NSubstitute test writer — AAA pattern, interface-only mocks |
+| `tester` | NUnit + NSubstitute test writer — AAA pattern, interface-only mocks. Spawned as an isolated `claude` subagent (clean context window) so test writing is not polluted by implementation context. |
 | `reviewer` | Principal-level code review — architecture, naming, performance |
 | `unity-developer` | Unity 6 specialist — second reviewer for complex tasks; checks hot paths, draw calls, ECS safety, Addressables lifecycle, prefab structure |
-| `committer` | Smart phase commit manager — semantic git commits |
+| `committer` | Smart phase commit manager — semantic git commits. Runs inline (not as subagent) — simple git ops don't benefit from context isolation. |
 | `unity-setup` | Scene, prefab, ScriptableObject configuration via Unity MCP — enforces prefab rules |
 | `debugger` | Root cause analysis — VContainer, ECS, UniTask, Input bug patterns |
 | `migrator` | Legacy pattern migration — coroutine→UniTask, singleton→VContainer, legacy input |
