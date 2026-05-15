@@ -26,7 +26,12 @@ Read these files to build the authoritative state:
 4. `.claude/commands/` → list all `.md` files present on disk
 5. `.claude/agents/` → list all `.md` files present on disk (if folder exists)
 
-Read CLAUDE.md to understand the current state of each section.
+Read the following files to understand the current state of each section:
+- `CLAUDE.md` — Blocking hooks table, Rules table, Commands section
+- `.claude/docs/hooks-warning.md` — Warning hooks table (split out via `@` reference)
+- `.claude/docs/agents-index.md` — Agents table (split out via `@` reference)
+
+> **Important:** Warning hooks and Agents are NOT in CLAUDE.md — they live in the `docs/` sub-files above. Always read those files directly; do not look for their tables inside CLAUDE.md.
 
 ---
 
@@ -34,14 +39,17 @@ Read CLAUDE.md to understand the current state of each section.
 
 ### Hooks Section
 
-Compare `settings.json` PreToolUse + PostToolUse entries against the **Hooks** table in CLAUDE.md.
+Compare `settings.json` PreToolUse + PostToolUse entries against the hook tables.
+
+- **Blocking hooks (exit 2)** → table is in `CLAUDE.md`
+- **Warning hooks (exit 0)** → table is in `.claude/docs/hooks-warning.md`
 
 For each hook in `settings.json`:
-- Is it listed in CLAUDE.md? If not → **ADD**
+- Is it listed in the correct file? If not → **ADD** to that file
 - Is the description accurate? If not → **UPDATE**
 - Is it in the correct table (Blocking vs Warning)? Exit 2 = Blocking, exit 0 = Warning.
 
-For each hook in CLAUDE.md:
+For each hook in CLAUDE.md or hooks-warning.md:
 - Is it still in `settings.json`? If not → **REMOVE**
 - Is the `.sh` file present on disk? If not → flag as **MISSING FILE**
 
@@ -64,10 +72,10 @@ Compare `.claude/commands/*.md` files against the **Commands** section in CLAUDE
 
 ### Agents Section
 
-Compare `.claude/agents/*.md` files against the **Agents** table in CLAUDE.md.
+Compare `.claude/agents/*.md` files against the **Agents** table in `.claude/docs/agents-index.md` (not CLAUDE.md — agents live in the split sub-file).
 
-- Agent present but not in table → **ADD** (extract role from agent file's first paragraph)
-- Agent deleted but still listed → **REMOVE**
+- Agent present but not in table → **ADD** to `agents-index.md` (extract role from agent file's first paragraph)
+- Agent deleted but still listed → **REMOVE** from `agents-index.md`
 
 ---
 
@@ -124,13 +132,15 @@ Update only the affected sections in CLAUDE.md. Do not rewrite unrelated content
 
 Rules for each section:
 
-**Hooks table** — maintain two sub-tables (Blocking / Warning). Each row: `| hook-name | description |`. Sort alphabetically within each group. Remove the `.sh` extension from hook names in the table.
+**Blocking hooks table** (in `CLAUDE.md`) — each row: `| hook-name | description |`. Sort alphabetically. Remove the `.sh` extension.
 
-**Rules table** — each row: `| filename.md | one-line description |`. Extract description from the first sentence of the rule file.
+**Warning hooks table** (in `.claude/docs/hooks-warning.md`) — same format. Write changes to that file, not CLAUDE.md.
 
-**Commands section** — maintain category groupings. Each entry: `| /command-name | description |`. Extract description from the command file's first paragraph.
+**Rules table** (in `CLAUDE.md`) — each row: `| filename.md | one-line description |`. Extract description from the first sentence of the rule file.
 
-**Agents table** — each row: `| agent-name | role |`. Extract role from the agent file's first paragraph.
+**Commands section** (in `CLAUDE.md`) — maintain category groupings. Each entry: `| /command-name | description |`. Extract description from the command file's first paragraph.
+
+**Agents table** (in `.claude/docs/agents-index.md`) — each row: `| agent-name | role |`. Extract role from the agent file's first paragraph. Write changes to that file, not CLAUDE.md.
 
 ---
 
