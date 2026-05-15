@@ -116,7 +116,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-specifics.md` | Editor guards, platform defines, lifecycle order, no coroutines |
-| `testing.md` | NSubstitute, AAA pattern, test naming, assembly setup |
+| `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
@@ -414,7 +414,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/check-portability` | Manual — single step | Audit a module for copy-paste portability to another project |
 | `/learn` | Manual — single step | Extract project-specific patterns into `.claude/skills/learned/` |
 | `/generate-tests` | Manual — single step | Write missing tests for an existing class |
-| `/create-test <FeatureName>` | Manual — single step | Unified test generator — EditMode unit test, PlayMode-ECS, or PlayMode-Scene (TestScope + TestInstaller + stub + scene via MCP) |
+| `/create-test <FeatureName>` | Manual — single step | Unified test generator — EditMode unit test, PlayMode-ECS, PlayMode-Programmatic (`new GameObject().AddComponent<>()`, no scene), or PlayMode-Scene (TestScope + TestInstaller + stub + scene via MCP) |
 | `/graphics-setup <mobile\|pc>` | Manual to start. Pauses for approval before creating assets | Show tier plan, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP |
 | `/audio-clip-setup [path]` | Manual to start. Pauses for commit confirmation at the end | Scan AudioClip assets, categorize, apply optimized import settings via MCP |
 | `/discover [--dry-run\|--write] [--only <pkg>]` | Manual — single step (`--dry-run` default) | Walk `Packages/manifest.json`, classify packages, write skill drafts, detect compliance violations |
@@ -662,7 +662,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope, UnityTest patterns |
 | `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed |
-| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path |
+| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Programmatic / PlayMode-Scene / NoTest) from class name or file path |
 
 ### Platform (`skills/platform/`)
 
