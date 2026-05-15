@@ -42,41 +42,11 @@ Optional Claude Code plugins. Each pipeline command checks for these at Step 0/0
 
 ## Quick Start
 
-1. Copy the `.claude/` folder into your Unity project root
-2. Run `/setup-project` — it detects existing state, asks about optional features (Addressables / Testing / ECS), generates folder structure, .asmdef files, and base classes, then writes `.claude/project-features.json`
-3. Complete the **Manual Setup Checklist** printed by `/setup-project`
-
-For an existing project with legacy code, see **Adding to an Existing Project** below.
-
-## Adding to an Existing Project
-
-Copy `.claude/` into the project root. Most hooks warn only — four will **block** existing code:
-
-| Hook | What it blocks | Migration path |
-|------|---------------|----------------|
-| `check-input-system.sh` | `Input.GetKey`, `Input.GetAxis` | Create `PlayerControls.inputactions`, wrap in `InputView` |
-| `check-vcontainer-singleton.sh` | Static singletons | Replace with VContainer registration in scope |
-| `guard-editor-runtime.sh` | Bare `using UnityEditor` in runtime | Wrap with `#if UNITY_EDITOR` |
-| `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` | Move Unity calls to a Provider in `Concretes/` |
-
-**Recommended migration order:**
-1. Run `/setup-project` to scaffold the folder structure
-2. Move existing scripts into the new structure without changing logic
-3. Fix blocking hook violations one module at a time
-4. Run `/migrate` for systematic pattern replacements (e.g. coroutine→UniTask)
-5. Run `/validate` after each phase to confirm green state
+@.claude/docs/quick-start.md
 
 ## Model Tiers
 
-Claude Code supports multiple models. Start your session with the right model for the task:
-
-| Tier | Model | Alias | When to use |
-|------|-------|-------|-------------|
-| **light** | `claude-haiku-4-5` | `claude-light` | Quick tasks: `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
-| **normal** | `claude-sonnet-4-6` | `claude-normal` | Balanced work: `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/performance-audit`, `/new-module`, `/check-portability`, `/clean-slop`, `/catch-up`, `/learn` |
-| **heavy** | `claude-opus-4-7` | `claude-heavy` | Deep thinking: `/architect`, `/plan-workflow`, `/game-idea`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
-
-Setup aliases once in your shell profile — see `.claude/aliases.sh`.
+@.claude/docs/model-tiers.md
 
 ## Session Start
 
@@ -326,6 +296,10 @@ _GameFolders/
 
 For incremental feature work on an existing game: `/implement <description>` (complexity scored, full pipeline).
 
+## Setup Checklist & Project-Specific Setup
+
+@.claude/docs/setup-checklist.md
+
 ## Skills Library (`.claude/skills/`)
 
 @.claude/docs/skills-index.md
@@ -351,51 +325,3 @@ cat .claude/logs/cost-tracker.log | tail -50
 
 Logs rotate daily and are stored in `.claude/logs/`.
 
-## Manual Setup Checklist
-
-After running `/setup-project`, complete these steps manually (Claude cannot do them):
-
-- [ ] **NSubstitute DLL** — Download from [NuGet](https://www.nuget.org/packages/NSubstitute): click "Download package", rename `.nupkg` to `.zip`, extract, take `NSubstitute.dll` from the `lib/` folder, place in `Assets/Plugins/NSubstitute/`
-- [ ] **VContainer** — Install via Package Manager or openupm (`jp.hadashikick.vcontainer`)
-- [ ] **UniTask** — Install via Package Manager or openupm (`com.cysharp.unitask`)
-- [ ] **New Input System** — Install via Package Manager (`com.unity.inputsystem`); set active input handling to "Input System Package (New)" in Project Settings → Player
-- [ ] **Addressables** — Install via Package Manager (`com.unity.addressables`); initialize via Window → Asset Management → Addressables → Groups
-- [ ] **AppScope scene** — Create a Bootstrap scene (Build index 0), add `AppScope` component, wire `AppInstaller`
-- [ ] **Build settings** — Add Bootstrap scene as index 0; add Menu and Game scenes
-- [ ] **`check-test-scene-exists.sh` hook** — Add to `.claude/settings.json` PostToolUse section (Claude cannot edit settings.json due to config-protection hook):
-  ```json
-  {
-    "matcher": "Write|Edit",
-    "hooks": [{ "type": "command", "command": ".claude/hooks/check-test-scene-exists.sh", "timeout": 5000, "statusMessage": "Checking test scene exists..." }]
-  }
-  ```
-- [ ] **`guard-reviewer-order.sh` hook** — Add to `.claude/settings.json` **PreToolUse** `Agent` matcher (alongside `guard-gate-cleared.sh`):
-  ```json
-  {
-    "type": "command",
-    "command": ".claude/hooks/guard-reviewer-order.sh",
-    "timeout": 3000,
-    "statusMessage": "Checking reviewer order (Codex first)..."
-  }
-  ```
-  Full entry in `hooks.PreToolUse` where `"matcher": "Agent"` already exists — add as a second hook in that hooks array.
-- [ ] **`track-codex-review.sh` hook** — Add to `.claude/settings.json` **PostToolUse** section as a new entry:
-  ```json
-  {
-    "matcher": "Agent",
-    "hooks": [{ "type": "command", "command": ".claude/hooks/track-codex-review.sh", "timeout": 3000, "statusMessage": "Tracking Codex review..." }]
-  }
-  ```
-
-## Project-Specific Setup
-
-When first adding this template to a new project, run `/setup-project`. It:
-
-1. **Detects existing state** — checks folder structure and `manifest.json`, compares against `project-features.json` if it exists, reports conflicts and offers sync-only mode
-2. **Asks feature questions** — Addressables (yes/no), Testing (yes/no), ECS (yes/no) — with detected signals as defaults
-3. **Writes `.claude/project-features.json`** — hooks and commands read this to skip disabled features
-4. **Generates** assembly definitions, base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`), and test templates (if Testing=yes + NSubstitute present)
-5. **Cleans settings.json** — removes hooks for disabled features
-6. **Updates CLAUDE.md** — prepends `## Project Features` section listing enabled/disabled features
-
-Then follow the **Manual Setup Checklist** it prints. **Note:** `.unity` scene files must be created manually in Unity Editor — Claude cannot write scene files (`block-scene-edit.sh` blocks all `.unity` writes).
