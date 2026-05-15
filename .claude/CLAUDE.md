@@ -129,7 +129,7 @@ Full pipeline flows: see `docs/WORKFLOW.md`.
 | `/check-portability` | Audit module for copy-paste portability |
 | `/clean-slop` | Remove AI-generated bloat |
 | `/learn` | Extract project patterns into `.claude/skills/learned/` |
-| `/discover [--dry-run\|--write]` | Emit per-package skill drafts from manifest.json |
+| `/discover [--dry-run\|--write]` | Emit per-package skill drafts from manifest.json — classifies packages as `unity-native` (prefabs/scenes → direct skill write) or `logic` (pure C# → recommends `/skill-creator` post-write) |
 | `/generate-tests` | Write missing tests for an existing class |
 | `/create-test <Feature>` | Full test infrastructure: EditMode / PlayMode-ECS / PlayMode-Scene |
 | `/graphics-setup <mobile\|pc>` | Create URP Pipeline Assets and wire into Quality Settings |

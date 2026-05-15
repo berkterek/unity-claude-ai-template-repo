@@ -450,7 +450,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/create-test <FeatureName>` | Manual — single step | Unified test generator — runs test-type-router and creates: EditMode unit test, PlayMode-ECS world test, or PlayMode-Scene (TestScope + TestInstaller + stub + scene via MCP) |
 | `/graphics-setup <mobile\|pc>` | Manual to start. Pauses for your approval before creating assets | Show tier plan, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP |
 | `/audio-clip-setup [path]` | Manual to start. Pauses for commit confirmation at the end | Scan AudioClip assets, categorize, apply optimized import settings via MCP |
-| `/discover [--dry-run\|--write] [--only <pkg>]` | Manual — single step (`--dry-run` default, no writes until `--write`) | Walk `Packages/manifest.json`, emit per-package skill drafts to `.claude/skills/third-party/`. Includes compliance scan — detects rule violations (singleton, legacy Input, coroutines, Resources.Load, etc.) and writes `compliance.md` per package when violations exist |
+| `/discover [--dry-run\|--write] [--only <pkg>]` | Manual — single step (`--dry-run` default, no writes until `--write`) | Walk `Packages/manifest.json`, classify each package as `unity-native` (has prefabs/scenes → direct skill write) or `logic` (pure C# → recommends `/skill-creator` post-write). Includes compliance scan — detects rule violations (singleton, legacy Input, coroutines, Resources.Load, etc.) and writes `compliance.md` per package when violations exist |
 
 ### Session & Context
 
