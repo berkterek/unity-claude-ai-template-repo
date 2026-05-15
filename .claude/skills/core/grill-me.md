@@ -57,7 +57,14 @@ My recommendation: [what you'd choose and the one-sentence reason]
 
 ## Output on /done
 
-Produce a **Decision Record**:
+Produce a **Decision Record** and save it to disk:
+
+1. Print the Decision Record in the terminal (format below)
+2. Determine a short slug from the subject (e.g. "grill-me-command-behavior")
+3. Run `mkdir -p docs/decisions` to ensure the folder exists
+4. Write the record to `docs/decisions/YYYY-MM-DD-grill-<slug>.md` using today's date
+5. Ask the user: "Commit this decision record? (yes / no)" — wait for reply before committing
+6. If yes → `git add docs/decisions/YYYY-MM-DD-grill-<slug>.md && git commit -m "docs: add grill decision record — <slug>"`
 
 ```
 ## Decision Record
