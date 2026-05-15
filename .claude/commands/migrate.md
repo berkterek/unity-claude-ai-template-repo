@@ -100,17 +100,29 @@ If the migration scope touches more than 5 files (scoring signal "+0.3 Touches m
 
 > **Skip this step if complexity score is Simple (0.0–0.3) and review mode is not `full`.**
 
-**Write/verify tests directly.** Read `.claude/agents/tester.md` and `.claude/rules/testing.md`, then:
+Spawn Agent with `subagent_type: "claude"` with this prompt:
 
-- Migration task: `$MIGRATION_DESCRIPTION`
-- Use NSubstitute — only mock interfaces; follow AAA pattern
-- Test naming: `MethodName_WhenCondition_ExpectedBehavior`
+```
+Read .claude/agents/tester.md for your role and testing philosophy.
+Read .claude/rules/testing.md for project-specific rules — these override tester.md where they conflict.
+Read .claude/CLAUDE.md for project architecture.
+
+## Project overrides (take precedence over tester.md)
+- Use NSubstitute for mocking, not hand-rolled fakes
+- Only mock interfaces, never concrete classes
+
+## Migration Task
+$MIGRATION_DESCRIPTION
+
+## Your job
 1. Check if tests already exist for the code being migrated.
 2. If tests exist and cover the relevant behavior → report: TESTS EXIST, list them.
-3. If tests are missing → write them now, covering behavior that must survive migration.
+3. If tests are missing → write them now, covering the behavior that must survive the migration.
 4. These tests must pass BEFORE migration starts.
 
-Report: TESTS EXIST or TESTS WRITTEN, with list of test files. Report: DONE or BLOCKED.
+Report: TESTS EXIST or TESTS WRITTEN, with list of test files and what each covers.
+Report: DONE or BLOCKED with reason.
+```
 
 If BLOCKED → stop and show the user.
 

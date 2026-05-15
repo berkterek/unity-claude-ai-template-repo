@@ -132,16 +132,28 @@ For **Complex** tasks: after the standard Reviewer step passes, spawn a **unity-
 
 ## Step 1 — Test Writer
 
-**Write tests directly.** Read `.claude/agents/tester.md` and `.claude/rules/testing.md`, then:
+Spawn Agent with `subagent_type: "claude"` with this prompt:
 
-- Task: `$TASK_DESCRIPTION`
-- Use NSubstitute — only mock interfaces, never concrete classes
-- Follow AAA pattern — one assertion per test
-- Test method naming: `MethodName_WhenCondition_ExpectedBehavior`
-- Tests must FAIL right now — no implementation yet
-- Do NOT write any implementation code
+```
+Read .claude/agents/tester.md for your role and testing philosophy.
+Read .claude/rules/testing.md for project-specific rules — these override tester.md where they conflict.
+Read .claude/CLAUDE.md for project architecture.
 
-When done: list every test file created with a summary of what each covers. Report: DONE or BLOCKED with reason.
+## Project overrides (take precedence over tester.md)
+- Use NSubstitute for mocking, not hand-rolled fakes
+- Only mock interfaces, never concrete classes
+
+## Task
+$TASK_DESCRIPTION
+
+## Your job
+1. Identify what class(es) and method(s) this task requires.
+2. Write all tests that define the expected behavior — they must FAIL right now (no implementation yet).
+3. Do NOT write any implementation code.
+
+When done: list every test file created with a summary of what each covers.
+Report: DONE or BLOCKED with reason.
+```
 
 If test writer reports **BLOCKED** → stop, show the blocker to the user, do not continue.
 

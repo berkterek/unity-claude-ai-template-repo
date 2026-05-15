@@ -195,17 +195,34 @@ find . -name "[ClassName]Tests.cs" -path "*/Tests/*"
 
 ## Step 3 — Test Writer
 
-**Write regression tests directly.** Read `.claude/agents/tester.md` and `.claude/rules/testing.md`, then:
+Spawn Agent with `subagent_type: "claude"` with this prompt:
 
-- Bug: `$BUG_DESCRIPTION`
-- Root cause: `$DEBUGGER_ROOT_CAUSE`
-- Affected files: `$DEBUGGER_AFFECTED_FILES`
-- Use NSubstitute — only mock interfaces, never concrete classes
-- Follow AAA pattern; test naming: `MethodName_WhenCondition_ExpectedBehavior`
-- The test must FAIL right now — do not fix the bug
-- Write test(s) that: (1) reproduce the bug, (2) pass once root cause is fixed, (3) serve as permanent regression guard
+```
+Read .claude/agents/tester.md for your role and testing philosophy.
+Read .claude/rules/testing.md for project-specific rules — these override tester.md where they conflict.
+Read .claude/CLAUDE.md for project architecture.
+
+## Project overrides (take precedence over tester.md)
+- Use NSubstitute for mocking, not hand-rolled fakes
+- Only mock interfaces, never concrete classes
+
+## Bug
+$BUG_DESCRIPTION
+
+## Root Cause
+$DEBUGGER_ROOT_CAUSE
+
+## Affected Files
+$DEBUGGER_AFFECTED_FILES
+
+## Your job
+Write regression test(s) that:
+1. Directly reproduce the bug — the test must FAIL right now, do not fix the bug
+2. Will PASS once the root cause is fixed
+3. Serve as a permanent regression guard
 
 When done: list every test file created with a summary. Report: DONE or BLOCKED with reason.
+```
 
 If test writer reports **BLOCKED** → stop and show the blocker to the user.
 

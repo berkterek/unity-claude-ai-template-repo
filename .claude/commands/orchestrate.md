@@ -167,17 +167,33 @@ Each task runs four steps in sequence (TDD: tests first, then implementation). A
 
 If `Agent: unity-setup` → skip this step, go directly to Step 2.
 
-**Write tests directly.** Read `.claude/agents/tester.md` and `.claude/rules/testing.md`, then:
+Spawn Agent with `subagent_type: "claude"` with this prompt:
 
-- Task ID: `[P{phase}.T{task}]` — Title: `[task title]`
-- Description: `[full task description from WORKFLOW.md]`
-- Acceptance criteria to cover: `[list every criterion from WORKFLOW.md]`
-- Use NSubstitute — only mock interfaces, never concrete classes
-- Follow AAA pattern — one assertion per test; naming: `MethodName_WhenCondition_ExpectedBehavior`
-- Tests must FAIL right now — no implementation exists yet
-- Do NOT commit anything
+```
+Read .claude/agents/tester.md for your role and testing philosophy.
+Read .claude/rules/testing.md for project-specific rules — these override tester.md where they conflict.
+Read .claude/CLAUDE.md for project architecture.
 
-When done: list every test file created with a summary. Report: DONE or BLOCKED with reason.
+## Project overrides (take precedence over tester.md)
+- Use NSubstitute for mocking, not hand-rolled fakes
+- Only mock interfaces, never concrete classes
+
+## Task
+ID: [P{phase}.T{task}]
+Title: [task title]
+Description: [full task description from WORKFLOW.md]
+
+## Acceptance Criteria (tests must cover these)
+[list every criterion from WORKFLOW.md]
+
+## Your job
+1. Write failing unit tests BEFORE any implementation exists.
+2. Tests must FAIL right now — no implementation exists yet.
+3. Do NOT commit anything.
+
+When done: list every test file created with a summary of what each covers.
+Report: DONE or BLOCKED with reason.
+```
 
 If **BLOCKED** → stop immediately. Print:
 ```
