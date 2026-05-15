@@ -310,7 +310,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `block-git-push` | `git push` — Claude cannot push; user always pushes manually |
 | `block-scene-edit` | Direct editing of `.unity`, `.prefab`, `.asset` YAML |
 | `guard-editor-runtime` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
-| `check-pure-csharp` | `using UnityEngine` inside `_Framework/` or service classes in `Abstracts/Concretes/` |
+| `check-pure-csharp` | `_Framework/` referencing `_GameFolders` or other project folders |
 | `check-input-system` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |
 | `check-time-scale` | `Time.timeScale =` assignment |
@@ -831,7 +831,7 @@ Some things Claude cannot do inside Unity Editor — you do these once per proje
 > Architecture summary (key rules at a glance): **[.claude/docs/architecture-summary.md](.claude/docs/architecture-summary.md)**
 
 ```
-_Framework/                  ← Pure C#, no Unity dependency
+_Framework/                  ← Never references _GameFolders or other project folders (may use UnityEngine internally)
   Events/                    ← IEventBus, IEvent
   Logging/
   SaveLoadSystems/

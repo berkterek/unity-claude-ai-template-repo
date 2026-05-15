@@ -12,7 +12,7 @@
 ### Folder Structure
 
 ```
-_Framework/              ← Pure C# — no Unity dependency
+_Framework/              ← Never references _GameFolders or other project folders (may use UnityEngine internally)
   Events/                ← IEventBus, IEvent, EventBusAccessor
   Logging/
   SaveLoadSystems/

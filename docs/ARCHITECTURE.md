@@ -102,7 +102,7 @@ graph TD
 
 ```mermaid
 graph TD
-    subgraph Framework["_Framework/ — Pure C#, no UnityEngine"]
+    subgraph Framework["_Framework/ — Never references _GameFolders or other project folders"]
         IEB["IEventBus / EventBus"]
         EBA2["EventBusAccessor"]
         LOG["Logging"]

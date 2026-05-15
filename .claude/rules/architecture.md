@@ -19,7 +19,7 @@ Views/Providers → Services → Models/Interfaces
 ## Layer Structure
 
 ```
-_Framework/          ← No Unity dependency. Pure C# infrastructure.
+_Framework/          ← Never references _GameFolders or other project folders. Pure infrastructure (may use UnityEngine APIs internally).
   Events/            ← IEventBus, IEvent
   Logging/
   SaveLoadSystems/
@@ -33,7 +33,7 @@ _GameFolders/        ← Depends on _Framework. All game-specific code.
     Tests/
 ```
 
-**Rule:** `_Framework` never references `_GameFolders`. `_GameFolders` may reference `_Framework`.
+**Rule:** `_Framework` never references `_GameFolders` or any other project folder. `_GameFolders` may reference `_Framework`.
 
 ---
 
