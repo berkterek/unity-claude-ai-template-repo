@@ -221,6 +221,19 @@ If `violations` is empty, do NOT emit `compliance.md`. Add nothing to `SKILL.md`
 
 ---
 
+## Package Type Classification
+
+After completing steps 3a–3d, classify each package as `unity-native` or `logic`:
+
+| Type | Criteria |
+|------|----------|
+| `unity-native` | `prefabs` non-empty **OR** `demo_scenes` non-empty **OR** primary scripts contain `MonoBehaviour`-derived classes |
+| `logic` | No prefabs, no scenes, and no `MonoBehaviour`-derived classes in sampled scripts — pure C# API |
+
+When in doubt (e.g. a package has one utility MonoBehaviour but is primarily C# logic), classify as `logic`.
+
+Record the result as `"package_type": "unity-native" | "logic"` in the JSON output.
+
 ## Outputs
 
 A JSON array on stdout where each element is:
@@ -229,6 +242,7 @@ A JSON array on stdout where each element is:
   "package": "<name>",
   "version": "<ver>",
   "size": "small|medium|large",
+  "package_type": "unity-native|logic",
   "output_dir": ".claude/skills/third-party/<slug>/",
   "files": [
     {

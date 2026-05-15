@@ -25,10 +25,10 @@ argument-hint: "[--dry-run] [--write] [--only <pkg>] [--include-assets-plugins]"
 
 3. Pretty-print a preview table:
 
-   | package | size | output_dir | files |
-   |---------|------|-----------|-------|
+   | package | type | size | output_dir | files |
+   |---------|------|------|-----------|-------|
 
-   Where `files` is the comma-separated list of filenames in the `files[]` array (e.g. `SKILL.md, prefabs.md, api.md`).
+   Where `type` is `unity-native` or `logic` (from `package_type` field), and `files` is the comma-separated list of filenames in the `files[]` array (e.g. `SKILL.md, prefabs.md, api.md`).
 
    Then immediately print the **Prefab Summary** table:
 
@@ -71,6 +71,16 @@ argument-hint: "[--dry-run] [--write] [--only <pkg>] [--include-assets-plugins]"
    - After processing all files for a package, print a per-package summary: `<pkg>: <N> written, <M> skipped`.
 
 7. After all packages, print a final summary line: `<N> packages processed, <M> files written, <K> files skipped`.
+
+8. **Logic package recommendation (--write only).** Collect all packages where `package_type == "logic"`. If any exist, print:
+
+   ```
+   Logic packages written: <pkg1>, <pkg2>, ...
+   These are pure C# libraries with no prefabs or Unity scenes.
+   Run /skill-creator on each to optimize trigger descriptions and improve auto-trigger accuracy.
+   ```
+
+   If no logic packages were written, skip this step.
 
 ## Output Contract
 
