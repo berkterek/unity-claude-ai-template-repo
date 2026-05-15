@@ -15,6 +15,54 @@ Claude Code reads the `.claude/` folder when it opens a project. This template p
 
 ---
 
+## Configuration File Map
+
+`CLAUDE.md` is the main entry point Claude Code reads at session start. It was split into multiple smaller files to avoid context/memory limits — the `@file` syntax includes them inline at load time.
+
+### `.claude/CLAUDE.md` — Main entry point
+
+Contains: stack requirements, session start instructions, hooks table (blocking), commands table, review modes, director gates, and session state. Includes three `@`-referenced sub-files:
+
+| Referenced file | What it contains |
+|-----------------|-----------------|
+| `.claude/docs/hooks-warning.md` | Warning hooks (exit 0) — full table of non-blocking style/quality checks |
+| `.claude/docs/agents-index.md` | All custom agents and their roles |
+| `.claude/docs/skills-index.md` | Skills library index — core, platform, systems, third-party |
+
+### `.claude/rules/` — Auto-loaded rule files
+
+| File | Covers |
+|------|--------|
+| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope |
+| `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation |
+| `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas |
+| `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
+| `unity-specifics.md` | Editor guards, platform defines, lifecycle order, no coroutines |
+| `testing.md` | NSubstitute, AAA pattern, test naming, assembly setup |
+| `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
+| `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
+| `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
+
+### `.claude/docs/` — Reference docs (not loaded at startup)
+
+| File | Purpose |
+|------|---------|
+| `hooks-warning.md` | Warning hooks table (`@`-included in CLAUDE.md) |
+| `agents-index.md` | Agent roster (`@`-included in CLAUDE.md) |
+| `skills-index.md` | Skills library index (`@`-included in CLAUDE.md) |
+| `director-gates.md` | Full gate definitions (SCOPE, ARCHITECTURE, BREAKING, QUALITY, COMMIT) |
+| `ARCHITECTURE.md` | High-level system architecture diagram |
+
+### `docs/` — Human-readable project docs
+
+| File | Purpose |
+|------|---------|
+| `SETUP.md` | Quick start, adding to existing project, hook audit log, model tiers |
+| `WORKFLOW.md` | Full pipeline flows for `/implement`, `/fix`, `/orchestrate`, etc. |
+| `CATCH_UP.md` | Auto-generated codebase guide (created by `/catch-up`, not committed) |
+
+---
+
 ## Stack
 
 ### Required
