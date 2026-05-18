@@ -1,14 +1,21 @@
-# Manual Setup Checklist
+# Setup Checklist
 
-After running `/setup-project`, complete these steps manually (Claude cannot do them):
+After running `/setup-project`, most scene/wiring work is handled automatically via MCP. Only a few steps truly require manual action.
+
+## MCP-Automated (done by /setup-project when MCP is connected)
+
+These are NOT manual — `/setup-project` Step 5d handles them via `manage_scene`, `manage_gameobject`, `manage_components`, and `manage_build`:
+
+- Scene creation: Bootstrap.unity, Menu.unity, Game.unity
+- AppScope GameObject + component attachment in Bootstrap scene
+- AppInstaller ScriptableObject creation and wiring to AppScope
+- Build Settings scene order (Bootstrap at index 0)
+
+## Truly Manual (cannot be automated)
 
 - [ ] **NSubstitute DLL** — Download from [NuGet](https://www.nuget.org/packages/NSubstitute): click "Download package", rename `.nupkg` to `.zip`, extract, take `NSubstitute.dll` from the `lib/` folder, place in `Assets/Plugins/NSubstitute/`
-- [ ] **VContainer** — Install via Package Manager or openupm (`jp.hadashikick.vcontainer`)
-- [ ] **UniTask** — Install via Package Manager or openupm (`com.cysharp.unitask`)
-- [ ] **New Input System** — Install via Package Manager (`com.unity.inputsystem`); set active input handling to "Input System Package (New)" in Project Settings → Player
-- [ ] **Addressables** — Install via Package Manager (`com.unity.addressables`); initialize via Window → Asset Management → Addressables → Groups
-- [ ] **AppScope scene** — Create a Bootstrap scene (Build index 0), add `AppScope` component, wire `AppInstaller`
-- [ ] **Build settings** — Add Bootstrap scene as index 0; add Menu and Game scenes
+- [ ] **New Input System — Project Settings** — After package install: Edit → Project Settings → Player → Active Input Handling → "Input System Package (New)" (Unity restarts; this cannot be set via MCP)
+- [ ] **Input Actions file** — Create `Assets/_GameFolders/Input/[ProjectName]Controls.inputactions`, enable "Generate C# Class" in Inspector
 - [ ] **`check-test-scene-exists.sh` hook** — Add to `.claude/settings.json` PostToolUse section (Claude cannot edit settings.json due to config-protection hook):
   ```json
   {
@@ -45,4 +52,4 @@ When first adding this template to a new project, run `/setup-project`. It:
 5. **Cleans settings.json** — removes hooks for disabled features
 6. **Updates CLAUDE.md** — prepends `## Project Features` section listing enabled/disabled features
 
-Then follow the checklist above. **Note:** `.unity` scene files must be created manually in Unity Editor — Claude cannot write scene files (`block-scene-edit.sh` blocks all `.unity` writes).
+Then follow the checklist above. **Note:** Claude's file tools cannot write `.unity` files (`block-scene-edit.sh` blocks this), but MCP tools (`manage_scene`, `manage_gameobject`, `manage_components`) can create and wire scenes directly through the Unity Editor — so Step 5d handles scene setup automatically when MCP is connected.

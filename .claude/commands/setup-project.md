@@ -153,7 +153,7 @@ Replace `<true|false>` with the actual answers. This file is read by hooks and c
 
 ### Step 2 — Generate Folder Structure
 
-> **NOTE:** Claude cannot create `.unity` scene files — `block-scene-edit.sh` blocks all writes to scene/prefab assets. Create scenes manually in Unity Editor (File → New Scene) or via `/scene-setup` after this command completes.
+> **NOTE:** Claude's file system tools cannot write `.unity` scene files (`block-scene-edit.sh` blocks this). However, if MCP is connected, scenes and prefab wiring are handled automatically in Step 5d via MCP tools (`manage_scene`, `manage_gameobject`, `manage_components`). Only fall back to manual Editor steps when MCP is unavailable.
 
 Always run Step 2 regardless of gate status. Create these folders (empty `.gitkeep` files where needed):
 
@@ -799,45 +799,118 @@ PYEOF
 
 ---
 
-### Step 6 — Print Manual Setup Checklist
+### Step 5d — MCP Scene & Wiring Setup
 
-Always end with this checklist:
+Run this step ONLY if MCP is connected (State 1 from mcp-preflight).
+
+MCP can do what Claude's file tools cannot: create scenes, add GameObjects, attach and configure components, and wire prefab references — all through the Unity Editor directly.
+
+#### 5d-1 — Create Scenes
+
+```python
+manage_scene(action="create", name="Bootstrap", template="empty", path="Assets/_Scenes/Bootstrap.unity", set_active=True)
+manage_scene(action="create", name="Menu", template="empty", path="Assets/_Scenes/Menu.unity")
+manage_scene(action="create", name="Game", template="3d_basic", path="Assets/_Scenes/Game.unity")
+```
+
+#### 5d-2 — Set Up AppScope in Bootstrap Scene
+
+Wait for compilation to finish after Step 4 scripts are generated, then:
+
+```python
+# Open Bootstrap scene
+manage_scene(action="load", path="Assets/_Scenes/Bootstrap.unity")
+
+# Create AppScope GameObject
+manage_gameobject(action="create", name="AppScope")
+
+# Add AppScope component (generated in Step 4)
+manage_gameobject(action="modify", target="AppScope", components_to_add=["Game.Concretes.Infrastructure.AppScope"])
+```
+
+#### 5d-3 — Create AppInstaller Asset and Wire It
+
+```python
+# Create AppInstaller ScriptableObject asset
+manage_asset(
+    action="create_scriptable_object",
+    type_name="Game.Concretes.Infrastructure.AppInstaller",
+    path="Assets/_GameFolders/Configs/AppInstaller.asset"
+)
+
+# Wire AppInstaller into AppScope._appInstaller field
+manage_components(
+    action="set_property",
+    target="AppScope",
+    component="Game.Concretes.Infrastructure.AppScope",
+    property="_appInstaller",
+    value="Assets/_GameFolders/Configs/AppInstaller.asset"
+)
+```
+
+#### 5d-4 — Configure Build Settings
+
+```python
+manage_build(action="scenes", scenes=[
+    {"path": "Assets/_Scenes/Bootstrap.unity", "enabled": True},
+    {"path": "Assets/_Scenes/Menu.unity", "enabled": True},
+    {"path": "Assets/_Scenes/Game.unity", "enabled": True}
+])
+```
+
+After this step: take a screenshot to verify the Bootstrap scene hierarchy looks correct.
+
+```python
+manage_camera(action="screenshot", capture_source="scene_view", include_image=True)
+```
+
+---
+
+### Step 6 — Print Remaining Manual Checklist
+
+After MCP setup (Step 5d), only these items require manual action:
 
 ```
 ## Manual Setup Required
 
-### Scenes (Claude cannot create .unity files)
-Create these scenes manually in Unity Editor (File → New Scene → Save):
-- Assets/_Scenes/Bootstrap.unity
-- Assets/_Scenes/Menu.unity
-- Assets/_Scenes/Game.unity
-After creating Bootstrap.unity: set it as Build Index 0 in Build Settings.
+### New Input System — Project Settings
+After installing Input System package:
+1. Edit → Project Settings → Player → Active Input Handling → Input System Package (New)
+   (Unity will restart — this cannot be set via MCP)
+2. Create Assets/_GameFolders/Input/[ProjectName]Controls.inputactions
+3. Select the asset → enable "Generate C# Class" in Inspector → Apply
 
 ### NSubstitute (only if Testing=yes)
 NSubstitute cannot be installed via Package Manager.
-1. Download NSubstitute.dll from NuGet: https://www.nuget.org/packages/NSubstitute — click "Download package", rename .nupkg to .zip, extract, take NSubstitute.dll from the lib/ folder
-2. Place at: Assets/Plugins/NSubstitute/NSubstitute.dll  (NOT inside _GameFolders)
-3. The .asmdef files already reference it via precompiledReferences
-4. If you skipped this earlier, re-run /setup-project to generate test templates.
+1. Download from https://www.nuget.org/packages/NSubstitute — click "Download package"
+2. Rename .nupkg → .zip, extract, copy NSubstitute.dll from the lib/ folder
+3. Place at: Assets/Plugins/NSubstitute/NSubstitute.dll
+4. Re-run /setup-project to generate test templates with NSubstitute references.
 
-### VContainer
-Install via openupm or Package Manager:
-https://github.com/hadashiA/VContainer
+### settings.json Hook Entries
+Claude cannot edit settings.json (blocked by check-config-protection.sh).
+Add these entries manually — see .claude/docs/setup-checklist.md for the exact JSON blocks:
+- check-test-scene-exists.sh (PostToolUse, Write|Edit matcher)
+- guard-reviewer-order.sh (PreToolUse, Agent matcher)
+- track-codex-review.sh (PostToolUse, Agent matcher)
+```
 
-### UniTask
-Install via openupm or Package Manager:
-https://github.com/Cysharp/UniTask
+If MCP was NOT connected during Step 5d, also add these manual steps:
 
-### New Input System
-1. Install via Package Manager: com.unity.inputsystem
-2. Edit → Project Settings → Player → Active Input Handling → Input System Package (New)
-3. Create Assets/Input/[ProjectName]Controls.inputactions
-4. Enable "Generate C# Class" in the .inputactions inspector
+```
+### Scenes (MCP unavailable — create manually)
+In Unity Editor (File → New Scene → Save As):
+- Assets/_Scenes/Bootstrap.unity (Build index 0)
+- Assets/_Scenes/Menu.unity
+- Assets/_Scenes/Game.unity
 
-### AppScope Scene Setup
+### AppScope Scene Setup (MCP unavailable)
 1. Open Bootstrap.unity
 2. Create empty GameObject named "AppScope"
 3. Add AppScope component
-4. Right-click Assets/Configs → Create → Game/Infrastructure/App Installer → name it AppInstaller
-5. Drag AppInstaller asset onto AppScope._appInstaller field
+4. Create ScriptableObject: right-click Assets/_GameFolders/Configs → Create → Game/Infrastructure/App Installer → name it AppInstaller
+5. Drag AppInstaller asset onto AppScope._appInstaller field in Inspector
+
+### Build Settings (MCP unavailable)
+File → Build Settings → Add Open Scenes — add all three scenes with Bootstrap at index 0.
 ```
