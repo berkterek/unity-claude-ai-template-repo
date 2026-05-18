@@ -2,7 +2,6 @@
 
 | Hook | Warns |
 |------|-------|
-| `check-naming-conventions.sh` | Non-PascalCase types, wrong field naming |
 | `check-no-linq-hotpath.sh` | LINQ in Update/FixedUpdate/LateUpdate |
 | `check-no-hotpath-expensive-calls.sh` | `GetComponent`, `Camera.main`, `FindObjectOfType`, bare `transform.`, `tag ==`, `SendMessage` inside Update/FixedUpdate/LateUpdate/Tick/FixedTick/LateTick — suppressed if `_transform` field is cached |
 | `check-getcomponent-in-awake.sh` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment for all components including `Transform`; only acceptable when component is added dynamically at runtime |
@@ -10,10 +9,7 @@
 | `check-test-exists.sh` | Logic class with no corresponding test file — skipped if `testing=false` in `project-features.json` |
 | `check-compile.sh` | Basic C# syntax (braces, namespace, type declaration) |
 | `warn-serialization.sh` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
-| `warn-filename.sh` | C# filename doesn't match primary class name |
 | `check-unused-code.sh` | Unused private members, unused imports |
-| `check-namespace-format.sh` | Namespace not in `Layer.Module` format |
-| `check-event-naming.sh` | `IEvent` struct without `Event` suffix or not past tense |
 | `check-ecs-structural-changes.sh` | `EntityManager.AddComponent/RemoveComponent/DestroyEntity` inside ECS system (use ECB) — skipped if `ecs=false` in `project-features.json` |
 | `check-async-void.sh` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation.sh` | `async UniTask` methods without `CancellationToken` parameter |

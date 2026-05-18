@@ -328,7 +328,6 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 
 | Hook | What it warns |
 |------|--------------|
-| `check-naming-conventions` | Wrong field/type naming (underscore, PascalCase rules) |
 | `check-no-linq-hotpath` | LINQ inside `Update` / `FixedUpdate` / `LateUpdate` |
 | `check-no-hotpath-expensive-calls` | `GetComponent`, `Camera.main`, `FindObjectOfType`, bare `transform.`, `tag ==`, `SendMessage` in hot paths |
 | `check-getcomponent-in-awake` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment |
@@ -336,10 +335,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-test-exists` | Logic class with no matching test file |
 | `check-compile` | Basic C# syntax errors |
 | `warn-serialization` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
-| `warn-filename` | C# filename doesn't match primary class name |
 | `check-unused-code` | Unused private members and imports |
-| `check-namespace-format` | Namespace not in `Layer.Module` format (e.g. `Game.Concretes`) |
-| `check-event-naming` | `IEvent` struct without `Event` suffix or not past tense |
 | `check-ecs-structural-changes` | `EntityManager.AddComponent/DestroyEntity` inside ECS system (use ECB) |
 | `check-async-void` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation` | `async UniTask` methods missing `CancellationToken` parameter |

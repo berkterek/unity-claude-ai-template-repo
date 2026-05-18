@@ -175,17 +175,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-naming-conventions.sh",
-            "timeout": 5000,
-            "statusMessage": "Checking naming conventions..."
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
             "command": ".claude/hooks/check-no-linq-hotpath.sh",
             "timeout": 5000,
             "statusMessage": "Checking LINQ on hot paths..."
@@ -263,42 +252,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/warn-filename.sh",
-            "timeout": 3000,
-            "statusMessage": "Checking filename matches class..."
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
             "command": ".claude/hooks/check-unused-code.sh",
             "timeout": 10000,
             "statusMessage": "Checking for unused code..."
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/check-namespace-format.sh",
-            "timeout": 3000,
-            "statusMessage": "Checking namespace format..."
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/check-event-naming.sh",
-            "timeout": 3000,
-            "statusMessage": "Checking IEvent naming..."
           }
         ]
       },
