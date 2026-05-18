@@ -6,6 +6,9 @@
 - `/fix-deep <bug>` — **complexity score** → **evidence-first pipeline**: log intake (file / text / MCP) → hypothesis → debug injection → Step 3: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → **evidence gate** (proven / refuted / inconclusive) → fix only if proven → validator → reviewer → **silent failure audit** (changed files) → committer; refuses to fix if root cause cannot be proven
   - Use for: logic bugs, "sometimes happens" issues, wrong values at runtime, NullRef with unclear source
   - Use `/fix` when: stack trace clearly points to root cause
+- `/fix-smart <bug>` — **Codex-first pipeline**: context package (error + files + prior attempts + architecture rules) → **Codex autonomous** (analyze + fix + verify) → **Claude architecture review** (VContainer / UniTask / Input / event rules) → [Codex revision loop max 3x if violations found]
+  - Use when: `/fix` or `/fix-deep` failed after 2+ attempts, or bug root cause is completely unclear
+  - Codex reads code directly without prior hypotheses — avoids the "wrong area" trap
 - `/scene-setup <description>` — **complexity score** → **unity-coder-lite** (Simple) / **unity-coder** (Medium/Complex) + unity-setup → **unity-verifier** → **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → committer
 - `/migrate <pattern> in <scope>` — **complexity score** → [test guard if Medium/Complex] → **migrator** / **unity-migrator** → reviewer → [unity-developer if score ≥ 0.7] → committer
 - `/create-plan <file> <what>` — researcher → **complexity-aware planner** (opus, assigns `parallel_group` to independent tasks) → reviewer → save → optional implementer (parallel spawn for grouped tasks if complexity ≥ 0.4)
