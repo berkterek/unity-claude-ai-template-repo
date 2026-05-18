@@ -236,9 +236,10 @@ public class TestScope : AppScope { } // forbidden
 
 ---
 
-## Build Settings Checklist
+## Build Settings
 
-Before running tests in CI or on device:
-- [ ] Add all `_Scenes/TestScenes/*.unity` to Build Settings
-- [ ] `Empty.unity` must also be in Build Settings
-- [ ] Test scenes should be at the end of the list (after game scenes)
+Test scenes are added to Build Settings automatically by `/create-test` via MCP (`manage_build`) immediately after scene creation. Test scenes always go at the end of the scene list, after all game scenes.
+
+If a test scene was created without MCP (code-only mode), add it manually:
+- `_Scenes/TestScenes/[Feature]Test.unity` → end of Build Settings list
+- `_Scenes/TestScenes/Empty.unity` → end of Build Settings list (if not already there)

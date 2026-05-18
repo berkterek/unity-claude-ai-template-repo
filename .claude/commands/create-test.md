@@ -359,7 +359,9 @@ namespace [Namespace].PlayModeTest
 6. Add `[Feature]TestInstaller` component to TestBootstrap
 7. Wire `_installer` field on TestScope to the TestInstaller component
 8. Save scene
-9. If `Assets/_Scenes/TestScenes/Empty.unity` missing → create minimal empty scene
+9. If `Assets/_Scenes/TestScenes/Empty.unity` missing → create minimal empty scene and save it
+10. Add `Assets/_Scenes/TestScenes/[Feature]Test.unity` to Build Settings via `manage_build` (append to end of scene list)
+11. If Empty.unity was just created → also add `Assets/_Scenes/TestScenes/Empty.unity` to Build Settings
 
 ---
 
@@ -496,7 +498,7 @@ Show staged files:
 ```
 Files to commit:
   [list generated .cs files]
-  (scene .unity files excluded — add to Build Settings manually)
+  (scene .unity files committed; Build Settings updated via MCP)
 
 Commit? (go / stop)
 ```
@@ -533,8 +535,6 @@ Wait for `go`. On `go` → **execute commits directly** following `.claude/agent
 - Run: Window → General → Test Runner → PlayMode → [FEATURE]Tests
 
 [PlayMode-Scene]
-- Add Assets/_Scenes/TestScenes/[FEATURE]Test.unity to Build Settings
-- Add Assets/_Scenes/TestScenes/Empty.unity to Build Settings (if not already)
 - Open [FEATURE]Test scene → drag feature prefabs into scene
 - Wire [SerializeField] config references in [FEATURE]TestInstaller
 - Fill in [UnityTest] stub with real assertions

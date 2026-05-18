@@ -149,8 +149,9 @@ namespace [Namespace].Tests
 5. Add the `[Feature]TestInstaller` component to TestBootstrap
 6. Wire `_installer` field on TestScope to the TestInstaller component
 7. Save the scene
-
-If `_Scenes/TestScenes/Empty.unity` does not exist — create it as an empty scene.
+8. If `_Scenes/TestScenes/Empty.unity` does not exist — create it as an empty scene and save it
+9. Add `Assets/_Scenes/TestScenes/[Feature]Test.unity` to Build Settings via `manage_build` (append to end of scene list)
+10. If Empty.unity was just created → also add `Assets/_Scenes/TestScenes/Empty.unity` to Build Settings
 
 ## Step 4 — Check TestBootstrap Prefab
 
@@ -170,8 +171,6 @@ Check if `_GameFolders/Prefabs/TestBootstrap/TestBootstrap.prefab` exists.
 - Test stub:  _GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/[Feature]Tests.cs
 
 ### Manual Steps Required
-- [ ] Add _Scenes/TestScenes/[Feature]Test.unity to Build Settings
-- [ ] Add _Scenes/TestScenes/Empty.unity to Build Settings (if not already)
 - [ ] Wire [SerializeField] config references in [Feature]TestInstaller
 - [ ] Place feature prefabs in the test scene via Unity Editor
 - [ ] Fill in the [UnityTest] stub with real assertions
