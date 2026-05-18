@@ -808,7 +808,7 @@ MCP can do what Claude's file tools cannot: create scenes, add GameObjects, atta
 #### 5d-1 — Create Scenes
 
 ```python
-manage_scene(action="create", name="Bootstrap", template="empty", path="Assets/_Scenes/Bootstrap.unity", set_active=True)
+manage_scene(action="create", name="Bootstrap", template="empty", path="Assets/_Scenes/Bootstrap.unity")
 manage_scene(action="create", name="Menu", template="empty", path="Assets/_Scenes/Menu.unity")
 manage_scene(action="create", name="Game", template="3d_basic", path="Assets/_Scenes/Game.unity")
 ```
@@ -832,17 +832,18 @@ manage_gameobject(action="modify", target="AppScope", components_to_add=["Game.C
 
 ```python
 # Create AppInstaller ScriptableObject asset
-manage_asset(
-    action="create_scriptable_object",
-    type_name="Game.Concretes.Infrastructure.AppInstaller",
-    path="Assets/_GameFolders/Configs/AppInstaller.asset"
+manage_scriptable_object(
+    action="create",
+    path="Assets/_GameFolders/Configs",
+    name="AppInstaller",
+    type_name="Game.Concretes.Infrastructure.AppInstaller"
 )
 
 # Wire AppInstaller into AppScope._appInstaller field
 manage_components(
     action="set_property",
     target="AppScope",
-    component="Game.Concretes.Infrastructure.AppScope",
+    component_type="Game.Concretes.Infrastructure.AppScope",
     property="_appInstaller",
     value="Assets/_GameFolders/Configs/AppInstaller.asset"
 )
@@ -851,11 +852,7 @@ manage_components(
 #### 5d-4 — Configure Build Settings
 
 ```python
-manage_build(action="scenes", scenes=[
-    {"path": "Assets/_Scenes/Bootstrap.unity", "enabled": True},
-    {"path": "Assets/_Scenes/Menu.unity", "enabled": True},
-    {"path": "Assets/_Scenes/Game.unity", "enabled": True}
-])
+manage_build(action="scenes", scenes='[{"path": "Assets/_Scenes/Bootstrap.unity", "enabled": true}, {"path": "Assets/_Scenes/Menu.unity", "enabled": true}, {"path": "Assets/_Scenes/Game.unity", "enabled": true}]')
 ```
 
 After this step: take a screenshot to verify the Bootstrap scene hierarchy looks correct.
