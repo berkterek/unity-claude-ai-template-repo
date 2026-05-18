@@ -38,19 +38,7 @@ Read and apply `.claude/skills/core/mcp-preflight.md`.
 
 ---
 
-## Step 0b — Complexity Scoring
-
-**Step 0c — Brainstorming (Complex tasks only)**
-
-If complexity score ≥ 0.7 AND `superpowers:brainstorming` is available → invoke `superpowers:brainstorming` before spawning the coder. Use it to explore alternative scene/prefab structures and VContainer scope placement. Document the chosen approach in one paragraph, then proceed.
-
----
-
-## Step 0a — Complexity Scoring
-
-**Step 0b — Read Review Mode**
-
-**Step 0b — Read Review Mode**
+## Step 0b — Complexity Scoring & Review Mode
 
 Read `production/review-mode.txt` (default: `lean` if file missing). This controls pipeline depth:
 
@@ -86,6 +74,10 @@ Rationale: [one sentence]
 Coder Agent: [unity-coder-lite | unity-coder]
 Review Mode: [solo | lean | full]
 ```
+
+**Step 0c — Brainstorming (Complex tasks only)**
+
+If complexity score ≥ 0.7 AND `superpowers:brainstorming` is available → invoke `superpowers:brainstorming` before spawning the coder. Use it to explore alternative scene/prefab structures and VContainer scope placement. Document the chosen approach in one paragraph, then proceed.
 
 If the task creates a new module folder (complexity score includes the +0.3 new-module signal): fire **ARCHITECTURE_GATE** immediately (see `.claude/docs/director-gates.md`). Show the proposed module/prefab structure and wait for `go`.
 
