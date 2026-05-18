@@ -41,6 +41,8 @@
 - `/create-test <FeatureName>` — Unified test generator: runs test-type-router to determine EditMode / PlayMode-ECS / PlayMode-Programmatic / PlayMode-Scene, then generates the full test infrastructure for the chosen type. EditMode → NSubstitute unit test. PlayMode-ECS → isolated World test. PlayMode-Programmatic → `new GameObject().AddComponent<>()` lifecycle test, no scene. PlayMode-Scene → TestScope + TestInstaller + test stub + scene via MCP.
 - `/graphics-setup <mobile|pc>` — Show tier plan (Low/Medium/High), await approval, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP, wire into Quality Settings, commit option
 - `/audio-clip-setup [path]` — Scan AudioClip assets, categorize (Music/SFX/UI/Voice), apply optimized import settings via temp Editor script + MCP; reports per-clip changes + summary + commit option
+- `/update-scene-hierarchy [scene]` — Reorganize scene containers — moves misplaced GOs into correct `[Setup]`/`[Services]`/`[UI]`/`[Environment]`/`[Characters]`/`[VFX]` containers; creates missing containers; does not convert bare GOs to prefabs
+- `/unity-scene-update [scene]` — Full scene audit — reorganizes containers AND converts bare GameObjects to prefabs under `_GameFolders/Prefabs/<Domain>/`; skips `[Setup]` targets (LifetimeScope objects wired manually)
 - `/performance-audit` — Audit files for allocations and hot-path violations
 - `/debug-session` — Structured root cause analysis; routes to **unity-fixer** (complex) or **unity-fixer-lite** (scoped) after root cause; **learner** skill runs on completion
 - `/silent-failure-hunt` — Audit files for swallowed exceptions and silent error patterns
