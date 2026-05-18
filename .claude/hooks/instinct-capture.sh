@@ -85,4 +85,11 @@ jq -cn \
     '{ts:$ts, project:$project, tool:$tool, file:$file, suffix:$suffix, path_tag:$path_tag, warning_count:$warning_count}' \
     >> "$UNITY_OBSERVATIONS_FILE"
 
+# Rotate: keep last 500 lines so instinct-distill.sh never parses unbounded history
+lines=$(wc -l < "$UNITY_OBSERVATIONS_FILE" 2>/dev/null || echo 0)
+if [ "$lines" -gt 500 ]; then
+    tail -n 500 "$UNITY_OBSERVATIONS_FILE" > "${UNITY_OBSERVATIONS_FILE}.tmp"
+    mv "${UNITY_OBSERVATIONS_FILE}.tmp" "$UNITY_OBSERVATIONS_FILE"
+fi
+
 exit 0
