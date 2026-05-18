@@ -54,17 +54,8 @@ These are bare GameObjects (no components). All subsequent GOs are placed as chi
 [Characters]/
     Player
     Enemies/
-@Cameras/
-    Main Camera
-    Cinemachine Virtual Camera
-@Lighting/
-    Directional Light
-    Point Lights/
-@UI/
-    Canvas
-@Systems/
-    GameManager
-    AudioManager
+[VFX]/
+    ExplosionEffect
 ```
 
 ### Step 4: Create GameObjects via batch_execute
@@ -76,9 +67,9 @@ ALWAYS use `batch_execute` for multiple operations — it's 10-100x faster than 
   "tool": "batch_execute",
   "operations": [
     {"tool": "manage_gameobject", "action": "create", "name": "Player", "parent": "@Characters"},
-    {"tool": "manage_components", "target": "Player", "action": "add", "component": "Rigidbody2D"},
-    {"tool": "manage_components", "target": "Player", "action": "add", "component": "BoxCollider2D"},
-    {"tool": "manage_components", "target": "Player", "action": "add", "component": "SpriteRenderer"}
+    {"tool": "manage_components", "target": "Player", "action": "add", "component_type": "Rigidbody2D"},
+    {"tool": "manage_components", "target": "Player", "action": "add", "component_type": "BoxCollider2D"},
+    {"tool": "manage_components", "target": "Player", "action": "add", "component_type": "SpriteRenderer"}
   ]
 }
 ```
@@ -105,8 +96,7 @@ ALWAYS use `batch_execute` for multiple operations — it's 10-100x faster than 
 
 ## Scene Organization Rules
 
-- Root objects prefixed with `@` for system objects: `@Environment`, `@Characters`, `@UI`
-- Use a `_Dynamic` object for runtime-spawned objects
+- Use a `_Dynamic` object under the appropriate container for runtime-spawned objects
 - Keep hierarchy depth under 5 levels (deep hierarchies slow Unity)
 - Empty parent objects for organization are fine — they have negligible cost
 
