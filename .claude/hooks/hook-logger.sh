@@ -7,7 +7,7 @@
 #   log_hook "check-input-system" "$EXIT_CODE" "$FILE_PATH" "$ISSUES"
 
 LOG_FILE="${HOME}/.claude/hook-audit.log"
-MAX_LINES=5000
+MAX_LINES=500
 
 log_hook() {
     local hook_name="$1"
