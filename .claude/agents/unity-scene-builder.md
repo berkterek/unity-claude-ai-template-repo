@@ -31,13 +31,27 @@ Use scene templates when available:
 
 ### Step 3: Build Hierarchy
 
-Organize with parent objects:
+Read `.claude/rules/scene-hierarchy.md` before placing any GameObject.
+
+**First action in every scene — create all six standard containers via `batch_execute`:**
 ```
-@Environment/
+[Setup] → [Services] → [UI] → [Environment] → [Characters] → [VFX]
+```
+
+These are bare GameObjects (no components). All subsequent GOs are placed as children of the correct container using the classification table in `scene-hierarchy.md`. Never place a GO at root level.
+
+```
+[Setup]/
+    GameScope (prefab instance)
+[Services]/
+    SpiritAudioProvider (prefab instance)
+[UI]/
+    Canvas_HUD (prefab instance)
+[Environment]/
     Ground
     Walls
     Platforms
-@Characters/
+[Characters]/
     Player
     Enemies/
 @Cameras/

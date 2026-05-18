@@ -120,6 +120,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
+| `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]` → `[Services]` → `[UI]` → `[Environment]` → `[Characters]` → `[VFX]`), classification table, prefab/container rules |
 
 ### `.claude/docs/` — Key reference docs (not loaded at startup)
 
@@ -420,6 +421,8 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/graphics-setup <mobile\|pc>` | Manual to start. Pauses for approval before creating assets | Show tier plan, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP |
 | `/audio-clip-setup [path]` | Manual to start. Pauses for commit confirmation at the end | Scan AudioClip assets, categorize, apply optimized import settings via MCP |
 | `/discover [--dry-run\|--write] [--only <pkg>]` | Manual — single step (`--dry-run` default) | Walk `Packages/manifest.json`, classify packages, write skill drafts, detect compliance violations |
+| `/update-scene-hierarchy [scene]` | Manual — single step | Reorganize scene containers — moves misplaced GOs into correct `[Setup]`/`[Services]`/`[UI]`/`[Environment]`/`[Characters]`/`[VFX]` containers |
+| `/unity-scene-update [scene]` | Manual — single step | Full scene audit — reorganizes containers AND converts bare GameObjects to prefabs |
 
 ### Session & Context
 

@@ -2,6 +2,8 @@
 
 Sets up a new scene or prefab: coder writes the C# scripts, unity-setup wires everything in the Unity Editor via MCP, reviewer checks, committer commits.
 
+**Scene hierarchy standard:** All scenes built by this command follow `.claude/rules/scene-hierarchy.md` — six standard containers (`[Setup]`, `[Services]`, `[UI]`, `[Environment]`, `[Characters]`, `[VFX]`) are created first, every GO is placed in the correct container, every GO is a prefab instance.
+
 ## Usage
 
 ```

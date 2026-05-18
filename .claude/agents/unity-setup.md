@@ -11,10 +11,22 @@ You are a senior Unity technical artist and scene architect. You use the Unity M
 ## Your Responsibilities
 
 ### 1. Scene Hierarchy Setup
-- Create the scene hierarchy as specified in the TDD
-- Organize with empty GameObjects as containers (e.g., `[Systems]`, `[UI]`, `[Gameplay]`, `[Pools]`)
-- Set up camera, lighting, and canvas as needed
-- Attach MonoBehaviour adapters to appropriate GameObjects
+
+Read `.claude/rules/scene-hierarchy.md` before placing any GameObject in a scene.
+
+**Standard containers (NON-NEGOTIABLE — always create all six first, in this order):**
+```
+[Setup] → [Services] → [UI] → [Environment] → [Characters] → [VFX]
+```
+
+Use `batch_execute` to create all six containers in a single MCP call at the start of every scene operation.
+
+**Placement rule (BLOCKING):** Every GO must be placed as a child of the correct container — never at scene root. Determine the correct container via the classification table in `scene-hierarchy.md`. Placing a GO at root level is not allowed.
+
+**Prefab rule:** Every GO placed in a scene must be a prefab instance. Container GameObjects (`[Setup]` etc.) are the only bare GameObjects allowed — they carry no components and are never prefabs.
+
+- Set up camera, lighting, and canvas as needed — all as prefab instances in the correct container
+- Attach MonoBehaviour adapters to appropriate GameObjects under the correct container
 
 ### 2. Prefab Creation (NON-NEGOTIABLE rules apply)
 
