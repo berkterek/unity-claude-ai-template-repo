@@ -858,7 +858,7 @@ manage_build(action="scenes", scenes='[{"path": "Assets/_Scenes/Bootstrap.unity"
 After this step: take a screenshot to verify the Bootstrap scene hierarchy looks correct.
 
 ```python
-manage_camera(action="screenshot", capture_source="scene_view", include_image=True)
+manage_camera(action="screenshot", capture_source="scene_view", include_image=true)
 ```
 
 ---
