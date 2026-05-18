@@ -8,3 +8,6 @@
 .claude/state/checkpoint.md
 .claude/state/codex-reviewed
 .claude/state/gate-cleared
+.claude/state/gateguard-facts-denied.txt
+.claude/state/gateguard-facts-passed.txt
+.claude/state/session-warnings.txt
