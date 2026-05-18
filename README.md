@@ -349,9 +349,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `instinct-capture` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `hook-logger` | Central audit logger — appends newline-delimited JSON to `~/.claude/hook-audit.log` |
-| `detect-gaps` (SessionStart) | Scans for undocumented systems, missing tests, and orphaned modules |
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
-| `pre-compact` (Stop) | Runs before context compaction — prompts Claude to save session state |
 | `session-restore` (SessionStart) | Restores session state from `.claude/state/` on session start |
 | `session-save` (Stop) | Saves current session state to `.claude/state/` on stop |
 

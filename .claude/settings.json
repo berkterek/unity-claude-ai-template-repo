@@ -394,26 +394,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/session-start.sh",
-            "timeout": 3000,
-            "statusMessage": "Loading session state..."
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/detect-gaps.sh",
-            "timeout": 5000,
-            "statusMessage": "Scanning for documentation gaps..."
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": ".claude/hooks/session-restore.sh",
             "timeout": 3000,
             "statusMessage": "Restoring session state..."
@@ -422,16 +402,6 @@
       }
     ],
     "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/pre-compact.sh",
-            "timeout": 3000,
-            "statusMessage": "Saving session state..."
-          }
-        ]
-      },
       {
         "hooks": [
           {
