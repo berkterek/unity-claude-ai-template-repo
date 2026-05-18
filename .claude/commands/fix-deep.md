@@ -91,10 +91,10 @@ You are a Unity log collector. Do NOT fix anything. Only collect evidence.
 $BUG_DESCRIPTION
 
 ## Instructions
-1. Use `mcp__UnityMCP__read_console` with type "Error" — collect all errors.
-2. Use `mcp__UnityMCP__read_console` with type "Warning" — collect relevant warnings.
-3. Use `mcp__UnityMCP__read_console` with type "Log" — collect any logs related to the bug.
-4. Use `mcp__UnityMCP__editor_state` to confirm the editor is in a state relevant to the bug.
+1. Use `mcp__unityMCP__read_console` with type "Error" — collect all errors.
+2. Use `mcp__unityMCP__read_console` with type "Warning" — collect relevant warnings.
+3. Use `mcp__unityMCP__read_console` with type "Log" — collect any logs related to the bug.
+4. Read `mcpforunity://editor/state` to confirm the editor is in a state relevant to the bug.
 
 ## Output Format
 LOGS COLLECTED:
@@ -220,8 +220,8 @@ $HYPOTHESIS
 All injected logs start with "[FIX-DEEP]"
 
 ## Instructions
-1. Use `mcp__UnityMCP__read_console` with type "Log" — collect ALL "[FIX-DEEP]" prefixed lines.
-2. Use `mcp__UnityMCP__read_console` with type "Error" — collect any errors that appeared.
+1. Use `mcp__unityMCP__read_console` with type "Log" — collect ALL "[FIX-DEEP]" prefixed lines.
+2. Use `mcp__unityMCP__read_console` with type "Error" — collect any errors that appeared.
 3. Report verbatim — do not interpret yet.
 
 ## Output Format
@@ -405,11 +405,11 @@ $BUG_DESCRIPTION — $CONFIRMED_ROOT_CAUSE
 $CODER_OUTPUT
 
 ## Instructions
-1. Use `mcp__UnityMCP__refresh_unity` to trigger recompile.
+1. Use `mcp__unityMCP__refresh_unity` to trigger recompile.
 2. Wait until `isCompiling` is false.
-3. Use `mcp__UnityMCP__read_console` with type "Error" — check for compile errors.
+3. Use `mcp__unityMCP__read_console` with type "Error" — check for compile errors.
 4. If compile errors → report COMPILE FAILED.
-5. If clean → use `mcp__UnityMCP__run_tests` to run Edit Mode tests.
+5. If clean → use `mcp__unityMCP__run_tests` to run Edit Mode tests.
 6. If any tests fail → report TEST FAILED.
 7. If all pass → report VALIDATED.
 8. Also verify: no "[FIX-DEEP]" strings remain in any modified file.

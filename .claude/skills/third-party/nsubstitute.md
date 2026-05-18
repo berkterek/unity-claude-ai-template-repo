@@ -74,7 +74,7 @@ Checklist:
 2. Test `.asmdef` has `"overrideReferences": true`
 3. Test `.asmdef` has `"NSubstitute.dll"` in `precompiledReferences`
 4. Test `.asmdef` references the target game assembly in `references`
-5. Unity was refreshed after changing `.asmdef` (`mcp__UnityMCP__refresh_unity`)
+5. Unity was refreshed after changing `.asmdef` (`mcp__unityMCP__refresh_unity`)
 
 ### Symptom: Tests compile but `Substitute.For<ConcreteClass>()` throws at runtime
 

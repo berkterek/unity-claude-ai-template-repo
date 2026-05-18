@@ -181,10 +181,10 @@ Checks:
 **Verdict:** `VALIDATED` — clean compile and all tests pass. `COMPILE FAILED: [errors]` or `TEST FAILED: [tests]`
 
 Steps:
-1. `mcp__UnityMCP__refresh_unity` — trigger recompile
+1. `mcp__unityMCP__refresh_unity` — trigger recompile
 2. Poll `editor_state` until `isCompiling` is false
-3. `mcp__UnityMCP__read_console` with type `Error` — check for errors
-4. If clean → `mcp__UnityMCP__run_tests` — run Edit Mode tests
+3. `mcp__unityMCP__read_console` with type `Error` — check for errors
+4. If clean → `mcp__unityMCP__run_tests` — run Edit Mode tests
 5. Report VALIDATED or list failures
 
 ---

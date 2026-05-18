@@ -151,7 +151,7 @@ The type's assembly is not referenced.
 1. Find which `.asmdef` owns the missing type (look at the folder containing its `.cs` file)
 2. Open your assembly's `.asmdef`
 3. Add the missing assembly name to `references`
-4. Refresh Unity (`mcp__UnityMCP__refresh_unity`)
+4. Refresh Unity (`mcp__unityMCP__refresh_unity`)
 
 ### `CS0234` — namespace not found
 

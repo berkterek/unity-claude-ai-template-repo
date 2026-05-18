@@ -215,11 +215,11 @@ $TASK_DESCRIPTION
 $CODER_OUTPUT
 
 ## Instructions
-1. Use `mcp__UnityMCP__refresh_unity` to trigger a script recompile.
+1. Use `mcp__unityMCP__refresh_unity` to trigger a script recompile.
 2. Wait until `isCompiling` is false (poll `editor_state` resource).
-3. Use `mcp__UnityMCP__read_console` with type "Error" to check for compile errors.
+3. Use `mcp__unityMCP__read_console` with type "Error" to check for compile errors.
 4. If compile errors exist → report COMPILE FAILED with the full error list. Stop here.
-5. If compile is clean → use `mcp__UnityMCP__run_tests` to run all Edit Mode tests.
+5. If compile is clean → use `mcp__unityMCP__run_tests` to run all Edit Mode tests.
 6. Check test results for any failures.
 7. If any tests fail → report TEST FAILED with test names and failure messages. Stop here.
 8. If all tests pass → report VALIDATED.
@@ -346,9 +346,9 @@ $CODER_OUTPUT
 
 ## Instructions
 Run up to 3 internal fix-check iterations. In each iteration:
-1. Use `mcp__UnityMCP__refresh_unity` and wait for compile to finish.
-2. Check `mcp__UnityMCP__read_console` for errors.
-3. Run `mcp__UnityMCP__run_tests` and check for failures.
+1. Use `mcp__unityMCP__refresh_unity` and wait for compile to finish.
+2. Check `mcp__unityMCP__read_console` for errors.
+3. Run `mcp__unityMCP__run_tests` and check for failures.
 4. Verify prefab structure is intact: root holds logic components, Body child holds visual components.
 5. If compile errors or test failures exist and iterations remain — fix and re-check.
 6. If clean after any iteration → stop and report VERIFIED.
