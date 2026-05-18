@@ -14,4 +14,5 @@
 | `guard-critical-files.sh` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — **exception: files under `TestScopes/`, `EditModeTest/`, or `PlayModeTest/` paths** |
 | `check-config-protection.sh` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — **exception: test assemblies (`EditModeTest`, `PlayModeTest`)** |
 | `gateguard.sh` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
+| `guard-gate-cleared.sh` (PreToolUse) | Agent spawn blocked if `.claude/state/gate-cleared` is missing — Director Gate must be shown and `go` received before spawning any coder/fixer/committer agent |
 | `guard-reviewer-order.sh` | Codex installed and no `.claude/state/codex-reviewed` marker → blocks `unity-reviewer` agent spawn; Codex review required first. |

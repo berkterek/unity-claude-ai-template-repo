@@ -18,10 +18,12 @@
 | `check-async-void.sh` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation.sh` | `async UniTask` methods without `CancellationToken` parameter |
 | `check-null-propagation.sh` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
-| `check-test-scene-exists.sh` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test` — skipped if `testing=false` |
+| `detect-gaps.sh` (SessionStart) | Scans for undocumented systems, missing tests, and orphaned modules at session start |
+| `session-start.sh` (SessionStart) | Loads session state at session start |
 | `track-codex-review.sh` (PostToolUse) | Creates `.claude/state/codex-reviewed` when `codex:codex-rescue` agent completes — enables `unity-reviewer` as fallback in reviewer-order enforcement |
 | `instinct-capture.sh` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker.sh` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `instinct-distill.sh` (Stop) | Distills captured observations into confidence-scored instincts |
+| `pre-compact.sh` (Stop) | Prompts Claude to save session state before context compaction |
 | `session-restore.sh` (SessionStart) | Restores session state from `.claude/state/` on session start |
 | `session-save.sh` (Stop) | Saves current session state to `.claude/state/` on stop |

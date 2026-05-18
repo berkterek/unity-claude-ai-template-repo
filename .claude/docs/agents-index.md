@@ -32,5 +32,6 @@
 | `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
 | `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
-| `unity-test-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test` (PlayMode-Scene path) |
+| `silent-failure-hunter` | Audits C# files for silent failure patterns (empty catch, swallowed async errors, dangerous fallbacks) — reports only, never auto-fixes |
+| `unity-test-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, wires TestBootstrap in scene via MCP, and adds the test scene to Build Settings automatically; used by `/create-test` (PlayMode-Scene path) |
 | `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
