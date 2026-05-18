@@ -60,7 +60,7 @@ Read and apply `.claude/skills/core/mcp-preflight.md`.
 For each target scene:
 
 1. Check editor is ready: read `mcpforunity://editor/state` → wait until `ready_for_tools == true`
-2. Open the scene: `manage_scene(action="open", scene_path="<path>")`
+2. Open the scene: `manage_scene(action="load", path="<path>")`
 3. Get the full hierarchy with pagination:
    ```
    manage_scene(action="get_hierarchy", page_size=50, cursor=0)
