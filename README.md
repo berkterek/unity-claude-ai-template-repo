@@ -416,7 +416,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/check-portability` | Manual — single step | Audit a module for copy-paste portability to another project |
 | `/learn` | Manual — single step | Extract project-specific patterns into `.claude/skills/learned/` |
 | `/generate-tests` | Manual — single step | Write missing tests for an existing class |
-| `/create-test <FeatureName>` | Manual — single step | Unified test generator — EditMode unit test, PlayMode-ECS, PlayMode-Programmatic (`new GameObject().AddComponent<>()`, no scene), or PlayMode-Scene (TestScope + TestInstaller + stub + scene via MCP) |
+| `/create-test <FeatureName>` | Manual — single step | Unified test generator — EditMode unit test, PlayMode-ECS, PlayMode-Programmatic (`new GameObject().AddComponent<>()`, no scene), or PlayMode-Scene (TestScope + TestInstaller + stub + scene via MCP + auto-adds scene to Build Settings) |
 | `/graphics-setup <mobile\|pc>` | Manual to start. Pauses for approval before creating assets | Show tier plan, create URP Pipeline Assets + Renderer Data + URPQualityConfiguration via MCP |
 | `/audio-clip-setup [path]` | Manual to start. Pauses for commit confirmation at the end | Scan AudioClip assets, categorize, apply optimized import settings via MCP |
 | `/discover [--dry-run\|--write] [--only <pkg>]` | Manual — single step (`--dry-run` default) | Walk `Packages/manifest.json`, classify packages, write skill drafts, detect compliance violations |
@@ -485,7 +485,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
 | `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
-| `unity-test-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, and wires TestBootstrap in scene via MCP; used by `/create-test` |
+| `unity-test-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, wires TestBootstrap in scene via MCP, and adds the test scene to Build Settings automatically; used by `/create-test` |
 | `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
 
 ---
