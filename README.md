@@ -771,7 +771,7 @@ Every hook execution is logged to `~/.claude/hook-audit.log` as newline-delimite
 
 ```jsonc
 {"ts":"2026-05-04T10:22:01Z","hook":"check-vcontainer-singleton","status":"BLOCKED","file":"Games/Concretes/GameManager.cs","project":"my-game"}
-{"ts":"2026-05-04T10:22:02Z","hook":"check-naming-conventions","status":"OK","file":"Games/Concretes/GameManager.cs","project":"my-game"}
+{"ts":"2026-05-04T10:22:02Z","hook":"warn-serialization","status":"OK","file":"Games/Concretes/GameManager.cs","project":"my-game"}
 ```
 
 **Status values:** `OK` — passed · `BLOCKED` — write was stopped (exit 2) · `WARN` — warning logged (exit 0 with output)
