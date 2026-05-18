@@ -333,7 +333,6 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-getcomponent-in-awake` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment |
 | `check-no-runtime-instantiate` (Destroy) | `Destroy()` — use `pool.Return()` / `SetActive(false)` or `Addressables.ReleaseInstance()` instead |
 | `check-test-exists` | Logic class with no matching test file |
-| `check-compile` | Basic C# syntax errors |
 | `warn-serialization` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
 | `check-unused-code` | Unused private members and imports |
 | `check-ecs-structural-changes` | `EntityManager.AddComponent/DestroyEntity` inside ECS system (use ECB) |

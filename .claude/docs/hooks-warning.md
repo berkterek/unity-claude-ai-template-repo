@@ -7,7 +7,6 @@
 | `check-getcomponent-in-awake.sh` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment for all components including `Transform`; only acceptable when component is added dynamically at runtime |
 | `check-no-runtime-instantiate.sh` | `new GameObject()` — **blocked** outside Pool/Factory/Spawner and Editor files; `Destroy()` — warning only (`Instantiate(prefab)` is allowed) |
 | `check-test-exists.sh` | Logic class with no corresponding test file — skipped if `testing=false` in `project-features.json` |
-| `check-compile.sh` | Basic C# syntax (braces, namespace, type declaration) |
 | `warn-serialization.sh` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
 | `check-unused-code.sh` | Unused private members, unused imports |
 | `check-ecs-structural-changes.sh` | `EntityManager.AddComponent/RemoveComponent/DestroyEntity` inside ECS system (use ECB) — skipped if `ecs=false` in `project-features.json` |

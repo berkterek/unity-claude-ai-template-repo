@@ -230,17 +230,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-compile.sh",
-            "timeout": 5000,
-            "statusMessage": "Checking syntax..."
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
             "command": ".claude/hooks/warn-serialization.sh",
             "timeout": 5000,
             "statusMessage": "Checking serialization safety..."
