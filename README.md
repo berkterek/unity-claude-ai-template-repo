@@ -332,9 +332,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-no-hotpath-expensive-calls` | `GetComponent`, `Camera.main`, `FindObjectOfType`, bare `transform.`, `tag ==`, `SendMessage` in hot paths |
 | `check-getcomponent-in-awake` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment |
 | `check-no-runtime-instantiate` (Destroy) | `Destroy()` — use `pool.Return()` / `SetActive(false)` or `Addressables.ReleaseInstance()` instead |
-| `check-test-exists` | Logic class with no matching test file |
 | `warn-serialization` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
-| `check-unused-code` | Unused private members and imports |
 | `check-ecs-structural-changes` | `EntityManager.AddComponent/DestroyEntity` inside ECS system (use ECB) |
 | `check-async-void` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation` | `async UniTask` methods missing `CancellationToken` parameter |

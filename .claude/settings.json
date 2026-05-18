@@ -219,31 +219,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-test-exists.sh",
-            "timeout": 10000,
-            "statusMessage": "Checking test coverage..."
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
             "command": ".claude/hooks/warn-serialization.sh",
             "timeout": 5000,
             "statusMessage": "Checking serialization safety..."
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/check-unused-code.sh",
-            "timeout": 10000,
-            "statusMessage": "Checking for unused code..."
           }
         ]
       },
