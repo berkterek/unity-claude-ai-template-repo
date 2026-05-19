@@ -294,10 +294,10 @@ Skip `/qa` if you're inside an active `/orchestrate` run — the phase gate alre
 | `/implement` | Manual to start. Inside: test writer → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Implement a feature or task with full TDD pipeline |
 | `/fix` | Manual to start. Inside: unity-fixer + unity-scout → test writer → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Bug fix when stack trace clearly points to root cause |
 | `/fix-deep` | Manual to start. Inside: log intake → hypothesis → debug injection → evidence gate → fix (only if proven) → committer run **automatically**. **Refuses to fix if root cause is unproven** | Logic bugs, intermittent issues, or any uncertain root cause |
-| `/fix-smart` | Manual to start. Inside: context package → **Codex autonomous** (analyze + fix + verify) → Claude architecture review → [Codex revision loop max 3x] | Use when `/fix` or `/fix-deep` failed after 2+ attempts — Codex reads code directly without prior hypotheses |
+| `/fix-codex` | Manual to start. Inside: **Codex Analysis** (fresh eyes) → **Human Gate** → **Codex Implementation** → **Codex Review** → committer | Legacy/büyük codebase (2000+ satır), `/fix` veya `/fix-deep` takıldıysa, 30+ dakika sarman içindeysen — Claude hiç analiz yapmaz |
 | `/new-module` | Manual — single step | Scaffold a 5-file module (Interface, Service, Config, Installer, Events) |
 
-> **`/fix` vs `/fix-deep` vs `/fix-smart`:** Use `/fix` when the stack trace clearly points to the root cause. Use `/fix-deep` for logic bugs, "sometimes happens" issues, or any case where the root cause is uncertain. Use `/fix-smart` when both have failed — Codex takes over autonomously, Claude reviews for architecture compliance.
+> **`/fix` vs `/fix-deep` vs `/fix-codex`:** Use `/fix` when the stack trace clearly points to the root cause. Use `/fix-deep` for logic bugs, "sometimes happens" issues, or any case where the root cause is uncertain. Use `/fix-codex` for legacy/large codebases (2000+ line files) or when stuck 30+ minutes — Codex analyzes, implements, and reviews entirely without Claude pre-analysis.
 
 ---
 
@@ -377,7 +377,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/implement <task>` | Manual to start → test writer → coder → verifier → reviewer → silent failure audit → committer | TDD implementation pipeline for a single well-defined task |
 | `/fix <bug>` | Manual to start → unity-fixer + unity-scout → test writer → coder → verifier → reviewer → committer | Bug fix pipeline — use when stack trace points to root cause |
 | `/fix-deep <bug>` | Manual to start → log intake → hypothesis → debug injection → evidence gate → fix (only if proven) → committer. **Refuses to fix if root cause is unproven** | Evidence-first bug fix — use for logic bugs or intermittent issues |
-| `/fix-smart <bug>` | Manual to start → context package → **Codex autonomous** (analyze + fix + verify) → Claude architecture review → [Codex revision loop max 3x] | Codex-first fix — escalate here when `/fix` or `/fix-deep` failed |
+| `/fix-codex [--files f1,f2] <bug>` | Manual to start → **Codex Analysis** (fresh eyes, no hypotheses) → Human Gate → **Codex Implementation** → **Codex Review** → committer | Legacy/büyük codebase veya /fix//fix-deep takıldığında — Claude hiç analiz yapmaz |
 | `/migrate <pattern> in <scope>` | Manual to start → test guard → migrator → reviewer → committer | Legacy pattern migration (coroutine→UniTask, singleton→VContainer, etc.) |
 | `/scene-setup <description>` | Manual to start → coder + unity-setup → verifier → reviewer → committer | Scene and prefab wiring pipeline |
 | `/create-plan <file> <what>` | Manual to start → researcher → planner → reviewer loop → save → optional implementer | Create a phased WORKFLOW.md plan from a spec |
