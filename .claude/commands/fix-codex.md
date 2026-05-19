@@ -1,6 +1,6 @@
 # /fix-codex — Codex-Driven Fix Pipeline
 
-**Pipeline:** Codex Analysis → Human Gate → Codex Implementation → Codex Review → Committer
+**Pipeline:** Codex Analysis → Human Gate → Codex Implementation → Claude Review → Committer
 
 ## Usage
 
@@ -107,31 +107,19 @@ After implementing, verify: does the fix address the root cause, not just suppre
 
 ---
 
-## Step 4 — Codex Review
+## Step 4 — Claude Review
 
-Implementasyondan sonra **ayrı bir Codex çağrısı** ile review yap. Bu fresh eyes ile yapılır — implementasyonu yapan Codex'ten bağımsız.
+After Codex implementation, Claude reviews the changes directly. Claude reads the changed files and evaluates:
 
-`codex:codex-rescue` skill'ini şu prompt ile çağır:
+1. **CORRECT LOCATION?** Was the fix applied to the actual root cause location (from Step 1), or just a symptom?
+2. **ROOT CAUSE UNDERSTOOD?** Does the fix address why the bug occurs, not just what it produces?
+3. **COMPLETE?** Are there edge cases or related paths that also need fixing?
+4. **ARCHITECTURE:** Any VContainer / UniTask / Input / event rule violations introduced?
+5. **VERDICT:** APPROVED / NEEDS REVISION
 
-```
-TASK: Review the fix — do NOT make changes.
-
-ORIGINAL BUG: <kullanıcının tanımı>
-CLAIMED ROOT CAUSE: <Step 1'den root cause>
-CHANGED FILES: <implementasyonda değişen dosyalar>
-
-Review the changes and answer:
-1. CORRECT LOCATION? Was the fix applied to the actual root cause location, or a symptom?
-2. ROOT CAUSE UNDERSTOOD? Does the fix address why the bug occurs, not just what it produces?
-3. COMPLETE? Are there edge cases or related paths that also need fixing?
-4. ARCHITECTURE: Any VContainer / UniTask / Input / event rule violations introduced?
-5. VERDICT: APPROVED / NEEDS REVISION
-
-If NEEDS REVISION: list exactly what must change (file + line + reason).
-```
+If NEEDS REVISION: list exactly what must change (file + line + reason), then loop back to **Step 3** — pass the revision notes to Codex as additional context and re-implement. Then return to Step 4 for another Claude review. Max 2 revision loops total. If still unresolved after 2 loops, report to user.
 
 **APPROVED → Step 5.**
-**NEEDS REVISION → Codex'e revision prompt ile geri dön (max 2 iteration). Hâlâ çözülmezse kullanıcıya rapor et.**
 
 ---
 
@@ -154,7 +142,7 @@ Review APPROVED olduğunda:
 ```
 ROOT CAUSE: <dosya:satır — ne yanlıştı>
 FIX: <ne değişti ve neden>
-CODEX REVIEW: APPROVED
+CLAUDE REVIEW: APPROVED
 COMMIT: <hash> — <mesaj>
 ```
 

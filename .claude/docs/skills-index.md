@@ -32,7 +32,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns for real MonoBehaviour and prefab integration tests |
 | `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed. Used by all MCP-dependent pipeline commands before spawning agents |
 | `test-type-router` | Determines test type (EditMode / PlayMode-Programmatic / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path. Used by `/implement`, `/generate-tests`, `/create-test`, `/create-plan` before any test writing |
-| `fix-codex` | Full Codex-driven fix pipeline — Codex analyzes fresh (no prior hypotheses), implements, then a separate Codex call reviews (correct location? root cause understood? complete?); committer on APPROVED |
+| `fix-codex` | Full Codex-driven fix pipeline — Codex analyzes fresh (no prior hypotheses), implements, then Claude reviews (correct location? root cause understood? complete? architecture?); committer on APPROVED |
 | `unity-ugui` | Runtime UGUI implementation — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area, Canvas split strategy, performance rules |
 
 ## Platform (`skills/platform/`)

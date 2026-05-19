@@ -7,7 +7,7 @@
   - Use for: logic bugs, "sometimes happens" issues, wrong values at runtime, NullRef with unclear source
   - Use `/fix` when: stack trace clearly points to root cause
 - `/fix-lite <bug>` — **Lightweight single-file fix**: pin file + line from stack trace → read only that file → **unity-fixer-lite** → compile check → committer. No reviewer, no test writer, no scout. `/fix` auto-routes here when complexity score < 0.2.
-- `/fix-codex [--files f1,f2] <bug>` — **Full Codex pipeline**: Codex Analysis (fresh eyes, no prior hypotheses) → **Human Gate** (analiz onayı) → Codex Implementation → **Codex Review** (doğru yer mi? root cause doğru mu? eksik durum var mı?) → committer
+- `/fix-codex [--files f1,f2] <bug>` — **Full Codex pipeline**: Codex Analysis (fresh eyes, no prior hypotheses) → **Human Gate** → Codex Implementation → **Claude Review** (correct location? root cause understood? complete? architecture?) → loop back to Codex if NEEDS REVISION (max 2x) → committer
   - Use when: legacy/büyük codebase (2000+ satır dosyalar), `/fix` veya `/fix-deep` takıldıysa, 30+ dakika sarman içindeysen
   - Claude hiç analiz yapmaz — Codex kodu direkt okur, implementasyon yapar ve ayrı bir Codex çağrısıyla review eder
 - `/scene-setup <description>` — **complexity score** → **unity-coder-lite** (Simple) / **unity-coder** (Medium/Complex) + unity-setup → **unity-verifier** → **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → committer
