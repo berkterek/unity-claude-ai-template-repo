@@ -6,7 +6,7 @@
 
 ```
 /fix-codex <bug description>
-/fix-codex --files GameManager.cs,LevelController.cs "items drop etmiyor"
+/fix-codex --files GameManager.cs,LevelController.cs "items not dropping"
 ```
 
 If no argument is given, ask: "Describe the bug. Include any error messages, stack traces, and reproduction steps."
@@ -15,34 +15,34 @@ If no argument is given, ask: "Describe the bug. Include any error messages, sta
 
 | Command | Use when |
 |---------|----------|
-| `/fix` | Stack trace net, dosyalar küçük (<500 satır), root cause açık |
-| `/fix-deep` | Logic bug, "bazen oluyor", kaynak belirsiz |
-| `/fix-codex` | Legacy/büyük codebase (2000+ satır dosyalar), `/fix` veya `/fix-deep` takıldıysa, 30+ dakika sarman içindeysen — Codex kodu hipotez kurmadan direkt okur |
+| `/fix` | Stack trace clearly points to root cause, files are small (<500 lines) |
+| `/fix-deep` | Logic bug, intermittent issue, root cause unclear |
+| `/fix-codex` | Legacy/large codebase (2000+ line files), stuck after `/fix` or `/fix-deep`, or 30+ minutes in a loop — Codex reads code literally without forming hypotheses |
 
-> **Neden fix-codex farklı?** Claude Code analiz sırasında bir hipotez kurar ve sonraki okumalarda o hipotezi doğrular. `/clear` + yeniden başlamak bile aynı dosyaları aynı sırayla okuyunca aynı yanlış sonuca varabilir. Codex bu önyargı olmadan kodu literal olarak takip eder.
+> **Why fix-codex is different:** Claude Code forms a hypothesis during analysis and confirms it in subsequent reads. Even `/clear` + restart can reach the same wrong conclusion by reading the same files in the same order. Codex follows the code literally without prior bias.
 
 ---
 
 ## Step 0 — Plugin Preflight
 
-`codex:codex-rescue` skill'inin mevcut olduğunu kontrol et. Yoksa dur ve kullanıcıya `/codex:setup` çalıştırmasını söyle.
+Check that the `codex:codex-rescue` skill is available. If not, stop and tell the user to run `/codex:setup`.
 
 ---
 
 ## Step 1 — Codex Analysis Pass
 
-Codex'e kodu direkt analiz ettir. Claude bu aşamada **hiçbir ön analiz yapmamalı** — dosya okuma, hipotez kurma, "muhtemelen şu dosya" deme yok. Codex fresh eyes ile başlar.
+Have Codex analyze the code directly. Claude must do **zero pre-analysis** at this stage — no file reads, no hypothesis formation, no "probably this file" guesses. Codex starts with fresh eyes.
 
-`--files` argümanı verilmişse o dosyaları Codex'e pinle. Verilmemişse Codex kendi bulur.
+If `--files` was provided, pin those files for Codex. Otherwise Codex discovers them independently.
 
-`codex:codex-rescue` skill'ini şu prompt ile çağır:
+Invoke the `codex:codex-rescue` skill with this prompt:
 
 ```
 TASK: Analysis only — do NOT fix yet.
 
-BUG: <kullanıcının tam tanımı>
-REPRODUCTION: <nasıl tetikleniyor>
-FILES (if specified): <--files argümanı varsa listele, yoksa "discover yourself">
+BUG: <user's full description>
+REPRODUCTION: <how it is triggered>
+FILES (if specified): <list from --files argument, or "discover yourself">
 
 Read the codebase directly. Trace the execution path from the symptom backward to the root cause.
 Do NOT form a hypothesis first — read the code literally and follow the data/call flow.
@@ -54,41 +54,41 @@ Report:
 4. FIX APPROACH: what should change and why (do not implement yet)
 ```
 
-Codex'in analiz çıktısını kullanıcıya göster.
+Show Codex's analysis output to the user.
 
 ---
 
 ## Step 2 — Human Gate
 
-Codex'in analizini kullanıcıya göster:
+Present the analysis:
 
 ```
-CODEX ANALİZİ
-=============
-Root Cause: <dosya:satır — ne yanlış>
-Neden bu semptomu yaratıyor: <execution trace>
-Etkilenen kapsam: <başka ne etkilenebilir>
-Önerilen fix: <ne değişmeli>
+CODEX ANALYSIS
+==============
+Root Cause: <file:line — what is wrong>
+Why it causes the symptom: <execution trace>
+Affected scope: <what else may be impacted>
+Proposed fix: <what should change>
 
-Devam mı? (go / yönlendir)
+Proceed? (go / redirect)
 ```
 
-Kullanıcı `go` derse Step 3'e geç.
-Yönlendirme gelirse (ör. "hayır, asıl sorun X") → Codex'e düzeltilmiş bilgiyle yeniden Step 1'e dön.
+If user types `go` → move to Step 3.
+If user redirects (e.g. "no, the real issue is X") → return to Step 1 with the corrected information.
 
 ---
 
 ## Step 3 — Codex Implementation
 
-Aynı Codex analiz bağlamını kullanarak implementasyona geç. Çeviri kaybı olmaması için analizi yapan Codex implement de eder.
+Pass the confirmed analysis to Codex for implementation. Codex implements its own findings — no translation loss.
 
-`codex:codex-rescue` skill'ini şu prompt ile çağır:
+Invoke the `codex:codex-rescue` skill with this prompt:
 
 ```
 TASK: Implement the fix based on your previous analysis.
 
-ROOT CAUSE CONFIRMED: <Step 1 çıktısından root cause>
-FIX APPROACH CONFIRMED: <Step 1 çıktısından fix yaklaşımı>
+ROOT CAUSE CONFIRMED: <root cause from Step 1>
+FIX APPROACH CONFIRMED: <fix approach from Step 1>
 
 Now implement the fix. Fix at root cause — not at symptom.
 
@@ -125,33 +125,33 @@ If NEEDS REVISION: list exactly what must change (file + line + reason), then lo
 
 ## Step 5 — Committer
 
-Review APPROVED ise committer agent'ı çalıştır. Commit mesajı şu formatı takip eder:
+Run the committer agent. Commit message format:
 
 ```
-fix(<scope>): <root cause'u çözen kısa açıklama>
+fix(<scope>): <short description of what root cause was resolved>
 
-Root cause: <tek cümle>
+Root cause: <one sentence>
 ```
 
 ---
 
 ## Output Format
 
-Review APPROVED olduğunda:
+On APPROVED:
 
 ```
-ROOT CAUSE: <dosya:satır — ne yanlıştı>
-FIX: <ne değişti ve neden>
+ROOT CAUSE: <file:line — what was wrong>
+FIX: <what changed and why>
 CLAUDE REVIEW: APPROVED
-COMMIT: <hash> — <mesaj>
+COMMIT: <hash> — <message>
 ```
 
-Revision loop sonunda çözülemezse:
+If unresolved after revision loops:
 
 ```
-ROOT CAUSE: <Codex'in bulduğu>
-FIX APPLIED: <ne değişti>
+ROOT CAUSE: <what Codex found>
+FIX APPLIED: <what changed>
 REVIEW VERDICT: NEEDS REVISION
-REMAINING ISSUES: <dosya:satır listesi>
-NEXT STEP: Manuel olarak belirtilen satırları düzelt
+REMAINING ISSUES: <file:line list>
+NEXT STEP: Manually address the listed locations
 ```
