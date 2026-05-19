@@ -462,7 +462,8 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `package-analyzer` | Read-only analyst — walks `Packages/manifest.json` and resolved package directories, emits multi-file skill drafts under `.claude/skills/third-party/<pkg>/`. Detects prefabs, maps them to `_GameFolders/Prefabs/<Category>/` destinations, and scans for architecture violations. For singletons (all variants: `Instance`, `_instance`, `Current`/`Shared`/`Main`/`Default`, `GetInstance()`, `DontDestroyOnLoad`), generates Adapter pattern boilerplate + NSubstitute mock lines instead of generic fix notes. |
 | `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |
 | `unity-shader-dev` | URP shader authoring — ShaderGraph, HLSL, render passes |
-| `unity-ui-builder` | UI Toolkit specialist — UXML, USS, runtime panel setup, data binding |
+| `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy |
+| `unity-ui-toolkit-builder` | Editor UI Toolkit specialist — UXML layouts, USS stylesheets, custom inspectors, EditorWindows, SerializedObject data binding (Editor-only; runtime UI uses UGUI) |
 | `unity-optimizer` | Runtime performance — allocations, draw calls, ECS hot paths, profiler-guided fixes |
 | `unity-scene-builder` | Scene composition via MCP — hierarchy, lighting, camera, volumes |
 | `graphics-setup-agent` | Creates URP Pipeline Assets (Low/Medium/High) for mobile or PC, configures Renderer Data, wires Quality Settings via MCP |
@@ -661,6 +662,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope, UnityTest patterns |
 | `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed |
 | `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Programmatic / PlayMode-Scene / NoTest) from class name or file path |
+| `unity-ugui` | Runtime UGUI implementation — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area, Canvas split strategy, performance rules |
 
 ### Platform (`skills/platform/`)
 
@@ -784,7 +786,7 @@ grep "GameManager.cs" ~/.claude/hook-audit.log
 grep BLOCKED ~/.claude/hook-audit.log | jq -r '.hook' | sort | uniq -c | sort -rn
 ```
 
-The log is capped at 5000 lines and rotates automatically. It is global across all projects — the `project` field identifies which project each entry came from.
+The log is capped at 500 lines and rotates automatically. It is global across all projects — the `project` field identifies which project each entry came from.
 
 ---
 

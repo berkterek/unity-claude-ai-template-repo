@@ -257,8 +257,10 @@ _GameFolders/
     │   ├── FastEnemy.prefab
     │   └── TankEnemy.prefab
     ├── UI/
-    │   ├── HUDPanel.prefab
-    │   └── PauseMenuPanel.prefab
+    │   ├── Canvases/      ← full-screen Canvas prefabs (MainMenuCanvas, GameCanvas…)
+    │   ├── Popups/        ← popup and dialog prefabs
+    │   ├── Panels/        ← panel prefabs
+    │   └── Utilities/     ← single reusable elements (Button, Icon, Label…)
     ├── VFX/
     │   └── ExplosionEffect.prefab
     └── Environment/
