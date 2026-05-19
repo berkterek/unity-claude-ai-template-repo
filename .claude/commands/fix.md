@@ -78,7 +78,7 @@ Pipeline: [which variant]
 Complexity: [score] — Trivial (single file, clear stack trace)
 → This fix is /fix-lite scope. Route to fix-lite? (go / full-fix)
 ```
-- `go` → run /fix-lite pipeline (SCOPE_GATE skipped)
+- `go` → run /fix-lite pipeline (no SCOPE_GATE — user already confirmed scope by typing `go`)
 - `full-fix` → continue normal /fix pipeline with SCOPE_GATE below
 
 ### SCOPE_GATE
