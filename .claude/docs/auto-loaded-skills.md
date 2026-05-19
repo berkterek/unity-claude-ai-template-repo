@@ -1,0 +1,19 @@
+# Auto-Loaded Skills
+
+<!-- managed by auto-load-skills.sh — do not edit manually -->
+
+@.claude/skills/third-party/vcontainer.md
+@.claude/skills/platform/mobile/SKILL.md
+@.claude/skills/plugins/odin-inspector.md
+@.claude/skills/plugins/primetween.md
+@.claude/skills/plugins/r3.md
+@.claude/skills/plugins/unitask.md
+@.claude/skills/third-party/dotween/SKILL.md
+@.claude/skills/third-party/nsubstitute.md
+@.claude/skills/third-party/odin-inspector/SKILL.md
+@.claude/skills/third-party/textmeshpro/SKILL.md
+@.claude/skills/third-party/unitask/SKILL.md
+@.claude/skills/third-party/unity-asmdef.md
+@.claude/skills/third-party/unity-editor-tools.md
+@.claude/skills/third-party/unity-uitoolkit.md
+@.claude/skills/third-party/vcontainer/SKILL.md

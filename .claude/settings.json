@@ -310,6 +310,17 @@
             "statusMessage": "Tracking Codex review completion..."
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/auto-load-skills.sh",
+            "timeout": 5000,
+            "statusMessage": "Syncing skill references to CLAUDE.md..."
+          }
+        ]
       }
     ],
     "SessionStart": [
