@@ -129,6 +129,10 @@ Skipping a gate is a critical violation — the `guard-gate-cleared.sh` hook wil
 
 ## Skills Library (`.claude/skills/`)
 
+`skills-index.md` is the live index of all skills. It is updated automatically:
+- `/discover --write` adds/updates rows in the `## Discovered Packages` table after writing package skills
+- `/learn` adds/updates rows in the `## Learned Skills` table after saving approved patterns
+
 @.claude/docs/skills-index.md
 
 ## Engine Version Reference

@@ -72,7 +72,13 @@ argument-hint: "[--dry-run] [--write] [--only <pkg>] [--include-assets-plugins]"
 
 7. After all packages, print a final summary line: `<N> packages processed, <M> files written, <K> files skipped`.
 
-8. **Logic package recommendation (--write only).** Collect all packages where `package_type == "logic"`. If any exist, print:
+8. **Update skills-index.md (--write only, after at least 1 file written).** Read `.claude/docs/skills-index.md`. For each successfully written package:
+   - Find the `## Discovered Packages` table (under `skills/third-party/`).
+   - If the package already has a row (match by slug), update the `Covers` cell with the comma-separated filenames that were written (e.g. `SKILL.md, api.md, prefabs.md`).
+   - If the package has no row yet, append a new row: `| \`<slug>\` | Auto-discovered — <one-line summary from SKILL.md description field> |`
+   - Write the updated file. Print: `skills-index.md updated — <N> rows added/updated`.
+
+9. **Logic package recommendation (--write only).** Collect all packages where `package_type == "logic"`. If any exist, print:
 
    ```
    Logic packages written: <pkg1>, <pkg2>, ...
