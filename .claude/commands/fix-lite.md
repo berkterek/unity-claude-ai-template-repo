@@ -25,6 +25,28 @@ If no argument given, ask: "Share the error message and stack trace."
 
 ---
 
+## Step 0 — SCOPE_GATE
+
+Show the user:
+
+```
+SCOPE_GATE — /fix-lite
+======================
+File:  <file path>
+Line:  <line or region>
+Issue: <what will be fixed>
+
+Proceed? (go / stop)
+```
+
+Wait for `go`. Then write the gate file:
+
+```bash
+mkdir -p .claude/state && echo '{"gate":"SCOPE_GATE","pipeline":"fix-lite"}' > .claude/state/gate-cleared
+```
+
+---
+
 ## Step 1 — Pin the Target
 
 Extract **file + line** from the stack trace or user description.
@@ -90,6 +112,12 @@ Run **committer** agent. Commit message format:
 
 ```
 fix(<scope>): <what was fixed — one line>
+```
+
+After commit, delete the gate file:
+
+```bash
+rm -f .claude/state/gate-cleared
 ```
 
 ---
