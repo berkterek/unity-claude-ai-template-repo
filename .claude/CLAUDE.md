@@ -133,8 +133,12 @@ Skipping a gate is a critical violation — the `guard-gate-cleared.sh` hook wil
 - `/discover --write` adds/updates rows in the `## Discovered Packages` table after writing package skills
 - `/learn` adds/updates rows in the `## Learned Skills` table after saving approved patterns
 
+Skills under `third-party/`, `plugins/`, `learned/`, and `platform/` are auto-loaded into every session via `@`-references in `auto-loaded-skills.md`. The `auto-load-skills.sh` PostToolUse hook keeps that file in sync — whenever a skill file is written, the reference is added automatically.
+
 @.claude/docs/skills-index.md
 
 ## Engine Version Reference
 
 Engine-specific documentation lives in `docs/engine-reference/unity/`. Reference these files when answering questions about specific Unity 6 APIs, lifecycle changes, or package compatibility.
+
+@.claude/docs/auto-loaded-skills.md

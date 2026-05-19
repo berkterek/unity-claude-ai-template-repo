@@ -1,6 +1,7 @@
 ---
 name: vcontainer
 description: VContainer dependency injection setup, registration patterns, scope hierarchy, and diagnosis for Unity projects. Use when wiring dependencies, debugging DI failures, or designing scope structure.
+
 user-invocable: true
 model-tier: normal
 ---
