@@ -44,14 +44,12 @@ fi
 STRIPPED=$(sed 's|//.*||g; s/"[^"]*"/""/g' "$FILE_PATH" 2>/dev/null | sed ':a;N;$!ba;s|/\*[^*]*\*\+\([^/*][^*]*\*\+\)*/||g')
 
 # --- BLOCKING: new GameObject() ---
-# Exception: Pool, Factory, Spawner files may create GameObjects as part of their purpose
-NEW_GO=""
-if ! echo "$FILE_PATH" | grep -qiE "(Pool|Factory|Spawner)\.cs$"; then
-    NEW_GO=$(echo "$STRIPPED" | grep -nE "\bnew\s+GameObject\s*\(")
-fi
+# No exceptions — new GameObject() is forbidden everywhere in runtime code.
+# Pools, factories, and spawners must also instantiate from prefabs.
+NEW_GO=$(echo "$STRIPPED" | grep -nE "\bnew\s+GameObject\s*\(")
 
 if [ -n "$NEW_GO" ]; then
-    echo "BLOCKED: new GameObject() is forbidden outside Pool/Factory/Spawner classes."
+    echo "BLOCKED: new GameObject() is forbidden in runtime code."
     echo ""
     echo "File: $FILE_PATH"
     echo "Lines:"
@@ -61,8 +59,6 @@ if [ -n "$NEW_GO" ]; then
     echo "  GOOD: Instantiate(prefab, parent, false)"
     echo "  GOOD: Addressables.InstantiateAsync(address)"
     echo "  BAD:  new GameObject(\"name\")"
-    echo ""
-    echo "If this is a pool or factory, rename the file to end with Pool.cs, Factory.cs, or Spawner.cs."
     exit 2
 fi
 

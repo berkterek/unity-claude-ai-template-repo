@@ -231,6 +231,27 @@ Every GameObject placed in a scene must be an instance of a prefab. Bare (non-pr
 
 **Why:** Bare GameObjects cannot be reused, are hard to maintain across scenes, and break Addressables-based spawning.
 
+### new GameObject() is Forbidden (NON-NEGOTIABLE)
+
+`new GameObject()` is forbidden in all runtime code — no exceptions. This includes Pool, Factory, and Spawner classes. Every GameObject must originate from a prefab.
+
+```csharp
+// BAD — forbidden everywhere in runtime code
+var go = new GameObject("Enemy");
+var go = new GameObject("Bullet", typeof(Rigidbody));
+
+// GOOD — instantiate from prefab
+var instance = Instantiate(_prefab, position, rotation);
+var instance = Instantiate(_prefab, parent, false);
+
+// GOOD — Addressables
+var instance = await Addressables.InstantiateAsync(address).ToUniTask(ct);
+```
+
+**Why:** `new GameObject()` produces a bare object with no prefab backing — it cannot be tracked by Addressables, has no variant chain, and breaks the single-source-of-truth prefab model. Even pools and factories must instantiate from a prefab; they just manage the lifecycle of those instances.
+
+The `check-no-runtime-instantiate` hook blocks this with exit 2 on every Write/Edit.
+
 ### Prefab Variants for Shared Behavior
 
 When multiple objects share a common base, create a base prefab and derive variants from it. Never duplicate prefabs manually.
