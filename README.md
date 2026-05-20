@@ -865,7 +865,8 @@ _GameFolders/Scripts/
 - `Games/Concretes/` = ALL concrete classes, both pure C# (MoveHandler, DamageHandler) and MonoBehaviours — organized by domain (Players/, Enemies/, Audio/…), never by layer
 - Only valid top-level folders under `Scripts/`: `Games/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/` or other folders alongside `Games/`
 - Every `_Framework` subfolder has its own `.asmdef` — never a single root-level assembly covering all subfolders
-- All prefabs under `_GameFolders/Prefabs/<Domain>/`; shared-base objects use Prefab Variants
+- All prefabs under `_GameFolders/Prefabs/<Domain>/` (`Bootstrap/`, `CoreObjects/`, `Enemies/`, `UI/`, `VFX/`, `Environment/`…); shared-base objects use Prefab Variants
+- `AppScope` saved as `Prefabs/Bootstrap/AppScope.prefab`; `EventSystem` and `MainCamera` saved as `Prefabs/CoreObjects/` prefabs — same prefab instance reused across all scenes
 - New Input System only — `InputView` owns `PlayerControls`
 - UniTask everywhere — no coroutines, no `async void`, always pass `CancellationToken`
 - Addressables for all runtime asset loading — no `Resources.Load`
