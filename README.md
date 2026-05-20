@@ -115,7 +115,10 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation |
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
-| `unity-specifics.md` | Editor guards, platform defines, lifecycle order, no coroutines |
+| `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
+| `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
+| `unity-input.md` | New Input System, InputView pattern, action map switching |
+| `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, variants, folder structure, logic/visual separation |
 | `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
