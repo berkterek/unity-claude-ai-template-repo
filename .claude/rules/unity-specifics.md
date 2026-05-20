@@ -318,6 +318,8 @@ Tower.prefab
 | Never duplicate a prefab manually | Use Prefab Variants instead |
 | Empty hierarchy organizers are the only bare GameObjects allowed | No components = no logic = no maintenance cost |
 | Logic components on root, visual components on `Body` child | Decouples visual swaps from logic, clear responsibility |
+| `AppScope` / `LifetimeScope` with only ScriptableObject refs → `Prefabs/Bootstrap/` | Asset refs are stored on the prefab; no scene-time drag-and-drop needed |
+| `EventSystem` and `MainCamera` → `Prefabs/CoreObjects/`, same prefab in every scene | Consistent settings, single source of truth across all scenes |
 
 ## Prefab Duplication from Third-Party Packages (NON-NEGOTIABLE)
 

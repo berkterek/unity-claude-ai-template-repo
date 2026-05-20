@@ -52,7 +52,32 @@ When converting a bare GO to a prefab, save to:
 | Goes to `[VFX]` | `_GameFolders/Prefabs/VFX/` |
 | Name contains `*Provider`, `*Manager`, `*Service` | `_GameFolders/Prefabs/Services/` |
 | Goes to `[Environment]` | `_GameFolders/Prefabs/Environment/` |
-| Goes to `[Setup]` | Not converted — LifetimeScope objects are wired manually |
+| Has `LifetimeScope` component AND only `ScriptableObject` / asset refs (no scene object refs) | `_GameFolders/Prefabs/Bootstrap/` |
+| Has `LifetimeScope` component AND requires scene object refs (wired manually) | Not converted — wired manually in each scene |
+| Name is `EventSystem` (Unity UI EventSystem) | `_GameFolders/Prefabs/CoreObjects/` |
+| Name is `MainCamera` or has `Camera` component | `_GameFolders/Prefabs/CoreObjects/` |
+
+### AppScope Prefab Rule (NON-NEGOTIABLE)
+
+`AppScope` (and any `LifetimeScope` subclass) **can and must** be saved as a prefab when all its serialized references are `ScriptableObject` assets (e.g. `AppInstaller`, `AppConfiguration`). The prefab stores those asset references — no drag-and-drop is needed at scene time.
+
+```
+_GameFolders/Prefabs/Bootstrap/
+├── AppScope.prefab           ← LifetimeScope with [SerializeField] AppInstaller _appInstaller (SO asset)
+└── GameScope.prefab          ← scene-scope LifetimeScope (if references are all assets)
+```
+
+A LifetimeScope that holds references to **scene objects** (e.g. `UIRoot`, `AudioRoot` via `RegisterComponentInHierarchy`) still needs to be a prefab — those scene-object refs can be null on the prefab and assigned per-scene, or found via `RegisterComponentInHierarchy` at runtime (no Inspector assignment needed).
+
+### EventSystem / MainCamera Prefab Rule (NON-NEGOTIABLE)
+
+Unity's built-in `EventSystem` and `MainCamera` GameObjects must be saved as prefabs in `_GameFolders/Prefabs/CoreObjects/`. The **same prefab** is used as an instance in every scene — never create a new bare one per scene.
+
+```
+_GameFolders/Prefabs/CoreObjects/
+├── EventSystem.prefab        ← Unity UI EventSystem + StandaloneInputModule
+└── MainCamera.prefab         ← Camera with any project-wide camera settings
+```
 
 ---
 

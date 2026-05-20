@@ -173,6 +173,8 @@ Assets/
 └── _GameFolders/
     ├── Arts/
     ├── Prefabs/
+    │   ├── Bootstrap/          ← AppScope.prefab, GameScope.prefab (LifetimeScope prefabs)
+    │   ├── CoreObjects/        ← EventSystem.prefab, MainCamera.prefab
     │   ├── Enemies/
     │   ├── UI/
     │   ├── VFX/
