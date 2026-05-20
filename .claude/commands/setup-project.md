@@ -23,7 +23,7 @@ Before asking any questions, run these Bash commands to detect current project s
 [ -f ".claude/project-features.json" ] && echo "FEATURES_JSON=yes" || echo "FEATURES_JSON=no"
 
 # 2. Detect actual feature signals in the project
-[ -d "Assets/_GameFolders/Scripts/Games/Ecs" ] && echo "ECS_DIR=yes" || echo "ECS_DIR=no"
+[ -d "Assets/_GameFolders/Scripts/Ecs" ] && echo "ECS_DIR=yes" || echo "ECS_DIR=no"
 [ -d "Assets/_GameFolders/Scripts/Tests" ] && echo "TESTS_DIR=yes" || echo "TESTS_DIR=no"
 grep -q "com.unity.addressables" Packages/manifest.json 2>/dev/null && echo "ADDRESSABLES_PKG=yes" || echo "ADDRESSABLES_PKG=no"
 
@@ -160,13 +160,14 @@ Always run Step 2 regardless of gate status. Create these folders (empty `.gitke
 ```
 Assets/
 ├── _Scenes/                        ← create manually in Unity Editor
-│   ├── Bootstrap.unity             ← create manually
-│   ├── Menu.unity                  ← create manually
-│   └── Game.unity                  ← create manually
+│   ├── Bootstrap.unity
+│   ├── Menu.unity
+│   └── Game.unity
 ├── _Framework/
-│   ├── Events/                     ← FrameworkEvents.asmdef
+│   ├── Events/                     ← FrameworkEventBus.asmdef (each subfolder = own asmdef)
 │   ├── Logging/                    ← FrameworkLogging.asmdef
-│   └── SaveLoadSystems/            ← FrameworkSaveLoadSystems.asmdef
+│   ├── SaveLoadSystems/            ← FrameworkSaveLoadSystems.asmdef
+│   └── Editors/                    ← FrameworkEditor.asmdef (includePlatforms: ["Editor"])
 ├── Plugins/
 │   └── NSubstitute/                ← place NSubstitute.dll here manually
 └── _GameFolders/
@@ -179,18 +180,17 @@ Assets/
     ├── Configs/
     ├── Input/                      ← .inputactions file goes here
     └── Scripts/
-        ├── Games/                  ← [ProjectName]Games.asmdef
-        │   ├── Abstracts/
-        │   ├── Concretes/
-        │   │   └── Infrastructure/
-        │   └── Ecs/                ← only if ECS=yes
-        │       ├── Authorings/
-        │       ├── Components/
-        │       └── Systems/
-        ├── Editors/                ← [ProjectName]Editor.asmdef
-        └── Tests/                          ← only if Testing=yes
-            ├── [ProjectName]EditModeTest/       ← Edit Mode
-            └── [ProjectName]PlayModeTest/       ← Play Mode
+        ├── Abstracts/              ← interfaces and abstract base classes, organized by domain
+        ├── Concretes/              ← ALL concrete classes (pure C# or MonoBehaviour), by domain
+        │   └── Infrastructure/    ← AppScope, AppInstaller, ModuleInstaller
+        ├── Ecs/                    ← only if ECS=yes
+        │   ├── Authorings/
+        │   ├── Components/
+        │   └── Systems/
+        ├── Editors/                ← [ProjectName]Editor.asmdef (Editor-only)
+        └── Tests/                  ← only if Testing=yes
+            ├── [ProjectName]EditModeTest/
+            └── [ProjectName]PlayModeTest/
 ```
 
 ---
@@ -255,7 +255,7 @@ Replace `[ProjectName]` with the actual project name the developer provided.
 }
 ```
 
-#### `_GameFolders/Scripts/Games/[ProjectName]Games.asmdef`
+#### `_GameFolders/Scripts/[ProjectName]Games.asmdef`
 ```json
 {
     "name": "[ProjectName]Games",
@@ -414,7 +414,7 @@ Replace `[ProjectName]` with the actual project name the developer provided.
 
 #### ECS asmdef (only if ECS=yes)
 
-#### `_GameFolders/Scripts/Games/Ecs/[ProjectName]Ecs.asmdef`
+#### `_GameFolders/Scripts/Ecs/[ProjectName]Ecs.asmdef`
 ```json
 {
     "name": "[ProjectName]Ecs",
@@ -544,7 +544,7 @@ namespace Framework.Events
 }
 ```
 
-#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/ModuleInstaller.cs`
+#### `_GameFolders/Scripts/Concretes/Infrastructure/ModuleInstaller.cs`
 ```csharp
 using UnityEngine;
 using VContainer;
@@ -560,7 +560,7 @@ namespace Game.Concretes.Infrastructure
 
 > `ModuleInstaller` uses `ScriptableObject` (requires `using UnityEngine`) so it lives in `Concretes/Infrastructure/`, not `Abstracts/`. The `check-pure-csharp.sh` hook blocks `using UnityEngine` in `Abstracts/`.
 
-#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/AppInstaller.cs`
+#### `_GameFolders/Scripts/Concretes/Infrastructure/AppInstaller.cs`
 ```csharp
 using UnityEngine;
 using VContainer;
@@ -594,7 +594,7 @@ namespace Game.Concretes.Infrastructure
 }
 ```
 
-#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/AppScope.cs`
+#### `_GameFolders/Scripts/Concretes/Infrastructure/AppScope.cs`
 ```csharp
 using Framework.Events;
 using UnityEngine;
@@ -696,63 +696,57 @@ namespace Game.PlayModeTest
 
 ### Step 5b — Remove Disabled Feature Hooks from settings.json
 
-Use python3 via Bash to remove hooks for disabled features. This keeps settings.json clean — disabled hooks never fire.
-
-Run this Bash command (adjust the `disabled_hooks` list based on answers):
+Run this script exactly as-is — it reads `project-features.json` automatically and removes the correct hooks. No manual editing required.
 
 ```bash
 python3 - << 'PYEOF'
-import json, re
+import json
+
+with open('.claude/project-features.json') as f:
+    features = json.load(f)
 
 with open('.claude/settings.json', 'r') as f:
-    content = f.read()
+    data = json.load(f)
 
-data = json.loads(content)
-
-# Hooks to remove when feature is disabled
-# Testing=no  → remove these hook commands
-testing_hooks = {
-    '.claude/hooks/check-test-exists.sh',
-    '.claude/hooks/check-test-scene-exists.sh',
+# Hooks to remove per disabled feature
+feature_hooks = {
+    'testing': {
+        '.claude/hooks/check-test-exists.sh',
+        '.claude/hooks/check-test-scene-exists.sh',
+    },
+    'ecs': {
+        '.claude/hooks/check-ecs-structural-changes.sh',
+        '.claude/hooks/check-enum-byte-base.sh',
+    },
+    'addressables': set(),  # no addressables-specific hooks currently
 }
-# ECS=no → remove these hook commands
-ecs_hooks = {
-    '.claude/hooks/check-ecs-structural-changes.sh',
-}
 
-# Build set of hooks to remove based on answers
 to_remove = set()
-# if testing == False: to_remove |= testing_hooks
-# if ecs == False:     to_remove |= ecs_hooks
+for feature, hooks in feature_hooks.items():
+    if not features.get(feature, True):
+        to_remove |= hooks
 
 if not to_remove:
-    print("No hooks to remove.")
-    exit(0)
+    print("No hooks to remove — all features enabled.")
+else:
+    def filter_hooks(hook_list):
+        result = []
+        for item in hook_list:
+            filtered = [h for h in item.get('hooks', []) if h.get('command') not in to_remove]
+            if filtered:
+                result.append({**item, 'hooks': filtered})
+        return result
 
-def filter_hooks(hook_list):
-    result = []
-    for item in hook_list:
-        filtered = [h for h in item.get('hooks', []) if h.get('command') not in to_remove]
-        if filtered:
-            result.append({**item, 'hooks': filtered})
-    return result
+    hooks_section = data.get('hooks', {})
+    for event in list(hooks_section.keys()):
+        hooks_section[event] = filter_hooks(hooks_section[event])
 
-hooks = data.get('hooks', {})
-for event in list(hooks.keys()):
-    hooks[event] = filter_hooks(hooks[event])
+    with open('.claude/settings.json', 'w') as f:
+        json.dump(data, f, indent=2)
+        f.write('\n')
 
-with open('.claude/settings.json', 'w') as f:
-    json.dump(data, f, indent=2)
-    f.write('\n')
-
-print(f"Removed hooks: {to_remove}")
+    print(f"Removed hooks: {sorted(to_remove)}")
 PYEOF
-```
-
-**Instruction:** Before running, replace the two `# if` comment lines with actual `if` statements matching the feature answers. Example if testing=no and ecs=no:
-```python
-to_remove |= testing_hooks
-to_remove |= ecs_hooks
 ```
 
 ---
