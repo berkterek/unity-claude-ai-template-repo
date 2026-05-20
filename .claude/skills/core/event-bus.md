@@ -7,7 +7,7 @@ model-tier: normal
 # EventBus — Usage Pattern
 
 ## Location
-`Assets/_AssetFolders/_Framework/Events/`
+`Assets/_Framework/Events/`
 Assembly: `FrameworkEventBus` | Namespace: `Framework.Events`
 
 ## Structure

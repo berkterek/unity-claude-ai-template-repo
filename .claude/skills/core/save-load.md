@@ -7,7 +7,7 @@ model-tier: normal
 # SaveLoadSystem — Usage Pattern
 
 ## Location
-`Assets/_AssetFolders/_Framework/SaveLoadSystems/`
+`Assets/_Framework/SaveLoadSystems/`
 Assembly: `FrameworkSaveLoadSystems` | Namespace: `Framework.SaveLoadSystems`
 
 ## Structure

@@ -7,8 +7,8 @@ model-tier: normal
 # DLog — Usage Pattern
 
 ## Location
-`Assets/_AssetFolders/_Framework/Logging/`
-Assembly: `FramworkLogging` | Namespace: `Framework.Logging`
+`Assets/_Framework/Logging/`
+Assembly: `FrameworkLogging` | Namespace: `Framework.Logging`
 
 ## Structure
 
