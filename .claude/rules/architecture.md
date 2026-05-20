@@ -19,21 +19,66 @@ Views/Providers → Services → Models/Interfaces
 ## Layer Structure
 
 ```
-_Framework/          ← Never references _GameFolders or other project folders. Pure infrastructure (may use UnityEngine APIs internally).
-  Events/            ← IEventBus, IEvent
-  Logging/
-  SaveLoadSystems/
+_Framework/                               ← Never references _GameFolders or other project folders. Pure infrastructure.
+  Events/FrameworkEventBus.asmdef        ← each subfolder has its OWN .asmdef
+  Logging/FrameworkLogging.asmdef
+  SaveLoadSystems/FrameworkSaveLoadSystems.asmdef
+  Editors/FrameworkEditor.asmdef         ← Editor-only, includePlatforms: ["Editor"]
 
 _GameFolders/        ← Depends on _Framework. All game-specific code.
   Scripts/
-    Games/
-      Abstracts/     ← abstract classes, interfaces
-      Concretes/     ← concrete implementations
-      Ecs/           ← ECS DOTS systems, components, authorings
+    Abstracts/       ← interfaces and abstract base classes ONLY, organized by domain
+      Players/       ← example domain folders (mirrors Concretes/ structure)
+      Enemies/
+      Controllers/
+      Handlers/
+      Items/
+      ...
+    Concretes/       ← ALL concrete classes (pure C# or MonoBehaviour), organized by domain
+      Players/       ← same domain folders as Abstracts/
+      Enemies/
+      Controllers/
+      Handlers/
+      Items/
+      ...            ← name subfolders by domain/feature, not by layer
+    Ecs/             ← ECS DOTS systems, components, authorings (only if ECS enabled)
     Tests/
+      [Project]EditModeTest/   ← Edit Mode tests (.asmdef includePlatforms: ["Editor"])
+      [Project]PlayModeTest/   ← Play Mode tests (.asmdef all platforms)
+    Editors/         ← Editor-only tools, custom inspectors
 ```
 
+### Scripts/ Folder Rules (NON-NEGOTIABLE)
+
+The **only** valid top-level folders under `Scripts/` are: `Abstracts/`, `Concretes/`, `Ecs/`, `Tests/`, `Editors/`.
+
+**Never create these under `Scripts/` directly:**
+
+| Forbidden folder | Correct location |
+|-----------------|-----------------|
+| `Scripts/Config/` | ScriptableObject configs → `Scripts/Concretes/<Domain>/` |
+| `Scripts/GameUnity/` | MonoBehaviour views/providers → `Scripts/Concretes/<Domain>/` |
+| `Scripts/Game/` | Services → `Scripts/Concretes/<Domain>/` |
+| `Scripts/Games/` | No Games/ wrapper — use `Abstracts/`, `Concretes/` directly |
+| `Scripts/Services/` | Services → `Scripts/Concretes/<Domain>/` |
+
+**Concretes/ subfolder naming:** use domain/feature names (`Players/`, `Enemies/`, `UI/`, `Audio/`, `Handlers/`, `Controllers/`) — never layer names like `Services/`, `Views/`, `Providers/`.
+
 **Rule:** `_Framework` never references `_GameFolders` or any other project folder. `_GameFolders` may reference `_Framework`.
+
+### _Framework Assembly Definition Rules (NON-NEGOTIABLE)
+
+- Every subfolder under `_Framework/` has its **own** `.asmdef` file
+- **Never** create a single `.asmdef` at the `_Framework/` root that covers all subfolders
+- **Never** delete an existing subfolder `.asmdef` and replace it with a root-level one
+- Each `_Framework` assembly references only other `_Framework` assemblies — never `_GameFolders` assemblies
+
+| Subfolder | Assembly name pattern |
+|-----------|----------------------|
+| `Events/` | `Framework.Events` (or `[Project].Framework.Events`) |
+| `Logging/` | `Framework.Logging` |
+| `SaveLoadSystems/` | `Framework.SaveLoadSystems` |
+| `Editors/` | `Framework.Editor` — `includePlatforms: ["Editor"]` |
 
 ---
 

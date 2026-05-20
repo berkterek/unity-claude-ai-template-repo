@@ -829,17 +829,27 @@ The log is capped at 500 lines and rotates automatically. It is global across al
 > Architecture summary (key rules at a glance): **[.claude/docs/architecture-summary.md](.claude/docs/architecture-summary.md)**
 
 ```
-_Framework/                  ← Never references _GameFolders or other project folders (may use UnityEngine internally)
-  Events/                    ← IEventBus, IEvent
-  Logging/
-  SaveLoadSystems/
+_Framework/                              ← Never references _GameFolders or other project folders
+  Events/FrameworkEventBus.asmdef       ← each subfolder has its OWN .asmdef (never a single root-level one)
+  Logging/FrameworkLogging.asmdef
+  SaveLoadSystems/FrameworkSaveLoadSystems.asmdef
+  Editors/FrameworkEditor.asmdef
 
-_GameFolders/Scripts/Games/
-  Abstracts/                 ← interfaces, abstract classes
-  Concretes/                 ← implementations, providers
-    Audio/                   ← BasicAudioProvider, AudioRoot (Unity API here)
-    Store/
-  Ecs/                       ← DOTS: Authorings, Components, Systems
+_GameFolders/Scripts/
+  Abstracts/                 ← interfaces and abstract base classes, organized by domain
+    Players/
+    Enemies/
+    ...
+  Concretes/                 ← ALL concrete classes (pure C# or MonoBehaviour), organized by domain
+    Players/
+    Enemies/
+    Audio/
+    ...
+  Ecs/                       ← DOTS: Authorings, Components, Systems (if ECS enabled)
+  Tests/
+    [Project]EditModeTest/
+    [Project]PlayModeTest/
+  Editors/                   ← Editor-only tools
 ```
 
 **Key rules:**
@@ -848,8 +858,12 @@ _GameFolders/Scripts/Games/
 - `AppScope` never changes — add modules via `AppInstaller.asset`
 - `IEventBus` for cross-module communication — no direct cross-module calls
 - `EventBusAccessor` static bridge for ECS ↔ Mono communication (only approved static accessor)
-- Provider pattern — Unity API stays in `Concretes/<Module>/`, never in service classes
+- Provider pattern — Unity API stays in providers inside `Concretes/<Domain>/`, never in service classes
 - Every scene GO is a prefab instance; root=logic components, `Body` child=visual components
+- `Abstracts/` = interfaces and abstract base classes ONLY — no concrete implementations
+- `Concretes/` = ALL concrete classes, both pure C# (MoveHandler, DamageHandler) and MonoBehaviours — organized by domain (Players/, Enemies/, Audio/…), never by layer (Services/, Views/…)
+- Only valid top-level folders under `Scripts/`: `Abstracts/`, `Concretes/`, `Ecs/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/`, `Games/` or other custom folders
+- Every `_Framework` subfolder has its own `.asmdef` — never a single root-level assembly covering all subfolders
 - All prefabs under `_GameFolders/Prefabs/<Domain>/`; shared-base objects use Prefab Variants
 - New Input System only — `InputView` owns `PlayerControls`
 - UniTask everywhere — no coroutines, no `async void`, always pass `CancellationToken`

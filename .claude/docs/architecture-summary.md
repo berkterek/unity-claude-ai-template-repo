@@ -12,20 +12,28 @@
 ### Folder Structure
 
 ```
-_Framework/              ← Never references _GameFolders or other project folders (may use UnityEngine internally)
-  Events/                ← IEventBus, IEvent, EventBusAccessor
-  Logging/
-  SaveLoadSystems/
+_Framework/                              ← Never references _GameFolders or other project folders
+  Events/FrameworkEventBus.asmdef       ← each subfolder has its OWN .asmdef (never a single root-level one)
+  Logging/FrameworkLogging.asmdef
+  SaveLoadSystems/FrameworkSaveLoadSystems.asmdef
+  Editors/FrameworkEditor.asmdef
 
 _GameFolders/
   Scripts/
-    Games/
-      Abstracts/         ← Interfaces, abstract classes
-      Concretes/         ← Unity providers, MonoBehaviours
-      Ecs/               ← Authorings, Components, Systems
+    Abstracts/           ← interfaces and abstract base classes ONLY, organized by domain
+      Players/
+      Enemies/
+      ...
+    Concretes/           ← ALL concrete classes (pure C# or MonoBehaviour), organized by domain
+      Players/
+      Enemies/
+      Audio/
+      ...
+    Ecs/                 ← Authorings, Components, Systems (if ECS enabled)
     Tests/
       [ProjectName]EditModeTest/    ← Edit Mode (NUnit + NSubstitute)
       [ProjectName]PlayModeTest/    ← Play Mode (ECS World integration)
+    Editors/             ← Editor-only tools, custom inspectors
   Prefabs/
     Enemies/
     UI/
