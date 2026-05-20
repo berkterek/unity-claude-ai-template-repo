@@ -354,7 +354,7 @@ Debug logs have been left in place for your review — remove them manually or r
 
 | Target location | Agent |
 |-----------------|-------|
-| `_Framework/`, `Abstracts/`, `Concretes/` (no Unity API) | **coder** |
+| `_Framework/`, `Games/Abstracts/`, `Games/Concretes/` (no Unity API) | **coder** |
 | MonoBehaviour, Provider, Installer, scene wiring, Unity lifecycle | **unity-coder** |
 | Mixed (both pure C# and Unity glue) | **unity-coder** |
 

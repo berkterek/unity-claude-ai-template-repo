@@ -454,7 +454,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 
 | Agent | Role |
 |-------|------|
-| `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Abstracts/`, and pure C# targets in complexity-scored pipelines. |
+| `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Games/Abstracts/`, and pure C# targets in `Games/Concretes/` in complexity-scored pipelines. |
 | `tester` | NUnit + NSubstitute test writer — AAA pattern, interface-only mocks. Spawned as an isolated `claude` subagent (clean context window) so test writing is not polluted by implementation context. |
 | `reviewer` | Principal-level code review — architecture, naming, performance |
 | `unity-developer` | Unity 6 specialist — second reviewer for complex tasks; checks hot paths, draw calls, ECS safety, Addressables lifecycle, prefab structure |

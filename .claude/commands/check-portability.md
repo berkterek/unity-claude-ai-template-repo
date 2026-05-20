@@ -9,7 +9,7 @@ For each module folder provided (`_GameFolders/Scripts/Games/[ModuleName]/`):
 ### 1. No UnityEngine in Service Class
 - Read `[ModuleName]Service.cs`
 - Fail if `using UnityEngine` is present
-- Pass if clean; note if a Provider exists in `Concretes/[ModuleName]/`
+- Pass if clean; note if a Provider exists in `Games/Concretes/[ModuleName]/`
 
 ### 2. No Concrete Cross-Module Dependencies
 - Check constructor parameters of `[ModuleName]Service.cs`
@@ -40,7 +40,7 @@ For each module folder provided (`_GameFolders/Scripts/Games/[ModuleName]/`):
 ✅ Only interface dependencies in constructor
 ✅ Config null guard present in AudioInstaller.Install()
 ✅ Events in AudioEvents.cs
-✅ Provider in Concretes/Audio/ (BasicAudioProvider.cs)
+✅ Provider in Games/Concretes/Audio/ (BasicAudioProvider.cs)
 ⚠️  AudioService.SetVolume() is public but not declared in IAudioService
 
 Result: PORTABLE with 1 warning

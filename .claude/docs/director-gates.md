@@ -138,7 +138,7 @@ Checks:
 - VContainer DI: no singletons, no static mutable state, no service locators
 - Interface-driven: consumers depend on interfaces, not concrete types
 - IEventBus: cross-module communication only through events, not direct calls
-- Provider pattern: UnityEngine API in Concretes/ only, services are pure C#
+- Provider pattern: UnityEngine API in Games/Concretes/ only, services are pure C#
 - Module boundaries: no concrete cross-module dependencies
 
 ---

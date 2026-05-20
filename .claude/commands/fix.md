@@ -243,7 +243,7 @@ If test writer reports **BLOCKED** → stop and show the blocker to the user.
 
 | Target location | Agent |
 |-----------------|-------|
-| `_Framework/`, `Abstracts/`, `Concretes/` (no Unity API) | **coder** |
+| `_Framework/`, `Games/Abstracts/`, `Games/Concretes/` (no Unity API) | **coder** |
 | MonoBehaviour, Provider, Installer, scene wiring, Unity lifecycle | **unity-coder** |
 | Mixed (both pure C# and Unity glue) | **unity-coder** |
 

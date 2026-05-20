@@ -43,7 +43,7 @@ Before executing any task, score the overall workflow complexity on a 0.0–1.0 
 
 | Target location | Simple | Medium/Complex |
 |-----------------|--------|----------------|
-| `_Framework/`, `Abstracts/`, pure C# (no Unity API) | **coder** | **coder** |
+| `_Framework/`, `Games/Abstracts/`, `Games/Concretes/` pure C# (no Unity API) | **coder** | **coder** |
 | MonoBehaviour, Provider, Installer, scene wiring | **unity-coder-lite** | **unity-coder** |
 | Mixed (both pure C# and Unity glue) | **unity-coder-lite** | **unity-coder** |
 
@@ -214,7 +214,7 @@ Exit.
 If `Agent: unity-setup` → spawn a **unity-setup** subagent.
 
 **Coder agent — use routing table from Step 0:**
-- Pure C# target (`_Framework/`, `Abstracts/`, no Unity API) → **coder**
+- Pure C# target (`_Framework/`, `Games/Abstracts/`, `Games/Concretes/` no Unity API) → **coder**
 - Unity/Mixed target (MonoBehaviour, Provider, Installer, scene wiring) → **unity-coder-lite** (Simple) or **unity-coder** (Medium/Complex)
 
 **Coder prompt:**

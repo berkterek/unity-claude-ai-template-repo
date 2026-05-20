@@ -56,7 +56,7 @@ After generating, always print:
 [ ] No concrete cross-module dependencies (only interfaces)
 [ ] Config null guard present in Installer.Install()
 [ ] Events in their own [ModuleName]Events.cs file
-[ ] Provider (if any) is in Concretes/[ModuleName]/, not in the module folder
+[ ] Provider (if any) is in Games/Concretes/[ModuleName]/, not in the module folder
 [ ] All public methods have a corresponding interface declaration
 
 To use in another project:

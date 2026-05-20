@@ -45,7 +45,7 @@ if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.
             echo "$UNITY_IMPORTS"
             echo ""
             echo "Services and abstractions must be pure C#."
-            echo "Move Unity-specific code to a Provider class in Concretes/<Module>/."
+            echo "Move Unity-specific code to a Provider class in Games/Concretes/<Module>/."
             exit 2
         fi
     fi

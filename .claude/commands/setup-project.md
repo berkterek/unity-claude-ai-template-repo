@@ -559,7 +559,7 @@ namespace Game.Concretes.Infrastructure
 }
 ```
 
-> `ModuleInstaller` uses `ScriptableObject` (requires `using UnityEngine`) so it lives in `Concretes/Infrastructure/`, not `Abstracts/`. The `check-pure-csharp.sh` hook blocks `using UnityEngine` in `Abstracts/`.
+> `ModuleInstaller` uses `ScriptableObject` (requires `using UnityEngine`) so it lives in `Games/Concretes/Infrastructure/`, not `Games/Abstracts/`. The `check-pure-csharp.sh` hook blocks `using UnityEngine` in `Games/Abstracts/`.
 
 #### `_GameFolders/Scripts/Games/Concretes/Infrastructure/AppInstaller.cs`
 ```csharp

@@ -253,7 +253,7 @@ _GameFolders/Scripts/Games/Ecs/
 └── Systems/       ← ISystem, SystemBase, bridge systems
 ```
 
-ECS components and systems never go into `Abstracts/` or `Concretes/` — they stay in `Ecs/`.
+ECS components and systems never go into `Games/Abstracts/` or `Games/Concretes/` — they stay in `Games/Ecs/`.
 
 ---
 
