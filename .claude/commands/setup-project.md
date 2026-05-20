@@ -258,6 +258,29 @@ Replace `[ProjectName]` with the actual project name the developer provided.
 }
 ```
 
+#### `_Framework/Editors/FrameworkEditor.asmdef`
+```json
+{
+    "name": "FrameworkEditor",
+    "rootNamespace": "Framework.Editor",
+    "references": [
+        "FrameworkEvents",
+        "FrameworkLogging"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
+```
+
 #### `_GameFolders/Scripts/Games/[ProjectName]Games.asmdef`
 ```json
 {
@@ -810,7 +833,7 @@ manage_scene(action="create", name="Menu", template="empty", path="Assets/_Scene
 manage_scene(action="create", name="Game", template="3d_basic", path="Assets/_Scenes/Game.unity")
 ```
 
-#### 5d-2 — Set Up AppScope in Bootstrap Scene
+#### 5d-2 — Set Up Bootstrap Scene Hierarchy
 
 Wait for compilation to finish after Step 4 scripts are generated, then:
 
@@ -818,8 +841,16 @@ Wait for compilation to finish after Step 4 scripts are generated, then:
 # Open Bootstrap scene
 manage_scene(action="load", path="Assets/_Scenes/Bootstrap.unity")
 
-# Create AppScope GameObject
-manage_gameobject(action="create", name="AppScope")
+# Create the 6 standard container GameObjects (scene-hierarchy rules)
+manage_gameobject(action="create", name="[Setup]")
+manage_gameobject(action="create", name="[Services]")
+manage_gameobject(action="create", name="[UI]")
+manage_gameobject(action="create", name="[Environment]")
+manage_gameobject(action="create", name="[Characters]")
+manage_gameobject(action="create", name="[VFX]")
+
+# Create AppScope under [Setup]
+manage_gameobject(action="create", name="AppScope", parent="[Setup]")
 
 # Add AppScope component (generated in Step 4)
 manage_gameobject(action="modify", target="AppScope", components_to_add=["Game.Concretes.Infrastructure.AppScope"])
@@ -843,6 +874,35 @@ manage_components(
     component_type="Game.Concretes.Infrastructure.AppScope",
     property="_appInstaller",
     value="Assets/_GameFolders/Configs/AppInstaller.asset"
+)
+
+# Save AppScope as prefab — asset refs are stored on the prefab (NON-NEGOTIABLE)
+manage_gameobject(
+    action="save_as_prefab",
+    target="AppScope",
+    path="Assets/_GameFolders/Prefabs/Bootstrap/AppScope.prefab"
+)
+```
+
+#### 5d-3b — Create CoreObjects Prefabs (EventSystem + MainCamera)
+
+```python
+# Create EventSystem under [Environment] and save as prefab
+manage_gameobject(action="create", name="EventSystem", parent="[Environment]")
+manage_components(action="add", target="EventSystem", component_type="UnityEngine.EventSystems.EventSystem")
+manage_components(action="add", target="EventSystem", component_type="UnityEngine.EventSystems.StandaloneInputModule")
+manage_gameobject(
+    action="save_as_prefab",
+    target="EventSystem",
+    path="Assets/_GameFolders/Prefabs/CoreObjects/EventSystem.prefab"
+)
+
+# MainCamera is already in scene (Unity default) — reparent to [Environment] and save as prefab
+manage_gameobject(action="modify", target="Main Camera", new_parent="[Environment]")
+manage_gameobject(
+    action="save_as_prefab",
+    target="Main Camera",
+    path="Assets/_GameFolders/Prefabs/CoreObjects/MainCamera.prefab"
 )
 ```
 
@@ -898,12 +958,15 @@ In Unity Editor (File → New Scene → Save As):
 - Assets/_Scenes/Menu.unity
 - Assets/_Scenes/Game.unity
 
-### AppScope Scene Setup (MCP unavailable)
+### Bootstrap Scene Setup (MCP unavailable)
 1. Open Bootstrap.unity
-2. Create empty GameObject named "AppScope"
-3. Add AppScope component
+2. Create 6 empty root GameObjects in this order: `[Setup]`, `[Services]`, `[UI]`, `[Environment]`, `[Characters]`, `[VFX]`
+3. Under `[Setup]`: create empty GameObject named "AppScope", add AppScope component
 4. Create ScriptableObject: right-click Assets/_GameFolders/Configs → Create → Game/Infrastructure/App Installer → name it AppInstaller
 5. Drag AppInstaller asset onto AppScope._appInstaller field in Inspector
+6. **Save AppScope as prefab**: drag AppScope from hierarchy into `Assets/_GameFolders/Prefabs/Bootstrap/` → select "Original Prefab"
+7. Under `[Environment]`: create EventSystem (GameObject → UI → Event System) → drag to `Assets/_GameFolders/Prefabs/CoreObjects/EventSystem.prefab`
+8. Reparent MainCamera under `[Environment]` → drag to `Assets/_GameFolders/Prefabs/CoreObjects/MainCamera.prefab`
 
 ### Build Settings (MCP unavailable)
 File → Build Settings → Add Open Scenes — add all three scenes with Bootstrap at index 0.
