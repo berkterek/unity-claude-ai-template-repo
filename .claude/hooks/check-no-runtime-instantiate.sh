@@ -65,9 +65,12 @@ fi
 WARNINGS=""
 
 # Check for Destroy (warning only — Addressables.ReleaseInstance or pool.Return preferred)
-DESTROY=$(echo "$STRIPPED" | grep -nE "\bDestroy\s*\(" | grep -v "OnDestroy")
-if [ -n "$DESTROY" ]; then
-    WARNINGS="${WARNINGS}\nDestroy() found — use pool.Return() / SetActive(false) or Addressables.ReleaseInstance() instead:\n${DESTROY}\n"
+# Check for Destroy — allowed in Pool/Manager/Spawner files, warning elsewhere
+if ! echo "$FILE_PATH" | grep -qiE "(Pool|Manager|Spawner)\.cs$"; then
+    DESTROY=$(echo "$STRIPPED" | grep -nE "\bDestroy\s*\(" | grep -v "OnDestroy")
+    if [ -n "$DESTROY" ]; then
+        WARNINGS="${WARNINGS}\nDestroy() found — if this object is pool-managed, call pool.Return() instead:\n${DESTROY}\n"
+    fi
 fi
 
 if [ -n "$WARNINGS" ]; then

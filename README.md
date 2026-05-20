@@ -333,7 +333,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-no-linq-hotpath` | LINQ inside `Update` / `FixedUpdate` / `LateUpdate` |
 | `check-no-hotpath-expensive-calls` | `GetComponent`, `Camera.main`, `FindObjectOfType`, bare `transform.`, `tag ==`, `SendMessage` in hot paths |
 | `check-getcomponent-in-awake` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment |
-| `check-no-runtime-instantiate` (Destroy) | `Destroy()` — use `pool.Return()` / `SetActive(false)` or `Addressables.ReleaseInstance()` instead |
+| `check-no-runtime-instantiate` (Destroy) | `Destroy()` outside Pool/Manager/Spawner files — use `pool.Return()` / `SetActive(false)` instead; Pool/Manager/Spawner may call `Destroy()` for capacity trim or manager shutdown |
 | `warn-serialization` | Renamed `[SerializeField]` without `[FormerlySerializedAs]` |
 | `check-ecs-structural-changes` | `EntityManager.AddComponent/DestroyEntity` inside ECS system (use ECB) |
 | `check-async-void` | `async void` outside Unity lifecycle methods (swallows exceptions) |

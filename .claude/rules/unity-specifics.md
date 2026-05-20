@@ -252,6 +252,39 @@ var instance = await Addressables.InstantiateAsync(address).ToUniTask(ct);
 
 The `check-no-runtime-instantiate` hook blocks this with exit 2 on every Write/Edit.
 
+### Destroy() Rules
+
+`Destroy()` usage depends on context:
+
+**Outside Pool/Manager/Spawner classes — warn:**
+If an object is pool-managed, call `pool.Return()` or `SetActive(false)` instead of `Destroy()`. The hook warns when `Destroy()` is found outside Pool/Manager/Spawner files.
+
+**Inside Pool/Manager/Spawner classes — two allowed cases:**
+
+```csharp
+// Case 1 — Pool capacity trim: pool exceeds max capacity, destroy the excess
+// Rule: never destroy below the capacity limit (e.g. 50)
+public void ReturnToPool(GameObject obj)
+{
+    if (_pool.Count >= MAX_CAPACITY)
+        Destroy(obj);       // over capacity — destroy the excess
+    else
+        _pool.Enqueue(obj); // under limit — keep it
+}
+
+// Case 2 — Manager shutdown: the pool/manager is no longer needed (e.g. level change)
+// Destroy the manager and all its children together
+public void Shutdown()
+{
+    Destroy(gameObject); // destroys manager + all pooled children
+}
+```
+
+**Rules:**
+- Pool capacity limit is defined as a constant in the pool class (`private const int MAX_CAPACITY = 50`)
+- Never destroy pooled objects below the capacity limit — return them to the pool instead
+- Manager shutdown (`Destroy(gameObject)`) is only valid when the entire pool is being decommissioned — never use it to release individual objects
+
 ### Prefab Variants for Shared Behavior
 
 When multiple objects share a common base, create a base prefab and derive variants from it. Never duplicate prefabs manually.
