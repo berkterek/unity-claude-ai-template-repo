@@ -37,6 +37,8 @@ Every prefab must follow these rules without exception:
 ```
 _GameFolders/
 └── Prefabs/
+    ├── Bootstrap/          ← AppScope.prefab, GameScope.prefab
+    ├── CoreObjects/        ← EventSystem.prefab, MainCamera.prefab
     ├── Enemies/
     ├── Player/
     ├── UI/

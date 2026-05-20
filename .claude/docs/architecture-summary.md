@@ -36,6 +36,8 @@ _GameFolders/
       [ProjectName]PlayModeTest/    ← Play Mode (ECS World integration)
     Editors/             ← Editor-only tools, custom inspectors
   Prefabs/
+    Bootstrap/           ← AppScope.prefab, GameScope.prefab
+    CoreObjects/         ← EventSystem.prefab, MainCamera.prefab
     Enemies/
     UI/
     VFX/
