@@ -123,6 +123,20 @@ Skipping a gate is a critical violation — the `guard-gate-cleared.sh` hook wil
 
 ---
 
+## Project Features
+
+Configured by `/setup-project`. Source of truth: `.claude/project-features.json`.
+
+| Feature | Status | Effect when disabled |
+|---------|--------|----------------------|
+| `addressables` | **DISABLED** | Skip `rules/addressables.md`, Addressables hooks, and address-constant checks |
+| `testing` | **DISABLED** | Skip `rules/testing.md`, NSubstitute rules, test-folder/asmdef requirements, and test hooks |
+| `ecs` | **DISABLED** | Skip `rules/ecs-dots.md`, ECS structural-change hook (`check-ecs-structural-changes.sh`), and enum-byte-base hook (`check-enum-byte-base.sh`) |
+
+> When a feature is DISABLED, Claude must not enforce its rules or suggest its patterns.
+
+---
+
 ## Setup Checklist & Project-Specific Setup
 
 @.claude/docs/setup-checklist.md

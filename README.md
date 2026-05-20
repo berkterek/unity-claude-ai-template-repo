@@ -321,9 +321,9 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
 | `guard-critical-files` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — exception: test assemblies |
 | `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exception: test assemblies |
-| `gateguard` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
+| `guard-gate-cleared` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 | `guard-reviewer-order` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass |
-| `check-no-runtime-instantiate` | `new GameObject()` — blocked outside `Pool/Factory/Spawner` files and test assemblies |
+| `check-no-runtime-instantiate` | `new GameObject()` — blocked everywhere in runtime code; use `Instantiate(prefab)` or `Addressables.InstantiateAsync()` |
 | `check-enum-byte-base` | `enum` without `: byte` base inside `IComponentData` or `IEvent` structs — use `: ushort` if 255+ values needed |
 
 ### Warnings (exit 0 — logged to stderr, does not block)
