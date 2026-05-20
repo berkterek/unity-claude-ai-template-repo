@@ -23,7 +23,7 @@ Before asking any questions, run these Bash commands to detect current project s
 [ -f ".claude/project-features.json" ] && echo "FEATURES_JSON=yes" || echo "FEATURES_JSON=no"
 
 # 2. Detect actual feature signals in the project
-[ -d "Assets/_GameFolders/Scripts/Ecs" ] && echo "ECS_DIR=yes" || echo "ECS_DIR=no"
+[ -d "Assets/_GameFolders/Scripts/Games/Ecs" ] && echo "ECS_DIR=yes" || echo "ECS_DIR=no"
 [ -d "Assets/_GameFolders/Scripts/Tests" ] && echo "TESTS_DIR=yes" || echo "TESTS_DIR=no"
 grep -q "com.unity.addressables" Packages/manifest.json 2>/dev/null && echo "ADDRESSABLES_PKG=yes" || echo "ADDRESSABLES_PKG=no"
 
@@ -256,7 +256,7 @@ Replace `[ProjectName]` with the actual project name the developer provided.
 }
 ```
 
-#### `_GameFolders/Scripts/[ProjectName]Games.asmdef`
+#### `_GameFolders/Scripts/Games/[ProjectName]Games.asmdef`
 ```json
 {
     "name": "[ProjectName]Games",
@@ -415,7 +415,7 @@ Replace `[ProjectName]` with the actual project name the developer provided.
 
 #### ECS asmdef (only if ECS=yes)
 
-#### `_GameFolders/Scripts/Ecs/[ProjectName]Ecs.asmdef`
+#### `_GameFolders/Scripts/Games/Ecs/[ProjectName]Ecs.asmdef`
 ```json
 {
     "name": "[ProjectName]Ecs",
@@ -545,7 +545,7 @@ namespace Framework.Events
 }
 ```
 
-#### `_GameFolders/Scripts/Concretes/Infrastructure/ModuleInstaller.cs`
+#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/ModuleInstaller.cs`
 ```csharp
 using UnityEngine;
 using VContainer;
@@ -561,7 +561,7 @@ namespace Game.Concretes.Infrastructure
 
 > `ModuleInstaller` uses `ScriptableObject` (requires `using UnityEngine`) so it lives in `Concretes/Infrastructure/`, not `Abstracts/`. The `check-pure-csharp.sh` hook blocks `using UnityEngine` in `Abstracts/`.
 
-#### `_GameFolders/Scripts/Concretes/Infrastructure/AppInstaller.cs`
+#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/AppInstaller.cs`
 ```csharp
 using UnityEngine;
 using VContainer;
@@ -595,7 +595,7 @@ namespace Game.Concretes.Infrastructure
 }
 ```
 
-#### `_GameFolders/Scripts/Concretes/Infrastructure/AppScope.cs`
+#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/AppScope.cs`
 ```csharp
 using Framework.Events;
 using UnityEngine;
