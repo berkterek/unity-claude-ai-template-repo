@@ -20,16 +20,17 @@ _Framework/                              ← Never references _GameFolders or ot
 
 _GameFolders/
   Scripts/
-    Abstracts/           ← interfaces and abstract base classes ONLY, organized by domain
-      Players/
-      Enemies/
-      ...
-    Concretes/           ← ALL concrete classes (pure C# or MonoBehaviour), organized by domain
-      Players/
-      Enemies/
-      Audio/
-      ...
-    Ecs/                 ← Authorings, Components, Systems (if ECS enabled)
+    Games/
+      Abstracts/         ← interfaces and abstract base classes ONLY, organized by domain
+        Players/
+        Enemies/
+        ...
+      Concretes/         ← ALL concrete classes (pure C# or MonoBehaviour), organized by domain
+        Players/
+        Enemies/
+        Audio/
+        ...
+      Ecs/               ← Authorings, Components, Systems (if ECS enabled)
     Tests/
       [ProjectName]EditModeTest/    ← Edit Mode (NUnit + NSubstitute)
       [ProjectName]PlayModeTest/    ← Play Mode (ECS World integration)

@@ -180,13 +180,14 @@ Assets/
     ├── Configs/
     ├── Input/                      ← .inputactions file goes here
     └── Scripts/
-        ├── Abstracts/              ← interfaces and abstract base classes, organized by domain
-        ├── Concretes/              ← ALL concrete classes (pure C# or MonoBehaviour), by domain
-        │   └── Infrastructure/    ← AppScope, AppInstaller, ModuleInstaller
-        ├── Ecs/                    ← only if ECS=yes
-        │   ├── Authorings/
-        │   ├── Components/
-        │   └── Systems/
+        ├── Games/                  ← [ProjectName]Games.asmdef
+        │   ├── Abstracts/          ← interfaces and abstract base classes, organized by domain
+        │   ├── Concretes/          ← ALL concrete classes (pure C# or MonoBehaviour), by domain
+        │   │   └── Infrastructure/ ← AppScope, AppInstaller, ModuleInstaller
+        │   └── Ecs/                ← only if ECS=yes
+        │       ├── Authorings/
+        │       ├── Components/
+        │       └── Systems/
         ├── Editors/                ← [ProjectName]Editor.asmdef (Editor-only)
         └── Tests/                  ← only if Testing=yes
             ├── [ProjectName]EditModeTest/

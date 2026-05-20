@@ -836,16 +836,17 @@ _Framework/                              ← Never references _GameFolders or ot
   Editors/FrameworkEditor.asmdef
 
 _GameFolders/Scripts/
-  Abstracts/                 ← interfaces and abstract base classes, organized by domain
-    Players/
-    Enemies/
-    ...
-  Concretes/                 ← ALL concrete classes (pure C# or MonoBehaviour), organized by domain
-    Players/
-    Enemies/
-    Audio/
-    ...
-  Ecs/                       ← DOTS: Authorings, Components, Systems (if ECS enabled)
+  Games/
+    Abstracts/               ← interfaces and abstract base classes, organized by domain
+      Players/
+      Enemies/
+      ...
+    Concretes/               ← ALL concrete classes (pure C# or MonoBehaviour), organized by domain
+      Players/
+      Enemies/
+      Audio/
+      ...
+    Ecs/                     ← DOTS: Authorings, Components, Systems (if ECS enabled)
   Tests/
     [Project]EditModeTest/
     [Project]PlayModeTest/
@@ -858,11 +859,11 @@ _GameFolders/Scripts/
 - `AppScope` never changes — add modules via `AppInstaller.asset`
 - `IEventBus` for cross-module communication — no direct cross-module calls
 - `EventBusAccessor` static bridge for ECS ↔ Mono communication (only approved static accessor)
-- Provider pattern — Unity API stays in providers inside `Concretes/<Domain>/`, never in service classes
+- Provider pattern — Unity API stays in providers inside `Games/Concretes/<Domain>/`, never in service classes
 - Every scene GO is a prefab instance; root=logic components, `Body` child=visual components
-- `Abstracts/` = interfaces and abstract base classes ONLY — no concrete implementations
-- `Concretes/` = ALL concrete classes, both pure C# (MoveHandler, DamageHandler) and MonoBehaviours — organized by domain (Players/, Enemies/, Audio/…), never by layer (Services/, Views/…)
-- Only valid top-level folders under `Scripts/`: `Abstracts/`, `Concretes/`, `Ecs/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/`, `Games/` or other custom folders
+- `Games/Abstracts/` = interfaces and abstract base classes ONLY — no concrete implementations
+- `Games/Concretes/` = ALL concrete classes, both pure C# (MoveHandler, DamageHandler) and MonoBehaviours — organized by domain (Players/, Enemies/, Audio/…), never by layer
+- Only valid top-level folders under `Scripts/`: `Games/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/` or other folders alongside `Games/`
 - Every `_Framework` subfolder has its own `.asmdef` — never a single root-level assembly covering all subfolders
 - All prefabs under `_GameFolders/Prefabs/<Domain>/`; shared-base objects use Prefab Variants
 - New Input System only — `InputView` owns `PlayerControls`

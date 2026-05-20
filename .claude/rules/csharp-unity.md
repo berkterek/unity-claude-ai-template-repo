@@ -34,11 +34,11 @@ Format: `<Layer>.<Domain>` — underscore prefix on folder names is dropped.
 |--------|-----------|
 | `_Framework/Events/` | `Framework.Events` |
 | `_Framework/Logging/` | `Framework.Logging` |
-| `_GameFolders/Scripts/Abstracts/` | `Game.Abstracts` |
-| `_GameFolders/Scripts/Abstracts/<Domain>/` | `Game.Abstracts.<Domain>` |
-| `_GameFolders/Scripts/Concretes/` | `Game.Concretes` |
-| `_GameFolders/Scripts/Concretes/<Domain>/` | `Game.Concretes.<Domain>` |
-| `_GameFolders/Scripts/Ecs/` | `Game.Ecs` |
+| `_GameFolders/Scripts/Games/Abstracts/` | `Game.Abstracts` |
+| `_GameFolders/Scripts/Games/Abstracts/<Domain>/` | `Game.Abstracts.<Domain>` |
+| `_GameFolders/Scripts/Games/Concretes/` | `Game.Concretes` |
+| `_GameFolders/Scripts/Games/Concretes/<Domain>/` | `Game.Concretes.<Domain>` |
+| `_GameFolders/Scripts/Games/Ecs/` | `Game.Ecs` |
 | `_GameFolders/Scripts/Tests/` | `Game.Tests` |
 | `_GameFolders/Scripts/Editors/` | `Game.Editors` |
 

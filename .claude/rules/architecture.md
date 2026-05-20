@@ -27,21 +27,16 @@ _Framework/                               ← Never references _GameFolders or o
 
 _GameFolders/        ← Depends on _Framework. All game-specific code.
   Scripts/
-    Abstracts/       ← interfaces and abstract base classes ONLY, organized by domain
-      Players/       ← example domain folders (mirrors Concretes/ structure)
-      Enemies/
-      Controllers/
-      Handlers/
-      Items/
-      ...
-    Concretes/       ← ALL concrete classes (pure C# or MonoBehaviour), organized by domain
-      Players/       ← same domain folders as Abstracts/
-      Enemies/
-      Controllers/
-      Handlers/
-      Items/
-      ...            ← name subfolders by domain/feature, not by layer
-    Ecs/             ← ECS DOTS systems, components, authorings (only if ECS enabled)
+    Games/
+      Abstracts/     ← interfaces and abstract base classes ONLY, organized by domain
+        Players/     ← example domain folders (mirrors Concretes/ structure)
+        Enemies/
+        ...
+      Concretes/     ← ALL concrete classes (pure C# or MonoBehaviour), organized by domain
+        Players/     ← same domain folders as Abstracts/
+        Enemies/
+        ...          ← name subfolders by domain/feature, not by layer
+      Ecs/           ← ECS DOTS systems, components, authorings (only if ECS enabled)
     Tests/
       [Project]EditModeTest/   ← Edit Mode tests (.asmdef includePlatforms: ["Editor"])
       [Project]PlayModeTest/   ← Play Mode tests (.asmdef all platforms)
@@ -50,19 +45,20 @@ _GameFolders/        ← Depends on _Framework. All game-specific code.
 
 ### Scripts/ Folder Rules (NON-NEGOTIABLE)
 
-The **only** valid top-level folders under `Scripts/` are: `Abstracts/`, `Concretes/`, `Ecs/`, `Tests/`, `Editors/`.
+The **only** valid top-level folders under `Scripts/` are: `Games/`, `Tests/`, `Editors/`.
 
-**Never create these under `Scripts/` directly:**
+**Never create these under `Scripts/` directly — they belong inside `Games/`:**
 
 | Forbidden folder | Correct location |
 |-----------------|-----------------|
-| `Scripts/Config/` | ScriptableObject configs → `Scripts/Concretes/<Domain>/` |
-| `Scripts/GameUnity/` | MonoBehaviour views/providers → `Scripts/Concretes/<Domain>/` |
-| `Scripts/Game/` | Services → `Scripts/Concretes/<Domain>/` |
-| `Scripts/Games/` | No Games/ wrapper — use `Abstracts/`, `Concretes/` directly |
-| `Scripts/Services/` | Services → `Scripts/Concretes/<Domain>/` |
+| `Scripts/Config/` | ScriptableObject configs → `Scripts/Games/Concretes/<Domain>/` |
+| `Scripts/GameUnity/` | MonoBehaviour views/providers → `Scripts/Games/Concretes/<Domain>/` |
+| `Scripts/Game/` | Services → `Scripts/Games/Concretes/<Domain>/` |
+| `Scripts/Abstracts/` | Must be inside `Games/` → `Scripts/Games/Abstracts/` |
+| `Scripts/Concretes/` | Must be inside `Games/` → `Scripts/Games/Concretes/` |
+| `Scripts/Services/` | Services → `Scripts/Games/Concretes/<Domain>/` |
 
-**Concretes/ subfolder naming:** use domain/feature names (`Players/`, `Enemies/`, `UI/`, `Audio/`, `Handlers/`, `Controllers/`) — never layer names like `Services/`, `Views/`, `Providers/`.
+**Games/Concretes/ subfolder naming:** use domain/feature names (`Players/`, `Enemies/`, `UI/`, `Audio/`, `Handlers/`, `Controllers/`) — never layer names like `Services/`, `Views/`, `Providers/`.
 
 **Rule:** `_Framework` never references `_GameFolders` or any other project folder. `_GameFolders` may reference `_Framework`.
 
