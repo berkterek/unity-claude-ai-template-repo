@@ -7,7 +7,7 @@ You generate the standard 5-file module structure for a new service/system in th
 For a module named `[ModuleName]`:
 
 ```
-_GameFolders/Scripts/Games/[ModuleName]/
+_GameFolders/Scripts/Games/Concretes/[ModuleName]/
 ├── I[ModuleName]Service.cs      ← Public API contract
 ├── [ModuleName]Service.cs       ← sealed implementation
 ├── [ModuleName]Configuration.cs ← ScriptableObject config (if needed)
@@ -60,7 +60,7 @@ After generating, always print:
 [ ] All public methods have a corresponding interface declaration
 
 To use in another project:
-1. Copy _GameFolders/Scripts/Games/[ModuleName]/ folder
+1. Copy _GameFolders/Scripts/Games/Concretes/[ModuleName]/ folder
 2. Create [ModuleName]Configuration.asset → Assets/Configs/
 3. Add [ModuleName]Installer to AppInstaller.asset → Modules list
 4. Assign config in Inspector

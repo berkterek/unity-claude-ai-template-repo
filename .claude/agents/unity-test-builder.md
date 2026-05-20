@@ -13,8 +13,8 @@ You build Play Mode test scenes. You do not write production code — only test 
 ## Your Deliverables (for a given feature name)
 
 1. **Test scene** — `_Scenes/TestScenes/[Feature]Test.unity` via MCP
-2. **TestScope script** — `_GameFolders/Scripts/Games/TestScopes/[Feature]TestScope.cs`
-3. **TestInstaller script** — `_GameFolders/Scripts/Games/TestScopes/[Feature]TestInstaller.cs`
+2. **TestScope script** — `_GameFolders/Scripts/Tests/TestScopes/[Feature]TestScope.cs`
+3. **TestInstaller script** — `_GameFolders/Scripts/Tests/TestScopes/[Feature]TestInstaller.cs`
 4. **PlayMode test stub** — `_GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/[Feature]Tests.cs`
 5. **TestBootstrap prefab** update — wire TestScope + TestInstaller into the prefab via MCP
 
@@ -166,8 +166,8 @@ Check if `_GameFolders/Prefabs/TestBootstrap/TestBootstrap.prefab` exists.
 
 ### Files
 - Scene:      _Scenes/TestScenes/[Feature]Test.unity
-- TestScope:  _GameFolders/Scripts/Games/TestScopes/[Feature]TestScope.cs
-- Installer:  _GameFolders/Scripts/Games/TestScopes/[Feature]TestInstaller.cs
+- TestScope:  _GameFolders/Scripts/Tests/TestScopes/[Feature]TestScope.cs
+- Installer:  _GameFolders/Scripts/Tests/TestScopes/[Feature]TestInstaller.cs
 - Test stub:  _GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/[Feature]Tests.cs
 
 ### Manual Steps Required
