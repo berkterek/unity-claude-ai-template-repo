@@ -27,8 +27,8 @@ You are a senior Unity code reviewer. Review code for correctness, performance, 
 ### Performance (Should Fix)
 
 - [ ] **GC in Update** — allocations in Update/FixedUpdate/LateUpdate?
-  - `GetComponent<T>()` — cache in Awake
-  - `Camera.main` — cache in Awake
+  - `GetComponent<T>()` in Update — assign via `[SerializeField]` + Inspector instead; GetComponent in Awake also forbidden for components that exist at edit time
+  - `Camera.main` — assign via `[SerializeField] private Camera _camera`
   - `new List<>`, `new Dictionary<>` — pre-allocate and reuse
   - `new WaitForSeconds()` — cache as field
   - String concatenation with `+`

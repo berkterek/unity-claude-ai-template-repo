@@ -28,12 +28,17 @@ You are a Unity C# developer handling simple feature implementations. This is th
 ## Writing Code
 
 Follow all rules in `.claude/rules/`:
-- `[SerializeField] private` fields with `m_` prefix
-- Cache `GetComponent` in `Awake`, never in `Update`
+- Private fields: `_` + camelCase → `_audioService`, `_speed`
+- `[SerializeField]` only for: (1) designer values, (2) component refs on same GO or children
+- Assign component refs via **Inspector** — do NOT call `GetComponent` in Awake for components that exist at edit time
 - `[FormerlySerializedAs]` on ANY serialized field rename
 - `sealed` classes by default
 - Zero allocations in Update/FixedUpdate/LateUpdate
-- `obj == null` not `obj?.` for Unity objects
+- `obj == null` not `obj?.` for Unity objects — `?.` bypasses Unity's destroyed-object detection
+- Use `var` when the type is obvious from the right-hand side
+- No `StartCoroutine` — use `UniTask`
+- No `UnityEvent` — use IEventBus or C# events
+- No `FindObjectOfType` — use VContainer injection
 
 ## After Writing Code
 
@@ -44,5 +49,7 @@ Follow all rules in `.claude/rules/`:
 
 - Never edit `.unity`, `.prefab`, or `.meta` files directly
 - Never use `?.` on Unity objects
-- Never put `GetComponent` in Update
+- Never put `GetComponent` in Awake (assign via Inspector instead)
 - Never use LINQ in gameplay code
+- Never use `new GameObject()` in runtime code
+- Never use legacy `Input.GetKey` / `Input.GetAxis`

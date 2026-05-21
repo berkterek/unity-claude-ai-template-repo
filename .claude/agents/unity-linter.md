@@ -22,8 +22,9 @@ Run through these checks on the target files:
 - [ ] `== null` used instead of `is null` for Unity object checks
 
 ### Performance
-- [ ] No `GetComponent<T>()` in `Update`/`FixedUpdate`/`LateUpdate` — must be cached in `Awake`
-- [ ] No `Camera.main` in `Update` — must be cached
+- [ ] No `GetComponent<T>()` in `Update`/`FixedUpdate`/`LateUpdate` — use `[SerializeField]` + Inspector assignment
+- [ ] No `GetComponent<T>()` in `Awake` for components that exist at edit time — use `[SerializeField]` instead
+- [ ] No `Camera.main` in `Update` — use `[SerializeField] private Camera _camera`
 - [ ] No `FindObjectOfType` in `Update`
 - [ ] No LINQ (`.Where`, `.Select`, `.Any`, `.OrderBy`) in gameplay code
 - [ ] `CompareTag()` used instead of `tag ==`
