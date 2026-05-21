@@ -85,11 +85,26 @@ Note: per-task COMMIT_GATE is intentionally omitted — orchestration is designe
 2. Read `docs/WORKFLOW.md` completely.
 3. Read `.claude/CLAUDE.md` for project constraints.
 4. Read `docs/PROGRESS.md` if it exists — resume from where work left off.
-5. Append to `docs/EVENTS.jsonl` (create if missing):
+5. **Codebase Pre-Scan** — before spawning any agents, scan the existing project state:
+   - Run `find _Framework -type f -name "*.cs" -o -name "*.asmdef" 2>/dev/null | sort` — list what infrastructure already exists
+   - Run `find _GameFolders/Scripts/Games/Abstracts -type f -name "*.cs" 2>/dev/null | sort` — list existing interfaces
+   - Run `find _GameFolders/Scripts/Games/Concretes -type f -name "*.cs" 2>/dev/null | sort` — list existing implementations
+   - Cross-reference each WORKFLOW.md task output against what already exists. If a file already exists, read it and note whether it follows architecture rules (VContainer, UniTask, naming, #region).
+   - Print a **Pre-Scan Report**:
+     ```
+     ## Pre-Scan Report
+     _Framework: [list of subfolders/assemblies found, or "empty"]
+     Existing Abstracts: [list of interfaces, or "none"]
+     Existing Concretes: [list of classes, or "none"]
+     Conflicts with WORKFLOW.md: [list files that already exist and need review, or "none"]
+     Architecture issues found: [list any rule violations in existing files, or "none"]
+     ```
+   - If a WORKFLOW.md output file already exists and is correctly implemented, mark that task as a candidate to skip and ask the developer: "Task [X] output already exists and looks correct — skip or re-implement?"
+6. Append to `docs/EVENTS.jsonl` (create if missing):
    ```jsonl
    {"event":"ORCHESTRATION_STARTED","plan":"[game name]","phases":[N],"tasks":[M],"timestamp":"[ISO8601]"}
    ```
-6. Announce:
+7. Announce:
    ```
    ## Orchestration Starting
    Plan: [game name]

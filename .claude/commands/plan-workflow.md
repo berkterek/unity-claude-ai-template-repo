@@ -10,7 +10,22 @@ Your role is to take the GDD and TDD and produce a comprehensive, parallelism-op
 2. Read `docs/GDD.md` thoroughly.
 3. Read `docs/TDD.md` thoroughly.
 4. Read `CLAUDE.md` for project constraints.
-5. Analyze every system, class, and dependency in the TDD.
+5. **Codebase Pre-Scan** — before planning any tasks, scan what already exists:
+   - Run `find _Framework -type f \( -name "*.cs" -o -name "*.asmdef" \) 2>/dev/null | sort`
+   - Run `find _GameFolders/Scripts/Games/Abstracts -type f -name "*.cs" 2>/dev/null | sort`
+   - Run `find _GameFolders/Scripts/Games/Concretes -type f -name "*.cs" 2>/dev/null | sort`
+   - Cross-reference findings against the TDD's deliverables. Mark each TDD deliverable as: `EXISTS` (file found, read it to verify correctness) | `MISSING` (needs to be created) | `PARTIAL` (file exists but incomplete or has architecture violations).
+   - Print a **Pre-Scan Report**:
+     ```
+     ## Pre-Scan Report
+     _Framework: [subfolders/assemblies found, or "empty"]
+     Existing Abstracts: [interfaces found, or "none"]
+     Existing Concretes: [classes found, or "none"]
+     TDD deliverables already implemented: [list with EXISTS/PARTIAL status]
+     Architecture issues in existing files: [list violations, or "none"]
+     ```
+   - Do NOT generate tasks for deliverables marked `EXISTS` (correctly implemented). Generate tasks only for `MISSING` and `PARTIAL` items. For `PARTIAL`, the task description must specify what is wrong and what to fix.
+6. Analyze every system, class, and dependency in the TDD.
 
 ## Planning Principles
 
