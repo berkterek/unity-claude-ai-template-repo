@@ -304,6 +304,20 @@ Description: [full task description from WORKFLOW.md]
 - When multiple objects share the same base structure → create a base prefab first, then Prefab Variants
 - Never duplicate a prefab manually — always use Prefab Variants
 
+## Canvas Prefab Rules (NON-NEGOTIABLE)
+Before creating any Canvas prefab, check _GameFolders/Prefabs/UI/Canvases/ for an existing BaseCanvas.prefab:
+- If BaseCanvas.prefab does NOT exist yet → create it first with: Canvas + CanvasScaler (Scale With Screen Size, 1080×1920, match 0.5) + GraphicRaycaster. Save to _GameFolders/Prefabs/UI/Canvases/BaseCanvas.prefab
+- Every subsequent Canvas prefab (CanvasHUD, CanvasJoystick, CanvasOverlay, CanvasPopup, etc.) MUST be a Prefab Variant of BaseCanvas — NEVER a standalone prefab
+- Variants override ONLY: Canvas.sortingOrder, Canvas.renderMode (if needed), and their own children
+- If you find existing standalone Canvas prefabs that are NOT variants of BaseCanvas → stop and report this as a BLOCKED issue. Do not silently proceed
+
+## Base Prefab Pattern — General (NON-NEGOTIABLE)
+Before creating 2 or more prefabs of the same domain that share the same component set, check if a base prefab exists:
+- If creating multiple Enemy prefabs → check for BaseEnemy.prefab first
+- If creating multiple Obstacle prefabs → check for BaseObstacle.prefab first
+- Same rule applies to any domain with 2+ structurally similar prefabs
+- Signal: "these two prefabs would have the same components on root and Body child" → use Base + Variant
+
 ## When Done
 List every scene/prefab/asset you created or modified.
 Do NOT commit anything.
@@ -414,13 +428,46 @@ Title: [task title]
 [from WORKFLOW.md]
 
 ## Your Task (max 3 internal iterations)
-1. Compile check via MCP refresh_assets
-2. Test run via MCP run_tests
-3. Quick scan for Unity-specific issues (null refs, missing SerializeField, event leaks)
+
+### Step A — Compile & Assembly Check (BLOCKING — do not proceed past this if errors exist)
+1. Call MCP `refresh_assets` to trigger a Unity recompile.
+2. Call MCP `get_logs` (or equivalent) and read ALL console output.
+3. Search for ANY of these patterns in the log output:
+   - "error CS" — C# compiler errors
+   - "Assembly" followed by "error" or "failed"
+   - "has compiler errors" or "Scripts have compiler errors"
+   - "is not allowed to reference" — assembly reference violation
+   - Any line starting with "Error:" in the compiler output
+4. If ANY compile or assembly error is found:
+   - List every error with file path and line number
+   - Attempt to fix the errors (max 2 fix attempts)
+   - After each fix, call `refresh_assets` again and re-read logs
+   - If errors persist after 2 fix attempts → Report: ISSUES FOUND (cannot fix) with full error list
+   - Do NOT proceed to test run if compile errors remain
+
+### Step B — Test Run (only if Step A passes with zero errors)
+5. Call MCP `run_tests` and report results.
+6. If tests fail → attempt fixes, re-run (max 2 attempts).
+
+### Step C — Unity-Specific Issues (only if Steps A and B pass)
+7. Quick scan for Unity-specific issues (null refs, missing SerializeField, event leaks).
 
 If you find and fix issues, list them. If cannot fix, report blockers.
 Report: VERIFIED or ISSUES FOUND with details.
 ```
+
+**CRITICAL:** If the verifier reports compile or assembly errors and cannot fix them → the pipeline **MUST STOP**. Do NOT spawn the committer. Print:
+```
+⛔ BLOCKED at [P{phase}.T{task}] Step 3.5 (Verification): Assembly/compile errors found.
+[paste error list]
+Fix these errors before this task can be committed.
+Run /orchestrate to resume after fixing.
+```
+Update PROGRESS.md with blocked status. Append to `docs/EVENTS.jsonl`:
+```jsonl
+{"event":"TASK_BLOCKED","phase":[N],"task":[P],"id":"P{phase}.T{task}","step":"verifier","reason":"compile errors","timestamp":"[ISO8601]"}
+```
+Exit.
 
 If **VERIFIED** → append to `docs/EVENTS.jsonl`:
 ```jsonl
@@ -468,9 +515,28 @@ After all tasks in a phase complete, run the automated QA sequence before asking
 
 #### Step 1 — Ralph (compile + test green)
 
-Spawn a **unity-verifier** subagent to compile and run tests. If failures found → spawn **unity-fixer** to fix, re-verify (max 3 passes). If still failing after 3 passes → stop and report to user. Do not proceed to Step 2 until green.
+Spawn a **unity-verifier** subagent with this prompt:
 
-Print: `✓ Ralph passed — compile and tests green.` or `⚠ Ralph failed after 3 passes — [issues]. Fix before proceeding.`
+```
+Run a full compile and test check for the end of a phase.
+
+1. Call MCP `refresh_assets` to trigger Unity recompile.
+2. Call MCP `get_logs` and read ALL console output.
+3. Search for ANY compile or assembly error:
+   - "error CS" — C# compiler errors
+   - "Assembly" with "error" or "failed"
+   - "has compiler errors" / "Scripts have compiler errors"
+   - "is not allowed to reference" — assembly violation
+4. If ANY compile/assembly error found → list all errors. Attempt fixes (max 2). Re-check after each fix.
+5. If errors persist → Report: COMPILE ERRORS with full list. Do NOT run tests.
+6. If compile is clean → call MCP `run_tests` and report results.
+
+Report: GREEN (compile clean, tests pass) or ERRORS (list all failures).
+```
+
+If failures found → spawn **unity-fixer** to fix, re-verify (max 3 passes). If still failing after 3 passes → **stop and report to user. Do not proceed to Step 2 until green.**
+
+Print: `✓ Ralph passed — compile and tests green.` or `⛔ Ralph failed after 3 passes — [issues]. Fix before proceeding.`
 
 #### Step 2 — Silent Failure Hunt
 
