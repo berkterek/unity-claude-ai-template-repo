@@ -97,6 +97,84 @@ NetworkManager (DontDestroyOnLoad)
     └── SpawnPoints[]
 ```
 
+## VContainer Integration (NON-NEGOTIABLE)
+
+NetworkBehaviour subclasses cannot receive constructor injection — Unity spawns them via NetworkManager. Use `[Inject]` method injection instead.
+
+### Pattern: [Inject] method on NetworkBehaviour
+
+```csharp
+public sealed class PlayerNetworkController : NetworkBehaviour
+{
+    private IPlayerService _playerService;
+    private IEventBus _eventBus;
+
+    // VContainer calls this after scene injection resolves
+    [Inject]
+    public void Construct(IPlayerService playerService, IEventBus eventBus)
+    {
+        _playerService = playerService;
+        _eventBus = eventBus;
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        if (!IsOwner) return;
+        _eventBus.Publish(new PlayerSpawnedEvent(OwnerClientId));
+    }
+}
+```
+
+### Registration in LifetimeScope
+
+```csharp
+// GameScope.cs
+protected override void Configure(IContainerBuilder builder)
+{
+    // Register the NetworkBehaviour that exists in the scene
+    builder.RegisterComponentInHierarchy<PlayerNetworkController>();
+
+    // Or for dynamically spawned prefabs, use an injection trigger:
+    builder.RegisterBuildCallback(container =>
+    {
+        // Inject into already-spawned network objects
+        foreach (var controller in FindObjectsByType<PlayerNetworkController>(FindObjectsSortMode.None))
+            container.Inject(controller);
+    });
+}
+```
+
+### Pattern: Runtime spawn injection
+
+For network objects spawned at runtime (via `Instantiate` + `NetworkObject.Spawn()`), inject
+after spawn using the container:
+
+```csharp
+public sealed class NetworkSpawnService : INetworkSpawnService
+{
+    private readonly IObjectResolver _container;
+
+    public NetworkSpawnService(IObjectResolver container) => _container = container;
+
+    public void SpawnPlayer(ulong clientId)
+    {
+        var go = Instantiate(_playerPrefab, spawnPoint.position, Quaternion.identity);
+        _container.Inject(go); // inject VContainer dependencies into all MonoBehaviours
+        go.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
+    }
+}
+```
+
+### Rules
+
+- **No `FindObjectOfType` inside NetworkBehaviour** — use `[Inject]` method
+- **No static singletons** — register services in LifetimeScope, inject normally
+- **No direct cross-NetworkBehaviour calls** — use IEventBus for communication
+- **`[Inject]` fires before `OnNetworkSpawn`** in scene-placed objects — safe to use dependencies there
+- For prefab-spawned objects, ensure `container.Inject(go)` is called before `NetworkObject.Spawn()`
+
+---
+
 ## Critical Rules
 
 1. **Server is authoritative** — never trust client data
@@ -112,3 +190,5 @@ NetworkManager (DontDestroyOnLoad)
 - Never send large data in RPCs (serialize efficiently)
 - Never use `Update` without ownership check on network objects
 - Never forget to register network prefabs
+- Never use `FindObjectOfType` inside NetworkBehaviour — use `[Inject]`
+- Never create a static singleton for network services — register in LifetimeScope

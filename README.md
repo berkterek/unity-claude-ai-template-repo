@@ -484,7 +484,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-fixer-lite` | Quick targeted fix for a single well-scoped defect |
 | `unity-git-master` | Git workflow — branching strategy, conflict resolution, history rewrite |
 | `unity-migrator` | Pattern migration specialist — coroutine→UniTask, singleton→VContainer, legacy input |
-| `unity-network-dev` | Netcode for GameObjects / Unity Transport — lobby, relay, RPCs |
+| `unity-network-dev` | Netcode for GameObjects / Unity Transport — lobby, relay, RPCs. VContainer DI integration for NetworkBehaviour via `[Inject]` method injection and `container.Inject(go)` for runtime-spawned network objects |
 | `unity-prototyper` | Rapid prototype scaffolding — speed over correctness, clearly marked TODOs |
 | `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |

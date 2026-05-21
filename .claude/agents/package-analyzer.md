@@ -1,6 +1,6 @@
 ---
 name: package-analyzer
-description: "Read-only analyst that walks Packages/manifest.json, Packages/packages-lock.json, and each resolved package directory, then emits multi-file skill drafts under .claude/skills/third-party/<pkg>/. Detects prefabs and maps them to _GameFolders/Prefabs/<Category>/ destinations."
+description: "Read-only analyst that walks Packages/manifest.json and resolved package directories, emits skill drafts under .claude/skills/third-party/<pkg>/. Detects rule violations (singletons, legacy input, coroutines) and generates Adapter/Wrapper fix patterns — never modifies package source. Maps prefabs to _GameFolders/Prefabs/<Category>/ duplication targets."
 model: sonnet
 color: cyan
 tools: Read, Glob, Grep, Bash
