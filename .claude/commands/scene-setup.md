@@ -158,6 +158,15 @@ $CODER_OUTPUT
 - Set up the scene LifetimeScope installer with the new VContainer registrations
 - Do NOT edit .unity or .prefab files as raw text — use MCP tools only
 
+## Canvas Prefab Rules (NON-NEGOTIABLE)
+Before creating any Canvas prefab, check `_GameFolders/Prefabs/UI/Canvases/BaseCanvas.prefab`:
+- If it does NOT exist → create BaseCanvas first: `Canvas` + `CanvasScaler` (Scale With Screen Size, 1080×1920, match 0.5) + `GraphicRaycaster`
+- Every Canvas prefab MUST be a Prefab Variant of BaseCanvas — NEVER standalone
+- Variants override only: `Canvas.sortingOrder`, `Canvas.renderMode`, and their own children
+
+## Base Prefab Rule
+Before creating 2+ prefabs in the same domain that share the same component structure → create a Base prefab first, then Prefab Variants. Never duplicate independently.
+
 ## When Done
 List every scene/prefab/asset you created or modified.
 Report: DONE or BLOCKED with reason.

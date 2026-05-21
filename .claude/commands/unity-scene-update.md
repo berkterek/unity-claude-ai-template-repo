@@ -115,10 +115,17 @@ For Unity built-in components (GlobalVolume, Camera, Light):
 - These have no renderers on root — no separation needed
 - Save as-is
 
-### 5c — Save prefab
+### 5c — Canvas check before saving
+If the GO has a `Canvas` component:
+1. Check if `_GameFolders/Prefabs/UI/Canvases/BaseCanvas.prefab` exists
+2. If NOT → create BaseCanvas first: `Canvas` + `CanvasScaler` (Scale With Screen Size, 1080×1920, match 0.5) + `GraphicRaycaster`. Save to `_GameFolders/Prefabs/UI/Canvases/BaseCanvas.prefab`
+3. Save the Canvas GO as a **Prefab Variant of BaseCanvas** — not as a standalone prefab
+4. Set only overrides: `Canvas.sortingOrder` and children
+
+### 5d — Save prefab
 Save to `_GameFolders/Prefabs/<Domain>/<GOName>.prefab` via MCP.
 
-### 5d — Replace in scene
+### 5e — Replace in scene
 Replace the bare GO in the scene with the newly created prefab instance.
 
 ---

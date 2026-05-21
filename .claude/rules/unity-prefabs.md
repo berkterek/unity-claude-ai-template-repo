@@ -70,6 +70,41 @@ BaseEnemy.prefab          ← base: shared components, default values
 - Only override what actually differs — keep overrides minimal
 - Never copy-paste a prefab and tweak it — use Prefab Variants
 
+### When to Use Base + Variant vs Separate Prefab
+
+| Situation | Decision |
+|-----------|----------|
+| 2+ prefabs share the same component set | Base + Variant |
+| Only 1–2 fields differ (Sort Order, Layer, speed) | Base + Variant |
+| Completely different component structure | Separate prefab |
+| Name is similar but content is fundamentally different | Separate prefab |
+
+### Canvas Prefabs — BaseCanvas Pattern (NON-NEGOTIABLE)
+
+Every project that has multiple Canvas prefabs **must** use a `BaseCanvas` prefab with Prefab Variants. Never create independent Canvas prefabs that duplicate the same `Canvas` + `CanvasScaler` + `GraphicRaycaster` setup.
+
+```
+_GameFolders/Prefabs/UI/Canvases/
+├── BaseCanvas.prefab           ← Canvas + CanvasScaler (reference resolution) + GraphicRaycaster
+├── CanvasHUD.prefab            ← variant: Sort Order 0, HUD children
+├── CanvasJoystick.prefab       ← variant: Sort Order 1
+├── CanvasOverlay.prefab        ← variant: Sort Order 10
+└── CanvasPopup.prefab          ← variant: Sort Order 100
+```
+
+**BaseCanvas holds:**
+- `Canvas` component — Render Mode: Screen Space - Overlay (default)
+- `CanvasScaler` — Scale Mode: Scale With Screen Size, Reference Resolution (e.g. 1080×1920), Match: 0.5
+- `GraphicRaycaster`
+- Any project-wide safe area or resolution handler script
+
+**Variants override only:**
+- `Canvas.sortingOrder` — each canvas has its own layer order
+- `Canvas.renderMode` — if a specific canvas needs Camera or World Space
+- Children (HUD elements, joystick widgets, popup containers)
+
+**Why:** `CanvasScaler` reference resolution and match settings must be identical across all canvases. A BaseCanvas enforces this — change it once, all variants inherit it. Without a base, one canvas will inevitably drift to a different resolution setting and break layout on certain screen sizes.
+
 ## Folder Structure
 
 All prefabs live under `_GameFolders/Prefabs/`, grouped by domain:

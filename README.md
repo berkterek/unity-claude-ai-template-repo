@@ -118,7 +118,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
 | `unity-input.md` | New Input System, InputView pattern, action map switching |
-| `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, variants, folder structure, logic/visual separation |
+| `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, BaseCanvas pattern, Prefab Variants (Base+Variant decision table), folder structure, logic/visual separation |
 | `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
@@ -246,7 +246,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 
 | Command | How it runs | What it does |
 |---------|------------|-------------|
-| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier → reviewer → committer run **automatically**. **Between phases:** pauses and asks `Proceed?` | Executes `WORKFLOW.md` end-to-end, phase by phase |
+| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier (compile + assembly error check — **blocking**) → reviewer → committer run **automatically**. **Between phases:** pauses and asks `Proceed?` | Executes `WORKFLOW.md` end-to-end, phase by phase |
 | `/continue` | Manual — resumes interrupted orchestrate | Resumes an interrupted orchestration run from the event journal |
 
 ### Phase 5 — Quality
@@ -390,7 +390,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/create-plan <file> <what>` | Manual to start → researcher → planner → reviewer loop → save → optional implementer | Create a phased WORKFLOW.md plan from a spec |
 | `/update-plan <file> <change>` | Manual to start → analyzer → planner → reviewer loop → save → optional implementer | Update an existing plan |
 | `/smart-commit` | Manual to start → analyze dirty tree → group commits → commit | Group working tree changes into logical semantic commits |
-| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier → reviewer → committer. **Between phases:** pauses for `Proceed?` | Execute WORKFLOW.md end-to-end, phase by phase |
+| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier (compile + assembly error check — **blocking**) → reviewer → committer. **Between phases:** pauses for `Proceed?` | Execute WORKFLOW.md end-to-end, phase by phase |
 
 > Reviewer priority across all pipelines: Codex → unity-reviewer (falls back if Codex is unavailable). Review loops: CHANGES NEEDED → coder fixes → reviewer re-checks → repeat (max 3 passes).
 >
@@ -868,7 +868,7 @@ _GameFolders/Scripts/
 - `Games/Concretes/` = ALL concrete classes, both pure C# (MoveHandler, DamageHandler) and MonoBehaviours — organized by domain (Players/, Enemies/, Audio/…), never by layer
 - Only valid top-level folders under `Scripts/`: `Games/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/` or other folders alongside `Games/`
 - Every `_Framework` subfolder has its own `.asmdef` — never a single root-level assembly covering all subfolders
-- All prefabs under `_GameFolders/Prefabs/<Domain>/` (`Bootstrap/`, `CoreObjects/`, `Enemies/`, `UI/`, `VFX/`, `Environment/`…); shared-base objects use Prefab Variants
+- All prefabs under `_GameFolders/Prefabs/<Domain>/` (`Bootstrap/`, `CoreObjects/`, `Enemies/`, `UI/Canvases/`, `VFX/`, `Environment/`…); shared-base objects use Prefab Variants; all Canvas prefabs are Prefab Variants of `BaseCanvas`
 - `AppScope` saved as `Prefabs/Bootstrap/AppScope.prefab`; `EventSystem` and `MainCamera` saved as `Prefabs/CoreObjects/` prefabs — same prefab instance reused across all scenes
 - New Input System only — `InputView` owns `PlayerControls`
 - UniTask everywhere — no coroutines, no `async void`, always pass `CancellationToken`

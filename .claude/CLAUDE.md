@@ -71,7 +71,7 @@ Detailed coding standards in `.claude/rules/`:
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
 | `unity-input.md` | New Input System, InputView pattern, action map switching |
-| `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, variants, folder structure, logic/visual separation |
+| `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, BaseCanvas pattern, Prefab Variants (Base+Variant decision table), folder structure, logic/visual separation |
 | `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
@@ -125,6 +125,14 @@ Named prompts that pause the pipeline and wait for human approval before continu
 5. **Flag already-implemented tasks** — if a WORKFLOW.md output file already exists and is correct, ask the developer whether to skip or re-implement before proceeding.
 
 This scan is part of `/orchestrate` Initialization. It does not apply to `/implement` (which handles simpler, scoped tasks).
+
+## NON-NEGOTIABLE: Assembly Error Blocking (/orchestrate)
+
+`/orchestrate` Step 3.5 (Bounded Verification) and Phase Gate Step 1 (Ralph) both perform an explicit compile check **before** committing or advancing. If any assembly or compile error is detected, the pipeline **stops** — the committer is never spawned.
+
+Detected error patterns: `error CS`, `Assembly ... error/failed`, `has compiler errors`, `Scripts have compiler errors`, `is not allowed to reference`.
+
+The verifier reads `get_logs` after `refresh_assets` and searches for these patterns explicitly. Errors are not silently ignored — they surface as `⛔ BLOCKED` with file path and line number.
 
 ---
 

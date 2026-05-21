@@ -73,13 +73,19 @@ BaseEnemy.prefab          ← base: shared components, default values
 └── TankEnemy.prefab      ← variant: overrides Health, Size, visual
 ```
 
+**Canvas Prefabs — BaseCanvas Pattern (NON-NEGOTIABLE):** Before creating any Canvas prefab, check `_GameFolders/Prefabs/UI/Canvases/` for an existing `BaseCanvas.prefab`.
+- If it does NOT exist → create it first: `Canvas` + `CanvasScaler` (Scale With Screen Size, 1080×1920, match 0.5) + `GraphicRaycaster`. Save to `_GameFolders/Prefabs/UI/Canvases/BaseCanvas.prefab`
+- Every Canvas prefab (CanvasHUD, CanvasJoystick, CanvasOverlay, CanvasPopup, etc.) MUST be a Prefab Variant of `BaseCanvas` — NEVER a standalone prefab
+- Variants override only: `Canvas.sortingOrder`, `Canvas.renderMode` (if needed), and their own children
+
 **No bare GameObjects in scenes:** Every GameObject placed in a scene must be a prefab instance. The only exceptions are empty hierarchy organizer GameObjects (no components, used as dividers like `[Systems]`, `[UI]`, `[Gameplay]`).
 
 **Checklist before marking prefab creation complete:**
 - [ ] Prefab lives under `_GameFolders/Prefabs/<Domain>/`
 - [ ] Root holds logic/physics components only
 - [ ] `Body` child holds all Renderer/Animator/VFX components
-- [ ] If similar prefabs exist → Prefab Variant used instead of duplication
+- [ ] Canvas prefabs are Prefab Variants of BaseCanvas (not standalone)
+- [ ] If 2+ prefabs share the same component set → Base + Variant used
 - [ ] Default values match ScriptableObject configs
 
 ### 3. ScriptableObject Asset Creation
