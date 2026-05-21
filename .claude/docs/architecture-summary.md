@@ -40,8 +40,16 @@ _GameFolders/
     CoreObjects/         ← EventSystem.prefab, MainCamera.prefab
     Enemies/
     UI/
+      Canvases/          ← BaseCanvas.prefab + Prefab Variants (CanvasHUD, CanvasPopup…)
     VFX/
     Environment/
+Arts/
+  Materials/             ← all .mat files — NEVER inside Prefabs/
+    Items/
+    Environment/
+    Characters/
+    VFX/
+  Textures/              ← textures by domain
 ```
 
 ### Building a Game from Scratch
