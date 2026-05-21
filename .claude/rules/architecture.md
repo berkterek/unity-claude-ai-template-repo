@@ -80,26 +80,24 @@ The **only** valid top-level folders under `Scripts/` are: `Games/`, `Tests/`, `
 
 ## Module Structure (NON-NEGOTIABLE)
 
-Every service/system lives in its own folder and contains exactly these files:
+Every service/system spans two folders — one for the portable domain layer, one for Unity-specific providers:
 
 ```
-Audio/
-├── IAudioService.cs       ← The only public API contract
-├── AudioService.cs        ← sealed implementation
-├── AudioConfiguration.cs  ← ScriptableObject config
-├── AudioInstaller.cs      ← VContainer registration
-└── AudioEvents.cs         ← IEvent structs for this module (if any)
-```
+_GameFolders/Scripts/Games/Abstracts/Audio/
+└── IAudioService.cs           ← The only public API contract (interface only)
 
-Provider implementations live **outside** the module folder:
-
-```
 _GameFolders/Scripts/Games/Concretes/Audio/
-├── BasicAudioProvider.cs  ← IAudioProvider impl (Unity API here)
-└── AudioRoot.cs           ← MonoBehaviour, scene object
+├── AudioService.cs            ← sealed implementation
+├── AudioConfiguration.cs      ← ScriptableObject config
+├── AudioInstaller.cs          ← VContainer registration
+├── AudioEvents.cs             ← IEvent structs for this module (if any)
+├── BasicAudioProvider.cs      ← IAudioProvider impl (Unity API here)
+└── AudioRoot.cs               ← MonoBehaviour, scene object
 ```
 
-**Why:** The module folder is portable — copy-paste to another project. Concrete Unity providers are project-specific.
+**`AudioEvents.cs` must live inside `Concretes/<Domain>/` (or a subfolder within it). NEVER outside `Concretes/` — do not create a top-level `Scripts/Games/Events/` or `Scripts/Events/` folder.**
+
+**Why:** The interface lives in `Abstracts/` so other modules depend on the contract, not the implementation. Everything else — service, config, installer, events, and Unity providers — belongs in the same `Concretes/<Domain>/` folder. Splitting events into a sub-subfolder (`Concretes/Audio/Events/`) adds unnecessary nesting with no benefit.
 
 ### Module Portability Checklist
 
