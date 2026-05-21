@@ -61,6 +61,6 @@ Arts/
 | 3 — Project Setup | `/setup-project` | Folder structure, .asmdefs, base classes, URP quality tiers, audio import settings |
 | 4 — Implementation | `/orchestrate`, `/continue` | Execute WORKFLOW.md phase by phase |
 | 5 — Quality | `/validate`, `/review-code`, `/ralph`, `/performance-audit` | Compile + tests green, code review, fix loops, hot path audit |
-| 6 — Documentation | `/learn`, `/catch-up`, `/adr`, `/smart-commit` | Extract patterns, generate CATCH_UP.md, record decisions, commit |
+| 6 — Documentation | `/learn`, `/catch-up`, `/adr`, `/smart-commit`, `/smart-commit-selected` | Extract patterns, generate CATCH_UP.md, record decisions, commit (selected or all) |
 
 For incremental feature work on an existing game: `/implement <description>` (complexity scored, full pipeline).

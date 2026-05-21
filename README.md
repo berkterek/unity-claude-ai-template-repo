@@ -272,6 +272,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 | `/create-changelog` | Manual — single step | Creates or updates `CHANGELOG.md` |
 | `/update-claude-md` | Manual — single step | Syncs CLAUDE.md tables with actual project state (hooks, rules, commands, agents) |
 | `/smart-commit` | Manual to start. Inside: analyze → group → commit run **automatically** | Groups dirty working tree into logical commits |
+| `/smart-commit-selected` | Manual to start. Inside: analyze → plan groups → **multiSelect checklist** → commit selected only | Commit only chosen groups from dirty working tree |
 
 ### Full Flow
 
@@ -390,6 +391,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/create-plan <file> <what>` | Manual to start → researcher → planner → reviewer loop → save → optional implementer | Create a phased WORKFLOW.md plan from a spec |
 | `/update-plan <file> <change>` | Manual to start → analyzer → planner → reviewer loop → save → optional implementer | Update an existing plan |
 | `/smart-commit` | Manual to start → analyze dirty tree → group commits → commit | Group working tree changes into logical semantic commits |
+| `/smart-commit-selected` | Manual to start → analyze → plan groups → multiSelect checklist → commit selected | Commit only user-selected groups from working tree |
 | `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier (compile + assembly error check — **blocking**) → reviewer → committer. **Between phases:** pauses for `Proceed?` | Execute WORKFLOW.md end-to-end, phase by phase |
 
 > Reviewer priority across all pipelines: Codex → unity-reviewer (falls back if Codex is unavailable). Review loops: CHANGES NEEDED → coder fixes → reviewer re-checks → repeat (max 3 passes).
