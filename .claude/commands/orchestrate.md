@@ -304,6 +304,13 @@ Description: [full task description from WORKFLOW.md]
 - When multiple objects share the same base structure → create a base prefab first, then Prefab Variants
 - Never duplicate a prefab manually — always use Prefab Variants
 
+## Material Rules (NON-NEGOTIABLE)
+- All material assets (.mat) must be saved under `Arts/Materials/<Domain>/` — NEVER inside `Prefabs/` folders
+- Domain subfolder mirrors prefab domain: Items/, Environment/, Characters/, VFX/, UI/
+- Every material must use a URP shader: `Universal Render Pipeline/Lit` or `Universal Render Pipeline/Simple Lit`
+- Standard (Built-in) shader is FORBIDDEN — objects will render magenta in URP
+- If you find a material using Standard shader → report as BLOCKED, do not proceed
+
 ## Canvas Prefab Rules (NON-NEGOTIABLE)
 Before creating any Canvas prefab, check _GameFolders/Prefabs/UI/Canvases/ for an existing BaseCanvas.prefab:
 - If BaseCanvas.prefab does NOT exist yet → create it first with: Canvas + CanvasScaler (Scale With Screen Size, 1080×1920, match 0.5) + GraphicRaycaster. Save to _GameFolders/Prefabs/UI/Canvases/BaseCanvas.prefab

@@ -158,6 +158,11 @@ $CODER_OUTPUT
 - Set up the scene LifetimeScope installer with the new VContainer registrations
 - Do NOT edit .unity or .prefab files as raw text — use MCP tools only
 
+## Material Rules (NON-NEGOTIABLE)
+- Material assets (.mat) go in `Arts/Materials/<Domain>/` — NEVER inside `Prefabs/` folders
+- Shader must be `Universal Render Pipeline/Lit` or `Universal Render Pipeline/Simple Lit` — Standard shader is forbidden
+- If a material with Standard shader is found → report as BLOCKED
+
 ## Canvas Prefab Rules (NON-NEGOTIABLE)
 Before creating any Canvas prefab, check `_GameFolders/Prefabs/UI/Canvases/BaseCanvas.prefab`:
 - If it does NOT exist → create BaseCanvas first: `Canvas` + `CanvasScaler` (Scale With Screen Size, 1080×1920, match 0.5) + `GraphicRaycaster`

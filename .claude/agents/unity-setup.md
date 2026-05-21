@@ -118,7 +118,7 @@ Check the TDD's "Rendering & GPU Strategy" section and its "Developer Setup Step
 
 Common optimization assets to set up:
 - **Sprite Atlases**: Create atlas assets, assign sprite folders, configure packing settings
-- **Shared Materials**: Create material assets with correct shaders, assign to prefabs that should batch together
+- **Shared Materials**: Create material assets under `Arts/Materials/<Domain>/` (NEVER inside Prefabs folders) with URP shaders (`Universal Render Pipeline/Lit` or `Simple Lit`) — Standard/Built-in shaders are forbidden in this URP project
 - **Static Batching Flags**: Mark appropriate GameObjects as "Batching Static"
 - **UI Canvas Splitting**: Set up separate Canvases per update frequency (static, HUD, dynamic popups)
 - **Camera Culling Layers**: Configure culling masks to exclude irrelevant layers

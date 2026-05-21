@@ -85,6 +85,44 @@ private void Update() => _transform.position += Vector3.forward;
 
 ---
 
+## Material Folder Structure (NON-NEGOTIABLE)
+
+All material assets live under `Arts/Materials/`, grouped by domain — **never** inside `Prefabs/` or alongside prefab assets.
+
+```
+Arts/
+└── Materials/
+    ├── Items/          ← Apple, Grape, Orange, Watermelon materials
+    ├── Environment/    ← Ground, Sky, Platform materials
+    ├── Characters/     ← Player, Enemy materials
+    ├── VFX/            ← Particle, Effect materials
+    └── UI/             ← UI-specific materials (rare)
+```
+
+- One subfolder per domain — mirrors `_GameFolders/Prefabs/<Domain>/` naming
+- Material files (.mat) are never placed inside `Prefabs/` folders
+- Textures that belong to a material live in `Arts/Textures/<Domain>/`
+
+## URP Shader Rule (NON-NEGOTIABLE)
+
+This project uses **Universal Render Pipeline (URP)**. All materials must use URP shaders — never Built-in (Standard) shaders.
+
+| Correct | Forbidden |
+|---------|-----------|
+| `Universal Render Pipeline/Lit` | `Standard` |
+| `Universal Render Pipeline/Simple Lit` | `Legacy Shaders/...` |
+| `Universal Render Pipeline/Unlit` | `Particles/Standard Surface` |
+| `Universal Render Pipeline/Particles/Lit` | `Mobile/...` (Built-in) |
+
+**Why:** Built-in Standard shader does not render correctly in URP — objects appear magenta/pink or use incorrect lighting. Every new material must be created with a URP shader from the start. Never convert a Built-in material to URP with the migration tool unless it is an existing asset — new materials must start as URP.
+
+When creating materials via MCP or Editor:
+1. Create the material asset in `Arts/Materials/<Domain>/`
+2. Set shader to `Universal Render Pipeline/Lit` (or `Simple Lit` for mobile performance)
+3. Assign the material to the prefab — **do not save the .mat file inside the Prefabs folder**
+
+---
+
 ## Rendering & Draw Calls
 
 Fewer draw calls = better performance. Every unique Material + Mesh combination = 1 draw call.
