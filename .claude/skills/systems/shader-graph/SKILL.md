@@ -1,525 +1,466 @@
 ---
 name: shader-graph
-description: "ShaderGraph — custom function nodes, sub-graphs, keyword-driven variants, master stack outputs, common patterns for URP effects."
+description: "ShaderGraph JSON format reference — node templates, edge wiring, UUID generation, and ready-to-write .shadergraph patterns for common URP effects."
 globs: ["**/*.shadergraph", "**/*.shadersubgraph"]
 ---
 
-# ShaderGraph
+# ShaderGraph Skill
 
-## Overview
+## When to Use This Skill
 
-ShaderGraph is Unity's visual shader editor. Node-based, works with URP and HDRP. Generates HLSL shader code from the graph.
+Load this skill when `unity-shader-dev` routes to the ShaderGraph path (complexity score > 0.6 or user explicitly requests visual editing).
 
-## Master Stack Outputs
+---
 
-### Vertex Stage
-- Position (object/world/absolute world)
-- Normal (object/tangent)
+## .shadergraph File Format
 
-### Fragment Stage (URP Lit)
-- Base Color, Normal (Tangent), Metallic, Smoothness, Emission, Ambient Occlusion, Alpha
+ShaderGraph files are JSON assets. Unity imports them as shader assets on `AssetDatabase.Refresh()`.
 
-### Fragment Stage (URP Unlit)
-- Base Color, Alpha
+### Minimal Valid Structure
 
-## Custom Function Nodes
-
-### Inline (small functions)
-```hlsl
-// In Custom Function node, Type: String
-void MyFunction_float(float3 In, out float3 Out)
+```json
 {
-    Out = In * 2.0;
+  "m_SGVersion": 3,
+  "m_Type": "UnityEditor.ShaderGraph.GraphData",
+  "m_ObjectId": "<GUID-A>",
+  "m_Properties": [],
+  "m_Keywords": [],
+  "m_Dropdowns": [],
+  "m_CategoryData": [],
+  "m_Nodes": [ <nodes> ],
+  "m_GroupDatas": [],
+  "m_StickyNoteDatas": [],
+  "m_Edges": [ <edges> ],
+  "m_VertexContext": { <vertex-context> },
+  "m_FragmentContext": { <fragment-context> },
+  "m_PreviewData": { "serializedMesh": { "mesh": { "fileID": 0 } }, "preventRotation": false },
+  "m_Path": "Shader Graphs",
+  "m_GraphPrecision": 1,
+  "m_PreviewMode": 2,
+  "m_OutputNode": { "m_Id": "" },
+  "m_ActiveTargets": [ <urp-target> ]
 }
 ```
 
-### External File (complex functions)
-Create `.hlsl` file in project:
-```hlsl
-// Assets/Shaders/MyFunctions.hlsl
-void TriplanarMapping_float(
-    float3 Position, float3 Normal, float Sharpness,
-    UnityTexture2D Tex, UnitySamplerState Sampler,
-    out float4 Color)
+### UUID Generation Rule
+
+Every node, property, edge, and the graph root needs a unique `m_ObjectId`. Use this format:
+
+```
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   (32 hex chars, no dashes)
+```
+
+Generate sequentially for predictability: `a0000000000000000000000000000001`, `a0000000000000000000000000000002`, etc. Unity accepts any valid hex string — uniqueness within the file is what matters.
+
+### URP Active Target
+
+Always include this in `m_ActiveTargets` for URP compatibility:
+
+```json
 {
-    float3 blend = pow(abs(Normal), Sharpness);
-    blend /= dot(blend, 1.0);
-
-    float4 xProj = SAMPLE_TEXTURE2D(Tex, Sampler, Position.yz);
-    float4 yProj = SAMPLE_TEXTURE2D(Tex, Sampler, Position.xz);
-    float4 zProj = SAMPLE_TEXTURE2D(Tex, Sampler, Position.xy);
-
-    Color = xProj * blend.x + yProj * blend.y + zProj * blend.z;
+  "m_Id": "<GUID-target>"
+},
+{
+  "m_Type": "UnityEditor.Rendering.Universal.UniversalTarget",
+  "m_ObjectId": "<GUID-target>",
+  "m_ActiveSubTarget": { "m_Id": "<GUID-subtarget>" },
+  "m_AllowMaterialOverride": false,
+  "m_SurfaceType": 0,
+  "m_ZWriteControl": 0,
+  "m_ZTestMode": 4,
+  "m_AlphaMode": 0,
+  "m_RenderFace": 2,
+  "m_AlphaClip": false,
+  "m_CastShadows": true,
+  "m_ReceiveShadows": true,
+  "m_CustomGUITagString": "",
+  "m_OverrideEnabled": false,
+  "m_OverrideShaderGUI": { "m_TypeString": "" }
 }
 ```
 
-Reference in Custom Function node: Source = Asset, File = MyFunctions.hlsl
+### Vertex Context
 
-## Keywords (Shader Variants)
-
-- **Boolean Keyword:** toggle features on/off per material
-- **Enum Keyword:** select between N options
-- Use `shader_feature` (stripped if unused) not `multi_compile` (always included)
-- Use `shader_feature_local` for material-only keywords
-
-Keep total variant count **under 1000** per shader.
-
-## Common Patterns
-
-### Dissolve Effect
-1. Sample noise texture (Gradient Noise or texture)
-2. Compare noise value to "Dissolve Amount" property (Step or SmoothStep)
-3. Multiply with Alpha output
-4. Add emission at dissolve edge (edge = small range above threshold)
-
-### Fresnel / Rim Lighting
-1. Fresnel Effect node (View Direction, Normal)
-2. Multiply by color
-3. Add to Emission
-
-### Scrolling UV (Water, Lava)
-1. Time node → Multiply by scroll speed
-2. Add to UV coordinates
-3. Sample texture with modified UVs
-
-### Vertex Displacement (Wind, Waves)
-1. Object Position + Time → noise function
-2. Multiply by displacement amount
-3. Add to Vertex Position output
-
-### Outline (Inverted Hull Method)
-Two-pass: Pass 1 = normal render, Pass 2 = vertex-expanded back faces with solid color.
-(Requires custom Renderer Feature in URP or ShaderGraph with two materials.)
-
-## Sub-Graphs
-
-Reusable node groups. Create for common operations:
-- Triplanar mapping
-- Tiling and offset with rotation
-- Blend modes (overlay, multiply, screen)
-- Parallax mapping
-
-## Performance Tips
-
-- Minimize texture samples per fragment
-- Use `half` precision where possible (set in graph settings)
-- Avoid branching (use lerp/step instead)
-- Fewer keywords = fewer variants = faster build times
-- Preview variant count in Shader Inspector
-
-## Custom Functions Deep Dive
-
-### External .hlsl File Integration
-
-Place custom HLSL files in `Assets/Shaders/Include/`. Reference them in Custom Function
-nodes with Source set to "Asset". The function name must end with `_float` or `_half`
-to match the precision selected in the graph.
-
-```hlsl
-// Assets/Shaders/Include/NoiseUtils.hlsl
-// Voronoi noise — returns cell distance and cell ID
-void Voronoi_float(float2 UV, float CellDensity, float AngleOffset,
-    out float Distance, out float CellID)
-{
-    float2 cell = floor(UV * CellDensity);
-    float2 frac = frac(UV * CellDensity);
-    float minDist = 1.0;
-    float id = 0.0;
-
-    for (int y = -1; y <= 1; y++)
-    {
-        for (int x = -1; x <= 1; x++)
-        {
-            float2 neighbor = float2(x, y);
-            float2 randomOffset = frac(sin(dot(cell + neighbor, float2(127.1, 311.7))) * 43758.5453);
-            randomOffset = 0.5 + 0.5 * sin(AngleOffset + 6.2831 * randomOffset);
-            float2 diff = neighbor + randomOffset - frac;
-            float dist = dot(diff, diff);
-            if (dist < minDist)
-            {
-                minDist = dist;
-                id = dot(cell + neighbor, float2(1.0, 133.0));
-            }
-        }
-    }
-    Distance = sqrt(minDist);
-    CellID = frac(id / 100.0);
+```json
+"m_VertexContext": {
+  "m_Position": { "x": 0, "y": 0 },
+  "m_Blocks": [
+    { "m_Id": "<GUID-vpos>" },
+    { "m_Id": "<GUID-vnorm>" },
+    { "m_Id": "<GUID-vtan>" }
+  ]
 }
 ```
 
-### Texture2DArray Sampling
+### Fragment Context
 
-Sample from a Texture2DArray using a custom function node with an index parameter:
-
-```hlsl
-// Assets/Shaders/Include/ArraySampling.hlsl
-void SampleTextureArray_float(UnityTexture2DArray TexArray, UnitySamplerState Sampler,
-    float2 UV, float Index, out float4 Color)
-{
-    Color = SAMPLE_TEXTURE2D_ARRAY(TexArray, Sampler, UV, Index);
+```json
+"m_FragmentContext": {
+  "m_Position": { "x": 400, "y": 0 },
+  "m_Blocks": [
+    { "m_Id": "<GUID-fbasecolor>" },
+    { "m_Id": "<GUID-fnormal>" },
+    { "m_Id": "<GUID-fmetallic>" },
+    { "m_Id": "<GUID-fsmoothness>" },
+    { "m_Id": "<GUID-femission>" },
+    { "m_Id": "<GUID-falpha>" }
+  ]
 }
 ```
 
-### Normal Reconstruction from Height Map
+---
 
-Convert a grayscale height map to a normal map inside the shader:
+## Node Templates
 
-```hlsl
-// Assets/Shaders/Include/NormalFromHeight.hlsl
-void NormalFromHeight_float(UnityTexture2D HeightTex, UnitySamplerState Sampler,
-    float2 UV, float Strength, float4 TexelSize, out float3 Normal)
+### Property — Texture2D
+
+```json
 {
-    float left  = SAMPLE_TEXTURE2D(HeightTex, Sampler, UV - float2(TexelSize.x, 0)).r;
-    float right = SAMPLE_TEXTURE2D(HeightTex, Sampler, UV + float2(TexelSize.x, 0)).r;
-    float down  = SAMPLE_TEXTURE2D(HeightTex, Sampler, UV - float2(0, TexelSize.y)).r;
-    float up    = SAMPLE_TEXTURE2D(HeightTex, Sampler, UV + float2(0, TexelSize.y)).r;
-
-    float3 n;
-    n.x = (left - right) * Strength;
-    n.y = (down - up) * Strength;
-    n.z = 1.0;
-    Normal = normalize(n);
+  "m_Id": "<GUID-prop-tex>"
+},
+{
+  "m_Type": "UnityEditor.ShaderGraph.Texture2DShaderProperty",
+  "m_ObjectId": "<GUID-prop-tex>",
+  "m_Guid": { "m_GuidSerialized": "<GUID-prop-tex-inner>" },
+  "m_Name": "BaseMap",
+  "m_DefaultRefNameVersion": 1,
+  "m_RefNameGeneratedByDisplayName": "BaseMap",
+  "m_DefaultReferenceName": "_BaseMap",
+  "m_OverrideReferenceName": "",
+  "m_GeneratePropertyBlock": true,
+  "m_UseCustomSlotLabel": false,
+  "m_CustomSlotLabel": "",
+  "m_DismissedVersion": 0,
+  "m_Precision": 0,
+  "overrideHLSLDeclaration": false,
+  "hlslDeclarationOverride": 0,
+  "m_Hidden": false,
+  "m_Value": { "m_SerializedTexture": { "texture": { "fileID": 0 } }, "m_Guid": "" },
+  "m_Modifiable": true,
+  "m_DefaultType": 0
 }
 ```
 
-### Passing Custom Data via TexelSize
+### Property — Float (Range)
 
-Unity auto-populates `_TextureName_TexelSize` as `float4(1/width, 1/height, width, height)`.
-Access it in custom functions by declaring a `float4 TexelSize` parameter and connecting
-the Texel Size output from a Texture2D property node.
-
-## Keyword and Variant Management
-
-### shader_feature vs multi_compile
-
-| Directive | Behavior | Use When |
-|-----------|----------|----------|
-| `shader_feature` | Strips unused variants from build | Per-material toggles (most keywords) |
-| `multi_compile` | Includes all variants in build | Global keywords set from code (fog, lightmap) |
-
-In ShaderGraph, set the keyword "Definition" dropdown:
-- **Shader Feature** — strips unused, smaller builds
-- **Multi Compile** — always includes, needed if set globally at runtime
-
-### Local Keywords (Per-Material)
-
-Local keywords are scoped to a single shader, not the global keyword limit (currently 384).
-In ShaderGraph, check "Exposed" and set Scope to "Local":
-
-```
-Keyword: _DETAIL_MAP
-  Definition: Shader Feature
-  Scope: Local
-  Default: Off
-```
-
-Each material stores its own on/off state. Saves variant memory compared to global keywords.
-
-### Variant Stripping in Build
-
-Implement `IPreprocessShaders` to strip unused variants at build time:
-
-```csharp
-#if UNITY_EDITOR
-using System.Collections.Generic;
-using UnityEditor.Build;
-using UnityEditor.Rendering;
-using UnityEngine;
-using UnityEngine.Rendering;
-
-public sealed class ShaderVariantStripper : IPreprocessShaders
+```json
 {
-    public int callbackOrder => 0;
-
-    public void OnProcessShader(Shader shader, ShaderSnippetData snippet,
-        IList<ShaderCompilerData> data)
-    {
-        ShaderKeyword fogKeyword = new ShaderKeyword("FOG_EXP2");
-        for (int variantIndex = data.Count - 1; variantIndex >= 0; variantIndex--)
-        {
-            if (data[variantIndex].shaderKeywordSet.IsEnabled(fogKeyword))
-            {
-                data.RemoveAt(variantIndex);
-            }
-        }
-    }
-}
-#endif
-```
-
-### Boolean Keyword for Simple Toggles
-
-Boolean keywords generate exactly 2 variants (on/off). Use them for feature toggles
-like emission, detail map, or vertex color. In ShaderGraph:
-
-1. Add Keyword node (Boolean)
-2. Connect True/False outputs to the relevant branch
-3. The keyword appears as a checkbox on the material inspector
-
-## Lighting Integration
-
-### Main Light Node in URP
-
-The Main Light Direction node provides sun/directional light data in the fragment shader.
-Use it for custom lighting models:
-
-```
-[Main Light Direction] → dot with Normal → Saturate → custom ramp or step
-```
-
-For full main light data (color, attenuation, shadow), use a custom function:
-
-```hlsl
-// Assets/Shaders/Include/MainLightData.hlsl
-void GetMainLight_float(float3 WorldPosition, out float3 Direction,
-    out float3 Color, out float Attenuation)
-{
-    Light mainLight = GetMainLight(TransformWorldToShadowCoord(WorldPosition));
-    Direction = mainLight.direction;
-    Color = mainLight.color;
-    Attenuation = mainLight.distanceAttenuation * mainLight.shadowAttenuation;
+  "m_Type": "UnityEditor.ShaderGraph.Vector1ShaderProperty",
+  "m_ObjectId": "<GUID-prop-float>",
+  "m_Guid": { "m_GuidSerialized": "<GUID-prop-float-inner>" },
+  "m_Name": "DissolveAmount",
+  "m_DefaultReferenceName": "_DissolveAmount",
+  "m_GeneratePropertyBlock": true,
+  "m_Precision": 0,
+  "m_Hidden": false,
+  "m_Value": 0.0,
+  "m_FloatType": 1,
+  "m_RangeValues": { "x": 0.0, "y": 1.0 }
 }
 ```
 
-### Shadow Receiving in Custom Shaders
+### Property — Color
 
-To receive shadows in a ShaderGraph shader:
-1. Set Surface Type to Opaque or Transparent with "Receive Shadows" checked
-2. For custom lighting, sample the shadow map via the Main Light custom function above
-3. Multiply your final color by `Attenuation` to apply shadows
-
-### Normal Map Application (Tangent Space)
-
-Connect a normal map sample to the Fragment Normal (Tangent) output:
-
-```
-[Sample Texture 2D] (Normal Map, type: Normal) → [Normal Strength] → Fragment Normal (Tangent)
-```
-
-Set the texture type to "Normal" in the Sample Texture 2D node. The Normal Strength
-node controls intensity (1 = full, 0 = flat).
-
-### Ambient Color and Probe Sampling
-
-Sample ambient light and reflection probes for indirect lighting:
-
-```hlsl
-// Assets/Shaders/Include/AmbientSampling.hlsl
-void SampleAmbient_float(float3 WorldNormal, out float3 Ambient)
+```json
 {
-    Ambient = SampleSH(WorldNormal);
-}
-
-void SampleReflectionProbe_float(float3 WorldReflection, float Roughness,
-    out float3 Reflection)
-{
-    Reflection = GlossyEnvironmentReflection(WorldReflection, Roughness, 1.0);
+  "m_Type": "UnityEditor.ShaderGraph.ColorShaderProperty",
+  "m_ObjectId": "<GUID-prop-color>",
+  "m_Guid": { "m_GuidSerialized": "<GUID-prop-color-inner>" },
+  "m_Name": "EdgeColor",
+  "m_DefaultReferenceName": "_EdgeColor",
+  "m_GeneratePropertyBlock": true,
+  "m_Precision": 0,
+  "m_Hidden": false,
+  "m_Value": { "r": 1.0, "g": 0.5, "b": 0.0, "a": 1.0 },
+  "m_ColorMode": 0
 }
 ```
 
-## Advanced Effects Library
+### Node — Sample Texture 2D
 
-### Toon / Cel Shading
-
-Quantize lighting into discrete steps for a cartoon look:
-
-```
-Graph setup:
-1. [Main Light Direction] → Dot Product with [World Normal]
-2. Saturate the result (0 to 1 range)
-3. Multiply by number of steps (e.g., 4)
-4. Floor the result
-5. Divide by number of steps
-6. Multiply with Base Color → Fragment Base Color
-
-For ramp texture approach:
-1. Dot Product result → U coordinate of a 1D ramp texture
-2. Sample ramp texture (set wrap mode to Clamp)
-3. Multiply ramp color with Base Color
-```
-
-Ramp textures give artistic control: paint bands of color and shadow hue shifts.
-
-### Hologram Effect
-
-Combine scanlines, vertex offset, and alpha flicker:
-
-```
-Scanlines:
-1. [Screen Position] → take Y component
-2. Multiply by scanline density (e.g., 200)
-3. Sine or Frac → Step at 0.5 threshold
-4. Multiply into Alpha
-
-Vertex Jitter:
-1. [Time] → Multiply by jitter speed
-2. Floor to snap to discrete frames (retro look)
-3. Random Range or noise per-vertex
-4. Small offset on X/Z → add to Vertex Position
-
-Alpha Flicker:
-1. [Time] → Sine with high frequency
-2. Remap from (-1,1) to (0.3, 1.0)
-3. Multiply into Alpha
-
-Final: Set Surface Type = Transparent, Blend = Additive
+```json
+{
+  "m_Type": "UnityEditor.ShaderGraph.SampleTexture2DNode",
+  "m_ObjectId": "<GUID-node-tex>",
+  "m_Group": { "m_Id": "" },
+  "m_Name": "Sample Texture 2D",
+  "m_DrawState": {
+    "m_Expanded": true,
+    "m_Position": { "serializedVersion": "2", "x": -200, "y": 0, "width": 200, "height": 180 }
+  },
+  "m_Slots": [
+    { "m_Id": "<GUID-slot-tex-in>" },
+    { "m_Id": "<GUID-slot-uv>" },
+    { "m_Id": "<GUID-slot-rgba>" },
+    { "m_Id": "<GUID-slot-r>" },
+    { "m_Id": "<GUID-slot-g>" },
+    { "m_Id": "<GUID-slot-b>" },
+    { "m_Id": "<GUID-slot-a>" }
+  ],
+  "synonyms": ["texture", "sample", "tex"],
+  "m_Precision": 0,
+  "m_TextureType": 0,
+  "m_NormalMapSpace": 0,
+  "m_EnableGlobalMipBias": true,
+  "m_MipSamplingMode": 0
+}
 ```
 
-### Water Surface
+### Node — Multiply
 
-Scrolling normals with depth-based transparency and foam edges:
-
+```json
+{
+  "m_Type": "UnityEditor.ShaderGraph.MultiplyNode",
+  "m_ObjectId": "<GUID-node-mul>",
+  "m_Group": { "m_Id": "" },
+  "m_Name": "Multiply",
+  "m_DrawState": {
+    "m_Expanded": true,
+    "m_Position": { "serializedVersion": "2", "x": 50, "y": 0, "width": 130, "height": 120 }
+  },
+  "m_Slots": [
+    { "m_Id": "<GUID-slot-mul-a>" },
+    { "m_Id": "<GUID-slot-mul-b>" },
+    { "m_Id": "<GUID-slot-mul-out>" }
+  ],
+  "synonyms": ["multiplication", "times", "x"],
+  "m_Precision": 0
+}
 ```
-Normal Scrolling:
-1. [UV] + [Time] * scroll speed A → Sample Normal Map A
-2. [UV] + [Time] * scroll speed B (different direction) → Sample Normal Map B
-3. Blend normals: normalize(A + B)
-4. Connect to Fragment Normal (Tangent)
 
-Depth Fade:
-1. [Scene Depth] - [Fragment Depth] → depth difference
-2. Saturate(depthDiff / fadeDistance)
-3. Lerp between shallow color and deep color
-4. Connect to Base Color
+### Node — Step
 
-Foam Edge:
-1. Same depth difference
-2. Step or SmoothStep at foam threshold
-3. Add foam color * foam mask to Emission
-
-Vertex Waves:
-1. [Object Position].xz + [Time] → Gradient Noise
-2. Multiply by wave height
-3. Add to Vertex Position Y
+```json
+{
+  "m_Type": "UnityEditor.ShaderGraph.StepNode",
+  "m_ObjectId": "<GUID-node-step>",
+  "m_Name": "Step",
+  "m_DrawState": {
+    "m_Expanded": true,
+    "m_Position": { "serializedVersion": "2", "x": 50, "y": 0, "width": 130, "height": 120 }
+  },
+  "m_Slots": [
+    { "m_Id": "<GUID-slot-step-edge>" },
+    { "m_Id": "<GUID-slot-step-in>" },
+    { "m_Id": "<GUID-slot-step-out>" }
+  ],
+  "m_Precision": 0
+}
 ```
+
+### Node — Fresnel Effect
+
+```json
+{
+  "m_Type": "UnityEditor.ShaderGraph.FresnelEffectNode",
+  "m_ObjectId": "<GUID-node-fresnel>",
+  "m_Name": "Fresnel Effect",
+  "m_DrawState": {
+    "m_Expanded": true,
+    "m_Position": { "serializedVersion": "2", "x": -100, "y": 0, "width": 170, "height": 150 }
+  },
+  "m_Slots": [
+    { "m_Id": "<GUID-slot-fresnel-normal>" },
+    { "m_Id": "<GUID-slot-fresnel-view>" },
+    { "m_Id": "<GUID-slot-fresnel-power>" },
+    { "m_Id": "<GUID-slot-fresnel-out>" }
+  ],
+  "m_Precision": 0
+}
+```
+
+### Node — Time
+
+```json
+{
+  "m_Type": "UnityEditor.ShaderGraph.TimeNode",
+  "m_ObjectId": "<GUID-node-time>",
+  "m_Name": "Time",
+  "m_DrawState": {
+    "m_Expanded": true,
+    "m_Position": { "serializedVersion": "2", "x": -300, "y": 0, "width": 130, "height": 120 }
+  },
+  "m_Slots": [
+    { "m_Id": "<GUID-slot-time-out>" },
+    { "m_Id": "<GUID-slot-time-sin>" },
+    { "m_Id": "<GUID-slot-time-cos>" },
+    { "m_Id": "<GUID-slot-time-dt>" },
+    { "m_Id": "<GUID-slot-time-smooth>" }
+  ],
+  "m_Precision": 0
+}
+```
+
+### Node — Add
+
+```json
+{
+  "m_Type": "UnityEditor.ShaderGraph.AddNode",
+  "m_ObjectId": "<GUID-node-add>",
+  "m_Name": "Add",
+  "m_DrawState": {
+    "m_Expanded": true,
+    "m_Position": { "serializedVersion": "2", "x": 50, "y": 0, "width": 130, "height": 120 }
+  },
+  "m_Slots": [
+    { "m_Id": "<GUID-slot-add-a>" },
+    { "m_Id": "<GUID-slot-add-b>" },
+    { "m_Id": "<GUID-slot-add-out>" }
+  ],
+  "m_Precision": 0
+}
+```
+
+### Node — Gradient Noise
+
+```json
+{
+  "m_Type": "UnityEditor.ShaderGraph.GradientNoiseNode",
+  "m_ObjectId": "<GUID-node-noise>",
+  "m_Name": "Gradient Noise",
+  "m_DrawState": {
+    "m_Expanded": true,
+    "m_Position": { "serializedVersion": "2", "x": -200, "y": 0, "width": 170, "height": 150 }
+  },
+  "m_Slots": [
+    { "m_Id": "<GUID-slot-noise-uv>" },
+    { "m_Id": "<GUID-slot-noise-scale>" },
+    { "m_Id": "<GUID-slot-noise-out>" },
+    { "m_Id": "<GUID-slot-noise-hash>" }
+  ],
+  "m_Precision": 0
+}
+```
+
+---
+
+## Edge Wiring Format
+
+An edge connects an output slot of one node to an input slot of another:
+
+```json
+{
+  "m_OutputSlot": {
+    "m_Node": { "m_Id": "<GUID-source-node>" },
+    "m_SlotId": 0
+  },
+  "m_InputSlot": {
+    "m_Node": { "m_Id": "<GUID-target-node>" },
+    "m_SlotId": 0
+  }
+}
+```
+
+### Slot ID Convention (common nodes)
+
+| Node | Slot ID | Direction |
+|------|---------|-----------|
+| SampleTexture2D | 0 = Texture input | In |
+| SampleTexture2D | 1 = UV input | In |
+| SampleTexture2D | 2 = RGBA output | Out |
+| SampleTexture2D | 3/4/5/6 = R/G/B/A | Out |
+| Multiply | 0 = A input | In |
+| Multiply | 1 = B input | In |
+| Multiply | 2 = Out | Out |
+| Add | 0 = A input | In |
+| Add | 1 = B input | In |
+| Add | 2 = Out | Out |
+| Step | 0 = Edge input | In |
+| Step | 1 = In input | In |
+| Step | 2 = Out | Out |
+| FresnelEffect | 0 = Normal | In |
+| FresnelEffect | 1 = View Dir | In |
+| FresnelEffect | 2 = Power | In |
+| FresnelEffect | 3 = Out | Out |
+| Time | 0 = Time out | Out |
+| GradientNoise | 0 = UV input | In |
+| GradientNoise | 1 = Scale input | In |
+| GradientNoise | 2 = Out | Out |
+
+---
+
+## Common Effect Recipes
 
 ### Dissolve with Edge Glow
 
-Noise-based dissolve with emission at the burn edge:
+**Nodes:** GradientNoise → Step (dissolve mask) → Multiply (alpha) + SmoothStep (edge) → Emission
 
+**Node chain:**
 ```
-1. Sample noise texture (Gradient Noise or authored texture)
-2. Subtract dissolve amount (0 = solid, 1 = fully dissolved)
-3. Clip/Alpha Clip: connect noise - dissolve to Alpha, set threshold to 0
-
-Edge Glow:
-1. SmoothStep(dissolveAmount, dissolveAmount + edgeWidth, noiseValue)
-2. One minus the result → edge mask (1 at the edge, 0 elsewhere)
-3. Multiply edge mask by glow color
-4. Add to Emission
-
-Set Alpha Clipping ON in graph settings. Control dissolve amount from C# via
-material.SetFloat("_DissolveAmount", value).
+[GradientNoise] --Out--> [Step] --Out--> [Alpha output]
+                              \
+                        [SmoothStep] --Out--> [Multiply] --Out--> [Emission output]
+                              |
+                        [EdgeColor property]
 ```
 
-## Sub-Graph Patterns
+**Properties needed:** `_DissolveAmount` (float 0-1), `_EdgeWidth` (float 0-0.1), `_EdgeColor` (color), `_BaseMap` (texture)
 
-### Reusable Sub-Graph Conventions
+---
 
-Structure sub-graphs as single-purpose utility blocks:
-- Name with the pattern `SG_PurposeName` (e.g., `SG_TriplanarMapping`)
-- Expose only essential inputs, use sensible defaults for the rest
-- Document input ranges in the sub-graph description field
-- Output common types (float4 for color, float3 for normal, float for mask)
+### Rim / Fresnel Light
 
-### Triplanar Mapping Sub-Graph
+**Nodes:** FresnelEffect → Multiply (color) → Add to Emission
 
-Inputs: Texture2D, Sampler, World Position, World Normal, Blend Sharpness
-Output: float4 Color
-
-Internally samples the texture three times (XY, XZ, YZ planes) and blends
-by the absolute world normal raised to the sharpness power. See the external
-HLSL function in the Custom Functions section above.
-
-### Fresnel + Rim Light Sub-Graph
-
-Inputs: Normal (World), View Direction (World), Power, Color
-Output: float3 Emission
-
+**Node chain:**
 ```
-1. [Fresnel Effect] node with Normal and View Dir inputs, Power parameter
-2. Multiply fresnel result by Color
-3. Output as Emission contribution
+[FresnelEffect] --Out--> [Multiply] --Out--> [Add] --Out--> [Emission output]
+                              |                    |
+                        [RimColor prop]      [BaseColor * BaseMap]
 ```
 
-Use this sub-graph on any material that needs rim highlighting — characters,
-pickups, interactable objects.
+**Properties needed:** `_RimColor` (color), `_RimPower` (float 1-8), `_BaseMap` (texture)
 
-### Sub-Graph Input/Output Conventions
+---
 
-- Color inputs: default to white (1,1,1,1)
-- Strength/power inputs: default to 1.0, range annotation in description
-- Normal inputs: expect world space unless labeled "Tangent"
-- UV inputs: default to UV0 channel if not connected
-- Always provide a "Strength" or "Blend" input (0-1) so the effect can be faded
+### UV Scroll (Water / Lava)
 
-## Performance Optimization
+**Nodes:** Time → Multiply (speed) → Add to UV → SampleTexture2D
 
-### Half vs Float Precision
+**Node chain:**
+```
+[Time] --Out--> [Multiply] --Out--> [Add] --Out--> [SampleTexture2D UV input]
+                    |                    |
+              [ScrollSpeed prop]   [original UV]
+```
 
-| Use Half (16-bit) | Use Float (32-bit) |
-|--------------------|--------------------|
-| Colors (0-1 range) | World positions |
-| UV coordinates (small textures) | Large UV offsets (scrolling over time) |
-| Normal vectors | Depth calculations |
-| Most intermediate math | Screen-space coordinates |
+**Properties needed:** `_MainTex` (texture), `_ScrollSpeed` (float), `_BaseColor` (color)
 
-Set precision in ShaderGraph: Graph Settings > Precision. Override per-node
-when a specific calculation needs higher accuracy.
+---
 
-### Instruction Count Monitoring
+### Toon / Cel Shading
 
-Check compiled instruction count in the shader inspector:
-- Vertex: aim for under 100 instructions for mobile
-- Fragment: aim for under 200 instructions for mobile
-- Desktop: double these budgets is acceptable
+**Nodes:** NdotL (dot of Normal + Main Light Dir) → Step (quantize) → Multiply (base color)
 
-Reduce instructions by:
-- Replacing complex math with lookup textures (LUT)
-- Using `step()` instead of `if` branching
-- Combining multiple simple operations into fewer complex ones
+**Properties needed:** `_BaseMap` (texture), `_ShadowColor` (color), `_Steps` (float 2-8)
 
-### Texture Sampling Reduction
+---
 
-Pack multiple grayscale maps into a single RGBA texture:
-- R = Metallic
-- G = Ambient Occlusion
-- B = Detail Mask
-- A = Smoothness
+## MCP Integration After Writing File
 
-This turns 4 texture samples into 1. Split channels with a Swizzle or Split node.
-
-### LOD-Based Shader Simplification
-
-Use shader LOD to simplify materials at distance:
-- LOD 0 (close): full shader with normal maps, detail textures, parallax
-- LOD 1 (mid): drop parallax and detail textures
-- LOD 2 (far): simple diffuse only, no normal map
-
-Implement with keyword toggles controlled from a LOD Group callback,
-or use separate ShaderGraph materials per LOD mesh.
+After writing the `.shadergraph` file with the Write tool:
 
 ```csharp
-// Set shader LOD from a LOD callback on the renderer
-public sealed class ShaderLodController : MonoBehaviour
-{
-    [SerializeField] private Renderer m_Renderer;
-    [SerializeField] private Material m_FullMaterial;
-    [SerializeField] private Material m_SimpleMaterial;
+// Step 1 — import the asset
+AssetDatabase.Refresh();
+AssetDatabase.ImportAsset("Assets/Shaders/MyEffect.shadergraph");
 
-    private static readonly int k_DetailOn = Shader.PropertyToID("_DETAIL_ON");
+// Step 2 — create material
+var shader = Shader.Find("Shader Graphs/MyEffect");
+var mat = new Material(shader);
+AssetDatabase.CreateAsset(mat, "Assets/Materials/MyEffect.mat");
 
-    public void OnLodChanged(int lodLevel)
-    {
-        if (lodLevel >= 2)
-        {
-            m_Renderer.sharedMaterial = m_SimpleMaterial;
-        }
-        else
-        {
-            m_Renderer.sharedMaterial = m_FullMaterial;
-            m_FullMaterial.SetFloat(k_DetailOn, lodLevel == 0 ? 1f : 0f);
-        }
-    }
-}
+// Step 3 — assign to renderer (optional)
+// via manage_components MCP tool
 ```
+
+Run via MCP `execute_code`. If `Shader.Find` returns null, call `AssetDatabase.Refresh()` again and retry.
+
+---
+
+## Performance Notes
+
+- Set graph Precision to **Half** in Graph Settings for mobile
+- Avoid branching — use `lerp`/`step` instead of `if`
+- Keep texture samples ≤ 3 per fragment for mobile
+- Preview node count in shader inspector after import — aim under 100 instructions for mobile fragment

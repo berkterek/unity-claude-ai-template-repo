@@ -11,7 +11,7 @@
 | `debugger` | Root cause analysis |
 | `migrator` | Pattern migration |
 | `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |
-| `unity-shader-dev` | URP shader authoring — ShaderGraph, HLSL, render passes |
+| `unity-shader-dev` | URP shader authoring — complexity router: basit efektler HLSL, karmaşık/görsel efektler ShaderGraph (.shadergraph JSON üretir + MCP ile materyal atar) |
 | `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy |
 | `unity-ui-toolkit-builder` | Editor UI Toolkit specialist — UXML layouts, USS stylesheets, custom inspectors, EditorWindows, SerializedObject data binding (Editor-only; runtime UI uses UGUI) |
 | `unity-optimizer` | Runtime performance — allocations, draw calls, ECS hot paths, profiler-guided fixes |
