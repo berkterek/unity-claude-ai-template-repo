@@ -45,6 +45,7 @@ _GameFolders/
     Environment/
 Arts/
   Materials/             ← all .mat files — NEVER inside Prefabs/
+  Shaders/               ← all .shader and .shadergraph files
     Items/
     Environment/
     Characters/
