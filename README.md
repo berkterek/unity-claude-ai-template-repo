@@ -873,7 +873,7 @@ _GameFolders/Scripts/
 - Only valid top-level folders under `Scripts/`: `Games/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/` or other folders alongside `Games/`
 - Every `_Framework` subfolder has its own `.asmdef` — never a single root-level assembly covering all subfolders
 - All prefabs under `_GameFolders/Prefabs/<Domain>/` (`Bootstrap/`, `CoreObjects/`, `Enemies/`, `UI/Canvases/`, `VFX/`, `Environment/`…); shared-base objects use Prefab Variants; all Canvas prefabs are Prefab Variants of `BaseCanvas`
-- All material assets (.mat) under `Arts/Materials/<Domain>/` — never inside `Prefabs/`; URP projesinde Built-in Standard shader kullanma — shader authoring için `unity-shader-dev` agent'ı çağır (HLSL veya ShaderGraph complexity'e göre otomatik seçilir); particle VFX için `unity-particle-designer` agent'ı çağır (`Arts/Materials/VFX/` + `_GameFolders/Prefabs/VFX/` + pooling)
+- All material assets (.mat) under `Arts/Materials/<Domain>/` — never inside `Prefabs/`; shader files (.shader / .shadergraph) under `_GameFolders/Arts/Shaders/`; URP projesinde Built-in Standard shader kullanma — shader authoring için `unity-shader-dev` agent'ı çağır (HLSL veya ShaderGraph complexity'e göre otomatik seçilir); particle VFX için `unity-particle-designer` agent'ı çağır (`Arts/Materials/VFX/` + `_GameFolders/Prefabs/VFX/` + pooling)
 - `AppScope` saved as `Prefabs/Bootstrap/AppScope.prefab`; `EventSystem` and `MainCamera` saved as `Prefabs/CoreObjects/` prefabs — same prefab instance reused across all scenes
 - New Input System only — `InputView` owns `PlayerControls`
 - UniTask everywhere — no coroutines, no `async void`, always pass `CancellationToken`
