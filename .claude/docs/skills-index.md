@@ -13,13 +13,16 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `grill-me` | One-question-at-a-time design stress-test — challenges an existing plan, resolves branches, produces a Decision Record |
 | `learner` | Post-debug insight extraction — writes findings to CLAUDE.md Project Learnings |
 | `unity-instincts` | Instinct system for learned Unity patterns — capture, score, promote, apply |
-| `assembly-definitions` | .asmdef authoring — references, platforms, define constraints |
+| `unity-asmdef` | .asmdef authoring — references, platforms, define constraints, user-invocable |
 | `source-driven-development` | Fetch official Unity docs before writing API calls — cites sources, flags deprecated APIs, surfaces version conflicts |
 | `documentation-and-adrs` | ADR creation for architectural decisions — `/adr` command, `docs/decisions/` folder, lifecycle management |
 | `planning-and-task-breakdown` | Vertical slice decomposition + per-task acceptance criteria for `/create-plan` and `/plan-workflow` |
 | `code-simplification` | Chesterton's Fence discipline for `/clean-slop` — understand before removing, behavior-preserving refactor |
 | `commit-trailers` | Conventional commit trailers — co-author, ticket links, sign-off |
 | `event-systems` | IEventBus patterns — pub/sub, struct events, subscribe/unsubscribe lifecycle |
+| `bootstrap-pattern` | IInstaller → ModuleInstaller → AppInstaller → AppScope katman yapısı, yeni modül ekleme akışı |
+| `input-system` | New Input System & InputView pattern, OnEnable/OnDisable abonelik kuralları, action map switching |
+| `scene-hierarchy` | 6-container sahne yapısı, GO sınıflandırma tablosu, prefab domain eşleştirmesi |
 | `event-bus` | Project-specific IEventBus implementation — location, namespace, and code examples |
 | `logging` | Project-specific DLog pattern — logging implementation, location, and usage |
 | `save-load` | Project-specific SaveLoadSystem pattern — location, namespace, and usage |
@@ -69,7 +72,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | Skill | Covers |
 |-------|--------|
 | `dotween` | Tween creation, sequences, callbacks, memory management |
-| `odin-inspector` | Custom attributes, validators, group drawers |
+| `odin-inspector` | Custom attributes, validators, group drawers — `third-party/odin-inspector/SKILL.md` |
 | `textmeshpro` | Font assets, rich text, SDF materials, localization |
 | `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid |
 | `vcontainer` | Scope hierarchy, registration, lifecycle interfaces, DI failure diagnosis |

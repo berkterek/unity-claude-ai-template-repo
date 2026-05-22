@@ -2,9 +2,11 @@
 
 <!-- managed by auto-load-skills.sh — do not edit manually -->
 
+@.claude/skills/core/bootstrap-pattern.md
+@.claude/skills/core/input-system.md
+@.claude/skills/core/scene-hierarchy.md
 @.claude/skills/third-party/vcontainer.md
 @.claude/skills/platform/mobile/SKILL.md
-@.claude/skills/plugins/odin-inspector.md
 @.claude/skills/plugins/primetween.md
 @.claude/skills/plugins/r3.md
 @.claude/skills/plugins/unitask.md
@@ -16,4 +18,3 @@
 @.claude/skills/third-party/unity-asmdef.md
 @.claude/skills/third-party/unity-editor-tools.md
 @.claude/skills/third-party/unity-uitoolkit.md
-@.claude/skills/third-party/vcontainer/SKILL.md
