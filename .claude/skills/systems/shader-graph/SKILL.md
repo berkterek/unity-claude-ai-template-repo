@@ -443,12 +443,12 @@ After writing the `.shadergraph` file with the Write tool:
 ```csharp
 // Step 1 — import the asset
 AssetDatabase.Refresh();
-AssetDatabase.ImportAsset("Assets/Shaders/MyEffect.shadergraph");
+AssetDatabase.ImportAsset("Assets/_GameFolders/Arts/Shaders/MyEffect.shadergraph");
 
 // Step 2 — create material
 var shader = Shader.Find("Shader Graphs/MyEffect");
 var mat = new Material(shader);
-AssetDatabase.CreateAsset(mat, "Assets/Materials/MyEffect.mat");
+AssetDatabase.CreateAsset(mat, "Assets/Arts/Materials/<Domain>/MyEffect.mat");
 
 // Step 3 — assign to renderer (optional)
 // via manage_components MCP tool

@@ -144,7 +144,7 @@ Shader "Custom/MyShader"
 When the user chooses ShaderGraph (or score > 0.6 and user confirms):
 
 1. Load `shader-graph` skill for JSON format reference and node templates
-2. Generate `.shadergraph` file → `Write` tool to `Assets/Shaders/`
+2. Generate `.shadergraph` file → `Write` tool to `_GameFolders/Arts/Shaders/`
 3. MCP `execute_code` → `AssetDatabase.Refresh()` to import
 4. MCP `execute_code` → create material, assign shader
 5. Tell user: "ShaderGraph dosyası oluşturuldu — Unity'de açıp node'ları tweakleyebilirsin"
@@ -152,12 +152,13 @@ When the user chooses ShaderGraph (or score > 0.6 and user confirms):
 ### ShaderGraph File Path Convention
 
 ```
-Assets/
-└── Shaders/
-    ├── Dissolve.shadergraph
-    ├── RimLight.shadergraph
-    └── Include/
-        └── NoiseUtils.hlsl    ← custom function nodes
+_GameFolders/
+└── Arts/
+    └── Shaders/
+        ├── Dissolve.shadergraph
+        ├── RimLight.shadergraph
+        └── Include/
+            └── NoiseUtils.hlsl    ← custom function nodes
 ```
 
 ---

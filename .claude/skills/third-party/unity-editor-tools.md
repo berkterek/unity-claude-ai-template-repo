@@ -536,7 +536,7 @@ PrefabUtility.RevertPrefabInstance(instance, InteractionMode.UserAction);
 PrefabUtility.UnpackPrefabInstance(instance, PrefabUnpackMode.Completely, InteractionMode.UserAction);
 
 // Save modifications to a prefab asset
-using (var scope = new PrefabUtility.EditPrefabContentsScope("Assets/Prefabs/Tile.prefab"))
+using (var scope = new PrefabUtility.EditPrefabContentsScope("Assets/_GameFolders/Prefabs/Environment/Tile.prefab"))
 {
     var root = scope.prefabContentsRoot;
     root.GetComponent<TileComponent>().tileId = newId;
