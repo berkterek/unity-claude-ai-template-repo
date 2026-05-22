@@ -62,6 +62,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `urp-post-processing` | Bloom, DOF, Motion Blur, SSAO, Tonemapping, Color Grading, Vignette — setup, values, runtime control |
 | `audio-mixer-mcp` | AudioMixer exposed parameters, AudioSource routing — configuration via MCP execute_code |
 | `srp-batcher-mcp` | SRP Batcher enable/verify, UI Raycast Target audit, post-processing Volume cleanup via MCP |
+| `particle-vfx` | ParticleSystem module config, URP particle shaders, VFX pool, VContainer wiring, event-driven playback |
 
 ## Third-Party (`skills/third-party/`)
 

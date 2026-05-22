@@ -66,7 +66,7 @@ Detailed coding standards in `.claude/rules/`:
 |------|--------|
 | `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope |
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation |
-| `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; **material folder structure** (`Arts/Materials/<Domain>/`); shader authoring → `unity-shader-dev` agent (HLSL veya ShaderGraph complexity router) |
+| `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; **material folder structure** (`Arts/Materials/<Domain>/`); shader authoring → `unity-shader-dev` agent (HLSL veya ShaderGraph complexity router); particle VFX → `unity-particle-designer` agent |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |

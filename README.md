@@ -477,6 +477,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-scene-builder` | Scene composition via MCP — hierarchy, lighting, camera, volumes |
 | `graphics-setup-agent` | Creates URP Pipeline Assets (Low/Medium/High) for mobile or PC, configures Renderer Data, wires Quality Settings via MCP |
 | `audio-clip-agent` | Scans AudioClip assets, categorizes them, applies optimized import settings via temp Editor script + MCP |
+| `unity-particle-designer` | VFX specialist — creates ParticleSystem prefabs, URP particle materials, pooled VFX services, and wires event-driven playback via MCP |
 | `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
 | `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
 | `unity-build-runner` | CI/build pipeline — platform flags, build profiles, Addressables baking |
@@ -702,6 +703,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `urp-post-processing` | Bloom, DOF, Motion Blur, SSAO, Tonemapping, Color Grading, Vignette — setup, values, runtime control |
 | `audio-mixer-mcp` | AudioMixer exposed parameters, AudioSource routing — configuration via MCP execute_code |
 | `srp-batcher-mcp` | SRP Batcher enable/verify, UI Raycast Target audit, post-processing Volume cleanup via MCP |
+| `particle-vfx` | ParticleSystem module config, URP particle shaders, VFX pool, VContainer wiring, event-driven playback |
 
 ### Third-Party (`skills/third-party/` and `skills/plugins/`)
 
@@ -871,7 +873,7 @@ _GameFolders/Scripts/
 - Only valid top-level folders under `Scripts/`: `Games/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/` or other folders alongside `Games/`
 - Every `_Framework` subfolder has its own `.asmdef` — never a single root-level assembly covering all subfolders
 - All prefabs under `_GameFolders/Prefabs/<Domain>/` (`Bootstrap/`, `CoreObjects/`, `Enemies/`, `UI/Canvases/`, `VFX/`, `Environment/`…); shared-base objects use Prefab Variants; all Canvas prefabs are Prefab Variants of `BaseCanvas`
-- All material assets (.mat) under `Arts/Materials/<Domain>/` — never inside `Prefabs/`; URP projesinde Built-in Standard shader kullanma — shader authoring için `unity-shader-dev` agent'ı çağır (HLSL veya ShaderGraph complexity'e göre otomatik seçilir)
+- All material assets (.mat) under `Arts/Materials/<Domain>/` — never inside `Prefabs/`; URP projesinde Built-in Standard shader kullanma — shader authoring için `unity-shader-dev` agent'ı çağır (HLSL veya ShaderGraph complexity'e göre otomatik seçilir); particle VFX için `unity-particle-designer` agent'ı çağır (`Arts/Materials/VFX/` + `_GameFolders/Prefabs/VFX/` + pooling)
 - `AppScope` saved as `Prefabs/Bootstrap/AppScope.prefab`; `EventSystem` and `MainCamera` saved as `Prefabs/CoreObjects/` prefabs — same prefab instance reused across all scenes
 - New Input System only — `InputView` owns `PlayerControls`
 - UniTask everywhere — no coroutines, no `async void`, always pass `CancellationToken`
