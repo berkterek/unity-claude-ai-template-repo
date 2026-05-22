@@ -27,7 +27,7 @@
 ### Design & Architecture
 - `/game-idea` — Refine a raw game idea into a GDD (includes assumption surfacing + "Not Doing" list)
 - `/architect` — Create a Technical Design Document from a GDD (auto-runs Phase 7 self-critique → **unity-critic** adversarial challenge → developer review)
-- `/grill-me [plan or file]` — Stress-test a plan or design decision — asks one pointed question at a time, offers a recommended answer, resolves every branch; ends with a Decision Record
+- `/grill-me [plan or file]` — Stress-test a plan or design decision — asks one pointed question at a time, offers a recommended answer, resolves every branch; ends with a Decision Record. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed.
 - `/refine-gdd` — Iterate on an existing GDD
 - `/refine-tdd` — Iterate on an existing TDD
 
