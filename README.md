@@ -113,7 +113,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 |------|--------|
 | `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope |
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation |
-| `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; material folder structure (`Arts/Materials/<Domain>/`); URP shader rule (Standard forbidden) |
+| `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; material folder structure (`Arts/Materials/<Domain>/`); shader file structure (`_GameFolders/Arts/Shaders/`); URP shader rule (Standard forbidden) |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
@@ -858,6 +858,15 @@ _GameFolders/Scripts/
     [Project]EditModeTest/
     [Project]PlayModeTest/
   Editors/                   ← Editor-only tools
+
+Arts/
+  Materials/               ← all .mat files, organized by domain (never inside Prefabs/)
+    Items/
+    Environment/
+    Characters/
+    VFX/
+  Shaders/                 ← all .shader and .shadergraph files
+  Textures/                ← textures by domain
 ```
 
 **Key rules:**
