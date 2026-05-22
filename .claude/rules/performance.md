@@ -91,16 +91,19 @@ All material assets live under `Arts/Materials/`, grouped by domain — **never*
 
 ```
 Arts/
-└── Materials/
-    ├── Items/          ← Apple, Grape, Orange, Watermelon materials
-    ├── Environment/    ← Ground, Sky, Platform materials
-    ├── Characters/     ← Player, Enemy materials
-    ├── VFX/            ← Particle, Effect materials
-    └── UI/             ← UI-specific materials (rare)
+├── Materials/
+│   ├── Items/          ← Apple, Grape, Orange, Watermelon materials
+│   ├── Environment/    ← Ground, Sky, Platform materials
+│   ├── Characters/     ← Player, Enemy materials
+│   ├── VFX/            ← Particle, Effect materials
+│   └── UI/             ← UI-specific materials (rare)
+├── Shaders/            ← all .shader (HLSL) and .shadergraph files
+└── Textures/           ← textures by domain
 ```
 
 - One subfolder per domain — mirrors `_GameFolders/Prefabs/<Domain>/` naming
 - Material files (.mat) are never placed inside `Prefabs/` folders
+- Shader files (.shader / .shadergraph) live in `_GameFolders/Arts/Shaders/` — never alongside materials or prefabs
 - Textures that belong to a material live in `Arts/Textures/<Domain>/`
 
 ## URP Shader Rule (NON-NEGOTIABLE)
