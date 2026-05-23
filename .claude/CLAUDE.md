@@ -9,6 +9,41 @@ This is a personal Unity development template for Claude Code. It enforces archi
 - `skills/genre/` and `skills/gameplay/` were removed. Use `/skill-creator` to generate project-specific genre/gameplay skills when needed.
 - Command `/create-test-scene` was renamed to `/create-test`. Agent `unity-test-scene-builder` was renamed to `unity-test-builder`.
 - Claude's file tools (`Write`/`Edit`) cannot write `.unity` scene files — `block-scene-edit.sh` blocks this. **However, MCP tools (`manage_scene`, `manage_gameobject`, `manage_components`, `manage_build`) can create and wire scenes through the Unity Editor directly.** Always prefer MCP over listing manual Editor steps when MCP is connected.
+- `.claude/graph/graph.json` is generated — never edit by hand. Use `/build-knowledge-graph` to refresh.
+
+## Knowledge Graph
+
+The template ships with a Graphify-inspired knowledge graph at `.claude/graph/graph.json`.
+Opt-in via `project-features.json` (`"graph": true`). When enabled, it is the single source of truth
+for `/catch-up`, `/orchestrate` pre-scan, and `/context-prime`.
+
+**Pipeline:** detect → extract (C# / asmdef / MCP) → build → cluster → analyze → report → export
+
+**Commands:**
+- `/build-knowledge-graph [--full|--incremental] [--skip-mcp] [--validate] [--validate-with-codex]`
+- `/knowledge-graph <summary|implementers|publishers|subscribers|registrations|scope-tree|prefab|violations|diff>`
+
+**Triggers (kept in sync automatically):**
+- Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background, non-blocking)
+- Every `git commit` → `.git/hooks/post-commit` (full rebuild, background)
+- Manual → `/build-knowledge-graph`
+
+**Manual settings.json entry** (Claude cannot edit settings.json — add this yourself):
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "bash .claude/hooks/graph-auto-update.sh" }
+        ]
+      }
+    ]
+  }
+}
+```
+Add this entry under your existing PostToolUse hooks. Then run `bash .claude/hooks/install-git-hooks.sh` once to install the git post-commit hook.
 
 ## Required Stack
 
@@ -27,6 +62,7 @@ Selected during `/setup-project`. Choices are saved to `.claude/project-features
 | **Addressables** | Package Manager (com.unity.addressables) | `addressables` | Addressables rules and skills skipped |
 | **NSubstitute** | Manual DLL install | `testing` | Test folders, asmdefs, test hooks skipped |
 | **Unity ECS DOTS** | Package Manager (optional) | `ecs` | ECS folder, asmdef, ECS hooks skipped |
+| **Unity Knowledge Graph** | Built-in (`.claude/graph/`) | `graph` | Skip extractors and hooks. `/catch-up`, `/orchestrate`, `/context-prime`, `/architect` retain their original file-scan paths unchanged. |
 
 ## Optional Plugins
 
@@ -55,6 +91,7 @@ When starting a new conversation on this project, read these files first:
 - `.claude/CLAUDE.md` (this file — already loaded)
 - `.claude/rules/architecture.md` — module structure, VContainer, IEventBus patterns
 - `docs/CATCH_UP.md` if it exists — human-readable codebase guide
+- If `.claude/graph/graph.json` exists, read its summary: `/knowledge-graph summary`
 
 If the user asks to continue work on a specific module, also read its source files before making any changes.
 

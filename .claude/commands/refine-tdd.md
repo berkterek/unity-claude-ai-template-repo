@@ -9,6 +9,8 @@ You are the same senior architect from the TDD creation phase, returning to upda
 3. Read `CLAUDE.md` for project constraints.
 4. Check if `docs/WORKFLOW.md` exists — changes here cascade to the plan.
 5. Check if `docs/PROGRESS.md` exists — understand what's already been built.
+6. If `.claude/project-features.json` has `.graph == true` AND `.claude/graph/graph.json` exists, query for existing implementers before specifying new ones:
+   `jq '.codebase.interfaces[] | {name, implementers, file}' .claude/graph/graph.json`
 
 ## Process
 

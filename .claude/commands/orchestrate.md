@@ -85,20 +85,34 @@ Note: per-task COMMIT_GATE is intentionally omitted — orchestration is designe
 2. Read `docs/WORKFLOW.md` completely.
 3. Read `.claude/CLAUDE.md` for project constraints.
 4. Read `docs/PROGRESS.md` if it exists — resume from where work left off.
-5. **Codebase Pre-Scan** — before spawning any agents, scan the existing project state:
-   - Run `find _Framework -type f -name "*.cs" -o -name "*.asmdef" 2>/dev/null | sort` — list what infrastructure already exists
-   - Run `find _GameFolders/Scripts/Games/Abstracts -type f -name "*.cs" 2>/dev/null | sort` — list existing interfaces
-   - Run `find _GameFolders/Scripts/Games/Concretes -type f -name "*.cs" 2>/dev/null | sort` — list existing implementations
-   - Cross-reference each WORKFLOW.md task output against what already exists. If a file already exists, read it and note whether it follows architecture rules (VContainer, UniTask, naming, #region).
-   - Print a **Pre-Scan Report**:
-     ```
-     ## Pre-Scan Report
-     _Framework: [list of subfolders/assemblies found, or "empty"]
-     Existing Abstracts: [list of interfaces, or "none"]
-     Existing Concretes: [list of classes, or "none"]
-     Conflicts with WORKFLOW.md: [list files that already exist and need review, or "none"]
-     Architecture issues found: [list any rule violations in existing files, or "none"]
-     ```
+5. **Codebase Pre-Scan** — before spawning any agents, read the knowledge graph (or fall back to file scan):
+
+   Check `.claude/project-features.json`:
+   - If `.graph == true`: Read `.claude/graph/graph.json`. If missing, run `/build-knowledge-graph --full --skip-mcp` first.
+   - If `.graph != true`: run the original `find`-based scan (fallback below) and skip the jq queries.
+
+   **Graph path (preferred):**
+   - Existing `_Framework/`: `jq '.codebase.assemblies[] | select(.file | startswith("Assets/_Framework")) | {name, file}' .claude/graph/graph.json`
+   - Existing Abstracts: `jq '.codebase.interfaces[] | select(.file | contains("/Games/Abstracts/")) | {name, file}' .claude/graph/graph.json`
+   - Existing Concretes: `jq '.codebase.classes[] | select(.file | contains("/Games/Concretes/")) | {name, file, confidence}' .claude/graph/graph.json`
+   - Cross-reference each WORKFLOW.md task output against the graph. If a file's class exists in the graph AND is registered in an installer, mark the task as a candidate to skip.
+
+   **Fallback (no graph):**
+   - Run `find _Framework -type f -name "*.cs" -o -name "*.asmdef" 2>/dev/null | sort`
+   - Run `find _GameFolders/Scripts/Games/Abstracts -type f -name "*.cs" 2>/dev/null | sort`
+   - Run `find _GameFolders/Scripts/Games/Concretes -type f -name "*.cs" 2>/dev/null | sort`
+   - If a file already exists, read it and note whether it follows architecture rules (VContainer, UniTask, naming, #region).
+
+   Print a **Pre-Scan Report**:
+   ```
+   ## Pre-Scan Report
+   _Framework: [list of subfolders/assemblies found, or "empty"]
+   Existing Abstracts: [list of interfaces, or "none"]
+   Existing Concretes: [list of classes, or "none"]
+   Conflicts with WORKFLOW.md: [list files that already exist and need review, or "none"]
+   Architecture issues found: [list any rule violations in existing files, or "none"]
+   Graph confidence: [EXTRACTED | mostly_INFERRED | N/A (file-scan mode)]
+   ```
    - If a WORKFLOW.md output file already exists and is correctly implemented, mark that task as a candidate to skip and ask the developer: "Task [X] output already exists and looks correct — skip or re-implement?"
 6. Append to `docs/EVENTS.jsonl` (create if missing):
    ```jsonl

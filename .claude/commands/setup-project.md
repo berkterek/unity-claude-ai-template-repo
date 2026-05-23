@@ -137,17 +137,43 @@ Evaluate readiness for each generation phase separately.
 
 After collecting all answers, write `.claude/project-features.json` to the project root using Bash:
 
+Also ask: **"Enable Unity Knowledge Graph? (y/n, default: y)** — auto-indexes codebase for `/catch-up`, `/orchestrate`, `/context-prime`. Runs incrementally in background on every Write/Edit."**
+
 ```bash
 cat > .claude/project-features.json << 'EOF'
 {
   "addressables": <true|false>,
   "testing": <true|false>,
-  "ecs": <true|false>
+  "ecs": <true|false>,
+  "graph": <true|false>
 }
 EOF
 ```
 
 Replace `<true|false>` with the actual answers. This file is read by hooks and commands to skip irrelevant checks.
+
+### Step 5.5 — Initial Graph Build (if graph=true)
+
+If the user enabled the Knowledge Graph:
+
+1. Print: "Running initial graph build…"
+2. Run:
+   ```bash
+   bash .claude/graph/graph-builder.sh --full --skip-mcp
+   ```
+3. Print: "Initial graph complete. Run `/build-knowledge-graph --validate-with-codex` to cross-check accuracy."
+4. Add to the final manual-setup checklist:
+   ```
+   Knowledge Graph setup:
+     1. Add PostToolUse hook to .claude/settings.json:
+        {
+          "hooks": {
+            "PostToolUse": [{ "matcher": "Write|Edit", "hooks": [{ "type": "command", "command": "bash .claude/hooks/graph-auto-update.sh" }] }]
+          }
+        }
+     2. Install git post-commit hook: bash .claude/hooks/install-git-hooks.sh
+     3. (optional) Run watch loop: bash .claude/graph/graph-watch.sh
+   ```
 
 ---
 

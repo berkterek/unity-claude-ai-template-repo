@@ -10,6 +10,7 @@ A personal Claude Code configuration template for Unity 6 projects. Drop the `.c
 - [Quick Start](#quick-start)
 - [Configuration File Map](#configuration-file-map)
 - [Stack](#stack)
+- [Knowledge Graph](#knowledge-graph)
 - [Usage Modes](#usage-modes)
 - [Adding to an Existing Project](#adding-to-an-existing-project)
 - [Building a Game from Scratch](#building-a-game-from-scratch)
@@ -107,6 +108,20 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `.claude/docs/agents-index.md` | All custom agents and their roles |
 | `.claude/docs/skills-index.md` | Skills library index — core, platform, systems, third-party |
 
+### `.claude/graph/` — Knowledge graph
+
+| File | Purpose |
+|------|---------|
+| `schema.json` | JSON-Schema (draft-07) for `graph.json` |
+| `graph.json` (generated) | Living index of the codebase — do not edit by hand |
+| `extractors/asmdef-extractor.sh` | Parses every `*.asmdef` |
+| `extractors/csharp-extractor.sh` | tree-sitter primary, regex fallback |
+| `extractors/mcp-extractor.md` | MCP scene/prefab extraction skill |
+| `graph-builder.sh` | Top-level orchestrator + SHA256 cache |
+| `graph-validator.sh` | Architecture invariant checks (R1–R6) |
+| `codex-validator.md` | Codex accuracy spot-check prompt |
+| `graph-watch.sh` | Optional fswatch/inotifywait watch loop |
+
 ### `.claude/rules/` — Auto-loaded rule files
 
 | File | Covers |
@@ -151,6 +166,36 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `SETUP.md` | Quick start, adding to existing project, hook audit log, model tiers |
 | `WORKFLOW.md` | Full pipeline flows for `/implement`, `/fix`, `/orchestrate`, etc. |
 | `CATCH_UP.md` | Auto-generated codebase guide (created by `/catch-up`, not committed) |
+
+---
+
+## Knowledge Graph
+
+`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph. When enabled (default in
+`/setup-project`), the graph indexes every class, interface, event, installer, scope, asmdef, scene,
+and prefab into a single `graph.json` artifact. `/catch-up`, `/orchestrate`, and `/context-prime`
+all read this graph instead of scanning files from scratch.
+
+### Quick commands
+
+| Command | Purpose |
+|---------|---------|
+| `/build-knowledge-graph [--full\|--incremental]` | Build/refresh the graph |
+| `/build-knowledge-graph --validate-with-codex` | Spot-check graph accuracy with Codex |
+| `/knowledge-graph summary` | One-screen project overview |
+| `/knowledge-graph implementers <I>` | List concrete classes implementing an interface |
+| `/knowledge-graph publishers <E>` | List event publishers |
+| `/knowledge-graph violations` | Print architecture errors and warnings |
+
+### Triggers (kept in sync automatically)
+
+- Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background)
+- Every `git commit` → post-commit hook (full rebuild)
+- Manual: `/build-knowledge-graph`
+
+### Confidence levels
+
+`EXTRACTED` (explicit code), `INFERRED` (regex-mode or call-graph guess), `AMBIGUOUS` (needs human review).
 
 ---
 
@@ -353,10 +398,18 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
 | `session-restore` (SessionStart) | Restores session state from `.claude/state/` on session start |
 | `session-save` (Stop) | Saves current session state to `.claude/state/` on stop |
+| `graph-auto-update` (PostToolUse Write\|Edit) | Incremental graph rebuild in background on file change — never blocks |
 
 ---
 
 ## Slash Commands
+
+### Knowledge Graph
+
+| Command | How it runs | Description |
+|---------|------------|-------------|
+| `/build-knowledge-graph [flags]` | Manual or auto (hook + git) | Build the knowledge graph; `--full` rebuilds from scratch; `--validate-with-codex` cross-checks accuracy |
+| `/knowledge-graph <sub> [args]` | Manual | Query the knowledge graph: `summary`, `implementers`, `publishers`, `subscribers`, `registrations`, `scope-tree`, `prefab`, `violations`, `diff` |
 
 ### First-time project setup
 

@@ -8,6 +8,8 @@ You are the same expert game designer from the GDD creation phase, returning to 
 2. Read `CLAUDE.md` for project constraints.
 3. Check if `docs/TDD.md` exists — if so, note that architectural changes may cascade.
 4. Check if `docs/WORKFLOW.md` exists — if so, note that plan changes may cascade.
+5. If `.claude/project-features.json` has `.graph == true` AND `.claude/graph/graph.json` exists, read the assembly + scope summary for "existing module" context:
+   `jq '{assemblies: [.codebase.assemblies[].name], scopes: [.codebase.vcontainer.scopes[].name]}' .claude/graph/graph.json`
 
 ## Process
 

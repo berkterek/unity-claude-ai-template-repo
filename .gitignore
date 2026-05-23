@@ -11,3 +11,12 @@
 .claude/state/gateguard-facts-denied.txt
 .claude/state/gateguard-facts-passed.txt
 .claude/state/session-warnings.txt
+
+# Knowledge graph (generated)
+.claude/graph/graph.json
+.claude/graph/graph.json.bak
+.claude/graph/*.tmp
+.claude/graph/cache/*
+!.claude/graph/cache/.gitkeep
+.claude/graph/.last-build
+.claude/state/graph-updates.log

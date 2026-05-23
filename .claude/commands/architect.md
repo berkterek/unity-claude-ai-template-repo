@@ -10,8 +10,12 @@ Your role is to take the Game Design Document (GDD) and produce a complete Techn
 2. Read `docs/GDD.md` thoroughly.
 3. **Engine risk check:** Read `docs/engine-reference/unity/` (VERSION.md, breaking-changes.md, deprecated-apis.md). Note any Medium/High risk areas relevant to the GDD's systems. Stamp every TDD section that touches those areas with: `> ⚠️ Engine risk assessed — see docs/engine-reference/unity/breaking-changes.md`
 4. Read `CLAUDE.md` for project constraints.
-5. Analyze every system, mechanic, and requirement in the GDD.
-6. Begin your architectural design process.
+5. Survey `_Framework/` for existing infrastructure:
+   - If `.claude/project-features.json` has `.graph == true` AND `.claude/graph/graph.json` exists:
+     `jq '.codebase.assemblies[] | select(.file | startswith("Assets/_Framework")) | {name, file}' .claude/graph/graph.json`
+   - Otherwise: `find _Framework -type f \( -name "*.cs" -o -name "*.asmdef" \) 2>/dev/null | sort`
+6. Analyze every system, mechanic, and requirement in the GDD.
+7. Begin your architectural design process.
 
 ## Strict Technical Constraints (NON-NEGOTIABLE)
 

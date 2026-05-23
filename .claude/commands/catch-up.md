@@ -17,45 +17,73 @@ You think like a staff engineer onboarding onto a new project: you care about ar
 
 ## Analysis Process
 
+### Step 0 — Verify Graph
+
+Check `.claude/project-features.json`:
+- If `.graph == true` AND `.claude/graph/graph.json` exists → use graph path (Steps 1–4 below).
+- If `.graph != true` OR `graph.json` is missing → fall back to original file-scan path (Steps 1–4 original).
+
+If using the graph: check `.claude/graph/.last-build`. If older than 24 hours, tell the user:
+```
+⚠ Knowledge graph is stale (last built: <timestamp>).
+  Run /build-knowledge-graph for accurate results. Proceeding with stale data.
+```
+
 ### Step 1: Discover the Codebase
 
-- Use Glob to find all `.cs` files in the game project
-- Categorize each file by its role: Model, View, System, Interface, Message, ScriptableObject, Test, Config, Utility
-- Build a complete file inventory
+**Graph path:** Read `.claude/graph/graph.json`. Build the file inventory from:
+```jq
+.codebase.classes[]
+| {name, file, namespace, is_mono_behaviour, confidence}
+```
+Categorize each class: MonoBehaviour = View/Provider, ends with "Service" = System, ends with "Installer" = DI, ends with "Configuration" or extends ScriptableObject = Config. Flag any `AMBIGUOUS` confidence entries inline.
+
+**Fallback (no graph):** Use Glob to find all `.cs` files in the game project. Categorize each file by its role: Model, View, System, Interface, Message, ScriptableObject, Test, Config, Utility. Build a complete file inventory.
 
 ### Step 2: Map the Architecture
 
-For each System found:
-- What Models does it own/mutate?
-- What interfaces does it implement?
-- What messages does it publish? Subscribe to?
-- What other Systems does it depend on (via constructor injection)?
+**Graph path:**
+```jq
+.codebase.classes[]
+| select(.name | endswith("Service") or endswith("System"))
+| {
+    System: .name,
+    Implements: .implements,
+    EventsPublished: .events_published,
+    EventsSubscribed: .events_subscribed,
+    Dependencies: .dependencies,
+    confidence
+  }
+```
+Cross-reference with `.codebase.interfaces[]` for full interface → implementer map.
+Flag any `AMBIGUOUS` entries.
 
-For each View found:
-- What Model does it observe?
-- What System does it call?
-
-For each Model found:
-- What reactive properties does it expose?
-- What is its state shape?
+**Fallback (no graph):** For each System found, read the file and map: Models it owns/mutates, interfaces it implements, messages it publishes/subscribes, dependencies via constructor injection. For each View: what Model it observes, what System it calls. For each Model: reactive properties exposed, state shape.
 
 ### Step 3: Trace the Message Flow
 
-Read all MessagePipe message definitions (`readonly struct` messages).
-For each message:
-- Who publishes it?
-- Who subscribes to it?
-- What does it trigger?
+**Graph path:**
+```jq
+.codebase.events[]
+| {Message: .name, Publishers: .publishers, Subscribers: .subscribers, confidence}
+```
+Build the complete event flow map from the graph. Flag dangling events (no publisher or no subscriber).
 
-Build a complete message flow map.
+**Fallback (no graph):** Read all message struct definitions (readonly structs). For each message: who publishes it, who subscribes to it, what it triggers.
 
 ### Step 4: Map the DI Container
 
-Find all `LifetimeScope` classes.
-For each scope:
-- What is registered?
-- What is the scope hierarchy?
-- What MonoBehaviours are resolved from the scene?
+**Graph path:**
+```jq
+.codebase.vcontainer.scopes
+```
+and
+```jq
+.codebase.vcontainer.installers[]
+| {installer: .name, registrations: [.registrations[] | {type, as, lifetime}]}
+```
+
+**Fallback (no graph):** Find all `LifetimeScope` classes. For each scope: what is registered, what is the scope hierarchy, what MonoBehaviours are resolved from the scene.
 
 ### Step 5: Extract Design Decisions
 
