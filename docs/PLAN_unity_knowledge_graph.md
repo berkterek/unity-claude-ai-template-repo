@@ -1,7 +1,7 @@
 # PLAN — Unity Knowledge Graph (Graphify-Inspired)
 
 > **Version:** v1 — 2026-05-23
-> **Status:** Active
+> **Status:** Complete — 2026-05-23
 > **Scope:** `.claude/graph/` (new), `.claude/hooks/` (new hook scripts — user adds entries to settings.json manually), `.claude/commands/` (2 new + 3 existing rewrites), `.claude/CLAUDE.md`, `README.md`, `docs/engine-reference/` (informational), `.gitignore`
 
 ---
@@ -46,25 +46,25 @@ Documentation (`CLAUDE.md`, `README.md`) is updated only at the end, after the s
 
 | Phase | Task | Status | parallel_group |
 |-------|------|--------|----------------|
-| 1 | Task 1 — Define `graph.json` schema + folder layout + `.gitignore` | Pending | — |
-| 2 | Task 2 — `.asmdef` extractor (`asmdef-extractor.sh`) | Pending | A |
-| 2 | Task 3 — C# extractor (`csharp-extractor.sh`) — tree-sitter + regex fallback | Pending | A |
-| 2 | Task 4 — MCP scene/prefab extractor (`mcp-extractor.md` skill) **[EDITOR/MCP — Unity Editor must be open]** | Pending | A |
-| 3 | Task 5 — `graph-builder.sh` aggregator + SHA256 cache | Pending | — |
-| 4 | Task 6 — `graph-validator.sh` (architecture invariants) | Pending | B |
-| 4 | Task 7 — Codex graph-accuracy validator (skill + invocation) | Pending | B |
-| 5 | Task 8 — `/build-knowledge-graph` slash command | Pending | C |
-| 5 | Task 9 — `/knowledge-graph` query slash command | Pending | C |
-| 6 | Task 10 — `graph-auto-update.sh` PostToolUse hook | Pending | D |
-| 6 | Task 11 — Git `post-commit` hook installer script | Pending | D |
-| 6 | Task 12 — Watch helper (`graph-watch.sh`, optional fswatch wrapper) | Pending | D |
-| 7 | Task 13 — Rewrite `/catch-up` to read graph **[BLOCKED — needs investigation]** | Pending | E |
-| 7 | Task 14 — Rewrite `/orchestrate` pre-scan (lines 88–102) to call graph | Pending | E |
-| 7 | Task 15 — Rewrite `/context-prime` to load graph summary | Pending | E |
-| 8 | Task 16 — Wire `/setup-project` → graph init + `project-features.json` flag | Pending | F |
-| 8 | Task 17 — Reference graph from GDD-refine / TDD-refine / architect | Pending | F |
-| 9 | Task 18 — Update `.claude/CLAUDE.md` with graph system section | Pending | G |
-| 9 | Task 19 — Update `README.md` with graph system section + Slash Commands table rows | Pending | G |
+| 1 | Task 1 — Define `graph.json` schema + folder layout + `.gitignore` | Done | — |
+| 2 | Task 2 — `.asmdef` extractor (`asmdef-extractor.sh`) | Done | A |
+| 2 | Task 3 — C# extractor (`csharp-extractor.sh`) — tree-sitter + regex fallback | Done | A |
+| 2 | Task 4 — MCP scene/prefab extractor (`mcp-extractor.md` skill) **[EDITOR/MCP — Unity Editor must be open]** | Done | A |
+| 3 | Task 5 — `graph-builder.sh` aggregator + SHA256 cache | Done | — |
+| 4 | Task 6 — `graph-validator.sh` (architecture invariants) | Done | B |
+| 4 | Task 7 — Codex graph-accuracy validator (skill + invocation) | Done | B |
+| 5 | Task 8 — `/build-knowledge-graph` slash command | Done | C |
+| 5 | Task 9 — `/knowledge-graph` query slash command | Done | C |
+| 6 | Task 10 — `graph-auto-update.sh` PostToolUse hook | Done | D |
+| 6 | Task 11 — Git `post-commit` hook installer script | Done | D |
+| 6 | Task 12 — Watch helper (`graph-watch.sh`, optional fswatch wrapper) | Done | D |
+| 7 | Task 13 — Rewrite `/catch-up` to read graph **[BLOCKED — needs investigation]** | Done | E |
+| 7 | Task 14 — Rewrite `/orchestrate` pre-scan (lines 88–102) to call graph | Done | E |
+| 7 | Task 15 — Rewrite `/context-prime` to load graph summary | Done | E |
+| 8 | Task 16 — Wire `/setup-project` → graph init + `project-features.json` flag | Done | F |
+| 8 | Task 17 — Reference graph from GDD-refine / TDD-refine / architect | Done | F |
+| 9 | Task 18 — Update `.claude/CLAUDE.md` with graph system section | Done | G |
+| 9 | Task 19 — Update `README.md` with graph system section + Slash Commands table rows | Done | G |
 
 **Parallel groups:**
 - **A** (Phase 2 — three extractors): different files, no type dependency, each consumes Task 1's schema only.
