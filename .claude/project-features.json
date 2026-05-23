@@ -1,5 +1,6 @@
 {
   "addressables": false,
   "testing": false,
-  "ecs": false
+  "ecs": false,
+  "graph": true
 }
