@@ -185,13 +185,43 @@ all read this graph instead of scanning files from scratch.
 | `/knowledge-graph summary` | One-screen project overview |
 | `/knowledge-graph implementers <I>` | List concrete classes implementing an interface |
 | `/knowledge-graph publishers <E>` | List event publishers |
+| `/knowledge-graph subscribers <E>` | List event subscribers |
+| `/knowledge-graph registrations <T>` | Which installer registers a type |
+| `/knowledge-graph scope-tree` | Full VContainer scope hierarchy |
+| `/knowledge-graph prefab <P>` | Prefab components and variant status |
 | `/knowledge-graph violations` | Print architecture errors and warnings |
+| `/knowledge-graph diff` | Compare current graph with last backup |
 
 ### Triggers (kept in sync automatically)
 
 - Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background)
 - Every `git commit` → post-commit hook (full rebuild)
 - Manual: `/build-knowledge-graph`
+
+### What the extractor captures
+
+| Data | Detail |
+|------|--------|
+| Classes / interfaces | Name, namespace, file, base types, `implements[]`, `is_mono_behaviour`, `has_static_instance` |
+| Events | Publishers + subscribers via `_eventBus.Publish<T>()` / `.Publish(new T())` and `Subscribe<T>()` |
+| VContainer registrations | `Register<T>`, `RegisterInstance`, `RegisterComponent` — including `.As<IFoo>()`, `.AsImplementedInterfaces()`, and real `Lifetime` (Singleton/Transient/Scoped) |
+| VContainer scopes | `LifetimeScope` subclasses with parent resolved from `[ParentScope(typeof(X))]` attribute |
+| Assemblies | Name, file, references, platforms, `allowUnsafeCode` |
+
+### Nested Unity project support
+
+For Unity projects nested under a sub-folder (e.g. `HoleSphere/Assets/`):
+
+```bash
+# Override scan root explicitly
+bash .claude/graph/extractors/csharp-extractor.sh --root HoleSphere/Assets
+bash .claude/graph/extractors/asmdef-extractor.sh --root HoleSphere/Assets
+
+# Or set env var for graph-watch
+GRAPH_WATCH_ROOT=HoleSphere/Assets bash .claude/graph/graph-watch.sh
+```
+
+Both extractors also auto-detect `HoleSphere/Assets/` if it exists in the CWD.
 
 ### Confidence levels
 
