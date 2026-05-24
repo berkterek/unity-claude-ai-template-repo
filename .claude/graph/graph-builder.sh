@@ -186,10 +186,21 @@ print(json.dumps([f for f in files if f]))
 fi
 
 # ── Purge ghost entries (deleted/renamed files) ───────────────────────────────
-CURRENT_PATHS_JSON=$(printf '%s\n' "${CURRENT_PATHS[@]:-}" | jq -R . | jq -sc . 2>/dev/null || echo "[]")
+# Only purge when files were actually scanned — an empty CURRENT_PATHS means
+# no files changed (incremental with 0 changed files), not that all files vanished.
+if [[ ${#CURRENT_PATHS[@]} -gt 0 ]]; then
+  CURRENT_PATHS_JSON=$(printf '%s\n' "${CURRENT_PATHS[@]}" | jq -R . | jq -sc . 2>/dev/null || echo "[]")
+else
+  CURRENT_PATHS_JSON="[]"
+fi
 
 purge_ghosts() {
   local arr="$1"
+  # Skip purge entirely when no paths were scanned (avoids wiping retained entries)
+  if [[ "$CURRENT_PATHS_JSON" == "[]" ]]; then
+    echo "$arr"
+    return
+  fi
   echo "$arr" | jq --argjson paths "$CURRENT_PATHS_JSON" \
     '[.[] | select(.source_file as $sf | $sf == null or ($paths | index($sf) != null))]' 2>/dev/null || echo "$arr"
 }
