@@ -170,9 +170,30 @@ Canvas_Static      ← rarely changes (backgrounds, static labels)
 Canvas_Popups      ← dynamic elements (damage numbers, notifications)
 ```
 
-- Disable `Raycast Target` on non-interactive elements
 - Use `CanvasGroup.alpha = 0` + `blocksRaycasts = false` instead of `SetActive(false)` to avoid rebuild on re-enable
 - Pool UI elements — don't Instantiate/Destroy them
+
+### RaycastTarget Rules (NON-NEGOTIABLE)
+
+Every `Image` and `TextMeshProUGUI` component must have `Raycast Target` disabled unless it explicitly needs to receive pointer events.
+
+**`TextMeshProUGUI` — `true` only when the same GameObject or its parent has a `Button` component, otherwise always `false`.**
+
+**`Image` — `true` only when:**
+- The same GameObject has a `Button` component, OR
+- The Image is intentionally used as a full-screen raycast blocker (e.g. modal overlay, `BlockerPanel`)
+
+**All other `Image` components — `false`.**
+
+```
+// Inspector checklist when adding a UI prefab:
+✓ TextMeshProUGUI → Raycast Target: OFF
+✓ Image (decorative, background, icon) → Raycast Target: OFF
+✓ Image + Button → Raycast Target: ON
+✓ Image (modal blocker) → Raycast Target: ON, document why with a comment on the GO name
+```
+
+**Why:** Every enabled `Raycast Target` is tested on every pointer event. In a complex UI with 50+ elements, this adds up to hundreds of unnecessary hit-tests per frame. Disabling on non-interactive elements is free performance.
 
 ### Overdraw
 
