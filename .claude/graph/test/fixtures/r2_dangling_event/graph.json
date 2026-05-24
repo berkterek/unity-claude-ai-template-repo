@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-05-24T00:00:00Z",
+  "generator": "fixture-r2-dangling-event",
+  "codebase": {
+    "classes": [],
+    "interfaces": [],
+    "events": [
+      {
+        "name": "DanglingEvent",
+        "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/DanglingEvent.cs",
+        "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/DanglingEvent.cs",
+        "publishers": [],
+        "subscribers": [],
+        "confidence": "INFERRED"
+      }
+    ],
+    "vcontainer": { "installers": [], "scopes": [] },
+    "assemblies": [],
+    "scenes": [],
+    "prefabs": [],
+    "mcp_extraction": { "status": "skipped", "skipped_reason": "FIXTURE" }
+  },
+  "validation": { "errors": [], "warnings": [] },
+  "stats": { "scanned_files": 0, "cache_hits": 0, "build_ms": 0 }
+}

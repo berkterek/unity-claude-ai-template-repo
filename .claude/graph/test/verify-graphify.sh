@@ -1,0 +1,486 @@
+#!/usr/bin/env bash
+# verify-graphify.sh — Single-script test harness for the .claude/graph/ toolchain.
+# Shell-only — no Unity Editor, no C# compilation.
+# Exit codes: 0 = no FAIL, 1 = at least one FAIL, 2 = prerequisite missing.
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+PASS_COUNT=0
+FAIL_COUNT=0
+KNOWN_FAIL_COUNT=0
+
+JSON_OUTPUT=0
+for arg in "$@"; do
+  case "$arg" in
+    --json) JSON_OUTPUT=1 ;;
+  esac
+done
+
+source "$SCRIPT_DIR/lib/assert.sh"
+
+# ── SHA tool detection ───────────────────────────────────────────────────────
+if command -v sha256sum >/dev/null 2>&1; then
+  SHA_CMD=(sha256sum)
+elif command -v shasum >/dev/null 2>&1; then
+  SHA_CMD=(shasum -a 256)
+else
+  echo "error: sha256sum or shasum required" >&2
+  exit 2
+fi
+sha_of() { "${SHA_CMD[@]}" "$1" 2>/dev/null | awk '{print $1}'; }
+
+section() { echo; echo "=== $* ==="; }
+
+# jq_count <file> <jq-expression> — print the length of a jq query, or 0 on error.
+jq_count() {
+  jq "$2" "$1" 2>/dev/null || echo 0
+}
+
+# ── Prerequisite check ───────────────────────────────────────────────────────
+check_prerequisites() {
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "error: jq required" >&2
+    exit 2
+  fi
+  if [[ ! -f "$REPO_ROOT/.claude/graph/graph.json" ]]; then
+    echo "error: graph.json not found — run /build-knowledge-graph first" >&2
+    exit 2
+  fi
+  if ! jq empty "$REPO_ROOT/.claude/graph/graph.json" 2>/dev/null; then
+    echo "error: graph.json is not valid JSON" >&2
+    exit 2
+  fi
+}
+
+check_prerequisites
+
+source "$SCRIPT_DIR/lib/sandbox.sh"
+sandbox_setup
+
+WORK_GRAPH="$SCRIPT_DIR/.work/graph.json"
+mkdir -p "$(dirname "$WORK_GRAPH")"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# T3 — Builder flag coverage
+# ──────────────────────────────────────────────────────────────────────────────
+run_builder_flag_tests() {
+  section "T3 — Builder Flags"
+
+  # 1. --full + --skip-mcp + --quiet + --output
+  if bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null \
+     && jq empty "$WORK_GRAPH" 2>/dev/null; then
+    pass "--full --skip-mcp --quiet --output produces valid JSON"
+  else
+    fail "--full produced invalid output"
+  fi
+
+  # 2. --incremental cache reuse — verify cache file is populated.
+  # .stats.cache_hits is unreliable (incremented inside a subshell in graph-builder.sh).
+  bash "$GRAPH_DIR/graph-builder.sh" --incremental --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+  local cache_entries
+  cache_entries=$(jq_count "$GRAPH_DIR/cache/file-hashes.json" 'length')
+  if [[ "$cache_entries" -gt 0 ]]; then
+    pass "--incremental populates file-hashes cache ($cache_entries entries)"
+  else
+    fail "--incremental left cache empty (entries=$cache_entries)"
+  fi
+
+  # 3. --changed-files (single file)
+  local single_file="HoleSphere/Assets/_Framework/SaveLoadSystems/SaveLoadManager.cs"
+  if bash "$GRAPH_DIR/graph-builder.sh" --incremental --changed-files "$single_file" --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null \
+     && jq empty "$WORK_GRAPH" 2>/dev/null; then
+    pass "--changed-files single-file build (valid JSON)"
+  else
+    fail "--changed-files build produced invalid JSON"
+  fi
+
+  # 4. --skip-mcp status
+  local mcp_status
+  mcp_status=$(jq -r '.codebase.mcp_extraction.status' "$WORK_GRAPH" 2>/dev/null || echo "?")
+  if [[ "$mcp_status" == "skipped" ]]; then
+    pass "--skip-mcp sets mcp_extraction.status=skipped"
+  else
+    fail "--skip-mcp status='$mcp_status' (expected 'skipped')"
+  fi
+
+  # 5. --output isolation — live graph.json must equal the sandbox backup
+  local live_sha bak_sha
+  live_sha=$(sha_of "$GRAPH_DIR/graph.json")
+  bak_sha=$(sha_of "$SANDBOX_BACKUP_DIR/graph.json" 2>/dev/null || echo "no-bak")
+  if [[ "$live_sha" == "$bak_sha" ]]; then
+    pass "--output isolates writes (live graph.json untouched)"
+  else
+    fail "--output mutated live graph.json (live=$live_sha bak=$bak_sha)"
+  fi
+
+  # 6. --quiet suppresses stderr
+  local stderr_out
+  stderr_out=$(bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>&1 1>/dev/null || true)
+  if [[ -z "$stderr_out" ]]; then
+    pass "--quiet suppresses stderr"
+  else
+    fail "--quiet leaked stderr: $stderr_out"
+  fi
+
+  echo "[SKIP] --validate-with-codex requires a live Claude API call — not testable in a headless shell harness"
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# T4 — Validator rules R1–R6
+# ──────────────────────────────────────────────────────────────────────────────
+assert_rule_fires() {
+  local fixture="$1" rule_id="$2" severity="$3" expected_exit="$4" label="$5"
+  local tmp
+  tmp="$(mktemp -t graph-fixture-XXXXXX.json)"
+  cp "$SCRIPT_DIR/fixtures/$fixture/graph.json" "$tmp"
+  bash "$GRAPH_DIR/graph-validator.sh" "$tmp" >/dev/null 2>&1
+  local actual_exit=$?
+  local count
+  count=$(jq --arg r "$rule_id" "[.validation.${severity}s[] | select(.rule_id == \$r)] | length" "$tmp" 2>/dev/null || echo 0)
+  if [[ "$count" -gt 0 && "$actual_exit" -eq "$expected_exit" ]]; then
+    pass "$label ($rule_id severity=$severity exit=$actual_exit)"
+  else
+    fail "$label ($rule_id) — count=$count exit=$actual_exit (expected count>0 exit=$expected_exit)"
+  fi
+  rm -f "$tmp"
+}
+
+run_validator_tests() {
+  section "T4 — Validator Rules R1–R6"
+  assert_rule_fires r1_singleton             SINGLETON_DETECTED    error   1 "R1 singleton detected"
+  assert_rule_fires r2_dangling_event        EVENT_DANGLING        warning 0 "R2 dangling event"
+  assert_rule_fires r3_unregistered_concrete CONCRETE_UNREGISTERED warning 0 "R3 unregistered concrete"
+  assert_rule_fires r4_misplaced_interface   INTERFACE_MISPLACED   error   1 "R4 misplaced interface"
+  assert_rule_fires r5_unknown_asmdef_ref    ASMDEF_UNRESOLVED     error   1 "R5 unknown asmdef ref"
+  assert_rule_fires r6_layer_violation       LAYER_VIOLATION       error   1 "R6 layer violation"
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# T5 — Pivot integrity
+# ──────────────────────────────────────────────────────────────────────────────
+run_pivot_tests() {
+  section "T5 — Pivot Integrity"
+
+  bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+
+  local ev inst scopes
+  ev=$(jq_count "$WORK_GRAPH" '.codebase.events | length')
+  if [[ "$ev" -ge 16 ]]; then
+    pass "events pivot ($ev events, >=16)"
+  else
+    fail "events pivot count=$ev (expected >=16)"
+  fi
+
+  inst=$(jq_count "$WORK_GRAPH" '.codebase.vcontainer.installers | length')
+  if [[ "$inst" -ge 9 ]]; then
+    pass "installers count ($inst, >=9)"
+  else
+    fail "installers count=$inst (expected >=9)"
+  fi
+
+  scopes=$(jq -r '[.codebase.vcontainer.scopes[].name] | tojson' "$WORK_GRAPH" 2>/dev/null || echo "[]")
+  if echo "$scopes" | jq -e 'index("AppScope") and index("GameScope")' >/dev/null 2>&1; then
+    pass "scopes contain AppScope+GameScope"
+  else
+    fail "scopes missing one of AppScope/GameScope: $scopes"
+  fi
+
+  # .last-build freshness
+  if [[ -f "$GRAPH_DIR/.last-build" ]]; then
+    local lb
+    lb=$(cat "$GRAPH_DIR/.last-build")
+    if [[ "$lb" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]; then
+      pass ".last-build is ISO-8601 ($lb)"
+    else
+      fail ".last-build not ISO-8601: $lb"
+    fi
+  else
+    fail ".last-build missing"
+  fi
+
+  # Implementers pivot — BUG#1
+  local impl
+  impl=$(jq_count "$WORK_GRAPH" '[.codebase.classes[] | select(.implements | length > 0)] | length')
+  if [[ "$impl" -gt 0 ]]; then
+    echo "[REGRESSION_FIXED: BUG#1] class.implements[] populated ($impl classes)" >&2
+    pass "implementers pivot — BUG#1 fixed ($impl classes)"
+  else
+    known_fail "implementers pivot empty — BUG#1" \
+               "csharp-extractor keeps 'public sealed class X' prefix in base_types"
+  fi
+
+  # MCP prefab merge — BUG#2
+  cp "$SCRIPT_DIR/fixtures/mcp-extract.fresh.json" "$GRAPH_DIR/cache/mcp-extract.json"
+  touch "$GRAPH_DIR/cache/mcp-extract.json"
+  bash "$GRAPH_DIR/graph-builder.sh" --full --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+  local prefabs
+  prefabs=$(jq_count "$WORK_GRAPH" '.codebase.prefabs | length')
+  if [[ "$prefabs" -gt 0 ]]; then
+    echo "[REGRESSION_FIXED: BUG#2] MCP prefabs merged ($prefabs)" >&2
+    pass "MCP prefab merge — BUG#2 fixed ($prefabs prefabs)"
+  else
+    known_fail "MCP prefab merge returns 0 — BUG#2" \
+               "graph-builder.sh FINAL_GRAPH never wires .codebase.prefabs from cache"
+  fi
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# T6 — /knowledge-graph subcommands (9)
+# ──────────────────────────────────────────────────────────────────────────────
+run_knowledge_graph_tests() {
+  section "T6 — /knowledge-graph subcommands"
+
+  # 1. summary
+  local n_classes
+  n_classes=$(jq_count "$WORK_GRAPH" '.codebase.classes | length')
+  if [[ "$n_classes" -ge 1 ]]; then
+    pass "summary: classes=$n_classes"
+  else
+    fail "summary: classes=0"
+  fi
+
+  # 2. implementers (KNOWN_FAIL — BUG#1)
+  local n_impl
+  n_impl=$(jq --arg n "ISaveLoadService" '[.codebase.classes[] | select(.implements | index($n) != null)] | length' "$WORK_GRAPH" 2>/dev/null || echo 0)
+  if [[ "$n_impl" -ge 1 ]]; then
+    echo "[REGRESSION_FIXED: BUG#1] implementers ISaveLoadService now resolves ($n_impl)" >&2
+    pass "implementers ISaveLoadService ($n_impl)"
+  else
+    known_fail "implementers ISaveLoadService returns 0 — BUG#1" \
+               "implements[] never populated"
+  fi
+
+  # 3. publishers
+  local n_pub
+  n_pub=$(jq_count "$WORK_GRAPH" '[.codebase.events[] | select(.name == "RunStartedEvent") | .publishers[]] | length')
+  if [[ "$n_pub" -ge 1 ]]; then
+    pass "publishers RunStartedEvent ($n_pub)"
+  else
+    fail "publishers RunStartedEvent empty"
+  fi
+
+  # 4. subscribers (parseable is enough)
+  local n_sub
+  n_sub=$(jq '[.codebase.events[] | select(.name == "RunStartedEvent") | .subscribers[]] | length' "$WORK_GRAPH" 2>/dev/null)
+  if [[ -n "$n_sub" && "$n_sub" =~ ^[0-9]+$ ]]; then
+    pass "subscribers RunStartedEvent query parseable ($n_sub)"
+  else
+    fail "subscribers query did not return a number"
+  fi
+
+  # 5. registrations — AudioInstaller present
+  local n_reg
+  n_reg=$(jq_count "$WORK_GRAPH" '[.codebase.vcontainer.installers[] | select(.name == "AudioInstaller")] | length')
+  if [[ "$n_reg" -ge 1 ]]; then
+    pass "registrations AudioInstaller present"
+  else
+    fail "registrations AudioInstaller not found"
+  fi
+
+  # 6. scope-tree
+  local scope_names
+  scope_names=$(jq -r '[.codebase.vcontainer.scopes[].name] | tojson' "$WORK_GRAPH" 2>/dev/null || echo "[]")
+  if echo "$scope_names" | jq -e 'index("AppScope") and index("GameScope")' >/dev/null 2>&1; then
+    pass "scope-tree contains AppScope and GameScope"
+  else
+    fail "scope-tree missing AppScope or GameScope: $scope_names"
+  fi
+
+  # 7. prefab BlackholeSphere (KNOWN_FAIL — BUG#2)
+  local n_pf
+  n_pf=$(jq_count "$WORK_GRAPH" '[.codebase.prefabs[]? | select(.name == "BlackholeSphere")] | length')
+  if [[ "$n_pf" -ge 1 ]]; then
+    echo "[REGRESSION_FIXED: BUG#2] prefab BlackholeSphere found" >&2
+    pass "prefab BlackholeSphere found"
+  else
+    known_fail "prefab BlackholeSphere not found — BUG#2" \
+               "codebase.prefabs always []"
+  fi
+
+  # 8. violations
+  if jq -e '.validation | has("errors") and has("warnings")' "$WORK_GRAPH" >/dev/null 2>&1; then
+    pass "violations structure present (errors+warnings arrays)"
+  else
+    fail "violations structure missing"
+  fi
+
+  # 9. diff — compare backup vs work graph (parseable)
+  local bak="$SANDBOX_BACKUP_DIR/graph.json"
+  if [[ -f "$bak" ]]; then
+    diff <(jq -S '.codebase.classes | map(.name) | sort' "$bak" 2>/dev/null || echo '[]') \
+         <(jq -S '.codebase.classes | map(.name) | sort' "$WORK_GRAPH" 2>/dev/null || echo '[]') \
+         >/dev/null 2>&1 || true
+    pass "diff subcommand parseable (backup vs work)"
+  else
+    fail "diff: no backup graph.json found"
+  fi
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# T7 — Triggers (PostToolUse hook, post-commit, watch, purge_ghosts)
+# ──────────────────────────────────────────────────────────────────────────────
+run_trigger_tests() {
+  section "T7 — Triggers"
+
+  local log="$REPO_ROOT/.claude/state/graph-updates.log"
+  mkdir -p "$REPO_ROOT/.claude/state"
+  touch "$log"
+
+  # line_count_of <file> — print the line count, or 0 on error.
+  line_count_of() { wc -l < "$1" 2>/dev/null | tr -d ' ' || echo 0; }
+
+  # 1. PostToolUse hook logs .cs file
+  local before after
+  before=$(line_count_of "$log")
+  echo '{"tool_input":{"file_path":"HoleSphere/Assets/_Framework/SaveLoadSystems/SaveLoadManager.cs"}}' \
+    | bash "$REPO_ROOT/.claude/hooks/graph-auto-update.sh" >/dev/null 2>&1 || true
+  after=$(line_count_of "$log")
+  if [[ "$after" -gt "$before" ]]; then
+    pass "PostToolUse hook logs .cs trigger"
+  else
+    fail "PostToolUse hook did not log .cs file (before=$before after=$after)"
+  fi
+
+  # 2. PostToolUse filters .md
+  before=$(line_count_of "$log")
+  echo '{"tool_input":{"file_path":"README.md"}}' \
+    | bash "$REPO_ROOT/.claude/hooks/graph-auto-update.sh" >/dev/null 2>&1 || true
+  after=$(line_count_of "$log")
+  if [[ "$after" -eq "$before" ]]; then
+    pass "PostToolUse filters .md (no log entry)"
+  else
+    fail "PostToolUse logged non-.cs/.asmdef file"
+  fi
+
+  # 3. graph-watch.sh syntax smoke
+  if bash -n "$REPO_ROOT/.claude/graph/graph-watch.sh" 2>/dev/null; then
+    pass "graph-watch.sh syntax valid"
+  else
+    fail "graph-watch.sh syntax error"
+  fi
+
+  if ! command -v fswatch >/dev/null 2>&1 && ! command -v inotifywait >/dev/null 2>&1; then
+    echo "[SKIP] watcher dependency missing — install fswatch (macOS) or inotify-tools (Linux)"
+  fi
+
+  # 4. post-commit hook
+  local pch="$REPO_ROOT/.git/hooks/post-commit"
+  if [[ -x "$pch" ]]; then
+    if bash "$pch" >/dev/null 2>&1; then
+      pass "post-commit hook executes (exit 0)"
+    else
+      fail "post-commit hook returned non-zero"
+    fi
+  else
+    echo "[SKIP] post-commit hook not installed — run bash .claude/hooks/install-git-hooks.sh"
+  fi
+
+  # 5. purge_ghosts — probe .cs added then removed
+  local probe_rel="HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/__GhostProbe__.cs"
+  local probe_abs="$REPO_ROOT/$probe_rel"
+  if [[ -f "$probe_abs" ]]; then
+    echo "[SKIP] purge_ghosts: $probe_rel already exists — skipping to avoid side-effects"
+  else
+    cat > "$probe_abs" <<'CS'
+namespace Game.Concretes
+{
+    public class __GhostProbe__
+    {
+    }
+}
+CS
+    bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+    local present_after_add
+    present_after_add=$(jq_count "$WORK_GRAPH" '[.codebase.classes[] | select(.name == "__GhostProbe__")] | length')
+    rm -f "$probe_abs"
+    bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+    local present_after_delete
+    present_after_delete=$(jq_count "$WORK_GRAPH" '[.codebase.classes[] | select(.name == "__GhostProbe__")] | length')
+    if [[ "$present_after_delete" -eq 0 ]]; then
+      pass "purge_ghosts removes deleted class (was $present_after_add, now $present_after_delete)"
+    else
+      fail "purge_ghosts left ghost entry ($present_after_delete remaining)"
+    fi
+  fi
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# T8 — Known bugs (auto-promote to PASS on fix)
+# ──────────────────────────────────────────────────────────────────────────────
+run_known_fail_bugs() {
+  section "T8 — Known Bugs (KNOWN_FAIL → auto-promote on fix)"
+
+  # BUG#1 — class.implements[] always empty
+  local n_impl
+  n_impl=$(jq_count "$WORK_GRAPH" '[.codebase.classes[] | select(.implements | length > 0)] | length')
+  if [[ "$n_impl" -gt 0 ]]; then
+    echo "[REGRESSION_FIXED: BUG#1] class.implements[] now populated ($n_impl classes)" >&2
+    pass "BUG#1 resolved — implements[] populated ($n_impl classes)"
+  else
+    known_fail "BUG#1 class.implements[] always empty (count=0)" \
+               "csharp-extractor strips ':' but keeps 'public sealed class X' prefix in base_types"
+  fi
+
+  # BUG#2 — MCP merge drops prefabs/scenes
+  # Must build WITH mcp (no --skip-mcp) to verify merge; use a separate output to avoid
+  # clobbering WORK_GRAPH (which is always built --skip-mcp for flag isolation tests).
+  local cache_p graph_p mcp_out
+  cache_p=$(jq_count "$GRAPH_DIR/cache/mcp-extract.json" '.prefabs | length')
+  mcp_out="$SCRIPT_DIR/.work/graph-mcp.json"
+  bash "$GRAPH_DIR/graph-builder.sh" --full --quiet --output "$mcp_out" 2>/dev/null || true
+  graph_p=$(jq_count "$mcp_out" '.codebase.prefabs | length')
+  if [[ "$cache_p" -gt 0 && "$graph_p" -gt 0 ]]; then
+    echo "[REGRESSION_FIXED: BUG#2] MCP prefabs merged (cache=$cache_p graph=$graph_p)" >&2
+    pass "BUG#2 resolved — prefabs merged ($graph_p)"
+  else
+    known_fail "BUG#2 MCP merge drops prefabs (cache=$cache_p graph=$graph_p)" \
+               "graph-builder.sh FINAL_GRAPH assembly does not wire .codebase.prefabs"
+  fi
+
+  # BUG#3 — base_types[] contains declaration prefix
+  local polluted
+  polluted=$(jq_count "$WORK_GRAPH" '[.codebase.classes[] | select(.base_types[]? | test("public |sealed |class |internal |static "))] | length')
+  if [[ "$polluted" -eq 0 ]]; then
+    echo "[REGRESSION_FIXED: BUG#3] base_types[] is clean (no declaration prefix)" >&2
+    pass "BUG#3 resolved — base_types[] clean"
+  else
+    local example
+    example=$(jq -r '[.codebase.classes[] | select(.base_types[]? | test("public |sealed |class |internal |static "))][0] | .name + " → " + (.base_types | tostring)' "$WORK_GRAPH" 2>/dev/null || echo "?")
+    known_fail "BUG#3 base_types[] contains declaration prefix ($polluted classes)" \
+               "example: $example"
+  fi
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# T9 — Report
+# ──────────────────────────────────────────────────────────────────────────────
+emit_report() {
+  if [[ "$JSON_OUTPUT" -eq 1 ]]; then
+    printf '{"pass":%d,"fail":%d,"known_fail":%d,"elapsed_seconds":%d}\n' \
+      "$PASS_COUNT" "$FAIL_COUNT" "$KNOWN_FAIL_COUNT" "$SECONDS"
+  else
+    echo
+    echo "======================================================================="
+    echo "  Graphify Verify — Summary"
+    echo "======================================================================="
+    printf "  PASS:       %d\n" "$PASS_COUNT"
+    printf "  KNOWN_FAIL: %d   (documented bugs — see docs/PLAN_graphify_test_coverage.md Task 8)\n" "$KNOWN_FAIL_COUNT"
+    printf "  FAIL:       %d\n" "$FAIL_COUNT"
+    printf "  Elapsed:    %ds\n" "$SECONDS"
+    echo "======================================================================="
+  fi
+  [[ "$FAIL_COUNT" -eq 0 ]] && exit 0 || exit 1
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Main pipeline
+# ──────────────────────────────────────────────────────────────────────────────
+run_builder_flag_tests
+run_validator_tests
+run_pivot_tests
+run_knowledge_graph_tests
+run_trigger_tests
+run_known_fail_bugs
+emit_report

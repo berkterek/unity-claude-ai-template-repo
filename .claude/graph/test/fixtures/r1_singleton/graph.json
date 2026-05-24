@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-05-24T00:00:00Z",
+  "generator": "fixture-r1-singleton",
+  "codebase": {
+    "classes": [
+      {
+        "name": "BadSingleton",
+        "namespace": "Game.Concretes.Bad",
+        "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/BadSingleton.cs",
+        "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/BadSingleton.cs",
+        "line": 5,
+        "base_types": [],
+        "is_mono_behaviour": false,
+        "implements": [],
+        "dependencies": [],
+        "events_published": [],
+        "events_subscribed": [],
+        "has_static_instance": true,
+        "confidence": "INFERRED"
+      }
+    ],
+    "interfaces": [],
+    "events": [],
+    "vcontainer": { "installers": [], "scopes": [] },
+    "assemblies": [],
+    "scenes": [],
+    "prefabs": [],
+    "mcp_extraction": { "status": "skipped", "skipped_reason": "FIXTURE" }
+  },
+  "validation": { "errors": [], "warnings": [] },
+  "stats": { "scanned_files": 0, "cache_hits": 0, "build_ms": 0 }
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-05-24T00:00:00Z",
+  "generator": "fixture-r5-unknown-asmdef-ref",
+  "codebase": {
+    "classes": [],
+    "interfaces": [],
+    "events": [],
+    "vcontainer": { "installers": [], "scopes": [] },
+    "assemblies": [
+      {
+        "name": "MyAsm",
+        "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/MyAsm.asmdef",
+        "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/MyAsm.asmdef",
+        "references": ["DefinitelyNotAnAsmdef"],
+        "platforms": { "include": [], "exclude": [] },
+        "allowUnsafeCode": false,
+        "defines": [],
+        "confidence": "EXTRACTED"
+      }
+    ],
+    "scenes": [],
+    "prefabs": [],
+    "mcp_extraction": { "status": "skipped", "skipped_reason": "FIXTURE" }
+  },
+  "validation": { "errors": [], "warnings": [] },
+  "stats": { "scanned_files": 0, "cache_hits": 0, "build_ms": 0 }
+}

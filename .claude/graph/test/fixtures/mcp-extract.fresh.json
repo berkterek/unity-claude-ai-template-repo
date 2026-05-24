@@ -1,0 +1,40 @@
+{
+  "scenes": [
+    {
+      "name": "Game",
+      "path": "Assets/_Scenes/Game.unity",
+      "domain": "Game",
+      "containers": ["[Setup]","[Services]","[UI]","[Environment]","[Characters]","[VFX]"],
+      "confidence": "EXTRACTED"
+    }
+  ],
+  "prefabs": [
+    {"name":"GameScope","path":"Assets/_GameFolders/Prefabs/Bootstrap/GameScope.prefab","domain":"Bootstrap","components":["Transform","GameScope"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"BlackholeSphere","path":"Assets/_GameFolders/Prefabs/Characters/BlackholeSphere.prefab","domain":"Characters","components":["Transform","Rigidbody","SphereCollider","BlackholeView","SlingshotView","VacuumView","LaneControlView","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"CameraRig","path":"Assets/_GameFolders/Prefabs/Environment/CameraRig.prefab","domain":"Environment","components":["Transform","Camera","AudioListener","CameraProvider"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"DirectionalLight","path":"Assets/_GameFolders/Prefabs/Environment/DirectionalLight.prefab","domain":"Environment","components":["Transform","Light"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"FinishLine","path":"Assets/_GameFolders/Prefabs/Environment/FinishLine.prefab","domain":"Environment","components":["Transform","BoxCollider","FinishLineTrigger","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"Apple","path":"Assets/_GameFolders/Prefabs/Items/Apple.prefab","domain":"Items","components":["Transform","ItemView","SphereCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"Grape","path":"Assets/_GameFolders/Prefabs/Items/Grape.prefab","domain":"Items","components":["Transform","ItemView","SphereCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"Orange","path":"Assets/_GameFolders/Prefabs/Items/Orange.prefab","domain":"Items","components":["Transform","ItemView","SphereCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"Strawberry","path":"Assets/_GameFolders/Prefabs/Items/Strawberry.prefab","domain":"Items","components":["Transform","ItemView","SphereCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"Watermelon","path":"Assets/_GameFolders/Prefabs/Items/Watermelon.prefab","domain":"Items","components":["Transform","ItemView","SphereCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"Log","path":"Assets/_GameFolders/Prefabs/Obstacles/Log.prefab","domain":"Obstacles","components":["Transform","BoxCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"Rock","path":"Assets/_GameFolders/Prefabs/Obstacles/Rock.prefab","domain":"Obstacles","components":["Transform","BoxCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"Tree","path":"Assets/_GameFolders/Prefabs/Obstacles/Tree.prefab","domain":"Obstacles","components":["Transform","BoxCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"AppScope","path":"Assets/_GameFolders/Prefabs/Services/AppScope.prefab","domain":"Services","components":["Transform","AppScope"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"AudioRoot","path":"Assets/_GameFolders/Prefabs/Services/AudioRoot.prefab","domain":"Services","components":["Transform","AudioProvider","AudioSource"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"EventSystem","path":"Assets/_GameFolders/Prefabs/Services/EventSystem.prefab","domain":"Services","components":["Transform","EventSystem","InputSystemUIInputModule"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"FlatTile","path":"Assets/_GameFolders/Prefabs/Tiles/FlatTile.prefab","domain":"Tiles","components":["Transform","TileView","BoxCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"HillTile","path":"Assets/_GameFolders/Prefabs/Tiles/HillTile.prefab","domain":"Tiles","components":["Transform","TileView","BoxCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"NarrowTile","path":"Assets/_GameFolders/Prefabs/Tiles/NarrowTile.prefab","domain":"Tiles","components":["Transform","TileView","BoxCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"SlopeDownTile","path":"Assets/_GameFolders/Prefabs/Tiles/SlopeDownTile.prefab","domain":"Tiles","components":["Transform","TileView","BoxCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"SlopeUpTile","path":"Assets/_GameFolders/Prefabs/Tiles/SlopeUpTile.prefab","domain":"Tiles","components":["Transform","TileView","BoxCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"WideTile","path":"Assets/_GameFolders/Prefabs/Tiles/WideTile.prefab","domain":"Tiles","components":["Transform","TileView","BoxCollider","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"BaseCanvas","path":"Assets/_GameFolders/Prefabs/UI/Canvases/BaseCanvas.prefab","domain":"UI","components":["RectTransform","Canvas","CanvasScaler","GraphicRaycaster"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"CanvasHUD","path":"Assets/_GameFolders/Prefabs/UI/Canvases/CanvasHUD.prefab","domain":"UI","components":["RectTransform","Canvas","CanvasScaler","GraphicRaycaster","HUDView","CanvasRenderer","TextMeshProUGUI","Slider"],"isVariant":true,"basePrefab":"BaseCanvas","confidence":"EXTRACTED"},
+    {"name":"CanvasJoystick","path":"Assets/_GameFolders/Prefabs/UI/Canvases/CanvasJoystick.prefab","domain":"UI","components":["RectTransform","Canvas","CanvasScaler","GraphicRaycaster","Transform"],"isVariant":true,"basePrefab":"BaseCanvas","confidence":"EXTRACTED"},
+    {"name":"CanvasOverlay","path":"Assets/_GameFolders/Prefabs/UI/Canvases/CanvasOverlay.prefab","domain":"UI","components":["RectTransform","Canvas","CanvasScaler","GraphicRaycaster","Button","UpgradeButtonView"],"isVariant":true,"basePrefab":"BaseCanvas","confidence":"EXTRACTED"},
+    {"name":"CanvasPopup","path":"Assets/_GameFolders/Prefabs/UI/Canvases/CanvasPopup.prefab","domain":"UI","components":["RectTransform","Canvas","CanvasScaler","GraphicRaycaster","CanvasRenderer","Image","RunSummaryView","LevelCompleteView","CanvasGroup","LoadingView"],"isVariant":true,"basePrefab":"BaseCanvas","confidence":"EXTRACTED"}
+  ]
+}

@@ -3,7 +3,7 @@
 **Date:** 2026-05-24  
 **Scope:** `.claude/graph/` — graph-builder, csharp-extractor, asmdef-extractor, graph-validator, graph-watch  
 **Status:** Identified in nile_hole_sphere_repo; fixes apply to template  
-**Last updated:** 2026-05-24 — Codex review pass added Bugs 10–16
+**Last updated:** 2026-05-24 — verify-graphify.sh session added Bugs 20–22 + test harness task
 
 ---
 
@@ -180,6 +180,10 @@ This yields empty `scope_line` and `extract_scope` returns `null`.
 | 17 | 🟡 Low  | Low    | ✅ Done |
 | 18 | 🟡 Med  | Med    | 🔲 Open — MCP extractor update needed |
 | 19 | 🟡 Low  | —      | 🔲 Open — game code issue, not Graphify |
+| 20 | 🔴 Critical | Low | ✅ Fixed in project — 🔲 Not in template |
+| 21 | 🔴 High | Low    | ✅ Fixed in project — 🔲 Not in template (test harness) |
+| 22 | — | —       | ✅ Confirmed working — no fix needed |
+| T20 | 🔴 High | Med  | 🔲 Open — copy test harness to template |
 
 ---
 
@@ -377,6 +381,91 @@ These are **real architecture gaps** in the project, not false positives. Graphi
 **Found by:** Full rebuild + validate run — 2026-05-24
 
 ---
+
+---
+
+### 🔴 Bug 20 — `extract_base_list()` matches `grep -n` line-number prefix colon
+**File:** `.claude/graph/extractors/csharp-extractor.sh:77`  
+**Problem:** `process_file_regex` calls `grep -n` to find class declarations, producing lines like `"45:  public sealed class X : IFoo"`. `extract_base_list()` then runs `grep -oE ':[[:space:]]*...'` on that full string — the regex matches the `"45:"` line-number colon first, capturing `"public sealed class X IFoo"` as the base list instead of just `"IFoo"`. Result: `base_types[]` contains the full class declaration string; `implements[]` is always empty because no base type starts with `^I[A-Z]` after being polluted.  
+**Root cause:** `grep -n` output was never stripped of its `N:` prefix before being passed to `extract_base_list`.  
+**Impact:** Critical — `class.implements[]` is always `[]` for every class. `/knowledge-graph implementers` returns no results. Architecture violation checks that depend on interface implementation are blind.  
+**Fix:** Strip the line-number prefix first, then match specifically the class-declaration colon:
+```bash
+extract_base_list() {
+  local line="$1"
+  local decl
+  decl=$(echo "$line" | sed 's/^[0-9]*://')
+  echo "$decl" | grep -oE 'class[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[[:space:]]*[A-Za-z0-9_<>, ]+' \
+    | sed -E 's/class[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[[:space:]]*//' \
+    | tr -d '\n' || echo ""
+}
+```
+**Verified fix:** After fix, 21 classes have non-empty `implements[]`, 0 classes have polluted `base_types[]`.  
+**Status:** ✅ Fixed in nile_hole_sphere_repo — commit `4965e91` — 2026-05-24  
+**Template status:** 🔲 Not yet applied  
+
+---
+
+### 🔴 Bug 21 — `sandbox.sh` uses `declare -A` — incompatible with macOS bash 3.2
+**File:** `.claude/graph/test/lib/sandbox.sh:18`  
+**Problem:** `declare -A _EXISTED_BEFORE` (associative arrays) requires bash 4.0+. macOS ships bash 3.2 as the system shell. Running the test harness on macOS produces:  
+```
+sandbox.sh: line 18: declare: -A: invalid option
+```  
+The sandbox fails to track which files existed before the test run, causing corrupt cleanup.  
+**Fix:** Replace associative array with a marker-file pattern — for each protected path that exists, write a zero-byte marker file into a temp directory. Marker filename = path with `/` replaced by `__`:
+```bash
+SANDBOX_EXISTED_DIR="$(mktemp -d -t graphify-existed-XXXXXX)"
+_existed_marker() { echo "$SANDBOX_EXISTED_DIR/$(echo "$1" | sed 's|/|__|g')"; }
+```
+**Status:** ✅ Fixed in nile_hole_sphere_repo — commit `bb6c594` — 2026-05-24  
+**Template status:** 🔲 Not yet applied (test harness not yet in template)  
+
+---
+
+### 🟡 Clarification 22 — BUG#2 MCP merge was a stale cache, not a code bug
+**File:** `.claude/graph/graph-builder.sh:143`  
+**Problem reported:** `graph.json.codebase.prefabs` always `[]` despite `mcp-extract.json` containing 27 prefabs.  
+**Investigation:** The MCP merge code (`jq -r '.prefabs // []'` + `--argjson prefabs`) was confirmed correct. The actual cause was that `mcp-extract.json` was older than 60 minutes at the time of investigation, so `MCP_AGE -lt 60` evaluated false and `MCP_PREFABS` stayed as `"[]"`. When cache was fresh (< 60 min), 27 prefabs merged correctly.  
+**No code fix needed.** The freshness threshold (60 min) is appropriate. The T8 test in `verify-graphify.sh` was incorrectly using `--skip-mcp` for its WORK_GRAPH, causing a false KNOWN_FAIL — that was fixed by building a separate `graph-mcp.json` with MCP enabled for the BUG#2 check.  
+**Status:** ✅ Confirmed working — no fix required — 2026-05-24  
+
+---
+
+## Task T20 — Apply Test Harness to Template
+
+Add the full `verify-graphify.sh` test harness to the template so every project generated from it has regression coverage from day one.
+
+**Source:** `.claude/graph/test/` in nile_hole_sphere_repo (commits `912538f`, `bb6c594`)
+
+**Files to copy:**
+| Source | Template destination |
+|--------|---------------------|
+| `.claude/graph/test/verify-graphify.sh` | `.claude/graph/test/verify-graphify.sh` |
+| `.claude/graph/test/lib/sandbox.sh` | `.claude/graph/test/lib/sandbox.sh` |
+| `.claude/graph/test/lib/assert.sh` | `.claude/graph/test/lib/assert.sh` |
+| `.claude/graph/test/fixtures/r1_singleton/graph.json` | same |
+| `.claude/graph/test/fixtures/r2_dangling_event/graph.json` | same |
+| `.claude/graph/test/fixtures/r3_unregistered_concrete/graph.json` | same |
+| `.claude/graph/test/fixtures/r4_misplaced_interface/graph.json` | same |
+| `.claude/graph/test/fixtures/r5_unknown_asmdef_ref/graph.json` | same |
+| `.claude/graph/test/fixtures/r6_layer_violation/graph.json` | same |
+| `.claude/graph/test/fixtures/mcp-extract.fresh.json` | same |
+| `.claude/graph/test/.work/.gitignore` | same |
+| `.claude/graph/test/README.md` | same |
+
+**Steps:**
+1. [ ] Copy all files listed above from nile_hole_sphere_repo to template
+2. [ ] Apply Bug 20 fix (`extract_base_list`) to template's `csharp-extractor.sh`
+3. [ ] Apply Bug 21 fix (`declare -A` → marker-file) to `sandbox.sh`
+4. [ ] Run `bash .claude/graph/test/verify-graphify.sh` on a template project — target: 35 PASS, 0 FAIL
+5. [ ] Add `.claude/graph/.gitignore` (gitignore `.last-build` and `cache/file-hashes.json`)
+6. [ ] Commit to template repo
+
+**Acceptance criteria:**
+- `bash .claude/graph/test/verify-graphify.sh` exits 0 with 35 PASS on a fresh template project
+- `class.implements[]` populated for all classes with inheritance
+- Sandbox cleanup works on macOS bash 3.2 without errors
 
 ---
 

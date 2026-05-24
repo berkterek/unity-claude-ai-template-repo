@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-05-24T00:00:00Z",
+  "generator": "fixture-r4-misplaced-interface",
+  "codebase": {
+    "classes": [],
+    "interfaces": [
+      {
+        "name": "IBadlyPlaced",
+        "namespace": "Game.Concretes.Bad",
+        "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/IBadlyPlaced.cs",
+        "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/IBadlyPlaced.cs",
+        "line": 3,
+        "implementers": [],
+        "confidence": "INFERRED"
+      }
+    ],
+    "events": [],
+    "vcontainer": { "installers": [], "scopes": [] },
+    "assemblies": [],
+    "scenes": [],
+    "prefabs": [],
+    "mcp_extraction": { "status": "skipped", "skipped_reason": "FIXTURE" }
+  },
+  "validation": { "errors": [], "warnings": [] },
+  "stats": { "scanned_files": 0, "cache_hits": 0, "build_ms": 0 }
+}

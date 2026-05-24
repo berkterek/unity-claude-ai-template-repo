@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-05-24T00:00:00Z",
+  "generator": "fixture-r3-unregistered-concrete",
+  "codebase": {
+    "classes": [
+      {
+        "name": "FooService",
+        "namespace": "Game.Concretes.Foo",
+        "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Foo/FooService.cs",
+        "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Foo/FooService.cs",
+        "line": 5,
+        "base_types": [],
+        "is_mono_behaviour": false,
+        "implements": [],
+        "dependencies": [],
+        "events_published": [],
+        "events_subscribed": [],
+        "has_static_instance": false,
+        "confidence": "INFERRED"
+      }
+    ],
+    "interfaces": [],
+    "events": [],
+    "vcontainer": {
+      "installers": [
+        {
+          "name": "EmptyInstaller",
+          "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Foo/EmptyInstaller.cs",
+          "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Foo/EmptyInstaller.cs",
+          "registrations": []
+        }
+      ],
+      "scopes": []
+    },
+    "assemblies": [],
+    "scenes": [],
+    "prefabs": [],
+    "mcp_extraction": { "status": "skipped", "skipped_reason": "FIXTURE" }
+  },
+  "validation": { "errors": [], "warnings": [] },
+  "stats": { "scanned_files": 0, "cache_hits": 0, "build_ms": 0 }
+}

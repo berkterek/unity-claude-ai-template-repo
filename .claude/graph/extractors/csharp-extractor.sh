@@ -76,8 +76,12 @@ extract_namespace() {
 
 extract_base_list() {
   local line="$1"
-  # Grab everything after : on the class declaration line
-  echo "$line" | grep -oE ':[[:space:]]*[A-Za-z0-9_<>, ]+' | sed 's/^:[[:space:]]*//' | tr -d '\n' || echo ""
+  # grep -n prefixes output with "N:" — strip that before matching the inheritance colon
+  local decl
+  decl=$(echo "$line" | sed 's/^[0-9]*://')
+  echo "$decl" | grep -oE 'class[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[[:space:]]*[A-Za-z0-9_<>, ]+' \
+    | sed -E 's/class[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[[:space:]]*//' \
+    | tr -d '\n' || echo ""
 }
 
 has_static_instance() {
