@@ -5,16 +5,19 @@
 #   csharp-extractor.sh                          # scan all C# under Assets/ and Packages/
 #   csharp-extractor.sh --changed-files a.cs,b.cs
 #   csharp-extractor.sh --include-tests          # also scan Tests folders
+#   csharp-extractor.sh --root HoleSphere/Assets # override scan root for nested projects
 set -euo pipefail
 
 CHANGED_FILES=""
 INCLUDE_TESTS=0
 MODE="regex"
+CS_ROOT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --changed-files)  CHANGED_FILES="$2"; shift 2 ;;
     --include-tests)  INCLUDE_TESTS=1; shift ;;
+    --root)           CS_ROOT="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -37,7 +40,14 @@ if [[ -n "$CHANGED_FILES" ]]; then
     [[ "$f" == *.cs ]] && FILES+=("$f")
   done
 else
-  FIND_OPTS=( Assets/_Framework Assets/_GameFolders/Scripts )
+  if [[ -n "$CS_ROOT" ]]; then
+    _prefix="$CS_ROOT"
+  elif [[ -d "HoleSphere/Assets" ]]; then
+    _prefix="HoleSphere/Assets"
+  else
+    _prefix="Assets"
+  fi
+  FIND_OPTS=( "${_prefix}/_Framework" "${_prefix}/_GameFolders/Scripts" )
   [[ -d Packages ]] && FIND_OPTS+=( Packages )
   while IFS= read -r -d '' f; do
     if [[ $INCLUDE_TESTS -eq 0 ]]; then
@@ -116,16 +126,27 @@ for m in re.finditer(
     typ = m.group(2)
     lifetime = m.group(3) or "Singleton"
     tail = text[m.end():m.end()+300]
-    as_val = ""
-    as_m = re.search(r'\.As<([A-Za-z0-9_]+)>', tail)
-    if as_m:
-        as_val = as_m.group(1)
+    as_matches = re.findall(r'\.As<([A-Za-z0-9_]+)>', tail)
+    if as_matches:
+        as_val = as_matches if len(as_matches) > 1 else as_matches[0]
     elif re.search(r'\.AsImplementedInterfaces\(\)', tail[:150]):
         as_val = "AsImplementedInterfaces"
-    key = (typ, as_val, lifetime)
+    else:
+        as_val = ""
+    key = (typ, str(as_val), lifetime)
     if key not in seen:
         seen.add(key)
         results.append({"type": typ, "as": as_val, "lifetime": lifetime, "scope": ""})
+
+# Second pass: non-generic RegisterInstance(_varName) — infer type from variable name
+for m2 in re.finditer(r'builder\.RegisterInstance\(([_a-z][A-Za-z0-9_]*)\)', text):
+    var = m2.group(1)
+    inferred = var.lstrip('_')
+    inferred = inferred[0].upper() + inferred[1:] if inferred else var
+    key = (inferred, "", "Singleton")
+    if key not in seen:
+        seen.add(key)
+        results.append({"type": inferred, "as": "", "lifetime": "Singleton", "scope": "", "inferred": True})
 
 print(json.dumps(results))
 PYEOF

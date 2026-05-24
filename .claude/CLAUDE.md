@@ -62,7 +62,7 @@ Selected during `/setup-project`. Choices are saved to `.claude/project-features
 | **Addressables** | Package Manager (com.unity.addressables) | `addressables` | Addressables rules and skills skipped |
 | **NSubstitute** | Manual DLL install | `testing` | Test folders, asmdefs, test hooks skipped |
 | **Unity ECS DOTS** | Package Manager (optional) | `ecs` | ECS folder, asmdef, ECS hooks skipped |
-| **Unity Knowledge Graph** | Built-in (`.claude/graph/`) | `graph` | Skip extractors and hooks. `/catch-up`, `/orchestrate`, `/context-prime`, `/architect` retain their original file-scan paths unchanged. |
+| **Unity Knowledge Graph** | Built-in (`.claude/graph/`) | `graph` | Skip extractors and hooks. `/catch-up`, `/orchestrate`, `/context-prime`, `/architect` fall back to direct file-scan. |
 
 ## Optional Plugins
 
@@ -91,7 +91,15 @@ When starting a new conversation on this project, read these files first:
 - `.claude/CLAUDE.md` (this file — already loaded)
 - `.claude/rules/architecture.md` — module structure, VContainer, IEventBus patterns
 - `docs/CATCH_UP.md` if it exists — human-readable codebase guide
-- If `.claude/graph/graph.json` exists, read its summary: `/knowledge-graph summary`
+- If `.claude/graph/graph.json` exists and `graph` feature is enabled: run `/knowledge-graph summary` — **this is the primary source of truth** for classes, interfaces, events, installers, scopes, and prefabs. Do NOT manually scan source folders if the graph is available and fresh (< 24h).
+
+**Graph query cheatsheet (use before touching any existing system):**
+- "What interfaces exist?" → `/knowledge-graph implementers IAudioService`
+- "Who publishes/subscribes to an event?" → `/knowledge-graph publishers RunStartedEvent`
+- "What does an installer register?" → `/knowledge-graph registrations AudioService`
+- "VContainer scope hierarchy?" → `/knowledge-graph scope-tree`
+- "Any architecture violations?" → `/knowledge-graph violations`
+- "What components does a prefab have?" → `/knowledge-graph prefab PlayerSphere`
 
 If the user asks to continue work on a specific module, also read its source files before making any changes.
 
@@ -156,9 +164,21 @@ Named prompts that pause the pipeline and wait for human approval before continu
 
 `/orchestrate` performs a mandatory pre-scan during Initialization (Step 5) before any agent is spawned:
 
+**If `graph` feature is ENABLED and `graph.json` is fresh (< 24h):** query graph.json directly — do NOT re-scan source folders.
+```bash
+jq '.codebase.interfaces[] | {name, file}' .claude/graph/graph.json
+jq '.codebase.classes[] | select(.file | contains("Concretes")) | {name, file, implements}' .claude/graph/graph.json
+jq '.validation | {errors: (.errors|length), warnings: (.warnings|length)}' .claude/graph/graph.json
+```
+
+**If graph is disabled or stale (> 24h):** fall back to direct file-scan:
+
 1. **Check `_Framework/`** — list all subfolders, `.asmdef` names, and existing interfaces/services. Never re-implement infrastructure that already exists.
 2. **Check `_GameFolders/Scripts/Games/Abstracts/`** — list existing interfaces. If an interface already exists for a WORKFLOW.md target, use it — do not create a duplicate.
 3. **Check `_GameFolders/Scripts/Games/Concretes/`** — list existing classes. If a target class already exists, read it and verify it follows architecture rules before deciding to modify or re-implement.
+
+In both paths:
+
 4. **Print a Pre-Scan Report** — what exists, what is missing, any conflicts with WORKFLOW.md outputs, any architecture violations in existing files.
 5. **Flag already-implemented tasks** — if a WORKFLOW.md output file already exists and is correct, ask the developer whether to skip or re-implement before proceeding.
 
@@ -195,6 +215,7 @@ Configured by `/setup-project`. Source of truth: `.claude/project-features.json`
 | `addressables` | **DISABLED** | Skip `rules/addressables.md`, Addressables hooks, and address-constant checks |
 | `testing` | **DISABLED** | Skip `rules/testing.md`, NSubstitute rules, test-folder/asmdef requirements, and test hooks |
 | `ecs` | **DISABLED** | Skip `rules/ecs-dots.md`, ECS structural-change hook (`check-ecs-structural-changes.sh`), and enum-byte-base hook (`check-enum-byte-base.sh`) |
+| `graph` | **ENABLED** | `graph.json` is the primary source of truth. `/orchestrate` pre-scan reads graph instead of scanning folders. `/catch-up`, `/context-prime`, `/architect` query graph first; fall back to file-scan only if graph is stale (> 24h) or disabled. |
 
 > When a feature is DISABLED, Claude must not enforce its rules or suggest its patterns.
 

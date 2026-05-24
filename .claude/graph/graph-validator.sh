@@ -82,7 +82,7 @@ while IFS= read -r row; do
   [[ "$file" == *Configuration* ]] && continue
   # Skip LifetimeScope subclasses (bootstrapped by Unity, not VContainer-registered)
   base_types=$(echo "$row" | jq -r '.base_types[]? // empty')
-  echo "$base_types" | grep -qE '(^|\.)(LifetimeScope|ScriptableObject)$' && continue
+  echo "$base_types" | grep -qE '(^|\.)(LifetimeScope|ScriptableObject|ModuleInstaller)$' && continue
 
   if ! echo "$REGISTERED_JSON" | jq -e --arg n "$name" '. | index($n) != null' >/dev/null 2>&1; then
     add_warning "CONCRETE_UNREGISTERED" "$file" 0 \

@@ -25,7 +25,13 @@ if [[ -z "$WATCHER" ]]; then
   exit 1
 fi
 
-WATCH_ROOT="${GRAPH_WATCH_ROOT:-Assets}"
+if [[ -n "${GRAPH_WATCH_ROOT:-}" ]]; then
+  WATCH_ROOT="$GRAPH_WATCH_ROOT"
+elif [[ -d "HoleSphere/Assets" ]]; then
+  WATCH_ROOT="HoleSphere/Assets"
+else
+  WATCH_ROOT="Assets"
+fi
 echo "graph-watch: watching $WATCH_ROOT/ for .cs .asmdef .prefab .unity changes (Ctrl-C to stop)"
 
 # ── Debounce state ────────────────────────────────────────────────────────────
