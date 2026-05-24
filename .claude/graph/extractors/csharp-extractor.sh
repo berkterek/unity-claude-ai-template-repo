@@ -82,8 +82,14 @@ is_mono_behaviour() {
 }
 
 extract_events_published() {
-  local f="$1"
-  grep -oE '\.(Publish)<([A-Z][A-Za-z0-9_]*)>' "$f" 2>/dev/null | grep -oE '<([A-Z][A-Za-z0-9_]*)>' | tr -d '<>' | sort -u | jq -R . | jq -sc . || echo "[]"
+  local f="$1" result a b combined
+  # Pass A: legacy generic form  _eventBus.Publish<EventName>()
+  a=$(grep -oE '\.(Publish)<([A-Z][A-Za-z0-9_]*)>' "$f" 2>/dev/null | grep -oE '<([A-Z][A-Za-z0-9_]*)>' | tr -d '<>') || a=""
+  # Pass B: constructor-call form  _eventBus.Publish(new EventName(...))
+  b=$(grep -oE '\.Publish\([[:space:]]*new[[:space:]]+[A-Z][A-Za-z0-9_]*' "$f" 2>/dev/null | sed -E 's/^\.Publish\([[:space:]]*new[[:space:]]+//') || b=""
+  combined=$(printf '%s\n%s\n' "$a" "$b" | grep -v '^$' | sort -u) || combined=""
+  result=$(printf '%s' "$combined" | jq -R . | jq -sc . 2>/dev/null) || result=""
+  echo "${result:-[]}"
 }
 
 extract_events_subscribed() {
