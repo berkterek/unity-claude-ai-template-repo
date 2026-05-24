@@ -7,6 +7,22 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
+# Auto-detect Unity project source root (handles nested projects like HoleSphere/).
+# UNITY_CONCRETES — a writable Concretes/ dir for probe tests (purge_ghosts, --changed-files).
+# UNITY_HAS_CS    — 1 if real C# source exists; 0 on template/empty repos.
+_detect_unity_root() {
+  local concretes
+  concretes=$(find "$REPO_ROOT" -maxdepth 8 -type d -name "Concretes" 2>/dev/null \
+    | grep -E '_GameFolders/Scripts/Games/Concretes$' | head -1)
+  echo "${concretes:-}"
+}
+UNITY_CONCRETES="$(_detect_unity_root)"
+if [[ -n "$UNITY_CONCRETES" ]] && find "$UNITY_CONCRETES" -name "*.cs" -maxdepth 3 2>/dev/null | grep -q .; then
+  UNITY_HAS_CS=1
+else
+  UNITY_HAS_CS=0
+fi
+
 PASS_COUNT=0
 FAIL_COUNT=0
 KNOWN_FAIL_COUNT=0
@@ -77,24 +93,36 @@ run_builder_flag_tests() {
   fi
 
   # 2. --incremental cache reuse — verify cache file is populated.
-  # .stats.cache_hits is unreliable (incremented inside a subshell in graph-builder.sh).
+  # Skip on template/empty repos — no C# files means cache is trivially empty.
   bash "$GRAPH_DIR/graph-builder.sh" --incremental --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
   local cache_entries
   cache_entries=$(jq_count "$GRAPH_DIR/cache/file-hashes.json" 'length')
-  if [[ "$cache_entries" -gt 0 ]]; then
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] --incremental cache: no C# source files in repo (template mode)"
+  elif [[ "$cache_entries" -gt 0 ]]; then
     pass "--incremental populates file-hashes cache ($cache_entries entries)"
   else
     fail "--incremental left cache empty (entries=$cache_entries)"
   fi
 
-  # 3. --changed-files (single file)
-  local single_file="HoleSphere/Assets/_Framework/SaveLoadSystems/SaveLoadManager.cs"
+  # 3. --changed-files (single file) — use an actual .cs file from the project, or a temp one.
+  local single_file
+  if [[ -n "$UNITY_CONCRETES" ]]; then
+    single_file=$(find "$UNITY_CONCRETES" -name "*.cs" -maxdepth 3 2>/dev/null | head -1)
+  fi
+  if [[ -z "${single_file:-}" ]]; then
+    # No real file — create a temp .cs file to exercise the flag
+    single_file="$(mktemp /tmp/GraphifyProbe_XXXXXX.cs)"
+    printf 'namespace Probe { public class GraphifyProbe {} }\n' > "$single_file"
+    local _tmp_cs="$single_file"
+  fi
   if bash "$GRAPH_DIR/graph-builder.sh" --incremental --changed-files "$single_file" --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null \
      && jq empty "$WORK_GRAPH" 2>/dev/null; then
     pass "--changed-files single-file build (valid JSON)"
   else
     fail "--changed-files build produced invalid JSON"
   fi
+  [[ -n "${_tmp_cs:-}" ]] && rm -f "$_tmp_cs"
 
   # 4. --skip-mcp status
   local mcp_status
@@ -167,21 +195,27 @@ run_pivot_tests() {
 
   local ev inst scopes
   ev=$(jq_count "$WORK_GRAPH" '.codebase.events | length')
-  if [[ "$ev" -ge 16 ]]; then
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] events pivot: no C# source files (template mode)"
+  elif [[ "$ev" -ge 16 ]]; then
     pass "events pivot ($ev events, >=16)"
   else
     fail "events pivot count=$ev (expected >=16)"
   fi
 
   inst=$(jq_count "$WORK_GRAPH" '.codebase.vcontainer.installers | length')
-  if [[ "$inst" -ge 9 ]]; then
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] installers count: no C# source files (template mode)"
+  elif [[ "$inst" -ge 9 ]]; then
     pass "installers count ($inst, >=9)"
   else
     fail "installers count=$inst (expected >=9)"
   fi
 
   scopes=$(jq -r '[.codebase.vcontainer.scopes[].name] | tojson' "$WORK_GRAPH" 2>/dev/null || echo "[]")
-  if echo "$scopes" | jq -e 'index("AppScope") and index("GameScope")' >/dev/null 2>&1; then
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] scopes check: no C# source files (template mode)"
+  elif echo "$scopes" | jq -e 'index("AppScope") and index("GameScope")' >/dev/null 2>&1; then
     pass "scopes contain AppScope+GameScope"
   else
     fail "scopes missing one of AppScope/GameScope: $scopes"
@@ -203,7 +237,9 @@ run_pivot_tests() {
   # Implementers pivot — BUG#1
   local impl
   impl=$(jq_count "$WORK_GRAPH" '[.codebase.classes[] | select(.implements | length > 0)] | length')
-  if [[ "$impl" -gt 0 ]]; then
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] implementers pivot: no C# source files (template mode)"
+  elif [[ "$impl" -gt 0 ]]; then
     echo "[REGRESSION_FIXED: BUG#1] class.implements[] populated ($impl classes)" >&2
     pass "implementers pivot — BUG#1 fixed ($impl classes)"
   else
@@ -235,7 +271,9 @@ run_knowledge_graph_tests() {
   # 1. summary
   local n_classes
   n_classes=$(jq_count "$WORK_GRAPH" '.codebase.classes | length')
-  if [[ "$n_classes" -ge 1 ]]; then
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] summary: no C# source files (template mode)"
+  elif [[ "$n_classes" -ge 1 ]]; then
     pass "summary: classes=$n_classes"
   else
     fail "summary: classes=0"
@@ -244,7 +282,9 @@ run_knowledge_graph_tests() {
   # 2. implementers (KNOWN_FAIL — BUG#1)
   local n_impl
   n_impl=$(jq --arg n "ISaveLoadService" '[.codebase.classes[] | select(.implements | index($n) != null)] | length' "$WORK_GRAPH" 2>/dev/null || echo 0)
-  if [[ "$n_impl" -ge 1 ]]; then
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] implementers: no C# source files (template mode)"
+  elif [[ "$n_impl" -ge 1 ]]; then
     echo "[REGRESSION_FIXED: BUG#1] implementers ISaveLoadService now resolves ($n_impl)" >&2
     pass "implementers ISaveLoadService ($n_impl)"
   else
@@ -255,13 +295,15 @@ run_knowledge_graph_tests() {
   # 3. publishers
   local n_pub
   n_pub=$(jq_count "$WORK_GRAPH" '[.codebase.events[] | select(.name == "RunStartedEvent") | .publishers[]] | length')
-  if [[ "$n_pub" -ge 1 ]]; then
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] publishers: no C# source files (template mode)"
+  elif [[ "$n_pub" -ge 1 ]]; then
     pass "publishers RunStartedEvent ($n_pub)"
   else
     fail "publishers RunStartedEvent empty"
   fi
 
-  # 4. subscribers (parseable is enough)
+  # 4. subscribers (parseable is enough — always run, result 0 is valid)
   local n_sub
   n_sub=$(jq '[.codebase.events[] | select(.name == "RunStartedEvent") | .subscribers[]] | length' "$WORK_GRAPH" 2>/dev/null)
   if [[ -n "$n_sub" && "$n_sub" =~ ^[0-9]+$ ]]; then
@@ -273,7 +315,9 @@ run_knowledge_graph_tests() {
   # 5. registrations — AudioInstaller present
   local n_reg
   n_reg=$(jq_count "$WORK_GRAPH" '[.codebase.vcontainer.installers[] | select(.name == "AudioInstaller")] | length')
-  if [[ "$n_reg" -ge 1 ]]; then
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] registrations: no C# source files (template mode)"
+  elif [[ "$n_reg" -ge 1 ]]; then
     pass "registrations AudioInstaller present"
   else
     fail "registrations AudioInstaller not found"
@@ -282,7 +326,9 @@ run_knowledge_graph_tests() {
   # 6. scope-tree
   local scope_names
   scope_names=$(jq -r '[.codebase.vcontainer.scopes[].name] | tojson' "$WORK_GRAPH" 2>/dev/null || echo "[]")
-  if echo "$scope_names" | jq -e 'index("AppScope") and index("GameScope")' >/dev/null 2>&1; then
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] scope-tree: no C# source files (template mode)"
+  elif echo "$scope_names" | jq -e 'index("AppScope") and index("GameScope")' >/dev/null 2>&1; then
     pass "scope-tree contains AppScope and GameScope"
   else
     fail "scope-tree missing AppScope or GameScope: $scope_names"
@@ -331,11 +377,18 @@ run_trigger_tests() {
   # line_count_of <file> — print the line count, or 0 on error.
   line_count_of() { wc -l < "$1" 2>/dev/null | tr -d ' ' || echo 0; }
 
-  # 1. PostToolUse hook logs .cs file
+  # Hook must run with CWD = REPO_ROOT so its relative paths (.claude/state/,
+  # .claude/project-features.json, .claude/graph/graph-builder.sh) resolve correctly.
+  _run_hook() {
+    local payload="$1"
+    ( cd "$REPO_ROOT" && echo "$payload" | bash ".claude/hooks/graph-auto-update.sh" ) >/dev/null 2>&1 || true
+  }
+
+  # 1. PostToolUse hook logs .cs file — use any .cs path (file need not exist; hook checks extension only)
+  local cs_payload='{"tool_input":{"file_path":"Assets/_Framework/Probe.cs"}}'
   local before after
   before=$(line_count_of "$log")
-  echo '{"tool_input":{"file_path":"HoleSphere/Assets/_Framework/SaveLoadSystems/SaveLoadManager.cs"}}' \
-    | bash "$REPO_ROOT/.claude/hooks/graph-auto-update.sh" >/dev/null 2>&1 || true
+  _run_hook "$cs_payload"
   after=$(line_count_of "$log")
   if [[ "$after" -gt "$before" ]]; then
     pass "PostToolUse hook logs .cs trigger"
@@ -345,8 +398,7 @@ run_trigger_tests() {
 
   # 2. PostToolUse filters .md
   before=$(line_count_of "$log")
-  echo '{"tool_input":{"file_path":"README.md"}}' \
-    | bash "$REPO_ROOT/.claude/hooks/graph-auto-update.sh" >/dev/null 2>&1 || true
+  _run_hook '{"tool_input":{"file_path":"README.md"}}'
   after=$(line_count_of "$log")
   if [[ "$after" -eq "$before" ]]; then
     pass "PostToolUse filters .md (no log entry)"
@@ -378,10 +430,15 @@ run_trigger_tests() {
   fi
 
   # 5. purge_ghosts — probe .cs added then removed
-  local probe_rel="HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/__GhostProbe__.cs"
-  local probe_abs="$REPO_ROOT/$probe_rel"
-  if [[ -f "$probe_abs" ]]; then
-    echo "[SKIP] purge_ghosts: $probe_rel already exists — skipping to avoid side-effects"
+  # Use detected Concretes/ dir; skip gracefully if no Unity project present.
+  local probe_abs=""
+  if [[ -n "$UNITY_CONCRETES" ]]; then
+    probe_abs="$UNITY_CONCRETES/__GhostProbe__.cs"
+  fi
+  if [[ -z "$probe_abs" ]]; then
+    echo "[SKIP] purge_ghosts: no Concretes/ directory found (template mode)"
+  elif [[ -f "$probe_abs" ]]; then
+    echo "[SKIP] purge_ghosts: $probe_abs already exists — skipping to avoid side-effects"
   else
     cat > "$probe_abs" <<'CS'
 namespace Game.Concretes
@@ -415,7 +472,9 @@ run_known_fail_bugs() {
   # BUG#1 — class.implements[] always empty
   local n_impl
   n_impl=$(jq_count "$WORK_GRAPH" '[.codebase.classes[] | select(.implements | length > 0)] | length')
-  if [[ "$n_impl" -gt 0 ]]; then
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] BUG#1 check: no C# source files (template mode)"
+  elif [[ "$n_impl" -gt 0 ]]; then
     echo "[REGRESSION_FIXED: BUG#1] class.implements[] now populated ($n_impl classes)" >&2
     pass "BUG#1 resolved — implements[] populated ($n_impl classes)"
   else
