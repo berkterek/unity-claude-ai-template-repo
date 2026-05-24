@@ -211,11 +211,11 @@ ALL_ASSEMBLIES=$(jq -n --argjson a "$RETAINED_ASSEMBLIES" --argjson b "$ASMDEF_O
 ALL_INSTALLERS=$(jq -n --argjson a "$RETAINED_INSTALLERS" --argjson b "$NEW_INSTALLERS" '$a + $b')
 
 # Re-pivot all events (full pass across merged classes)
-ALL_EVENTS=$(python3 - <<PYEOF
-import json, sys
+ALL_EVENTS=$(GRAPH_CLASSES="$ALL_CLASSES" GRAPH_EVENTS="$NEW_EVENTS" python3 - <<'PYEOF'
+import json, os
 
-classes = json.loads("""$ALL_CLASSES""")
-prev_events = json.loads("""$NEW_EVENTS""")
+classes    = json.loads(os.environ.get("GRAPH_CLASSES", "[]"))
+prev_events = json.loads(os.environ.get("GRAPH_EVENTS", "[]"))
 
 events = {}
 for cls in classes:
@@ -235,11 +235,11 @@ PYEOF
 )
 
 # Resolve implementers
-ALL_IFACES=$(python3 - <<PYEOF
-import json
+ALL_IFACES=$(GRAPH_CLASSES="$ALL_CLASSES" GRAPH_IFACES="$ALL_IFACES" python3 - <<'PYEOF'
+import json, os
 
-classes = json.loads("""$ALL_CLASSES""")
-ifaces  = json.loads("""$ALL_IFACES""")
+classes = json.loads(os.environ.get("GRAPH_CLASSES", "[]"))
+ifaces  = json.loads(os.environ.get("GRAPH_IFACES",  "[]"))
 
 iface_map = {i["name"]: i for i in ifaces}
 for cls in classes:

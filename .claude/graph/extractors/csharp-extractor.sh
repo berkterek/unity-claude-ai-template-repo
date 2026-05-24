@@ -93,19 +93,22 @@ extract_events_published() {
 }
 
 extract_events_subscribed() {
-  local f="$1"
-  grep -oE '\.(Subscribe)<([A-Z][A-Za-z0-9_]*)>' "$f" 2>/dev/null | grep -oE '<([A-Z][A-Za-z0-9_]*)>' | tr -d '<>' | sort -u | jq -R . | jq -sc . || echo "[]"
+  local f="$1" result
+  result=$(grep -oE '\.(Subscribe)<([A-Z][A-Za-z0-9_]*)>' "$f" 2>/dev/null | grep -oE '<([A-Z][A-Za-z0-9_]*)>' | tr -d '<>' | sort -u | jq -R . | jq -sc . 2>/dev/null) || result=""
+  echo "${result:-[]}"
 }
 
 extract_registrations() {
-  local f="$1"
-  grep -oE 'builder\.(Register|RegisterInstance|RegisterComponent)<([A-Za-z0-9_]+)>' "$f" 2>/dev/null | grep -oE '<([A-Za-z0-9_]+)>' | tr -d '<>' | sort -u | jq -R '{type: ., as: "", lifetime: "Singleton", scope: ""}' | jq -sc . || echo "[]"
+  local f="$1" result
+  result=$(grep -oE 'builder\.(Register|RegisterInstance|RegisterComponent)<([A-Za-z0-9_]+)>' "$f" 2>/dev/null | grep -oE '<([A-Za-z0-9_]+)>' | tr -d '<>' | sort -u | jq -R '{type: ., as: "", lifetime: "Singleton", scope: ""}' | jq -sc . 2>/dev/null) || result=""
+  echo "${result:-[]}"
 }
 
 extract_dependencies() {
-  local f="$1"
+  local f="$1" result
   # Constructor parameters that look like injected services (IXxx types)
-  grep -oE 'I[A-Z][A-Za-z0-9]+[[:space:]]+[a-z][A-Za-z0-9]+' "$f" 2>/dev/null | grep -oE '^I[A-Z][A-Za-z0-9]+' | sort -u | jq -R . | jq -sc . || echo "[]"
+  result=$(grep -oE 'I[A-Z][A-Za-z0-9]+[[:space:]]+[a-z][A-Za-z0-9]+' "$f" 2>/dev/null | grep -oE '^I[A-Z][A-Za-z0-9]+' | sort -u | jq -R . | jq -sc . 2>/dev/null) || result=""
+  echo "${result:-[]}"
 }
 
 # ── Per-file extraction ──────────────────────────────────────────────────────
@@ -264,11 +267,11 @@ ALL_EVENTS=$(echo "$ALL_CLASSES" | jq '
 ' 2>/dev/null || echo "[]")
 
 # Simpler event pivot using python3 for reliability
-ALL_EVENTS=$(python3 - "$CONFIDENCE" <<'PYEOF'
-import sys, json
+ALL_EVENTS=$(GRAPH_CLASSES="$ALL_CLASSES" GRAPH_CONFIDENCE="$CONFIDENCE" python3 - <<'PYEOF'
+import json, os
 
-confidence = sys.argv[1]
-classes = json.loads(sys.stdin.read()) if not sys.stdin.isatty() else []
+confidence = os.environ.get("GRAPH_CONFIDENCE", "INFERRED")
+classes = json.loads(os.environ.get("GRAPH_CLASSES", "[]"))
 
 events = {}
 for cls in classes:
@@ -283,7 +286,7 @@ for cls in classes:
 
 print(json.dumps(list(events.values())))
 PYEOF
-) <<< "$ALL_CLASSES"
+)
 
 jq -n \
   --argjson classes "$ALL_CLASSES" \
