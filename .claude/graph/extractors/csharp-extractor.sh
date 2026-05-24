@@ -100,7 +100,36 @@ extract_events_subscribed() {
 
 extract_registrations() {
   local f="$1" result
-  result=$(grep -oE 'builder\.(Register|RegisterInstance|RegisterComponent)<([A-Za-z0-9_]+)>' "$f" 2>/dev/null | grep -oE '<([A-Za-z0-9_]+)>' | tr -d '<>' | sort -u | jq -R '{type: ., as: "", lifetime: "Singleton", scope: ""}' | jq -sc . 2>/dev/null) || result=""
+  result=$(GRAPH_REG_FILE="$f" python3 - <<'PYEOF'
+import re, json, os
+
+text = open(os.environ["GRAPH_REG_FILE"]).read()
+results = []
+seen = set()
+
+for m in re.finditer(
+    r'builder\.(Register(?:Instance|Component(?:InHierarchy)?)?)'
+    r'<([A-Za-z0-9_]+)>'
+    r'(?:[^;(<]*\(\s*Lifetime\.(\w+)\s*\))?',
+    text
+):
+    typ = m.group(2)
+    lifetime = m.group(3) or "Singleton"
+    tail = text[m.end():m.end()+300]
+    as_val = ""
+    as_m = re.search(r'\.As<([A-Za-z0-9_]+)>', tail)
+    if as_m:
+        as_val = as_m.group(1)
+    elif re.search(r'\.AsImplementedInterfaces\(\)', tail[:150]):
+        as_val = "AsImplementedInterfaces"
+    key = (typ, as_val, lifetime)
+    if key not in seen:
+        seen.add(key)
+        results.append({"type": typ, "as": as_val, "lifetime": lifetime, "scope": ""})
+
+print(json.dumps(results))
+PYEOF
+  ) || result=""
   echo "${result:-[]}"
 }
 
