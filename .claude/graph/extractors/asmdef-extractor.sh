@@ -3,13 +3,16 @@
 # Usage:
 #   asmdef-extractor.sh                          # scan all Assets/**/*.asmdef
 #   asmdef-extractor.sh --changed-files a.asmdef,b.asmdef
+#   asmdef-extractor.sh --root HoleSphere/Assets  # override scan root
 set -euo pipefail
 
 CHANGED_FILES=""
+ROOT="Assets"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --changed-files) CHANGED_FILES="$2"; shift 2 ;;
+    --root)          ROOT="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -27,7 +30,7 @@ if [[ -n "$CHANGED_FILES" ]]; then
 else
   while IFS= read -r -d '' f; do
     FILES+=("$f")
-  done < <(find Assets -name '*.asmdef' -print0 2>/dev/null)
+  done < <(find "$ROOT" -name '*.asmdef' -print0 2>/dev/null)
 fi
 
 emit_one() {
