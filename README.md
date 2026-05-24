@@ -223,6 +223,17 @@ GRAPH_WATCH_ROOT=HoleSphere/Assets bash .claude/graph/graph-watch.sh
 
 Both extractors also auto-detect `HoleSphere/Assets/` if it exists in the CWD.
 
+### Regression test harness
+
+`.claude/graph/test/verify-graphify.sh` runs a self-contained test suite against the graph pipeline — no Unity Editor required.
+
+```bash
+bash .claude/graph/test/verify-graphify.sh
+# Expected: 23 PASS, 0 FAIL (template mode — C#-dependent tests skip until source files exist)
+```
+
+Tests cover: builder flags (`--full`, `--incremental`, `--skip-mcp`, `--output`, `--quiet`), all six validator rules (R1–R6), MCP prefab merge, `/knowledge-graph` subcommands, PostToolUse and post-commit triggers. Sandbox backup/restore ensures the live `graph.json` is never corrupted by a test run.
+
 ### Confidence levels
 
 `EXTRACTED` (explicit code), `INFERRED` (regex-mode or call-graph guess), `AMBIGUOUS` (needs human review).
