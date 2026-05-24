@@ -1,265 +1,213 @@
-# PLAN — Fix Graph Knowledge Graph Extractor Bugs (1–4)
+# PLAN: Graphify Bug Fixes & Missing Features
 
-> **Version:** v2 — 2026-05-24
-> **Status:** Complete
-> **Scope:** `.claude/graph/extractors/csharp-extractor.sh`, `.claude/graph/graph-builder.sh`
-
-## Context
-
-Four bugs were discovered during the graphify sync session on 2026-05-24 while testing the Knowledge Graph pipeline end-to-end. All four have been fixed and committed.
-
-**Bug 1 & 2** were in `csharp-extractor.sh`, **Bug 3** was in `graph-builder.sh`, **Bug 4** was a logic gap in `csharp-extractor.sh`. Bugs 1-3 caused runtime crashes (invalid JSON piped into `--argjson`). Bug 4 caused silently empty event data — no crash, just wrong output.
-
-## Goals
-
-- [x] Fix `|| echo "[]"` double-output under `set -euo pipefail` (Bug 1)
-- [x] Fix Python stdin conflict in `csharp-extractor.sh` (Bug 2)
-- [x] Fix Python inline bash injection in `graph-builder.sh` (Bug 3)
-- [x] Detect `_eventBus.Publish(new EventName(...))` constructor-call form (Bug 4)
-- [x] All fixes maintain `set -euo pipefail` safety and POSIX ERE compatibility
-
-## Status
-
-| Phase | Task | Status | parallel_group |
-|-------|------|--------|----------------|
-| 1 | Fix `\|\| echo "[]"` double-output — `csharp-extractor.sh` | ✅ Done | 1 |
-| 1 | Fix Python stdin conflict — `csharp-extractor.sh` | ✅ Done | 1 |
-| 1 | Fix Python inline injection — `graph-builder.sh` | ✅ Done | 1 |
-| 2 | Fix constructor-call Publish pattern — `csharp-extractor.sh` | ✅ Done | — |
-| 3 | Manual verification + graph rebuild | ✅ Done | — |
-
-## File Map
-
-| File | Change Type | Notes |
-|------|-------------|-------|
-| `.claude/graph/extractors/csharp-extractor.sh` | **Modify** | Bugs 1, 2, 4 |
-| `.claude/graph/graph-builder.sh` | **Modify** | Bug 3 |
-| `.claude/graph/graph.json` | **Regenerate** | `/build-knowledge-graph --full` after all fixes |
+**Date:** 2026-05-24  
+**Scope:** `.claude/graph/` — graph-builder, csharp-extractor, asmdef-extractor, graph-validator, graph-watch  
+**Status:** Identified in nile_hole_sphere_repo; fixes apply to template
 
 ---
 
-## Task 1 — Fix `|| echo "[]"` double-output (Bug 1)
+## Bug List
 
-**File:** `.claude/graph/extractors/csharp-extractor.sh`
+### 🔴 Bug 1 — `asmdef-extractor.sh` standalone `find` path
+**File:** `.claude/graph/extractors/asmdef-extractor.sh:30`  
+**Problem:** `find Assets -name '*.asmdef'` uses a hardcoded `Assets/` path relative to CWD. When the Unity project is nested (e.g. `HoleSphere/Assets/`), standalone calls find 0 files.  
+**Note:** In practice the extractor is always called via `--changed-files` from `graph-builder.sh`, which already has the correct path. But standalone invocation is broken.  
+**Fix:** Accept optional `--root <path>` argument; default to `Assets/`.
 
-**Root Cause:** Under `set -euo pipefail`, when `grep` exits 1 (no match), `jq -sc .` still writes `[]` to stdout before the pipeline fails. Then `|| echo "[]"` also runs. Result: `[]\n[]` — invalid JSON for `jq --argjson`.
+---
 
-**Affected functions:** `extract_events_published`, `extract_events_subscribed`, `extract_registrations`, `extract_dependencies`, plus `base_arr` and `impl` variables in `process_file_regex`.
+### 🔴 Bug 2 — `graph-watch.sh` watches wrong path
+**File:** `.claude/graph/graph-watch.sh:56,63`  
+**Problem:** Both `fswatch` and `inotifywait` invocations hardcode `Assets/`. For nested Unity projects (e.g. `HoleSphere/Assets/`) the watcher silently monitors the wrong directory and never triggers a rebuild.  
+**Fix:** Add `WATCH_ROOT` variable (env-overridable `GRAPH_WATCH_ROOT`); default `Assets/`.
 
-**Steps:**
-1. [x] Replace all `result=$(...) || echo "[]"` patterns with capture pattern.
-2. [x] Apply same fix to `base_arr_r` and `impl_r` local variables.
-3. [x] Verify `bash -n csharp-extractor.sh` exits 0.
+---
 
-**Before:**
+### 🔴 Bug 3 — `graph-validator.sh R3` false positive: LifetimeScope and ScriptableObject
+**File:** `.claude/graph/graph-validator.sh:69–84`  
+**Problem:** `CONCRETE_UNREGISTERED` rule flags `AppScope`, `GameScope` (LifetimeScope subclasses) and `LevelDefinition`, `TileDefinition` (ScriptableObject subclasses) as unregistered. Neither type should ever be registered in a VContainer installer — they are bootstrapped by Unity directly.  
+**Fix:** Before the unregistered check, skip classes whose `base_types` includes `LifetimeScope` or `ScriptableObject`.
+
+---
+
+### 🔴 Bug 4 — `graph-validator.sh R5` false positive: 3rd-party assemblies & GUID refs
+**File:** `.claude/graph/graph-validator.sh:97–108`  
+**Problem:** `ASMDEF_UNRESOLVED` checks every assembly including those in `_AssetFolders/` and `Plugins/`. These packages reference other assemblies via GUID (`GUID:xxxxxxxx`) that live in `Library/PackageCache/` (UPM) or optional Unity modules — the graph extractor never scans those. Result: 36 false positive errors on every validate run.  
+**Fix:**
+1. Skip assemblies whose `.file` path contains `/_AssetFolders/` or `/Plugins/`
+2. Skip GUID-based reference strings (`GUID:` prefix) — they always point to UPM/built-in packages
+
+---
+
+### 🔴 Bug 5 — `graph-validator.sh R3` `[""]` bug when no registered types
+**File:** `.claude/graph/graph-validator.sh:67`  
+**Problem:** `printf '%s\n' "${REGISTERED_TYPES[@]:-}"` on an empty array emits one blank line, which `jq -sc .` encodes as `[""]` instead of `[]`. If there are no registered types, ALL concretes get flagged as unregistered.  
+**Fix:** Guard with `${#REGISTERED_TYPES[@]} -gt 0` before building JSON — same fix applied to `graph-builder.sh`.
+
+---
+
+### 🟡 Missing Feature 6 — VContainer scope extraction (always `[]`)
+**File:** `.claude/graph/extractors/csharp-extractor.sh`  
+**Problem:** `codebase.vcontainer.scopes` is always `[]`. The extractor never detects `LifetimeScope` subclasses or their parent-child relationships. `/knowledge-graph scope-tree` is always empty.  
+**Fix:** In `process_file_regex`, detect classes extending `LifetimeScope`. Extract scope name and attempt parent detection from `[VContainerSettings(parentScope: typeof(X))]` attribute. Emit to a `scopes[]` array. In `graph-builder.sh`, replace "retain from existing" with a real extraction pass.
+
+---
+
+### 🟡 Missing Feature 7 — `.As<Interface>()` not captured in registrations
+**File:** `.claude/graph/extractors/csharp-extractor.sh:103`  
+**Problem:** `extract_registrations` only captures `builder.Register<ConcreteType>()`. The `.As<IInterface>()` or `.AsImplementedInterfaces()` chain is never parsed. The `as` field is always empty string.  
+**Fix:** After capturing the concrete type, look ahead for `.As<IType>()` or `.AsImplementedInterfaces()`. Populate `as` field accordingly. Use a Python pass for multi-line reliability.
+
+---
+
+### 🟡 Missing Feature 8 — Lifetime always hardcoded `"Singleton"`
+**File:** `.claude/graph/extractors/csharp-extractor.sh:103`  
+**Problem:** Every registration emits `lifetime: "Singleton"` regardless of actual `Lifetime.Transient` or `Lifetime.Scoped` usage.  
+**Fix:** Detect the `Lifetime.*` argument in `Register<T>(Lifetime.X)` and populate `lifetime` field correctly.
+
+---
+
+### 🔴 Bug 9 — `graph-validator.sh R6` layer-violation check uses name instead of file path
+**File:** `.claude/graph/graph-validator.sh:128–130`
+**Problem:** R6 looks up the referenced assembly in `KNOWN_ASMDEFS` by name and then tests the **name string** for `Games/` or `GameFolders/` — but assembly names never contain path separators. The `.file` path is what holds the folder location. Result: R6 never fires even when a `_Framework/` assembly genuinely references a `Games/` assembly.
+**Fix:** Build a `name → file` map from `KNOWN_ASMDEFS` at the start of R6, then resolve the referenced assembly's file path before the `grep` check.
+
 ```bash
-extract_events_published() {
+# Build name→file map once before the R6 loop
+ASMDEF_FILE_MAP=$(jq -r '.codebase.assemblies[] | "\(.name)\t\(.file)"' "$GRAPH" 2>/dev/null || true)
+
+# Inside R6 inner loop, replace current ref_file lookup:
+ref_file=$(echo "$ASMDEF_FILE_MAP" | awk -F'\t' -v r="$ref" '$1==r{print $2}')
+if echo "$ref_file" | grep -qE 'Games|GameFolders'; then
+  add_error "LAYER_VIOLATION" ...
+fi
+```
+
+**Found by:** Codex review during Bug 3/4/5 session — 2026-05-24.
+
+---
+
+## Fix Priority
+
+| # | Severity | Effort | Fix First? |
+|---|----------|--------|-----------|
+| 4 | 🔴 High  | Low    | ✅ Done |
+| 3 | 🔴 High  | Low    | ✅ Done |
+| 5 | 🔴 High  | Low    | ✅ Done |
+| 9 | 🔴 Med   | Low    | Yes — R6 never fires (silent) |
+| 2 | 🔴 Med   | Low    | Yes — graph-watch unusable |
+| 1 | 🔴 Low   | Low    | Yes — standalone call broken |
+| 7 | 🟡 Med   | Med    | Yes — registration metadata incomplete |
+| 8 | 🟡 Low   | Low    | Yes — metadata incorrect |
+| 6 | 🟡 High  | High   | Last — scope extraction is complex |
+
+---
+
+## Implementation Notes
+
+### R3 LifetimeScope/ScriptableObject skip (Bug 3)
+
+```bash
+# In the R3 while loop, before the unregistered check:
+base_types=$(echo "$row" | jq -r '.base_types[]? // empty')
+echo "$base_types" | grep -qE 'LifetimeScope|ScriptableObject' && continue
+```
+
+### R5 path + GUID skip (Bug 4)
+
+```bash
+# Skip entire assembly if it lives in _AssetFolders/ or Plugins/
+[[ "$asmfile" == */_AssetFolders/* || "$asmfile" == */Plugins/* || \
+   "$asmfile" == */_assetfolders/* || "$asmfile" == */plugins/* ]] && continue
+
+# Skip GUID-based references
+[[ "$ref" == GUID:* ]] && continue
+```
+
+### `[""]` guard (Bug 5)
+
+```bash
+if [[ ${#REGISTERED_TYPES[@]} -gt 0 ]]; then
+  REGISTERED_JSON=$(printf '%s\n' "${REGISTERED_TYPES[@]}" | jq -R . | jq -sc .)
+else
+  REGISTERED_JSON="[]"
+fi
+```
+
+### .As<> and Lifetime capture (Features 7 & 8)
+
+Replace the bash regex `extract_registrations` with a Python pass:
+
+```python
+import re, sys, json
+
+text = open(sys.argv[1]).read()
+results = []
+for m in re.finditer(
+    r'builder\.(Register(?:Instance|Component|ComponentInHierarchy)?)'
+    r'<([A-Za-z0-9_]+)>'
+    r'(?:\s*\(\s*Lifetime\.(\w+)\s*\))?',
+    text
+):
+    reg = {
+        "type": m.group(2),
+        "as": "",
+        "lifetime": m.group(3) or "Singleton",
+        "scope": ""
+    }
+    tail = text[m.end():m.end()+300]
+    as_m = re.search(r'\.As<([A-Za-z0-9_]+)>', tail)
+    if as_m:
+        reg["as"] = as_m.group(1)
+    elif ".AsImplementedInterfaces()" in tail[:150]:
+        reg["as"] = "AsImplementedInterfaces"
+    results.append(reg)
+print(json.dumps(results))
+```
+
+### Scope extraction (Feature 6)
+
+```bash
+extract_scope() {
   local f="$1"
-  grep -oE '\.(Publish)<...>' "$f" 2>/dev/null | ... | jq -sc . || echo "[]"
+  local scope_line
+  scope_line=$(grep -nE 'class[[:space:]]+[A-Z][A-Za-z0-9_]*[[:space:]]*:[[:space:]]*(.*[[:space:],])?LifetimeScope' "$f" 2>/dev/null | head -1) || true
+  [[ -z "$scope_line" ]] && echo "null" && return
+
+  local scope_name
+  scope_name=$(echo "$scope_line" | grep -oE 'class[[:space:]]+([A-Z][A-Za-z0-9_]*)' | awk '{print $2}')
+  local parent
+  parent=$(grep -oE 'typeof\(([A-Za-z0-9_]+Scope)\)' "$f" 2>/dev/null | head -1 | sed 's/typeof(//;s/)//') || parent=""
+
+  jq -nc --arg n "$scope_name" --arg f "$f" --arg p "$parent" \
+    '{name:$n, file:$f, source_file:$f, parent:($p|if .=="" then null else . end), installers:[]}'
 }
 ```
 
-**After:**
+In `graph-builder.sh`, replace retained-scopes line:
 ```bash
-extract_events_published() {
-  local f="$1" result
-  result=$(grep -oE '\.(Publish)<...>' "$f" 2>/dev/null | ... | jq -sc . 2>/dev/null) || result=""
-  echo "${result:-[]}"
-}
+# OLD: SCOPES=$(echo "$EXISTING_GRAPH" | jq '.codebase.vcontainer.scopes // []')
+# NEW: pull from fresh CS_OUTPUT
+SCOPES=$(echo "$CS_OUTPUT" | jq '.vcontainer.scopes // []')
 ```
 
-**Acceptance Criteria:**
+### graph-watch.sh WATCH_ROOT (Bug 2)
+
 ```bash
-bash -c 'set -euo pipefail; source .claude/graph/extractors/csharp-extractor.sh; tmp=$(mktemp); extract_events_published "$tmp"; rm "$tmp"; echo SURVIVED'
+WATCH_ROOT="${GRAPH_WATCH_ROOT:-Assets}"
+# Replace Assets/ with "$WATCH_ROOT"/ in fswatch and inotifywait calls
 ```
-Expected: `[]` then `SURVIVED` (not a crash)
+
+Usage: `GRAPH_WATCH_ROOT=HoleSphere/Assets bash .claude/graph/graph-watch.sh`
+
+### asmdef-extractor.sh --root (Bug 1)
+
+```bash
+ROOT="Assets"
+--root) ROOT="$2"; shift 2 ;;
+# Standalone find: find "$ROOT" -name '*.asmdef' -print0
+```
 
 ---
 
-## Task 2 — Fix Python stdin conflict in `csharp-extractor.sh` (Bug 2)
-
-**File:** `.claude/graph/extractors/csharp-extractor.sh`
-
-**Root Cause:** `python3 - <<'PYEOF' ) <<< "$VAR"` attempts to use stdin for both the heredoc script source AND the herestring data simultaneously. Python reads the script from stdin; `sys.stdin.read()` inside the script returns empty. JSON parse fails silently, event pivot produces `[]`.
-
-**Steps:**
-1. [x] Replace herestring data injection with environment variable injection.
-2. [x] Update Python script to read from `os.environ` instead of `sys.stdin`.
-
-**Before:**
-```bash
-ALL_EVENTS=$(python3 - <<'PYEOF'
-import sys, json
-classes = json.loads(sys.stdin.read())
-...
-PYEOF
-) <<< "$ALL_CLASSES"
-```
-
-**After:**
-```bash
-ALL_EVENTS=$(GRAPH_CLASSES="$ALL_CLASSES" GRAPH_CONFIDENCE="$CONFIDENCE" python3 - <<'PYEOF'
-import json, os
-classes = json.loads(os.environ.get("GRAPH_CLASSES", "[]"))
-confidence = os.environ.get("GRAPH_CONFIDENCE", "INFERRED")
-...
-PYEOF
-)
-```
-
-**Acceptance Criteria:**
-- Graph builder runs to completion without Python JSON parse error
-- `ALL_EVENTS` is a valid JSON array after the pivot step
-
----
-
-## Task 3 — Fix Python inline injection in `graph-builder.sh` (Bug 3)
-
-**File:** `.claude/graph/graph-builder.sh`
-
-**Root Cause:** `"""$ALL_CLASSES"""` inlines a bash variable directly into Python triple-quoted string source code. If `$ALL_CLASSES` contains backslashes, double-quotes, or triple-quotes (all valid in JSON), Python's parser crashes or silently truncates the data.
-
-**Steps:**
-1. [x] Replace all `"""$BASH_VAR"""` inline injections with env var injection pattern.
-2. [x] Update both affected Python blocks (event pivot and interface implementers pivot).
-
-**Before:**
-```bash
-ALL_EVENTS=$(python3 <<PYEOF
-import json
-classes = json.loads("""$ALL_CLASSES""")
-...
-PYEOF
-)
-```
-
-**After:**
-```bash
-ALL_EVENTS=$(GRAPH_CLASSES="$ALL_CLASSES" python3 - <<'PYEOF'
-import json, os
-classes = json.loads(os.environ.get("GRAPH_CLASSES", "[]"))
-...
-PYEOF
-)
-```
-
-**Acceptance Criteria:**
-- `bash -n .claude/graph/graph-builder.sh` exits 0
-- Graph builder completes when JSON contains backslashes or nested quotes
-
----
-
-## Task 4 — Fix constructor-call Publish pattern (Bug 4)
-
-**File:** `.claude/graph/extractors/csharp-extractor.sh`
-
-**Root Cause:** `extract_events_published()` only matched the angle-bracket generic form `_eventBus.Publish<EventName>()`. The actual codebase exclusively uses the constructor-call form `_eventBus.Publish(new EventName(...))`. Result: `events_published: []` for every class — breaking `/knowledge-graph publishers`, `/catch-up` event-flow reports, and `/orchestrate` pre-scan event matching.
-
-**Steps:**
-1. [x] Add Pass B regex for constructor-call form alongside existing Pass A.
-2. [x] Merge both passes via `sort -u` before JSON-encoding.
-3. [x] Verify `extract_events_subscribed()` is untouched (angle-bracket form IS used for Subscribe).
-
-**Before:**
-```bash
-extract_events_published() {
-  local f="$1" result
-  result=$(grep -oE '\.(Publish)<([A-Z][A-Za-z0-9_]*)>' "$f" 2>/dev/null | grep -oE '<([A-Z][A-Za-z0-9_]*)>' | tr -d '<>' | sort -u | jq -R . | jq -sc . 2>/dev/null) || result=""
-  echo "${result:-[]}"
-}
-```
-
-**After:**
-```bash
-extract_events_published() {
-  local f="$1" result a b combined
-  # Pass A: generic form  _eventBus.Publish<EventName>()
-  a=$(grep -oE '\.(Publish)<([A-Z][A-Za-z0-9_]*)>' "$f" 2>/dev/null | grep -oE '<([A-Z][A-Za-z0-9_]*)>' | tr -d '<>') || a=""
-  # Pass B: constructor-call form  _eventBus.Publish(new EventName(...))
-  b=$(grep -oE '\.Publish\([[:space:]]*new[[:space:]]+[A-Z][A-Za-z0-9_]*' "$f" 2>/dev/null | sed -E 's/^\.Publish\([[:space:]]*new[[:space:]]+//') || b=""
-  combined=$(printf '%s\n%s\n' "$a" "$b" | grep -v '^$' | sort -u) || combined=""
-  result=$(printf '%s' "$combined" | jq -R . | jq -sc . 2>/dev/null) || result=""
-  echo "${result:-[]}"
-}
-```
-
-**Acceptance Criteria:**
-
-1. **Syntax check:**
-   ```bash
-   bash -n .claude/graph/extractors/csharp-extractor.sh && echo OK
-   ```
-   Expected: `OK`
-
-2. **Constructor-call form detected — synthetic:**
-   ```bash
-   source .claude/graph/extractors/csharp-extractor.sh
-   tmp=$(mktemp); printf '_eventBus.Publish(new LevelStartedEvent());\n' > "$tmp"
-   extract_events_published "$tmp"; rm "$tmp"
-   ```
-   Expected: `["LevelStartedEvent"]`
-
-3. **Angle-bracket form preserved — synthetic:**
-   ```bash
-   source .claude/graph/extractors/csharp-extractor.sh
-   tmp=$(mktemp); printf '_eventBus.Publish<MyLegacyEvent>();\n' > "$tmp"
-   extract_events_published "$tmp"; rm "$tmp"
-   ```
-   Expected: `["MyLegacyEvent"]`
-
-4. **Both forms merge + deduplicate — synthetic:**
-   ```bash
-   source .claude/graph/extractors/csharp-extractor.sh
-   tmp=$(mktemp)
-   printf '_eventBus.Publish<EventA>();\n_eventBus.Publish(new EventA());\n_eventBus.Publish(new EventB(42));\n' > "$tmp"
-   extract_events_published "$tmp"; rm "$tmp"
-   ```
-   Expected: `["EventA","EventB"]`
-
-5. **Empty file returns `[]`:**
-   ```bash
-   source .claude/graph/extractors/csharp-extractor.sh
-   tmp=$(mktemp); extract_events_published "$tmp"; rm "$tmp"
-   ```
-   Expected: `[]`
-
-6. **pipefail safety:**
-   ```bash
-   bash -c 'set -euo pipefail; source .claude/graph/extractors/csharp-extractor.sh; tmp=$(mktemp); extract_events_published "$tmp"; rm "$tmp"; echo SURVIVED'
-   ```
-   Expected: `[]` then `SURVIVED`
-
----
-
-## Task 5 — Manual verification + graph rebuild
-
-**Files:** `.claude/graph/graph.json` (regenerated)
-
-**Steps:**
-1. [x] Run `bash .claude/graph/graph-builder.sh --full --skip-mcp`
-2. [x] Verify graph rebuilds without errors
-3. [x] Verify `events_published` arrays are populated for publisher classes
-4. [x] Verify `extract_events_subscribed` output unchanged
-
-**Acceptance Criteria:**
-```bash
-bash .claude/graph/graph-builder.sh --full --skip-mcp
-```
-Expected: exits 0, `graph.json` contains non-empty `events_published` arrays.
-
----
-
-## Rollback
-
-- **Bug 1:** Restore `|| echo "[]"` inline pattern (introduces double-output under pipefail)
-- **Bug 2:** Restore `<<< "$VAR"` herestring injection
-- **Bug 3:** Restore `"""$ALL_CLASSES"""` inline injection
-- **Bug 4:** Restore single-pass `extract_events_published()` (angle-bracket only)
-
-Then re-run `/build-knowledge-graph --full`.
-
-## Known Limitations (acceptable)
-
-- Multi-line `Publish(new EventName\n(...))` calls not detected — none exist in this codebase.
-- `Publish(new Event<T>())` generic event structs not detected — none exist in this codebase.
-- Comment lines containing `// _eventBus.Publish(new X())` may produce false positives — low-risk, cosmetic.
+*Generated from analysis of nile_hole_sphere_repo graphify session — 2026-05-24*
