@@ -88,19 +88,96 @@ fi
 
 ---
 
+### 🔴 Bug 10 — `csharp-extractor.sh` default scan paths hardcoded `Assets/`
+**File:** `.claude/graph/extractors/csharp-extractor.sh:40`  
+**Problem:** `FIND_OPTS=( Assets/_Framework Assets/_GameFolders/Scripts )` is hardcoded. When Unity project is nested (e.g. `HoleSphere/`), a full rebuild (`--full`, no `--changed-files`) scans nothing. Only incremental runs (which pass `--changed-files` explicitly) work correctly. Bug 1 fixed `asmdef-extractor.sh` but missed this file.  
+**Fix:** Accept `--root <path>` arg; auto-detect `HoleSphere/Assets` if directory exists; fall back to `Assets/`.  
+**Status:** ✅ Fixed — 2026-05-24
+
+---
+
+### 🔴 Bug 11 — Scope merge replaces entire list on incremental build
+**File:** `.claude/graph/graph-builder.sh:271`  
+**Problem:** The scope fix (Bug 6 impl) used `if NEW_SCOPES_LEN > 0 then SCOPES = NEW_SCOPES`. On an incremental build where only one file containing a scope is changed, `NEW_SCOPES` has just that one scope — discarding all scopes from unchanged files. Classes, installers, and interfaces all use retained+new merge; scopes did not.  
+**Fix:** Merge retained and new scopes using `unique_by(.name)` — new extraction wins on name conflict.  
+**Status:** ✅ Fixed — 2026-05-24
+
+---
+
+### 🔴 Bug 12 — `RegisterInstance(obj)` non-generic form not captured
+**File:** `.claude/graph/extractors/csharp-extractor.sh:101`  
+**Problem:** Python regex requires `<TypeName>` generic form. `builder.RegisterInstance(_gameConfig)` (no type parameter) is silently dropped from the graph. Common pattern for ScriptableObject config instances.  
+**Fix:** Add a second regex pass for non-generic `RegisterInstance(arg)` — infer type from variable name as best-effort. Mark with `"inferred": true`.  
+**Status:** ✅ Fixed — 2026-05-24
+
+---
+
+### 🔴 Bug 13 — `.As<T>()` only captures first interface in multi-interface chain
+**File:** `.claude/graph/extractors/csharp-extractor.sh:125`  
+**Problem:** `re.search(r'\.As<([A-Za-z0-9_]+)>', tail)` returns first match only. A chain like `.As<IAudioService>().As<IDisposable>()` only records `IAudioService`; `IDisposable` is silently dropped.  
+**Fix:** Replace `re.search` with `re.findall`; store list when multiple matches found.  
+**Status:** ✅ Fixed — 2026-05-24
+
+---
+
+### 🔴 Bug 14 — `extract_scope` misses multi-line class declarations
+**File:** `.claude/graph/extractors/csharp-extractor.sh:154`  
+**Problem:** `grep -nE 'class ... LifetimeScope'` only matches single-line declarations. C# allows:
+```csharp
+public sealed class GameScope
+    : LifetimeScope
+```
+This yields empty `scope_line` and `extract_scope` returns `null`.  
+**Fix:** Rewrite in Python, joining 4 consecutive lines before pattern matching.  
+**Status:** ✅ Fixed — 2026-05-24
+
+---
+
+### 🔴 Bug 15 — `extract_scope` parent detection grabs any `typeof(XScope)` in file
+**File:** `.claude/graph/extractors/csharp-extractor.sh:163`  
+**Problem:** `grep -oE 'typeof\([A-Za-z0-9_]+Scope\)'` matches the first occurrence anywhere in the file. Any method referencing `typeof(AppScope)` for logging or reflection incorrectly sets `parent = "AppScope"` even for root scopes.  
+**Fix:** Restrict to `[ParentScope(typeof(X))]` VContainer attribute only.  
+**Status:** ✅ Fixed — 2026-05-24
+
+---
+
+### 🟡 Bug 16 — `graph-watch.sh` default `WATCH_ROOT` wrong for nested projects
+**File:** `.claude/graph/graph-watch.sh:30`  
+**Problem:** `WATCH_ROOT="${GRAPH_WATCH_ROOT:-Assets}"` defaults to `Assets/`. For nested Unity projects (`HoleSphere/Assets/`), running graph-watch without the env var silently monitors the wrong directory. The previous fix added env-var support but left the hardcoded default.  
+**Fix:** Auto-detect `HoleSphere/Assets` at startup.  
+**Status:** ✅ Fixed — 2026-05-24
+
+---
+
+### 🟡 Bug 17 — R3 `ModuleInstaller` subclasses not in `base_types` skip
+**File:** `.claude/graph/graph-validator.sh:83`  
+**Problem:** The `base_types` skip only listed `LifetimeScope|ScriptableObject`. `ModuleInstaller` subclasses are already excluded by the `*Installer` name suffix, but the skip logic was inconsistent — a class extending `ModuleInstaller` without the suffix would fall through.  
+**Fix:** Add `ModuleInstaller` to the `base_types` grep pattern.  
+**Status:** ✅ Fixed — 2026-05-24
+
+---
+
 ## Fix Priority
 
-| # | Severity | Effort | Fix First? |
-|---|----------|--------|-----------|
+| # | Severity | Effort | Status |
+|---|----------|--------|--------|
 | 4 | 🔴 High  | Low    | ✅ Done |
 | 3 | 🔴 High  | Low    | ✅ Done |
 | 5 | 🔴 High  | Low    | ✅ Done |
 | 9 | 🔴 Med   | Low    | ✅ Done |
+| 10 | 🔴 High | Low    | ✅ Done |
+| 11 | 🔴 High | Low    | ✅ Done |
+| 12 | 🔴 Med  | Low    | ✅ Done |
+| 13 | 🔴 Med  | Low    | ✅ Done |
+| 14 | 🔴 High | Low    | ✅ Done |
+| 15 | 🔴 Med  | Low    | ✅ Done |
 | 2 | 🔴 Med   | Low    | ✅ Done |
 | 1 | 🔴 Low   | Low    | ✅ Done |
-| 7 | 🟡 Med   | Med    | Yes — registration metadata incomplete |
-| 8 | 🟡 Low   | Low    | Yes — metadata incorrect |
-| 6 | 🟡 High  | High   | Last — scope extraction is complex |
+| 7 | 🟡 Med   | Med    | ✅ Done |
+| 8 | 🟡 Low   | Low    | ✅ Done |
+| 6 | 🟡 High  | High   | ✅ Done |
+| 16 | 🟡 Med  | Low    | ✅ Done |
+| 17 | 🟡 Low  | Low    | ✅ Done |
 
 ---
 
