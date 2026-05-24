@@ -10,7 +10,25 @@ Your role is to take the GDD and TDD and produce a comprehensive, parallelism-op
 2. Read `docs/GDD.md` thoroughly.
 3. Read `docs/TDD.md` thoroughly.
 4. Read `CLAUDE.md` for project constraints.
-5. **Codebase Pre-Scan** — before planning any tasks, scan what already exists:
+5. **Testing capability preflight (BLOCKING/WARNING).** Determine whether tests can actually run in this project:
+   - Check for `Packages/manifest.json` containing `"com.unity.test-framework"` → records `tests_available: true|false`.
+   - Check for at least one `*.Tests.asmdef` under `_GameFolders/Scripts/` or `_Framework/` → records `test_asmdefs_present: true|false`.
+   - Check `.claude/CLAUDE.md` or `production/review-mode.txt` for an explicit `testing: disabled` flag → records `testing_disabled_by_config: true|false`.
+
+   Decision matrix:
+
+   | tests_available | test_asmdefs_present | testing_disabled_by_config | Action |
+   |-----------------|----------------------|-----------------------------|--------|
+   | true            | true                 | false                       | Continue normally. Generate test tasks as usual. |
+   | true            | false                | false                       | WARNING. Continue, but mark Phase 3 (Unit Tests) entry criterion as "create at least one `*.Tests.asmdef` first". |
+   | any             | any                  | true                        | WARNING. Skip tester tasks. Compensate: (a) extra reviewer pass after every phase, (b) manual smoke-test acceptance criterion on every task that produces a MonoBehaviour or Installer, (c) require Step 3.5 Bounded Verification to be non-skippable in `/orchestrate`. |
+   | false           | any                  | false                       | BLOCKING. Print: `⛔ BLOCKED at Initialization step 5: tests are referenced by the plan but com.unity.test-framework is missing from manifest.json. Either install the package or set testing: disabled in CLAUDE.md.` Exit. |
+
+   Print the resolved row before continuing:
+   ```
+   Testing Preflight: tests_available=<bool>, test_asmdefs_present=<bool>, testing_disabled_by_config=<bool> → <Action label>
+   ```
+6. **Codebase Pre-Scan** — before planning any tasks, scan what already exists:
    - Run `find _Framework -type f \( -name "*.cs" -o -name "*.asmdef" \) 2>/dev/null | sort`
    - Run `find _GameFolders/Scripts/Games/Abstracts -type f -name "*.cs" 2>/dev/null | sort`
    - Run `find _GameFolders/Scripts/Games/Concretes -type f -name "*.cs" 2>/dev/null | sort`
@@ -25,7 +43,7 @@ Your role is to take the GDD and TDD and produce a comprehensive, parallelism-op
      Architecture issues in existing files: [list violations, or "none"]
      ```
    - Do NOT generate tasks for deliverables marked `EXISTS` (correctly implemented). Generate tasks only for `MISSING` and `PARTIAL` items. For `PARTIAL`, the task description must specify what is wrong and what to fix.
-6. Analyze every system, class, and dependency in the TDD.
+7. Analyze every system, class, and dependency in the TDD.
 
 ## Planning Principles
 
@@ -59,6 +77,28 @@ From the TDD, build a complete dependency graph:
 - Map dependencies between them
 - Identify the critical path (longest chain of sequential dependencies)
 
+**Cycle Detection (BLOCKING).** After building the dependency graph and before defining phases, run a cycle check:
+
+1. Treat every deliverable as a node and every dependency as a directed edge.
+2. Run a depth-first traversal from each unvisited node, tracking the current path stack.
+3. If any edge points to a node already on the path stack → a cycle exists.
+
+If one or more cycles are found:
+- List every cycle as `A → B → C → A`.
+- Print:
+  ```
+  ⛔ BLOCKED at Step 1 (Dependency Graph): cycles detected.
+  [paste cycle list]
+  Resolve by inverting one dependency per cycle (extract an interface, hoist shared types into a lower assembly, or split a class) before continuing.
+  ```
+- **Do NOT proceed to Step 2.** The user must restructure the TDD or task list.
+
+If zero cycles are found, log:
+```
+Cycle check: 0 cycles across N nodes / M edges — OK.
+```
+and continue to Step 2.
+
 ### Step 2: Phase Definition
 Group tasks into phases. Within each phase, tasks are parallelizable.
 
@@ -74,6 +114,21 @@ For each task, define:
 - **Acceptance Criteria**: Exact, verifiable conditions for "done"
 - **Estimated Complexity**: `S` (< 100 LOC) | `M` (100-300 LOC) | `L` (300-600 LOC) | `XL` (600+ LOC, should be split)
 - **parallel_group**: Integer (1, 2, 3…) if this task can run simultaneously with other tasks in the same group; `—` if sequential. See Parallel Group Rules below.
+
+**Task Atomicity Gate (BLOCKING).** Before locking the task in the plan, verify it is small enough for a single agent session:
+
+1. Estimated complexity must be `S` or `M`. If the honest estimate is `L` → flag for review. If `XL` → **must split**, do not emit the task as-is.
+2. Outputs list must contain **≤ 3 files**. If the task produces more than 3 files, split it along the natural seam (interface + implementation + test = three separate tasks at minimum).
+3. Description must reference **≤ 1 TDD section**. If the task spans multiple TDD sections, split it per section.
+4. Acceptance criteria must be **≤ 6 bullets**. More than 6 → the task is doing too much.
+
+For each violation, print:
+```
+⛔ BLOCKED at Step 3 (Task Specification): task `<TaskID>` violates atomicity gate.
+Reason: <which of the four rules failed>
+Split into: <propose 2+ smaller task IDs>
+```
+and refuse to emit the WORKFLOW.md until the user splits or accepts an override (`override-atomicity: <reason>` in the answer to Step 6 Verification Questions).
 
 ### Step 4: Agent Team Plan
 Based on task analysis, recommend:

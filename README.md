@@ -279,7 +279,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 
 | Command | How it runs | What it does |
 |---------|------------|-------------|
-| `/plan-workflow` | Manual — single step | Breaks the TDD into phases and tasks with agent types, inputs/outputs, and acceptance criteria → **WORKFLOW.md** |
+| `/plan-workflow` | Manual — single step | Breaks the TDD into phases and tasks with agent types, inputs/outputs, and acceptance criteria → **WORKFLOW.md**. Includes: cycle detection gate (blocks circular dependencies), task atomicity gate (blocks XL tasks), and testing-capability preflight |
 | `/dry-run` | Manual — single step | *(optional)* Preview the orchestration plan without executing — shows agent assignments, phase count, risk points |
 
 ### Phase 3 — Project Setup
@@ -292,7 +292,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 
 | Command | How it runs | What it does |
 |---------|------------|-------------|
-| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier (compile + assembly error check — **blocking**) → reviewer → committer run **automatically**. **Between phases:** pauses and asks `Proceed?` | Executes `WORKFLOW.md` end-to-end, phase by phase |
+| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier (compile + assembly error check + Play Mode entry + VContainerException scan — **blocking**) → reviewer → committer run **automatically**. **Between phases:** pauses and asks `Proceed?` | Executes `WORKFLOW.md` end-to-end, phase by phase |
 | `/continue` | Manual — resumes interrupted orchestrate | Resumes an interrupted orchestration run from the event journal |
 
 ### Phase 5 — Quality
@@ -427,7 +427,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/grill-me [plan or file]` | Manual — single step | Stress-test a plan or decision — one pointed question at a time, produces a Decision Record on `/done`. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed. |
 | `/refine-gdd` | Manual — single step | Iterate on an existing GDD |
 | `/refine-tdd` | Manual — single step | Iterate on an existing TDD |
-| `/plan-workflow` | Manual — single step | Create a phased execution plan from a TDD — assigns `parallel_group` numbers compatible with `/orchestrate` |
+| `/plan-workflow` | Manual — single step | Create a phased execution plan from a TDD — assigns `parallel_group` numbers compatible with `/orchestrate`. Gates: cycle detection, task atomicity (XL split), testing-capability preflight |
 
 ### Pipelines (multi-agent)
 
@@ -446,7 +446,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/update-plan <file> <change>` | Manual to start → analyzer → planner → reviewer loop → save → optional implementer | Update an existing plan |
 | `/smart-commit` | Manual to start → analyze dirty tree → group commits → commit | Group working tree changes into logical semantic commits |
 | `/smart-commit-selected` | Manual to start → analyze → plan groups → multiSelect checklist → commit selected | Commit only user-selected groups from working tree |
-| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier (compile + assembly error check — **blocking**) → reviewer → committer. **Between phases:** pauses for `Proceed?` | Execute WORKFLOW.md end-to-end, phase by phase |
+| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier (compile + assembly error check + Play Mode entry + VContainerException scan — **blocking**) → reviewer → committer. **Between phases:** pauses for `Proceed?` | Execute WORKFLOW.md end-to-end, phase by phase |
 
 > Reviewer priority across all pipelines: Codex → unity-reviewer (falls back if Codex is unavailable). Review loops: CHANGES NEEDED → coder fixes → reviewer re-checks → repeat (max 3 passes).
 >

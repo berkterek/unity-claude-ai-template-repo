@@ -276,6 +276,12 @@ Description: [full task description from WORKFLOW.md]
 - sealed classes by default
 - Do NOT modify the test files — only write implementation code
 - #region tags required in _GameFolders/Scripts/
+- **Architecture Drift (BLOCKING).** Before introducing any new pattern, scan for an existing one:
+  - New service / manager → check `_Framework/` and `Games/Abstracts/` for an interface to implement; if one exists, use it instead of inventing a parallel system.
+  - New event → check existing `IEvent` structs under `_GameFolders/Scripts/Games/Concretes/Events/`; reuse before creating.
+  - New folder under `_GameFolders/Scripts/` → forbidden unless the TDD explicitly lists it. Stop and report BLOCKED with reason "ADR required: new folder `<path>` not in TDD".
+  - New singleton, ServiceLocator, static manager, or `Object.FindObjectOfType` call → forbidden. VContainer only.
+  - If the task description requires a pattern that contradicts the TDD → stop and report BLOCKED with reason "ADR required: `<conflict>`. Pause for human decision before proceeding."
 
 ## When Done
 List every file you created or modified with a one-line summary.
@@ -389,6 +395,7 @@ Title: [task title]
 7. UniTask — no async void outside lifecycle, CancellationToken on every async method
 8. Unity null safety — no ?. or is null on UnityEngine objects
 9. Serialization — FormerlySerializedAs on any renamed [SerializeField]
+10. **Architecture drift (BLOCKING)** — implementation must match the TDD: no new singletons, no `ServiceLocator`, no `FindObjectOfType`, no new folders under `_GameFolders/Scripts/` that aren't in the TDD, and no new event structs when an existing `IEvent` covers the case. If the diff introduces any of these without a paired ADR entry, the review must return **CHANGES NEEDED** with reason "Architecture drift: `<specific drift>` — open an ADR or revert."
 
 ## Output Format
 APPROVED — all criteria pass.
@@ -471,7 +478,18 @@ Title: [task title]
 6. If tests fail → attempt fixes, re-run (max 2 attempts).
 
 ### Step C — Unity-Specific Issues (only if Steps A and B pass)
-7. Quick scan for Unity-specific issues (null refs, missing SerializeField, event leaks).
+7. **Play Mode entry (BLOCKING).** Use MCP `manage_editor` to enter Play Mode. Wait up to 10 s for `editor_state.isPlaying == true`. If Play Mode never engages → report ISSUES FOUND with reason "PlayMode failed to start".
+8. **Console error pattern scan (BLOCKING).** While in Play Mode for at least 2 frames, then exit Play Mode and call `read_console`. Search the full console output for ANY of:
+   - `VContainerException` — DI binding missing
+   - `NullReferenceException` originating from `_GameFolders/` or `_Framework/`
+   - `MissingReferenceException`
+   - `MissingComponentException`
+   - Any log line at level `Error` containing `Installer`, `Resolve`, or `Bind`
+9. If ANY of the patterns above appear:
+   - Attempt to fix (max 2 attempts), re-enter Play Mode, re-scan.
+   - If still present → Report: ISSUES FOUND with the full matching log lines.
+   - Do NOT report VERIFIED while any pattern persists.
+10. Quick scan for the remaining Unity-specific issues (missing SerializeField, event leaks, leftover Debug.Log spam). These are WARNING-level — list them but do not block.
 
 If you find and fix issues, list them. If cannot fix, report blockers.
 Report: VERIFIED or ISSUES FOUND with details.
