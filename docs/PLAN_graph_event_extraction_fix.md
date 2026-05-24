@@ -94,8 +94,8 @@ fi
 | 4 | 🔴 High  | Low    | ✅ Done |
 | 3 | 🔴 High  | Low    | ✅ Done |
 | 5 | 🔴 High  | Low    | ✅ Done |
-| 9 | 🔴 Med   | Low    | Yes — R6 never fires (silent) |
-| 2 | 🔴 Med   | Low    | Yes — graph-watch unusable |
+| 9 | 🔴 Med   | Low    | ✅ Done |
+| 2 | 🔴 Med   | Low    | ✅ Done |
 | 1 | 🔴 Low   | Low    | Yes — standalone call broken |
 | 7 | 🟡 Med   | Med    | Yes — registration metadata incomplete |
 | 8 | 🟡 Low   | Low    | Yes — metadata incorrect |
