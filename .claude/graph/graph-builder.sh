@@ -253,8 +253,12 @@ print(json.dumps(list(iface_map.values())))
 PYEOF
 )
 
-# ── Build scopes from existing graph (stable) ─────────────────────────────────
-SCOPES=$(echo "$EXISTING_GRAPH" | jq '.codebase.vcontainer.scopes // []' 2>/dev/null || echo "[]")
+# ── Build scopes: merge retained (unchanged files) + newly extracted ──────────
+RETAINED_SCOPES=$(echo "$EXISTING_GRAPH" | jq '.codebase.vcontainer.scopes // []' 2>/dev/null || echo "[]")
+NEW_SCOPES=$(echo "$CS_OUTPUT" | jq '.vcontainer.scopes // []' 2>/dev/null || echo "[]")
+# New extraction wins on name conflict (unique_by keeps first occurrence — put NEW first)
+SCOPES=$(jq -n --argjson new "$NEW_SCOPES" --argjson retained "$RETAINED_SCOPES" \
+  '($new + $retained) | unique_by(.name)')
 
 # ── Assemble final graph ──────────────────────────────────────────────────────
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)

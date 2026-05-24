@@ -133,6 +133,49 @@ PYEOF
   echo "${result:-[]}"
 }
 
+extract_scope() {
+  local f="$1" result
+  result=$(GRAPH_SCOPE_FILE="$f" GRAPH_CONFIDENCE="$CONFIDENCE" python3 - <<'PYEOF'
+import re, json, os
+
+f = os.environ["GRAPH_SCOPE_FILE"]
+confidence = os.environ.get("GRAPH_CONFIDENCE", "INFERRED")
+text = open(f).read()
+
+# Join groups of 4 lines to catch multi-line class declarations
+lines = text.splitlines()
+joined = []
+for i in range(len(lines)):
+    joined.append(" ".join(lines[i:i+4]))
+
+scope_name = None
+for chunk in joined:
+    m = re.search(r'class\s+([A-Z][A-Za-z0-9_]*)\b[^{]*:\s*[^{]*\bLifetimeScope\b', chunk)
+    if m:
+        scope_name = m.group(1)
+        break
+
+if not scope_name:
+    print("null")
+else:
+    # Parent: only from [ParentScope(typeof(X))] VContainer attribute
+    parent = None
+    pm = re.search(r'\[ParentScope\s*\(\s*typeof\s*\(\s*([A-Za-z0-9_]+)\s*\)\s*\)\s*\]', text)
+    if pm:
+        parent = pm.group(1)
+    print(json.dumps({
+        "name": scope_name,
+        "file": f,
+        "source_file": f,
+        "parent": parent,
+        "installers": [],
+        "confidence": confidence
+    }))
+PYEOF
+  ) || result=""
+  echo "${result:-null}"
+}
+
 extract_dependencies() {
   local f="$1" result
   # Constructor parameters that look like injected services (IXxx types)
@@ -156,6 +199,8 @@ process_file_regex() {
   deps=$(extract_dependencies "$f")
   local regs
   regs=$(extract_registrations "$f")
+  local scope
+  scope=$(extract_scope "$f")
 
   # Build classes array
   local classes_json="[]"
@@ -241,6 +286,7 @@ process_file_regex() {
     --argjson published "$published" \
     --argjson subscribed "$subscribed" \
     --argjson installer "$installer_json" \
+    --argjson scope "$scope" \
     '{
       file: $file,
       partial: true,
@@ -248,7 +294,8 @@ process_file_regex() {
       interfaces: $interfaces,
       events_published: $published,
       events_subscribed: $subscribed,
-      installer: $installer
+      installer: $installer,
+      scope: $scope
     }'
 }
 
@@ -266,6 +313,7 @@ done
 ALL_CLASSES="[]"
 ALL_IFACES="[]"
 ALL_INSTALLERS="[]"
+ALL_SCOPES="[]"
 
 for p in "${PAYLOADS[@]:-}"; do
   [[ -z "$p" ]] && continue
@@ -273,6 +321,8 @@ for p in "${PAYLOADS[@]:-}"; do
   ALL_IFACES=$(echo "$ALL_IFACES" | jq ". + $(echo "$p" | jq '.interfaces')")
   inst=$(echo "$p" | jq '.installer')
   [[ "$inst" != "null" ]] && ALL_INSTALLERS=$(echo "$ALL_INSTALLERS" | jq ". + [$inst]")
+  sc=$(echo "$p" | jq '.scope')
+  [[ "$sc" != "null" ]] && ALL_SCOPES=$(echo "$ALL_SCOPES" | jq ". + [$sc]")
 done
 
 # Pivot events: aggregate publisher/subscriber lists across all classes
@@ -322,9 +372,10 @@ jq -n \
   --argjson interfaces "$ALL_IFACES" \
   --argjson events "$ALL_EVENTS" \
   --argjson installers "$ALL_INSTALLERS" \
+  --argjson scopes "$ALL_SCOPES" \
   '{
     classes: $classes,
     interfaces: $interfaces,
     events: $events,
-    vcontainer: { installers: $installers, scopes: [] }
+    vcontainer: { installers: $installers, scopes: $scopes }
   }'
