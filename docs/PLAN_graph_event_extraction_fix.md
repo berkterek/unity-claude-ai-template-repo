@@ -2,7 +2,8 @@
 
 **Date:** 2026-05-24  
 **Scope:** `.claude/graph/` — graph-builder, csharp-extractor, asmdef-extractor, graph-validator, graph-watch  
-**Status:** Identified in nile_hole_sphere_repo; fixes apply to template
+**Status:** Identified in nile_hole_sphere_repo; fixes apply to template  
+**Last updated:** 2026-05-24 — Codex review pass added Bugs 10–16
 
 ---
 
@@ -96,7 +97,7 @@ fi
 | 5 | 🔴 High  | Low    | ✅ Done |
 | 9 | 🔴 Med   | Low    | ✅ Done |
 | 2 | 🔴 Med   | Low    | ✅ Done |
-| 1 | 🔴 Low   | Low    | Yes — standalone call broken |
+| 1 | 🔴 Low   | Low    | ✅ Done |
 | 7 | 🟡 Med   | Med    | Yes — registration metadata incomplete |
 | 8 | 🟡 Low   | Low    | Yes — metadata incorrect |
 | 6 | 🟡 High  | High   | Last — scope extraction is complex |
