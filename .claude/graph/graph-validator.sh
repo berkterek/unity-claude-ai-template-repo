@@ -64,7 +64,11 @@ while IFS= read -r t; do
   REGISTERED_TYPES+=("$t")
 done < <(jq -r '.codebase.vcontainer.installers[].registrations[].type // empty' "$GRAPH" 2>/dev/null || true)
 
-REGISTERED_JSON=$(printf '%s\n' "${REGISTERED_TYPES[@]:-}" | jq -R . | jq -sc . 2>/dev/null || echo "[]")
+if [[ ${#REGISTERED_TYPES[@]} -gt 0 ]]; then
+  REGISTERED_JSON=$(printf '%s\n' "${REGISTERED_TYPES[@]}" | jq -R . | jq -sc . 2>/dev/null || echo "[]")
+else
+  REGISTERED_JSON="[]"
+fi
 
 while IFS= read -r row; do
   name=$(echo "$row" | jq -r '.name')
@@ -76,6 +80,9 @@ while IFS= read -r row; do
   [[ "$name" == *Installer ]] && continue
   # Skip SO configs
   [[ "$file" == *Configuration* ]] && continue
+  # Skip LifetimeScope subclasses (bootstrapped by Unity, not VContainer-registered)
+  base_types=$(echo "$row" | jq -r '.base_types[]? // empty')
+  echo "$base_types" | grep -qE '(^|\.)(LifetimeScope|ScriptableObject)$' && continue
 
   if ! echo "$REGISTERED_JSON" | jq -e --arg n "$name" '. | index($n) != null' >/dev/null 2>&1; then
     add_warning "CONCRETE_UNREGISTERED" "$file" 0 \
@@ -97,9 +104,14 @@ KNOWN_ASMDEFS=$(jq -r '[.codebase.assemblies[].name]' "$GRAPH" 2>/dev/null || ec
 while IFS= read -r row; do
   asmname=$(echo "$row" | jq -r '.name')
   asmfile=$(echo "$row" | jq -r '.file')
+  # Skip third-party assemblies in _AssetFolders/ or Plugins/
+  [[ "$asmfile" == */_AssetFolders/* || "$asmfile" == */Plugins/* || \
+     "$asmfile" == */_assetfolders/* || "$asmfile" == */plugins/* ]] && continue
   while IFS= read -r ref; do
     # Built-in Unity assemblies are always valid — skip
     [[ "$ref" == UnityEngine* || "$ref" == UnityEditor* || "$ref" == Unity.* ]] && continue
+    # Skip GUID-based references (UPM/built-in packages not in graph)
+    [[ "$ref" == GUID:* ]] && continue
     if ! echo "$KNOWN_ASMDEFS" | jq -e --arg r "$ref" '. | index($r) != null' >/dev/null 2>&1; then
       add_error "ASMDEF_UNRESOLVED" "$asmfile" 0 \
         "Assembly '$asmname' references unknown assembly '$ref'."
