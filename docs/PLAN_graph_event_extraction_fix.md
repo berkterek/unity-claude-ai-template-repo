@@ -269,14 +269,18 @@ In `graph-builder.sh`, replace retained-scopes line:
 SCOPES=$(echo "$CS_OUTPUT" | jq '.vcontainer.scopes // []')
 ```
 
-### graph-watch.sh WATCH_ROOT (Bug 2)
+### graph-watch.sh WATCH_ROOT (Bug 2 + Bug 16)
 
 ```bash
-WATCH_ROOT="${GRAPH_WATCH_ROOT:-Assets}"
+if [[ -n "${GRAPH_WATCH_ROOT:-}" ]]; then
+  WATCH_ROOT="$GRAPH_WATCH_ROOT"
+elif [[ -d "HoleSphere/Assets" ]]; then
+  WATCH_ROOT="HoleSphere/Assets"
+else
+  WATCH_ROOT="Assets"
+fi
 # Replace Assets/ with "$WATCH_ROOT"/ in fswatch and inotifywait calls
 ```
-
-Usage: `GRAPH_WATCH_ROOT=HoleSphere/Assets bash .claude/graph/graph-watch.sh`
 
 ### asmdef-extractor.sh --root (Bug 1)
 
@@ -286,6 +290,43 @@ ROOT="Assets"
 # Standalone find: find "$ROOT" -name '*.asmdef' -print0
 ```
 
+### csharp-extractor.sh --root + auto-detect (Bug 10)
+
+```bash
+CS_ROOT=""
+--root) CS_ROOT="$2"; shift 2 ;;
+
+if [[ -n "$CS_ROOT" ]]; then
+  _prefix="$CS_ROOT"
+elif [[ -d "HoleSphere/Assets" ]]; then
+  _prefix="HoleSphere/Assets"
+else
+  _prefix="Assets"
+fi
+FIND_OPTS=( "${_prefix}/_Framework" "${_prefix}/_GameFolders/Scripts" )
+```
+
+### Scope merge — incremental-safe (Bug 11)
+
+```bash
+# Merge by name: new extraction wins on conflict
+SCOPES=$(jq -n \
+  --argjson retained "$RETAINED_SCOPES" \
+  --argjson new_scopes "$NEW_SCOPES" \
+  '($retained + $new_scopes) | unique_by(.name)' 2>/dev/null || echo "$NEW_SCOPES")
+```
+
+### Non-generic RegisterInstance + multi .As<T> + multi-line scope (Bugs 12, 13, 14, 15)
+
+Full Python implementation for `extract_registrations` and `extract_scope` — see `csharp-extractor.sh` in nile_hole_sphere_repo commit `76009ad`.
+
+Key points:
+- `extract_registrations`: two regex passes — generic `<T>` form + non-generic `(arg)` form
+- `.As<T>` chain: `re.findall` instead of `re.search` — stores list when multiple matches
+- `extract_scope`: join 4 lines before matching — handles multi-line class declarations
+- parent detection: only `[ParentScope(typeof(X))]` attribute — avoids false positives from unrelated `typeof()` calls
+
 ---
 
-*Generated from analysis of nile_hole_sphere_repo graphify session — 2026-05-24*
+*Generated from analysis of nile_hole_sphere_repo graphify session — 2026-05-24*  
+*Updated with Codex review findings (Bugs 10–17) — 2026-05-24*
