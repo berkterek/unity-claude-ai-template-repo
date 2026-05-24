@@ -122,7 +122,7 @@ Detailed coding standards in `.claude/rules/`:
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]`→`[VFX]`), classification table, prefab/container rules, enforcement |
-| `bootstrap-pattern.md` | IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope katman yapısı, EventBusInstaller zorunluluğu, yeni modül ekleme akışı |
+| `bootstrap-pattern.md` | IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope katman yapısı, EventBusInstaller zorunluluğu, GameScope sahne bazlı wiring (SerializeField + RegisterComponent), yeni modül ekleme akışı |
 
 ## Hooks (auto-enforced on every Write/Edit)
 

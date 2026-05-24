@@ -175,6 +175,12 @@ public sealed class AppScope : LifetimeScope
 
 Adding a new module = create a new `ModuleInstaller` asset → drag into `AppInstaller.asset` Modules list. `AppScope.cs` never changes.
 
+### GameScope Pattern
+
+`GameScope` registers scene-local dependencies — MonoBehaviour references that exist on the Game scene. Unlike `AppScope`, it uses `[SerializeField]` fields assigned on the **scene instance** (not the prefab), and only `builder.RegisterComponent(...)` — never `builder.Register<T>(...)`.
+
+> Full pattern, rules, and example: see `bootstrap-pattern.md` → **GameScope — Sahne Bazlı Wiring**
+
 ### ModuleInstaller Pattern
 
 ```csharp

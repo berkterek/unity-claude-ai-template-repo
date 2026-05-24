@@ -53,7 +53,7 @@ When converting a bare GO to a prefab, save to:
 | Name contains `*Provider`, `*Manager`, `*Service` | `_GameFolders/Prefabs/Services/` |
 | Goes to `[Environment]` | `_GameFolders/Prefabs/Environment/` |
 | Has `LifetimeScope` component AND only `ScriptableObject` / asset refs (no scene object refs) | `_GameFolders/Prefabs/Bootstrap/` |
-| Has `LifetimeScope` component AND requires scene object refs (wired manually) | Not converted — wired manually in each scene |
+| Has `LifetimeScope` component AND requires scene object refs (wired manually) | `_GameFolders/Prefabs/Bootstrap/` — prefab olarak kaydedilir, `[SerializeField]` alanlar sahnedeki instance üzerinde doldurulur |
 | Name is `EventSystem` (Unity UI EventSystem) | `_GameFolders/Prefabs/CoreObjects/` |
 | Name is `MainCamera` or has `Camera` component | `_GameFolders/Prefabs/CoreObjects/` |
 
@@ -67,7 +67,9 @@ _GameFolders/Prefabs/Bootstrap/
 └── GameScope.prefab          ← scene-scope LifetimeScope (if references are all assets)
 ```
 
-A LifetimeScope that holds references to **scene objects** (e.g. `UIRoot`, `AudioRoot` via `RegisterComponentInHierarchy`) still needs to be a prefab — those scene-object refs can be null on the prefab and assigned per-scene, or found via `RegisterComponentInHierarchy` at runtime (no Inspector assignment needed).
+A LifetimeScope that holds references to **scene objects** (e.g. `PlayerProvider`, `UIRoot`) is saved as a prefab — `[SerializeField]` fields are left empty on the prefab and filled on the scene instance via Inspector drag-drop.
+
+> Full wiring rules: see `bootstrap-pattern.md` → **GameScope — Sahne Bazlı Wiring**
 
 ### EventSystem / MainCamera Prefab Rule (NON-NEGOTIABLE)
 

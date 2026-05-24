@@ -230,6 +230,75 @@ namespace Game.Concretes.Infrastructure
 
 ---
 
+## GameScope — Sahne Bazlı Wiring (NON-NEGOTIABLE)
+
+`GameScope`, Game sahnesine özgü bağımlılıkları (sahne üzerindeki prefab referansları) register eder. AppScope'tan farklı olarak **tüm referansları `[SerializeField]` ile sahnede manuel atanır** — ScriptableObject almaz.
+
+### AppScope vs GameScope Farkı
+
+| | AppScope | GameScope |
+|--|----------|-----------|
+| Referans tipi | ScriptableObject (asset) | Sahne üzerindeki prefab instance |
+| Prefab olarak kaydedilir mi? | Evet — `Prefabs/Bootstrap/` | Evet — `Prefabs/Bootstrap/` |
+| Referanslar nerede atanır? | Prefab üzerinde (Inspector'da asset sürüklenir) | Sahnedeki instance üzerinde (Inspector'da sahne objesi sürüklenir) |
+| `Configure()` içeriği | `_appInstaller.Install(builder)` + altyapı kayıtları | `[SerializeField]` alanları doğrudan `builder.RegisterInstance(...)` ile register edilir |
+| Değişir mi? | `AppScope.cs` asla değişmez | Yeni modül eklenince `GameScope.cs`'e `[SerializeField]` eklenir |
+
+### GameScope Örneği
+
+```csharp
+// _GameFolders/Scripts/Games/Concretes/Infrastructure/GameScope.cs
+using UnityEngine;
+using VContainer;
+using VContainer.Unity;
+
+namespace Game.Concretes.Infrastructure
+{
+    public sealed class GameScope : LifetimeScope
+    {
+        #region Fields
+
+        [SerializeField] private PlayerProvider _playerProvider;
+        [SerializeField] private UIRoot         _uiRoot;
+
+        #endregion
+
+        #region Lifecycle
+
+        protected override void Configure(IContainerBuilder builder)
+        {
+            if (_playerProvider == null)
+            {
+                Debug.LogError("[GameScope] PlayerProvider is missing.");
+                return;
+            }
+
+            builder.RegisterComponent(_playerProvider);
+            builder.RegisterComponent(_uiRoot);
+        }
+
+        #endregion
+    }
+}
+```
+
+### Kurulum Akışı
+
+1. `GameScope.prefab` oluştur → `_GameFolders/Prefabs/Bootstrap/` altına kaydet
+2. Prefab üzerinde `Parent` alanını `AppScope` olarak işaretle (VContainer parent scope)
+3. Game sahnesine `GameScope.prefab` instance'ını yerleştir → `[Setup]` container'ı altına
+4. **Sahnedeki instance üzerinde** `[SerializeField]` alanlarını sahne objeleriyle doldur — prefab üzerinde değil
+5. Yeni sahne objesi eklenince: `GameScope.cs`'e yeni `[SerializeField]` ekle → sahnede instance'ı güncelle
+
+### Kurallar
+
+- `GameScope.cs`'te `builder.Register<T>(...)` **yasaktır** — pure C# servisler AppScope üzerinden `AppInstaller` ile register edilir
+- `GameScope` yalnızca `builder.RegisterComponent(...)` kullanır — sahne üzerindeki MonoBehaviour'ları container'a bildirir
+- Prefab üzerindeki `[SerializeField]` alanları boş kalır; her sahnede instance bazlı doldurulur
+- `Debug.LogError` + `return` guard — null sahne objesi build'i crashlememeli
+
+---
+
 ## Yeni Modül Ekleme Akışı (NON-NEGOTIABLE)
 
 1. `[Module]Installer.cs` yaz — `ModuleInstaller`'dan türet, `[CreateAssetMenu]` ekle
