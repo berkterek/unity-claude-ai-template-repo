@@ -178,6 +178,8 @@ This yields empty `scope_line` and `extract_scope` returns `null`.
 | 6 | 🟡 High  | High   | ✅ Done |
 | 16 | 🟡 Med  | Low    | ✅ Done |
 | 17 | 🟡 Low  | Low    | ✅ Done |
+| 18 | 🟡 Med  | Med    | 🔲 Open — MCP extractor update needed |
+| 19 | 🟡 Low  | —      | 🔲 Open — game code issue, not Graphify |
 
 ---
 
@@ -328,5 +330,105 @@ Key points:
 
 ---
 
+---
+
+### 🟡 Limitation 18 — Scope parent relationship not detectable from code
+**File:** `.claude/graph/extractors/csharp-extractor.sh`, `graph-builder.sh`  
+**Problem:** VContainer's scope parent relationship is set via the `LifetimeScope.Parent` Inspector field on a prefab — it is NOT declared in C# code. There is no code attribute or constructor argument to parse. As a result, `GameScope.parent` is always `null` even when it is a child of `AppScope` in practice.  
+**Example:** `GameScope.cs` contains only `public sealed class GameScope : LifetimeScope { }` — no parent reference in code. The parent is the `AppScope` prefab instance, wired in the Unity Inspector.  
+**Impact:** `/knowledge-graph scope-tree` shows a flat list instead of a hierarchy. The graph cannot verify that `GameScope` is correctly parented under `AppScope`.  
+**Fix approach:** MCP extraction pass — after C# extraction, query the Unity Editor for each prefab that has a `LifetimeScope` component and read its `parentReference` serialized field:
+
+```csharp
+// In MCP extractor C# code:
+var scopes = new List<object>();
+var guids = AssetDatabase.FindAssets("t:Prefab");
+foreach (var guid in guids) {
+    var path = AssetDatabase.GUIDToAssetPath(guid);
+    var go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+    var ls = go?.GetComponent<LifetimeScope>();
+    if (ls == null) continue;
+    var so = new SerializedObject(ls);
+    var parentProp = so.FindProperty("parentReference");
+    var parentName = parentProp?.objectReferenceValue != null
+        ? parentProp.objectReferenceValue.name : null;
+    scopes.Add(new { name = go.name, path, parent = parentName });
+}
+```
+
+Then in `graph-builder.sh`, merge MCP scope parent data into the C#-extracted scopes by name match.  
+**Status:** 🟡 Open — requires MCP extractor update  
+**Found by:** Post-fix validation review — 2026-05-24
+
+---
+
+### 🟡 Limitation 19 — EVENT_DANGLING warnings are not false positives
+**File:** Graph validation output  
+**Problem:** Four events are correctly flagged as dangling:
+- `LevelReadyEvent` — subscriber exists (`ScreenManager`), no publisher in codebase
+- `GameStateChangedEvent` — publisher exists (`GameStateService`), no subscriber
+- `LevelResetRequestedEvent` — 3 subscribers exist (`BlackholeView` et al.), no publisher
+- `LevelReadyToResetEvent` — publisher exists (`LevelService`), no subscriber
+
+These are **real architecture gaps** in the project, not false positives. Graphify is correctly identifying unfinished event wiring.  
+**Impact:** Not a Graphify bug — these need to be fixed in game code or explicitly acknowledged.  
+**Fix approach:** For each dangling event, either implement the missing publisher/subscriber, or if intentional (e.g. event reserved for future use), document in a `// TODO:` comment so future developers understand the intent.  
+**Status:** 🟡 Open — game code issue, not a Graphify issue  
+**Found by:** Full rebuild + validate run — 2026-05-24
+
+---
+
+---
+
+### 🟡 CLAUDE.md Update Required — graph.json as primary source of truth
+**Files:** `.claude/CLAUDE.md` (template repo)  
+**Problem:** The template CLAUDE.md still describes graph as secondary/optional:
+- Optional Features table: `"retain their original file-scan paths unchanged"` — misleading; implies graph has no effect on behavior when enabled
+- Session Start: only says "read its summary" — does not instruct Claude to *prefer* graph over folder scan
+- NON-NEGOTIABLE Pre-Implementation Scan: lists only file-scan steps, no mention of reading graph.json when available
+- Project Features table: no `graph` row at all
+
+**Fix:** Three updates to `.claude/CLAUDE.md`:
+
+1. **Optional Features table** — change `graph` row description:
+```
+| **Unity Knowledge Graph** | Built-in (`.claude/graph/`) | `graph` | Skip extractors and hooks. `/catch-up`, `/orchestrate`, `/context-prime`, `/architect` fall back to direct file-scan. |
+```
+
+2. **Session Start** — replace single bullet with explicit priority rule + query cheatsheet:
+```markdown
+- If `.claude/graph/graph.json` exists: run `/knowledge-graph summary` — this is the primary source of truth for classes, interfaces, events, installers, scopes, and prefabs. Do NOT manually scan source folders if the graph is available and fresh (< 24h).
+
+**Graph query cheatsheet (use before touching any existing system):**
+- "What interfaces exist?" → `/knowledge-graph implementers IAudioService`
+- "Who publishes/subscribes to an event?" → `/knowledge-graph publishers RunStartedEvent`
+- "What does an installer register?" → `/knowledge-graph registrations AudioService`
+- "VContainer scope hierarchy?" → `/knowledge-graph scope-tree`
+- "Any architecture violations?" → `/knowledge-graph violations`
+- "What components does a prefab have?" → `/knowledge-graph prefab BlackholeSphere`
+```
+
+3. **NON-NEGOTIABLE Pre-Implementation Scan** — add graph-first path:
+```markdown
+**If `graph` feature is ENABLED and graph.json is fresh (< 24h):** query graph.json directly — do NOT re-scan source folders.
+  jq '.codebase.interfaces[] | {name, file}' .claude/graph/graph.json
+  jq '.codebase.classes[] | select(.file | contains("Concretes")) | {name, file, implements}' .claude/graph/graph.json
+  jq '.validation | {errors: (.errors|length), warnings: (.warnings|length)}' .claude/graph/graph.json
+
+**If graph is disabled or stale (> 24h):** fall back to direct file-scan (original steps 1–3).
+```
+
+4. **Project Features table** — add missing `graph` row:
+```
+| `graph` | **DISABLED** | graph.json is the primary source of truth. `/orchestrate` pre-scan reads graph instead of scanning folders. `/catch-up`, `/context-prime`, `/architect` query graph first; fall back to file-scan only if graph is stale (> 24h) or disabled. |
+```
+
+**Status:** 🔲 Open — apply to template repo `.claude/CLAUDE.md`  
+**Found by:** Comparing nile_hole_sphere_repo (updated) vs template repo (stale) — 2026-05-24
+
+---
+
 *Generated from analysis of nile_hole_sphere_repo graphify session — 2026-05-24*  
-*Updated with Codex review findings (Bugs 10–17) — 2026-05-24*
+*Updated with Codex review findings (Bugs 10–17) — 2026-05-24*  
+*Updated with post-fix validation findings (Limitations 18–19) — 2026-05-24*  
+*Updated with CLAUDE.md sync requirement — 2026-05-24*
