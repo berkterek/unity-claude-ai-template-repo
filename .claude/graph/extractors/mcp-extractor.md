@@ -62,6 +62,34 @@ For each `.prefab` file:
    - `**/CoreObjects/**` → `CoreObjects`
    - Otherwise → `ThirdParty`
 
+### Step 2b — Scope parent extraction (LifetimeScope prefabs)
+
+For each prefab whose component list includes `LifetimeScope` (or any subclass):
+1. Use `manage_components` with action `get` to read the Inspector state of that prefab.
+2. Look for the serialized field `parentReference` on the `LifetimeScope` component.
+3. If `parentReference` is non-null and references another prefab, extract the referenced prefab's name.
+4. Record: `{ scope_name: "<ClassName on prefab>", parent_name: "<referenced LifetimeScope class>" }`.
+
+This populates the top-level `scope_parents` array in `mcp-extract.json`, which `graph-builder.sh` uses to backfill `parent` on scope entries that the C# extractor left as `null`.
+
+### Step 2c — Prefab component field values
+
+For each prefab, after reading the component list:
+1. For each component (skip Transform, Rigidbody, Collider-only components with no serialized fields), use `manage_components` with action `get` to read Inspector field values.
+2. Capture simple scalar field values only: `int`, `float`, `string`, `bool`, `enum` (as string label).
+3. Skip: array fields, nested object fields, UnityEngine.Object references (too noisy).
+4. Store as `component_fields` on the prefab entry:
+   ```json
+   "component_fields": [
+     {
+       "component": "AudioConfiguration",
+       "fields": { "masterVolume": 1.0, "sfxVolume": 0.8, "musicVolume": 0.7 }
+     }
+   ]
+   ```
+
+This allows `/knowledge-graph prefab <Name>` to show actual configured values, not just component names.
+
 ### Step 3 — Write output
 
 Write the result to `.claude/graph/cache/mcp-extract.json`:
@@ -69,7 +97,10 @@ Write the result to `.claude/graph/cache/mcp-extract.json`:
 ```json
 {
   "scenes": [ /* sceneEntry[] per schema */ ],
-  "prefabs": [ /* prefabEntry[] per schema */ ],
+  "prefabs": [ /* prefabEntry[] — each may include component_fields[] */ ],
+  "scope_parents": [
+    { "scope_name": "GameScope", "parent_name": "AppScope" }
+  ],
   "extracted_at": "<ISO8601 UTC>"
 }
 ```

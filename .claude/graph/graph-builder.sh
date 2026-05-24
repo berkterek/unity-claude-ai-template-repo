@@ -59,10 +59,10 @@ if [[ -n "$CHANGED_FILES" ]]; then
 else
   while IFS= read -r -d '' f; do
     ALL_CS+=("$f")
-  done < <(find Assets/_Framework Assets/_GameFolders/Scripts -name '*.cs' -print0 2>/dev/null || true)
+  done < <(find HoleSphere/Assets/_Framework HoleSphere/Assets/_GameFolders/Scripts -name '*.cs' -print0 2>/dev/null || true)
   while IFS= read -r -d '' f; do
     ALL_ASMDEF+=("$f")
-  done < <(find Assets -name '*.asmdef' -print0 2>/dev/null || true)
+  done < <(find HoleSphere/Assets -name '*.asmdef' -print0 2>/dev/null || true)
 fi
 
 # ── Cache-aware file selection ───────────────────────────────────────────────
@@ -127,6 +127,7 @@ fi
 MCP_STATUS="skipped"
 MCP_SCENES="[]"
 MCP_PREFABS="[]"
+MCP_SCOPE_PARENTS="[]"
 MCP_EXTRACTED_AT="null"
 MCP_SKIP_REASON="MCP_UNAVAILABLE"
 
@@ -143,6 +144,7 @@ print(int((time.time() - mtime) / 60))
   if [[ $MCP_AGE -lt 60 ]]; then
     MCP_SCENES=$(jq -r '.scenes // []' "$MCP_CACHE")
     MCP_PREFABS=$(jq -r '.prefabs // []' "$MCP_CACHE")
+    MCP_SCOPE_PARENTS=$(jq -r '.scope_parents // []' "$MCP_CACHE")
     MCP_EXTRACTED_AT=$(jq -r '.extracted_at // null' "$MCP_CACHE")
     MCP_STATUS="ok"
     log "mcp cache reused (${MCP_AGE}m old)"
@@ -225,8 +227,12 @@ ALL_INSTALLERS=$(jq -n --argjson a "$RETAINED_INSTALLERS" --argjson b "$NEW_INST
 ALL_EVENTS=$(GRAPH_CLASSES="$ALL_CLASSES" GRAPH_EVENTS="$NEW_EVENTS" python3 - <<'PYEOF'
 import json, os
 
-classes    = json.loads(os.environ.get("GRAPH_CLASSES", "[]"))
-prev_events = json.loads(os.environ.get("GRAPH_EVENTS", "[]"))
+classes = json.loads(os.environ.get("GRAPH_CLASSES", "[]"))
+prev_events_raw = os.environ.get("GRAPH_EVENTS", "[]")
+try:
+    prev_events = json.loads(prev_events_raw)
+except Exception:
+    prev_events = []
 
 events = {}
 for cls in classes:
@@ -250,7 +256,7 @@ ALL_IFACES=$(GRAPH_CLASSES="$ALL_CLASSES" GRAPH_IFACES="$ALL_IFACES" python3 - <
 import json, os
 
 classes = json.loads(os.environ.get("GRAPH_CLASSES", "[]"))
-ifaces  = json.loads(os.environ.get("GRAPH_IFACES",  "[]"))
+ifaces  = json.loads(os.environ.get("GRAPH_IFACES", "[]"))
 
 iface_map = {i["name"]: i for i in ifaces}
 for cls in classes:
@@ -264,12 +270,26 @@ print(json.dumps(list(iface_map.values())))
 PYEOF
 )
 
-# ── Build scopes: merge retained (unchanged files) + newly extracted ──────────
-RETAINED_SCOPES=$(echo "$EXISTING_GRAPH" | jq '.codebase.vcontainer.scopes // []' 2>/dev/null || echo "[]")
+# ── Build scopes: merge new extraction with retained (incremental-safe) ──────
+# On incremental builds only changed files are re-extracted, so we must keep
+# scopes from unchanged files. Merge by name: new extraction wins on conflict.
 NEW_SCOPES=$(echo "$CS_OUTPUT" | jq '.vcontainer.scopes // []' 2>/dev/null || echo "[]")
-# New extraction wins on name conflict (unique_by keeps first occurrence — put NEW first)
-SCOPES=$(jq -n --argjson new "$NEW_SCOPES" --argjson retained "$RETAINED_SCOPES" \
-  '($new + $retained) | unique_by(.name)')
+RETAINED_SCOPES=$(echo "$EXISTING_GRAPH" | jq '.codebase.vcontainer.scopes // []' 2>/dev/null || echo "[]")
+SCOPES=$(jq -n \
+  --argjson retained "$RETAINED_SCOPES" \
+  --argjson new_scopes "$NEW_SCOPES" \
+  '($retained + $new_scopes) | unique_by(.name)' 2>/dev/null || echo "$NEW_SCOPES")
+
+# Backfill scope .parent from MCP scope_parents (Inspector parentReference field)
+# MCP data wins over C# extractor (which cannot read Inspector-assigned SO references)
+if [[ "$MCP_SCOPE_PARENTS" != "[]" && "$MCP_SCOPE_PARENTS" != "null" ]]; then
+  SCOPES=$(jq -n \
+    --argjson scopes "$SCOPES" \
+    --argjson parents "$MCP_SCOPE_PARENTS" \
+    'reduce $parents[] as $p ($scopes;
+      map(if .name == $p.scope_name then .parent = $p.parent_name else . end)
+    )' 2>/dev/null || echo "$SCOPES")
+fi
 
 # ── Assemble final graph ──────────────────────────────────────────────────────
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
