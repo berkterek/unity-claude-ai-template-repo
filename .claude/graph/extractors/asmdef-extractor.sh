@@ -3,7 +3,6 @@
 # Usage:
 #   asmdef-extractor.sh                          # scan all Assets/**/*.asmdef
 #   asmdef-extractor.sh --changed-files a.asmdef,b.asmdef
-#   asmdef-extractor.sh --root HoleSphere/Assets  # override scan root
 set -euo pipefail
 
 CHANGED_FILES=""

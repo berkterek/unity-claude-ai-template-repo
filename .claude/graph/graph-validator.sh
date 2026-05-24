@@ -80,9 +80,9 @@ while IFS= read -r row; do
   [[ "$name" == *Installer ]] && continue
   # Skip SO configs
   [[ "$file" == *Configuration* ]] && continue
-  # Skip LifetimeScope subclasses (bootstrapped by Unity, not VContainer-registered)
+  # Skip LifetimeScope / ScriptableObject / ModuleInstaller subclasses — not DI-registered
   base_types=$(echo "$row" | jq -r '.base_types[]? // empty')
-  echo "$base_types" | grep -qE '(^|\.)(LifetimeScope|ScriptableObject|ModuleInstaller)$' && continue
+  echo "$base_types" | grep -qE 'LifetimeScope|ScriptableObject|ModuleInstaller' && continue
 
   if ! echo "$REGISTERED_JSON" | jq -e --arg n "$name" '. | index($n) != null' >/dev/null 2>&1; then
     add_warning "CONCRETE_UNREGISTERED" "$file" 0 \
@@ -104,14 +104,17 @@ KNOWN_ASMDEFS=$(jq -r '[.codebase.assemblies[].name]' "$GRAPH" 2>/dev/null || ec
 while IFS= read -r row; do
   asmname=$(echo "$row" | jq -r '.name')
   asmfile=$(echo "$row" | jq -r '.file')
-  # Skip third-party assemblies in _AssetFolders/ or Plugins/
+  # Skip 3rd-party package assemblies — they reference UPM/built-in assemblies the extractor can't see
   [[ "$asmfile" == */_AssetFolders/* || "$asmfile" == */Plugins/* || \
      "$asmfile" == */_assetfolders/* || "$asmfile" == */plugins/* ]] && continue
   while IFS= read -r ref; do
     # Built-in Unity assemblies are always valid — skip
     [[ "$ref" == UnityEngine* || "$ref" == UnityEditor* || "$ref" == Unity.* ]] && continue
-    # Skip GUID-based references (UPM/built-in packages not in graph)
+    # GUID-based refs point to UPM/built-in packages — extractor can't resolve them, skip
     [[ "$ref" == GUID:* ]] && continue
+    # Well-known UPM packages live in Library/PackageCache (gitignored) — skip by name
+    [[ "$ref" == VContainer || "$ref" == UniTask || "$ref" == UniTask.* ]] && continue
+    [[ "$ref" == Cysharp.* || "$ref" == MessagePipe* || "$ref" == R3* ]] && continue
     if ! echo "$KNOWN_ASMDEFS" | jq -e --arg r "$ref" '. | index($r) != null' >/dev/null 2>&1; then
       add_error "ASMDEF_UNRESOLVED" "$asmfile" 0 \
         "Assembly '$asmname' references unknown assembly '$ref'."
@@ -120,16 +123,14 @@ while IFS= read -r row; do
 done < <(jq -c '.codebase.assemblies[]' "$GRAPH" 2>/dev/null || true)
 
 # ── R6: No _Framework/ asmdef references a Games/ asmdef ────────────────────
-# Build name→file map for all known assemblies
-ASMDEF_FILE_MAP=$(jq -r '.codebase.assemblies[] | "\(.name)\t\(.file)"' "$GRAPH" 2>/dev/null || true)
-
 while IFS= read -r row; do
   asmname=$(echo "$row" | jq -r '.name')
   asmfile=$(echo "$row" | jq -r '.file')
   while IFS= read -r ref; do
-    # Resolve referenced assembly's file path from the name→file map
-    ref_file=$(awk -F'\t' -v r="$ref" '$1==r{print $2; exit}' <<< "$ASMDEF_FILE_MAP") || ref_file=""
-    if echo "$ref_file" | grep -qE 'Games|GameFolders'; then
+    # Check if the referenced assembly belongs to a Games/ folder
+    ref_file=$(echo "$KNOWN_ASMDEFS" | jq -r --arg r "$ref" \
+      'if index($r) != null then $r else empty end' 2>/dev/null || true)
+    if echo "$ref_file" | grep -q 'Games\|GameFolders'; then
       add_error "LAYER_VIOLATION" "$asmfile" 0 \
         "_Framework assembly '$asmname' references Games assembly '$ref' — forbidden (dependency direction violation)."
     fi

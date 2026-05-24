@@ -5,7 +5,6 @@
 #   csharp-extractor.sh                          # scan all C# under Assets/ and Packages/
 #   csharp-extractor.sh --changed-files a.cs,b.cs
 #   csharp-extractor.sh --include-tests          # also scan Tests folders
-#   csharp-extractor.sh --root HoleSphere/Assets # override scan root for nested projects
 set -euo pipefail
 
 CHANGED_FILES=""
@@ -40,6 +39,7 @@ if [[ -n "$CHANGED_FILES" ]]; then
     [[ "$f" == *.cs ]] && FILES+=("$f")
   done
 else
+  # Resolve root prefix: --root arg > auto-detect HoleSphere/ > fallback Assets/
   if [[ -n "$CS_ROOT" ]]; then
     _prefix="$CS_ROOT"
   elif [[ -d "HoleSphere/Assets" ]]; then
@@ -48,7 +48,7 @@ else
     _prefix="Assets"
   fi
   FIND_OPTS=( "${_prefix}/_Framework" "${_prefix}/_GameFolders/Scripts" )
-  [[ -d Packages ]] && FIND_OPTS+=( Packages )
+  [[ -d "${_prefix}/../Packages" ]] && FIND_OPTS+=( "${_prefix}/../Packages" )
   while IFS= read -r -d '' f; do
     if [[ $INCLUDE_TESTS -eq 0 ]]; then
       [[ "$f" == *Tests* ]] && continue
@@ -76,7 +76,7 @@ extract_namespace() {
 
 extract_base_list() {
   local line="$1"
-  # grep -n prefixes output with "N:" — strip that before matching the inheritance colon
+  # Strip leading "N:" line-number prefix from grep -n output, then grab everything after the inheritance :
   local decl
   decl=$(echo "$line" | sed 's/^[0-9]*://')
   echo "$decl" | grep -oE 'class[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[[:space:]]*[A-Za-z0-9_<>, ]+' \
@@ -97,7 +97,7 @@ is_mono_behaviour() {
 
 extract_events_published() {
   local f="$1" result a b combined
-  # Pass A: legacy generic form  _eventBus.Publish<EventName>()
+  # Pass A: generic form  _eventBus.Publish<EventName>()
   a=$(grep -oE '\.(Publish)<([A-Z][A-Za-z0-9_]*)>' "$f" 2>/dev/null | grep -oE '<([A-Z][A-Za-z0-9_]*)>' | tr -d '<>') || a=""
   # Pass B: constructor-call form  _eventBus.Publish(new EventName(...))
   b=$(grep -oE '\.Publish\([[:space:]]*new[[:space:]]+[A-Z][A-Za-z0-9_]*' "$f" 2>/dev/null | sed -E 's/^\.Publish\([[:space:]]*new[[:space:]]+//') || b=""
@@ -114,98 +114,112 @@ extract_events_subscribed() {
 
 extract_registrations() {
   local f="$1" result
-  result=$(GRAPH_REG_FILE="$f" python3 - <<'PYEOF'
-import re, json, os
+  result=$(python3 - "$f" <<'PYEOF'
+import re, sys, json
 
-text = open(os.environ["GRAPH_REG_FILE"]).read()
+try:
+    text = open(sys.argv[1]).read()
+except Exception:
+    print("[]"); sys.exit(0)
+
 results = []
-seen = set()
 
+# Form 1: generic  builder.Register<Type>(Lifetime.X)
 for m in re.finditer(
     r'builder\.(Register(?:Instance|Component(?:InHierarchy)?)?)'
     r'<([A-Za-z0-9_]+)>'
-    r'(?:[^;(<]*\(\s*Lifetime\.(\w+)\s*\))?',
+    r'(?:[^;(]*\(\s*Lifetime\.(\w+)\s*\))?',
     text
 ):
-    typ = m.group(2)
-    lifetime = m.group(3) or "Singleton"
-    tail = text[m.end():m.end()+300]
-    as_matches = re.findall(r'\.As<([A-Za-z0-9_]+)>', tail)
+    reg = {
+        "type": m.group(2),
+        "as": [],
+        "lifetime": m.group(3) or "Singleton",
+        "scope": ""
+    }
+    tail = text[m.end():m.end()+400]
+    # Collect all .As<T>() in the chain
+    as_matches = re.findall(r'\.As<([A-Za-z0-9_]+)>', tail[:300])
     if as_matches:
-        as_val = as_matches if len(as_matches) > 1 else as_matches[0]
-    elif re.search(r'\.AsImplementedInterfaces\(\)', tail[:150]):
-        as_val = "AsImplementedInterfaces"
-    else:
-        as_val = ""
-    key = (typ, str(as_val), lifetime)
-    if key not in seen:
-        seen.add(key)
-        results.append({"type": typ, "as": as_val, "lifetime": lifetime, "scope": ""})
+        reg["as"] = as_matches if len(as_matches) > 1 else as_matches[0]
+    elif ".AsImplementedInterfaces()" in tail[:200]:
+        reg["as"] = "AsImplementedInterfaces"
+    results.append(reg)
 
-# Second pass: non-generic RegisterInstance(_varName) — infer type from variable name
-for m2 in re.finditer(r'builder\.RegisterInstance\(([_a-z][A-Za-z0-9_]*)\)', text):
-    var = m2.group(1)
-    inferred = var.lstrip('_')
-    inferred = inferred[0].upper() + inferred[1:] if inferred else var
-    key = (inferred, "", "Singleton")
-    if key not in seen:
-        seen.add(key)
-        results.append({"type": inferred, "as": "", "lifetime": "Singleton", "scope": "", "inferred": True})
+# Form 2: non-generic  builder.RegisterInstance(someVar)
+for m in re.finditer(
+    r'builder\.RegisterInstance\(([A-Za-z0-9_\.]+)\)',
+    text
+):
+    arg = m.group(1)
+    # Infer type from variable name: strip leading _ and lowercase
+    type_name = arg.lstrip('_')
+    type_name = type_name[0].upper() + type_name[1:] if type_name else arg
+    reg = {"type": type_name, "as": "", "lifetime": "Singleton", "scope": "", "inferred": True}
+    results.append(reg)
 
-print(json.dumps(results))
+# Deduplicate by type (first occurrence wins)
+seen = set()
+deduped = []
+for r in results:
+    if r["type"] not in seen:
+        seen.add(r["type"])
+        deduped.append(r)
+print(json.dumps(deduped))
 PYEOF
-  ) || result=""
+) || result=""
+  echo "${result:-[]}"
+}
+
+extract_dependencies() {
+  local f="$1" result
+  result=$(grep -oE 'I[A-Z][A-Za-z0-9]+[[:space:]]+[a-z][A-Za-z0-9]+' "$f" 2>/dev/null | grep -oE '^I[A-Z][A-Za-z0-9]+' | sort -u | jq -R . | jq -sc . 2>/dev/null) || result=""
   echo "${result:-[]}"
 }
 
 extract_scope() {
   local f="$1" result
-  result=$(GRAPH_SCOPE_FILE="$f" GRAPH_CONFIDENCE="$CONFIDENCE" python3 - <<'PYEOF'
-import re, json, os
+  result=$(python3 - "$f" <<'PYEOF'
+import re, sys, json
 
-f = os.environ["GRAPH_SCOPE_FILE"]
-confidence = os.environ.get("GRAPH_CONFIDENCE", "INFERRED")
-text = open(f).read()
+try:
+    text = open(sys.argv[1]).read()
+except Exception:
+    print("null"); sys.exit(0)
 
-# Join groups of 4 lines to catch multi-line class declarations
+# Match class declaration that inherits LifetimeScope (single or multi-line)
+# Joins up to 4 lines to handle split declarations
 lines = text.splitlines()
-joined = []
-for i in range(len(lines)):
-    joined.append(" ".join(lines[i:i+4]))
-
+combined = ""
 scope_name = None
-for chunk in joined:
-    m = re.search(r'class\s+([A-Z][A-Za-z0-9_]*)\b[^{]*:\s*[^{]*\bLifetimeScope\b', chunk)
+for i, line in enumerate(lines):
+    chunk = " ".join(lines[i:i+4])
+    m = re.search(r'class\s+([A-Z][A-Za-z0-9_]*)\s*[:<][^{]*LifetimeScope', chunk)
     if m:
         scope_name = m.group(1)
         break
 
 if not scope_name:
-    print("null")
-else:
-    # Parent: only from [ParentScope(typeof(X))] VContainer attribute
-    parent = None
-    pm = re.search(r'\[ParentScope\s*\(\s*typeof\s*\(\s*([A-Za-z0-9_]+)\s*\)\s*\)\s*\]', text)
-    if pm:
-        parent = pm.group(1)
-    print(json.dumps({
-        "name": scope_name,
-        "file": f,
-        "source_file": f,
-        "parent": parent,
-        "installers": [],
-        "confidence": confidence
-    }))
-PYEOF
-  ) || result=""
-  echo "${result:-null}"
-}
+    print("null"); sys.exit(0)
 
-extract_dependencies() {
-  local f="$1" result
-  # Constructor parameters that look like injected services (IXxx types)
-  result=$(grep -oE 'I[A-Z][A-Za-z0-9]+[[:space:]]+[a-z][A-Za-z0-9]+' "$f" 2>/dev/null | grep -oE '^I[A-Z][A-Za-z0-9]+' | sort -u | jq -R . | jq -sc . 2>/dev/null) || result=""
-  echo "${result:-[]}"
+# Detect parent: look for [ParentScope(typeof(XScope))] attribute or
+# a field/property typed as XScope where name ends with "Scope"
+# Only match inside [ParentScope(...)] to avoid false typeof() references
+parent = None
+pm = re.search(r'\[ParentScope\s*\(\s*typeof\s*\(\s*([A-Za-z0-9_]+Scope)\s*\)', text)
+if pm:
+    parent = pm.group(1)
+
+print(json.dumps({
+    "name": scope_name,
+    "file": sys.argv[1],
+    "source_file": sys.argv[1],
+    "parent": parent,
+    "installers": []
+}))
+PYEOF
+) || result="null"
+  echo "${result:-null}"
 }
 
 # ── Per-file extraction ──────────────────────────────────────────────────────
@@ -224,8 +238,8 @@ process_file_regex() {
   deps=$(extract_dependencies "$f")
   local regs
   regs=$(extract_registrations "$f")
-  local scope
-  scope=$(extract_scope "$f")
+  local scope_entry
+  scope_entry=$(extract_scope "$f")
 
   # Build classes array
   local classes_json="[]"
@@ -236,9 +250,12 @@ process_file_regex() {
     class_name=$(echo "$match" | grep -oE 'class[[:space:]]+([A-Z][A-Za-z0-9_]*)' | awk '{print $2}')
     [[ -z "$class_name" ]] && continue
     raw_base=$(extract_base_list "$match")
-    base_arr=$(echo "$raw_base" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | grep -v '^$' | jq -R . | jq -sc . 2>/dev/null || echo "[]")
+    local base_arr_r impl_r
+    base_arr_r=$(echo "$raw_base" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | grep -v '^$' | jq -R . | jq -sc . 2>/dev/null) || base_arr_r=""
+    base_arr="${base_arr_r:-[]}"
     mono=$(is_mono_behaviour "$raw_base")
-    impl=$(echo "$raw_base" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | grep -E '^I[A-Z]' | jq -R . | jq -sc . 2>/dev/null || echo "[]")
+    impl_r=$(echo "$raw_base" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | grep -E '^I[A-Z]' | jq -R . | jq -sc . 2>/dev/null) || impl_r=""
+    impl="${impl_r:-[]}"
 
     local entry
     entry=$(jq -nc \
@@ -311,7 +328,7 @@ process_file_regex() {
     --argjson published "$published" \
     --argjson subscribed "$subscribed" \
     --argjson installer "$installer_json" \
-    --argjson scope "$scope" \
+    --argjson scope "$scope_entry" \
     '{
       file: $file,
       partial: true,
@@ -346,8 +363,8 @@ for p in "${PAYLOADS[@]:-}"; do
   ALL_IFACES=$(echo "$ALL_IFACES" | jq ". + $(echo "$p" | jq '.interfaces')")
   inst=$(echo "$p" | jq '.installer')
   [[ "$inst" != "null" ]] && ALL_INSTALLERS=$(echo "$ALL_INSTALLERS" | jq ". + [$inst]")
-  sc=$(echo "$p" | jq '.scope')
-  [[ "$sc" != "null" ]] && ALL_SCOPES=$(echo "$ALL_SCOPES" | jq ". + [$sc]")
+  scope=$(echo "$p" | jq '.scope')
+  [[ "$scope" != "null" ]] && ALL_SCOPES=$(echo "$ALL_SCOPES" | jq ". + [$scope]")
 done
 
 # Pivot events: aggregate publisher/subscriber lists across all classes
@@ -372,10 +389,14 @@ ALL_EVENTS=$(echo "$ALL_CLASSES" | jq '
 
 # Simpler event pivot using python3 for reliability
 ALL_EVENTS=$(GRAPH_CLASSES="$ALL_CLASSES" GRAPH_CONFIDENCE="$CONFIDENCE" python3 - <<'PYEOF'
-import json, os
+import sys, json, os
 
 confidence = os.environ.get("GRAPH_CONFIDENCE", "INFERRED")
-classes = json.loads(os.environ.get("GRAPH_CLASSES", "[]"))
+classes_raw = os.environ.get("GRAPH_CLASSES", "[]")
+try:
+    classes = json.loads(classes_raw)
+except Exception:
+    classes = []
 
 events = {}
 for cls in classes:
