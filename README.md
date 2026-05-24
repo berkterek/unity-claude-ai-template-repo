@@ -205,7 +205,8 @@ all read this graph instead of scanning files from scratch.
 | Classes / interfaces | Name, namespace, file, base types, `implements[]`, `is_mono_behaviour`, `has_static_instance` |
 | Events | Publishers + subscribers via `_eventBus.Publish<T>()` / `.Publish(new T())` and `Subscribe<T>()` |
 | VContainer registrations | `Register<T>`, `RegisterInstance`, `RegisterComponent` — including `.As<IFoo>()`, `.AsImplementedInterfaces()`, and real `Lifetime` (Singleton/Transient/Scoped) |
-| VContainer scopes | `LifetimeScope` subclasses with parent resolved from `[ParentScope(typeof(X))]` attribute |
+| VContainer scopes | `LifetimeScope` subclasses; parent resolved from `[ParentScope(typeof(X))]` in C# code **or** from `LifetimeScope.parentReference` Inspector field via MCP (MCP wins on conflict) |
+| Prefabs (MCP) | Component list, variant status, scalar Inspector field values (`int`, `float`, `string`, `bool`, `enum`) via `manage_components` — shown by `/knowledge-graph prefab <Name>` |
 | Assemblies | Name, file, references, platforms, `allowUnsafeCode` |
 
 ### Nested Unity project support
