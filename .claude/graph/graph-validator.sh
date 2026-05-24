@@ -120,14 +120,16 @@ while IFS= read -r row; do
 done < <(jq -c '.codebase.assemblies[]' "$GRAPH" 2>/dev/null || true)
 
 # ── R6: No _Framework/ asmdef references a Games/ asmdef ────────────────────
+# Build name→file map for all known assemblies
+ASMDEF_FILE_MAP=$(jq -r '.codebase.assemblies[] | "\(.name)\t\(.file)"' "$GRAPH" 2>/dev/null || true)
+
 while IFS= read -r row; do
   asmname=$(echo "$row" | jq -r '.name')
   asmfile=$(echo "$row" | jq -r '.file')
   while IFS= read -r ref; do
-    # Check if the referenced assembly belongs to a Games/ folder
-    ref_file=$(echo "$KNOWN_ASMDEFS" | jq -r --arg r "$ref" \
-      'if index($r) != null then $r else empty end' 2>/dev/null || true)
-    if echo "$ref_file" | grep -q 'Games\|GameFolders'; then
+    # Resolve referenced assembly's file path from the name→file map
+    ref_file=$(awk -F'\t' -v r="$ref" '$1==r{print $2; exit}' <<< "$ASMDEF_FILE_MAP") || ref_file=""
+    if echo "$ref_file" | grep -qE 'Games|GameFolders'; then
       add_error "LAYER_VIOLATION" "$asmfile" 0 \
         "_Framework assembly '$asmname' references Games assembly '$ref' — forbidden (dependency direction violation)."
     fi

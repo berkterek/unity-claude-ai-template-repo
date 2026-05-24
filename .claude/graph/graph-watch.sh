@@ -25,7 +25,8 @@ if [[ -z "$WATCHER" ]]; then
   exit 1
 fi
 
-echo "graph-watch: watching Assets/ for .cs .asmdef .prefab .unity changes (Ctrl-C to stop)"
+WATCH_ROOT="${GRAPH_WATCH_ROOT:-Assets}"
+echo "graph-watch: watching $WATCH_ROOT/ for .cs .asmdef .prefab .unity changes (Ctrl-C to stop)"
 
 # ── Debounce state ────────────────────────────────────────────────────────────
 DEBOUNCE_SECS=0.5
@@ -53,14 +54,14 @@ if [[ "$WATCHER" == "fswatch" ]]; then
     --event Created --event Updated --event Removed \
     --include '\.cs$' --include '\.asmdef$' --include '\.prefab$' --include '\.unity$' \
     --exclude '.*' \
-    Assets/ | while IFS= read -r -d '' changed_file; do
+    "$WATCH_ROOT"/ | while IFS= read -r -d '' changed_file; do
       trigger_build "$changed_file"
     done
 else
   # inotifywait (Linux)
   inotifywait -m -r -e close_write,moved_to,create,delete \
     --include '\.(cs|asmdef|prefab|unity)$' \
-    Assets/ 2>/dev/null |
+    "$WATCH_ROOT"/ 2>/dev/null |
   while read -r dir event file; do
     changed_file="${dir}${file}"
     case "$changed_file" in
