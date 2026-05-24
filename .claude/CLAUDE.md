@@ -73,6 +73,8 @@ When starting a new conversation on this project, read these files first:
 
 If the user asks to continue work on a specific module, also read its source files before making any changes.
 
+Before modifying or implementing any existing system, check `skills-index.md` for a relevant skill first — do not read source files directly if a skill covers the system.
+
 ## Rules (auto-loaded)
 
 Detailed coding standards in `.claude/rules/`:
