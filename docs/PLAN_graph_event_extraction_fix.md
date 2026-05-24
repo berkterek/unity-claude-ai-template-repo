@@ -1,7 +1,7 @@
 # PLAN — Fix Graph Event Extraction (Constructor-Call Pattern)
 
 > **Version:** v1 — 2026-05-24
-> **Status:** Active
+> **Status:** Complete
 > **Scope:** `.claude/graph/extractors/csharp-extractor.sh` — `extract_events_published()` function only. Downstream graph builder, schema, and consumers are unchanged.
 
 > **Complexity:** **1/10 — Trivial.** Single bash function, single file, no schema impact, no Unity compile, no test harness required. Reversible in one line.
@@ -26,19 +26,19 @@ These three issues were discovered and fixed during the graphify sync session on
 
 ## Goals
 
-- [ ] Detect `_eventBus.Publish(new EventName(...))` constructor-call pattern in `extract_events_published()`.
-- [ ] Preserve detection of legacy `.Publish<EventName>()` angle-bracket pattern (additive, no regression).
-- [ ] Maintain identical output schema — JSON array of unique event-type strings.
-- [ ] Stay POSIX ERE / BSD-grep compatible (no `-P`, no PCRE).
-- [ ] Honor `set -euo pipefail` — use `result=$(...) || result=""` capture pattern.
-- [ ] Do **not** modify `extract_events_subscribed()` — it is correct.
+- [x] Detect `_eventBus.Publish(new EventName(...))` constructor-call pattern in `extract_events_published()`.
+- [x] Preserve detection of legacy `.Publish<EventName>()` angle-bracket pattern (additive, no regression).
+- [x] Maintain identical output schema — JSON array of unique event-type strings.
+- [x] Stay POSIX ERE / BSD-grep compatible (no `-P`, no PCRE).
+- [x] Honor `set -euo pipefail` — use `result=$(...) || result=""` capture pattern.
+- [x] Do **not** modify `extract_events_subscribed()` — it is correct.
 
 ## Status
 
 | Phase | Task | Status | parallel_group |
 |-------|------|--------|----------------|
-| 1 | Patch `extract_events_published()` with dual-pattern detection | ⏳ Pending | — |
-| 2 | Manual verification on real call sites + graph rebuild | ⏳ Pending | — |
+| 1 | Patch `extract_events_published()` with dual-pattern detection | ✅ Done | — |
+| 2 | Manual verification on real call sites + graph rebuild | ✅ Done | — |
 
 ## File Map
 
@@ -55,11 +55,11 @@ These three issues were discovered and fixed during the graphify sync session on
 - `.claude/graph/extractors/csharp-extractor.sh` (lines 84-88)
 
 **Steps:**
-1. [ ] Locate `extract_events_published()` at line 84.
-2. [ ] Replace the single-pass body with the dual-pass implementation below.
-3. [ ] Verify `extract_events_subscribed()` immediately after is untouched.
-4. [ ] Run `bash -n .claude/graph/extractors/csharp-extractor.sh` — must exit 0.
-5. [ ] Run all 7 acceptance criteria test commands.
+1. [x] Locate `extract_events_published()` at line 84.
+2. [x] Replace the single-pass body with the dual-pass implementation below.
+3. [x] Verify `extract_events_subscribed()` immediately after is untouched.
+4. [x] Run `bash -n .claude/graph/extractors/csharp-extractor.sh` — must exit 0.
+5. [x] Run all 7 acceptance criteria test commands.
 
 **Test Type:** NoTest (shell script — manual verification only)
 
@@ -138,11 +138,11 @@ extract_events_published() {
 - `.claude/graph/graph.json` (regenerated)
 
 **Steps:**
-1. [ ] Run `bash .claude/graph/graph-builder.sh --full --skip-mcp`
-2. [ ] Verify `UpgradeService` has `UpgradePurchasedEvent` in `events_published`
-3. [ ] Verify `WalletService` has `GoldChangedEvent` in `events_published`
-4. [ ] Run `/knowledge-graph publishers` — confirm non-empty lists
-5. [ ] Verify `extract_events_subscribed` output unchanged
+1. [x] Run `bash .claude/graph/graph-builder.sh --full --skip-mcp`
+2. [x] Verify `UpgradeService` has `UpgradePurchasedEvent` in `events_published`
+3. [x] Verify `WalletService` has `GoldChangedEvent` in `events_published`
+4. [x] Run `/knowledge-graph publishers` — confirm non-empty lists
+5. [x] Verify `extract_events_subscribed` output unchanged
 
 **Test Type:** NoTest
 
