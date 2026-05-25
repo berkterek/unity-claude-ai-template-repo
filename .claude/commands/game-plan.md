@@ -88,35 +88,46 @@ Use the graph summary above as the primary inventory. Cross-reference with the f
 
 ## Codebase Scan (always run; secondary if graph data present)
 5. List all .cs files under Assets/_GameFolders/Scripts/Games/Concretes/
-6. For each .cs file, read the first 40 lines (class declaration, fields, constructor, first method bodies)
-   — assess: IMPLEMENTED (has real logic) | STUB (empty methods, TODO, placeholder returns) | PARTIAL (some logic, some stubs)
+6. For each .cs file, read the **entire file** (not just the first 40 lines):
+   - A file is IMPLEMENTED only if its public methods contain real logic (not just `throw new NotImplementedException()`, empty bodies, or single-line TODO returns)
+   - A file is STUB if any core method is empty, returns a placeholder, or has a TODO comment
+   - A file is PARTIAL if some methods are real and others are stubs — list which is which
 7. Check Assets/_GameFolders/Prefabs/ folder structure
 8. Check Assets/_GameFolders/Scripts/Games/Abstracts/ for interfaces
 
 ## Output Format — return exactly these sections:
 
-### GDD: Core Systems
-List every distinct gameplay system from the GDD (numbered). Examples:
-1. Slingshot mechanic
-2. Vacuum collection
-3. Combo system
-...
+### GDD: Core Gameplay Loop
+Identify the ONE core gameplay loop from the GDD — the minimal sequence a player must complete to have a playable session. Example: "spawn → move → collect → score → end". This determines Module 1.
+
+### GDD: All Systems
+List every distinct gameplay system from the GDD (numbered), grouped:
+- **Core loop systems** (required for any playable session)
+- **Feature systems** (built on top of the core loop)
+- **Polish/meta systems** (progression, monetization, analytics)
 
 ### DONE — Phases from PROGRESS.md
-List phases marked complete. For each: what .cs files are IMPLEMENTED (not stub).
+List phases marked complete. For each: what .cs files are IMPLEMENTED (confirmed by reading method bodies — not just class existence).
 
-### STUB/PARTIAL — Code exists but not working
-For each stub file: filename, which methods are empty or placeholder.
+### STUB/PARTIAL — Code exists but incomplete
+For each stub/partial file: filename + which specific methods are empty or placeholder.
 
 ### MISSING — No code at all
-GDD systems that have zero corresponding implementation.
+GDD systems (especially core loop systems) that have zero corresponding implementation.
 
 ### Module Breakdown Proposal
-Group all stub/partial/missing work into 6–10 logical modules. Order by dependency.
-Each module:
-- Number and name (e.g. "3. Combo System")  
+Group all stub/partial/missing work into modules. **MANDATORY ORDERING RULES:**
+
+1. **Module 1 MUST deliver a playable core loop** — the minimal set of systems a player needs to complete one session. No feature modules before this exists.
+2. **Each subsequent module must have all its dependencies in earlier modules** — if Module 3 needs a service from Module 2, that's fine; if it needs something from Module 5, reorder.
+3. **Features that depend on core loop come after Module 1** — rockets, power-ups, skins, analytics are always later modules.
+4. Order within a tier: by GDD priority / player-facing value (not alphabetically).
+
+For each module:
+- Number and name (e.g. "1. Core Movement & Collection")
 - What GDD systems it covers
 - Key files it will touch
+- Dependencies: which earlier modules it requires
 - Size: Small (1–3 tasks) | Medium (4–6) | Large (7+)
 
 Report only. Do NOT write plan tasks or implementation code.
@@ -131,7 +142,14 @@ Read the Reader output. Extract:
 - **Done summary** (for 0_MasterPlan context section)
 - **Gap summary** (stubs + missing)
 
-If the Reader missed obvious GDD systems, add them to the module list.
+**Mandatory checks before finalizing the module list:**
+
+1. **Core loop check:** Does Module 1 deliver a fully playable session on its own (spawn → play → end)? If not, merge or reorder until it does.
+2. **Dependency check:** For each module, verify every system it depends on exists in an earlier module. Reorder if not.
+3. **Feature-before-foundation check:** If any feature module (power-up, skin, analytics) appears before the core loop module, move it after Module 1.
+4. **Stub accuracy check:** Cross-reference the Reader's IMPLEMENTED claims against the actual method bodies it read. If a file was assessed without reading method bodies, mark it as UNKNOWN and flag it for manual verification.
+
+If the Reader missed obvious GDD systems (especially core loop systems), add them to the module list — place them in Module 1 if they are core loop, later modules if they are features.
 
 ---
 
