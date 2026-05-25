@@ -1,14 +1,14 @@
 # Knowledge Graph
 
-The template ships with a Graphify-inspired knowledge graph at `.claude/graph/graph.json`.
+The template ships with a Graphify-inspired knowledge graph at `.claude/graph/graph.json` (schema v1.1.0).
 Opt-in via `project-features.json` (`"graph": true`). When enabled, it is the single source of truth
 for `/catch-up`, `/orchestrate` pre-scan, and `/context-prime`.
 
-**Pipeline:** detect → extract (C# / asmdef / MCP) → build → cluster → analyze → report → export
+**Pipeline:** detect → extract (C# / asmdef / MCP) → build → finalize-calls → analyze → report → export
 
 **Commands:**
 - `/build-knowledge-graph [--full|--incremental] [--skip-mcp] [--validate] [--validate-with-codex]`
-- `/knowledge-graph <summary|implementers|publishers|subscribers|registrations|scope-tree|prefab|violations|diff>`
+- `/knowledge-graph <summary|implementers|publishers|subscribers|registrations|scope-tree|prefab|violations|diff|callers|impact|path|god-nodes>`
 
 **Triggers (kept in sync automatically):**
 - Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background, non-blocking)
@@ -42,7 +42,28 @@ Lessons from live testing — read before debugging graph output.
 
 - **Multi-line class declarations** (`class Foo\n  : IBar`) are handled by a python3 parser that joins up to 6 lines. Single-line and multi-line declarations both produce correct `base_types[]` and `implements[]`.
 - **Fully qualified interface names** (`Game.Abstracts.IFoo`) are reduced to their last segment (`IFoo`) before being stored. Both short and qualified names produce correct `implements[]`.
+- **methods[] extraction** — every public/private/protected method is captured per class (name, signature, line, is_async, is_static, return_type). Confidence: `INFERRED` (regex mode).
+- **partial_calls[] extraction** — call sites are extracted per file and merged into `codebase.calls[]` by `graph-builder.sh`. BCL types (`Debug`, `Mathf`, `Vector3`…) and C# keywords are filtered out. Confidence: `INFERRED`.
 - **Stale MCP cache** — when `mcp-extract.json` is older than 60 minutes, `graph-builder.sh` retains prefabs and scenes from the existing `graph.json` instead of dropping them. Run `/build-knowledge-graph` with Unity Editor open to refresh MCP data.
+
+### graph-builder.sh call edge merge
+
+- **Full build (`--full`):** discards retained call edges, uses only freshly extracted `partial_calls[]`.
+- **Incremental with changed files:** retains edges from unchanged files, replaces edges for changed files only.
+- **Incremental with no changed files:** retains all existing call edges unchanged (no re-extraction needed).
+- After assembly, `graph-traversal.py --finalize-calls` deduplicates edges and promotes `EXTRACTED` over `INFERRED` for the same caller+callee+file+line.
+
+### graph-traversal.py
+
+New in v1.1.0. Pure Python 3 stdlib — no pip install needed.
+
+| Subcommand | What it does |
+|---|---|
+| `impact <Node> [--hops N]` | BFS forward (downstream) + reverse (upstream) from node, default 3 hops |
+| `callers <Class.Method>` | One-hop reverse lookup — direct callers only |
+| `path <A> <B>` | BFS shortest path on forward call graph; exits 1 if no path |
+| `god-nodes [--top N]` | Rank nodes by in+out degree; `is_god_node: true` when total > 20 |
+| `--finalize-calls` | Sort + dedupe + promote confidence in `calls[]`; atomically rewrites `graph.json` |
 
 ### MCP Extraction (mcp-extractor.md)
 

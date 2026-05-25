@@ -126,9 +126,10 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `schema.json` | JSON-Schema (draft-07) for `graph.json` |
 | `graph.json` (generated) | Living index of the codebase — do not edit by hand |
 | `extractors/asmdef-extractor.sh` | Parses every `*.asmdef` |
-| `extractors/csharp-extractor.sh` | tree-sitter primary, regex fallback |
+| `extractors/csharp-extractor.sh` | tree-sitter primary, regex fallback — emits `methods[]` + `partial_calls[]` |
 | `extractors/mcp-extractor.md` | MCP scene/prefab extraction skill |
-| `graph-builder.sh` | Top-level orchestrator + SHA256 cache |
+| `graph-builder.sh` | Top-level orchestrator + SHA256 cache + call edge merge |
+| `graph-traversal.py` | BFS traversal — impact, callers, path, god-nodes, --finalize-calls |
 | `graph-validator.sh` | Architecture invariant checks (R1–R6) |
 | `codex-validator.md` | Codex accuracy spot-check prompt |
 | `graph-watch.sh` | Optional fswatch/inotifywait watch loop |
