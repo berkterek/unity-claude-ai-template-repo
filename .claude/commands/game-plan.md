@@ -28,7 +28,50 @@ Reads GDD + TDD + PROGRESS + codebase, then produces `0_MasterPlan.md` and numbe
 
 ## Step 1 — Reader
 
-Spawn an **Explore** subagent:
+**Before spawning the Explore subagent, Claude reads the graph directly:**
+
+Run this bash command yourself (not inside the subagent):
+```bash
+python3 -c "
+import json, os, time
+path = '.claude/graph/graph.json'
+if not os.path.exists(path):
+    print('GRAPH_STATUS: missing')
+else:
+    age_h = (time.time() - os.path.getmtime(path)) / 3600
+    if age_h > 24:
+        print('GRAPH_STATUS: stale (%.1fh)' % age_h)
+    else:
+        g = json.load(open(path))
+        cb = g.get('codebase', {})
+        classes = cb.get('classes', [])
+        interfaces = cb.get('interfaces', [])
+        events = cb.get('events', [])
+        installers = cb.get('vcontainer', {}).get('installers', [])
+        print('GRAPH_STATUS: fresh (%.1fh old)' % age_h)
+        print('=== CLASSES (%d) ===' % len(classes))
+        for c in classes:
+            deps = c.get('dependencies', [])
+            pub = c.get('events_published', [])
+            sub = c.get('events_subscribed', [])
+            print('%s | file=%s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+                c['name'], c.get('file',''), c.get('is_mono_behaviour',False), deps, pub, sub))
+        print('=== INTERFACES (%d) ===' % len(interfaces))
+        for i in interfaces: print('%s | file=%s' % (i['name'], i.get('file','')))
+        print('=== EVENTS (%d) ===' % len(events))
+        for e in events: print('%s | file=%s' % (e['name'], e.get('file','')))
+        print('=== INSTALLERS (%d) ===' % len(installers))
+        for inst in installers:
+            regs = [r.get('type','') for r in inst.get('registrations', [])]
+            print('%s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Store the output as `$GRAPH_DATA`. If `GRAPH_STATUS: missing` or `stale` → set `$GRAPH_DATA` to empty.
+
+---
+
+Now spawn an **Explore** subagent — pass `$GRAPH_DATA` directly in the prompt:
 
 ```
 You are a codebase analyst for a Unity project.
@@ -42,36 +85,13 @@ Read the project's design documents and scan the code to understand what's done 
 3. docs/PROGRESS.md — completed phases log
 4. Run: git log --oneline -20
 
-## Codebase Scan
+## Knowledge Graph Data (pre-extracted — use as primary source if non-empty)
+$GRAPH_DATA
 
-**Step A — Graph check (primary source when available):**
-Check if `.claude/graph/graph.json` exists:
-- If YES and file modified within 24h → run these graph queries first (use as primary, supplement with Step B):
-  ```
-  cat .claude/graph/graph.json | python3 -c "
-  import sys,json
-  g=json.load(sys.stdin)
-  cb=g.get('codebase',{})
-  classes=cb.get('classes',[])
-  interfaces=cb.get('interfaces',[])
-  events=cb.get('events',[])
-  installers=cb.get('vcontainer',{}).get('installers',[])
-  print('=== CLASSES (%d) ===' % len(classes))
-  for c in classes: print(c['name'], c.get('file',''), 'mono=' + str(c.get('is_mono_behaviour',False)))
-  print('=== INTERFACES (%d) ===' % len(interfaces))
-  for i in interfaces: print(i['name'], i.get('file',''))
-  print('=== EVENTS (%d) ===' % len(events))
-  for e in events: print(e['name'], e.get('file',''))
-  print('=== INSTALLERS (%d) ===' % len(installers))
-  for inst in installers: print(inst['name'], [r.get('type','') for r in inst.get('registrations',[])])
-  "
-  ```
-  - Use graph output to fill DONE/STUB/MISSING sections (classes with empty `registrations` or no `events_published`/`events_subscribed` are candidates for STUB)
-  - Graph provides: all classes + files, interfaces, events, VContainer installers + registrations
-  - Note: graph has no explicit STUB flag — cross-reference file list with Step B's 40-line scan to confirm STUB vs IMPLEMENTED
-- If NO or stale (> 24h) → skip to Step B using direct file scan only
+If graph data is present above: use it as the primary inventory of classes, interfaces, events, and installers.
+Cross-reference with Step B's file scan to confirm STUB vs IMPLEMENTED (graph has no explicit stub flag).
 
-**Step B — Direct file scan (always run; use as secondary if graph available):**
+## Codebase Scan (Step B — always run; secondary if graph data present)
 5. List all .cs files under Assets/_GameFolders/Scripts/Games/Concretes/
 6. For each .cs file, read the first 40 lines (class declaration, fields, constructor, first method bodies)
    — assess: IMPLEMENTED (has real logic) | STUB (empty methods, TODO, placeholder returns) | PARTIAL (some logic, some stubs)
