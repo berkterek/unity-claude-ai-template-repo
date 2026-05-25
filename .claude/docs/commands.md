@@ -31,6 +31,9 @@
 - `/refine-gdd` — Iterate on an existing GDD
 - `/refine-tdd` — Iterate on an existing TDD
 
+### Game Completion Planning
+- `/game-plan [docs/GDD.md]` — **Game completion planner:** reads GDD + TDD + PROGRESS + codebase, identifies what's done vs stub vs missing, then produces `docs/0_MasterPlan.md` (master tracking table) + numbered module plan files (`docs/1_SlingshotPhysics.md`, `docs/2_VacuumCollection.md`, …). Each module plan is `/orchestrate`-ready: tasks with file paths, code skeletons, test types, and `parallel_group` annotations. Run after the architecture skeleton is built and gameplay needs to be completed module by module.
+
 ### Development
 - `/plan-workflow` — Create a phased execution plan from a TDD — assigns integer `parallel_group` numbers (1, 2, `—`) compatible with `/orchestrate`; compile-time type dependencies force sequential even across different files
 - `/new-module` — Generate the 5-file module structure (Interface, Service, Config, Installer, Events)

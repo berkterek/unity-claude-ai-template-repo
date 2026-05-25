@@ -337,6 +337,14 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 | `/plan-workflow` | Manual — single step | Breaks the TDD into phases and tasks with agent types, inputs/outputs, and acceptance criteria → **WORKFLOW.md**. Includes: cycle detection gate (blocks circular dependencies), task atomicity gate (blocks XL tasks), and testing-capability preflight |
 | `/dry-run` | Manual — single step | *(optional)* Preview the orchestration plan without executing — shows agent assignments, phase count, risk points |
 
+### Phase 2b — Game Completion Planning (post-skeleton)
+
+Use this after the architecture skeleton is built and you need to plan the remaining gameplay module by module.
+
+| Command | How it runs | What it does |
+|---------|------------|-------------|
+| `/game-plan [docs/GDD.md]` | Manual — multi-agent | Reads GDD + TDD + PROGRESS + existing code → identifies done vs stub vs missing → produces `docs/0_MasterPlan.md` (module tracking table) + numbered module plan files (`1_SlingshotPhysics.md`, `2_VacuumCollection.md`, …). Each module plan is `/orchestrate`-ready with tasks, code skeletons, test types, and `parallel_group` annotations |
+
 ### Phase 3 — Project Setup
 
 | Command | How it runs | What it does |
@@ -381,6 +389,10 @@ Every command is **manually triggered** — there is no automatic chaining betwe
 
 ```
 /game-idea → /architect → /plan-workflow → /setup-project → /orchestrate
+                                                                    ↓
+                                                         /game-plan (post-skeleton)
+                                                                    ↓
+                                              /orchestrate docs/1_Module.md → … → docs/N_Module.md
                                                                     ↓
                                                     /qa → /review-code → /performance-audit
                                                                     ↓
@@ -483,6 +495,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `/refine-gdd` | Manual — single step | Iterate on an existing GDD |
 | `/refine-tdd` | Manual — single step | Iterate on an existing TDD |
 | `/plan-workflow` | Manual — single step | Create a phased execution plan from a TDD — assigns `parallel_group` numbers compatible with `/orchestrate`. Gates: cycle detection, task atomicity (XL split), testing-capability preflight |
+| `/game-plan [docs/GDD.md]` | Manual — multi-agent | **Post-skeleton game completion planner.** Reads GDD + TDD + PROGRESS + codebase → identifies done vs stub vs missing → produces `docs/0_MasterPlan.md` (module tracking table with status) + numbered module plan files (`docs/1_Module.md`, `docs/2_Module.md`, …). Each module plan is `/orchestrate`-ready: tasks with file paths, code skeletons, test types, and `parallel_group` annotations. Use after the architecture skeleton is built. |
 
 ### Pipelines (multi-agent)
 
