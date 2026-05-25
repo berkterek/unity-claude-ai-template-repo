@@ -256,7 +256,11 @@ Return the full plan file content ONLY. No preamble or explanation.
 
 ## Step 5 — Reviewer
 
-After all planners complete, spawn **unity-reviewer** (fallback: general-purpose agent):
+Reviewer priority — try in order, fall back if unavailable:
+1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
+
+After all planners complete, spawn the reviewer:
 
 ```
 Review these Unity project plan files for a game completion project.
