@@ -62,7 +62,7 @@ When starting a new conversation on this project, read these files first:
 - `.claude/CLAUDE.md` (this file — already loaded)
 - `.claude/rules/architecture.md` — module structure, VContainer, IEventBus patterns
 - `docs/CATCH_UP.md` if it exists — human-readable codebase guide
-- If `.claude/graph/graph.json` exists and `graph` feature is enabled: run `/knowledge-graph summary` — **this is the primary source of truth** for classes, interfaces, events, installers, scopes, and prefabs. Do NOT manually scan source folders if the graph is available and fresh (< 24h).
+- If `.claude/graph/graph.json` exists and `graph` feature is enabled: run `/knowledge-graph summary` — **this is the primary source of truth** for classes, interfaces, events, installers, scopes, prefabs, methods, and call edges. Do NOT manually scan source folders if the graph is available and fresh (< 24h).
 
 **Graph query cheatsheet (use before touching any existing system):**
 - "What interfaces exist?" → `/knowledge-graph implementers IAudioService`
@@ -71,6 +71,10 @@ When starting a new conversation on this project, read these files first:
 - "VContainer scope hierarchy?" → `/knowledge-graph scope-tree`
 - "Any architecture violations?" → `/knowledge-graph violations`
 - "What components does a prefab have?" → `/knowledge-graph prefab PlayerSphere`
+- "Who calls this method?" → `/knowledge-graph callers AudioService.PlaySound`
+- "What breaks if I change this class?" → `/knowledge-graph impact AudioService --hops 3`
+- "How does X reach Y?" → `/knowledge-graph path AudioService.PlaySound UIManager.UpdateHUD`
+- "Which classes are over-coupled?" → `/knowledge-graph god-nodes`
 
 If the user asks to continue work on a specific module, also read its source files before making any changes.
 

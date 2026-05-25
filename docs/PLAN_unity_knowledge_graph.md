@@ -1,8 +1,13 @@
+
 # PLAN — Unity Knowledge Graph (Graphify-Inspired)
 
-> **Version:** v1 — 2026-05-23
-> **Status:** Complete — 2026-05-23
-> **Scope:** `.claude/graph/` (new), `.claude/hooks/` (new hook scripts — user adds entries to settings.json manually), `.claude/commands/` (2 new + 3 existing rewrites), `.claude/CLAUDE.md`, `README.md`, `docs/engine-reference/` (informational), `.gitignore`
+> **Version:** v2 — 2026-05-25
+> **Status:** v1 Complete (Tasks 1–19) — extending with Tasks 20–24 (Call Graph + Impact Analysis + Methods + Path + God-Nodes)
+> **Scope:** `.claude/graph/` (extend), `.claude/commands/knowledge-graph.md` (extend)
+
+> **v2 Revision Note — 2026-05-25**
+>
+> Adds the next layer of Graphify parity that the v1 build did not cover: a true **call graph** (caller→callee edges), **per-class method inventory**, **impact analysis** (multi-hop affected-node traversal), **shortest-path** search between two nodes, and **god-node** ranking (top N most-connected entities). Four new `/knowledge-graph` subcommands surface these (`callers`, `impact`, `path`, `god-nodes`). All five new tasks are **additive** — they extend the existing schema (`classes[].methods[]` + top-level `codebase.calls[]`), add a new Python traversal script (`.claude/graph/graph-traversal.py`), and append subcommands to the existing query command. No v1 behaviour changes; existing graphs upgrade in-place on the next `--full` build.
 
 ---
 
@@ -31,16 +36,20 @@ Documentation (`CLAUDE.md`, `README.md`) is updated only at the end, after the s
 
 ## Goals
 
-- [ ] Define a versioned `graph.json` schema and reserve `.claude/graph/` as the system's home.
-- [ ] Ship three extractors: C# (tree-sitter + regex), .asmdef (JSON), scene/prefab (MCP).
-- [ ] Ship `graph-builder.sh` that aggregates extractor output, deduplicates, and writes `graph.json` with a SHA256-keyed file cache so unchanged files are skipped.
-- [ ] Ship `graph-validator.sh` that checks the graph against `.claude/rules/architecture.md` invariants (no singletons, all events have publisher+subscriber, every concrete is registered).
-- [ ] Ship `/build-knowledge-graph` (full or incremental build) and `/knowledge-graph` (query) slash commands.
-- [ ] Ship `graph-auto-update.sh` PostToolUse hook (incremental, file-scoped, fast) and a git `post-commit` hook (full rebuild) — both opt-in via `.claude/project-features.json`.
-- [ ] Use Codex to cross-check `graph.json` accuracy against ground-truth file scans.
-- [ ] Replace the file-scan logic inside `/catch-up`, `/orchestrate` pre-scan, and `/context-prime` with graph queries.
-- [ ] Wire `setup-project → GDD → TDD → orchestrate` so each step both consumes and feeds the graph.
-- [ ] Update `.claude/CLAUDE.md` and `README.md` last, documenting the final shape.
+- [x] Define a versioned `graph.json` schema and reserve `.claude/graph/` as the system's home.
+- [x] Ship three extractors: C# (tree-sitter + regex), .asmdef (JSON), scene/prefab (MCP).
+- [x] Ship `graph-builder.sh` that aggregates extractor output, deduplicates, and writes `graph.json` with a SHA256-keyed file cache so unchanged files are skipped.
+- [x] Ship `graph-validator.sh` that checks the graph against `.claude/rules/architecture.md` invariants (no singletons, all events have publisher+subscriber, every concrete is registered).
+- [x] Ship `/build-knowledge-graph` (full or incremental build) and `/knowledge-graph` (query) slash commands.
+- [x] Ship `graph-auto-update.sh` PostToolUse hook (incremental, file-scoped, fast) and a git `post-commit` hook (full rebuild) — both opt-in via `.claude/project-features.json`.
+- [x] Use Codex to cross-check `graph.json` accuracy against ground-truth file scans.
+- [x] Replace the file-scan logic inside `/catch-up`, `/orchestrate` pre-scan, and `/context-prime` with graph queries.
+- [x] Wire `setup-project → GDD → TDD → orchestrate` so each step both consumes and feeds the graph.
+- [x] Update `.claude/CLAUDE.md` and `README.md` last, documenting the final shape.
+- [ ] **v2:** Extract a **call graph** (`calls[]` edges between classes/methods) with EXTRACTED (tree-sitter) and INFERRED (regex) confidence.
+- [ ] **v2:** Extract a **methods[]** inventory per `classEntry` (name, signature, line, accessibility, is_async).
+- [ ] **v2:** Ship `graph-traversal.py` for BFS impact analysis, shortest-path between two nodes, and god-node ranking.
+- [ ] **v2:** Add 4 `/knowledge-graph` subcommands (`callers`, `impact`, `path`, `god-nodes`).
 
 ## Status
 
@@ -65,6 +74,11 @@ Documentation (`CLAUDE.md`, `README.md`) is updated only at the end, after the s
 | 8 | Task 17 — Reference graph from GDD-refine / TDD-refine / architect | Done | F |
 | 9 | Task 18 — Update `.claude/CLAUDE.md` with graph system section | Done | G |
 | 9 | Task 19 — Update `README.md` with graph system section + Slash Commands table rows | Done | G |
+| **10 (v2)** | **Task 20 — Extend `schema.json` with `methods[]` + top-level `calls[]`** | **Pending** | **—** |
+| **10 (v2)** | **Task 21 — Extend `csharp-extractor.sh` to emit `methods[]` + per-file `calls[]`** | **Pending** | **H** |
+| **10 (v2)** | **Task 22 — `graph-traversal.py` — BFS, impact, shortest-path, god-nodes** | **Pending** | **H** |
+| **10 (v2)** | **Task 23 — `graph-builder.sh` — invoke `graph-traversal.py` to finalize `calls[]`** | **Pending** | **—** |
+| **10 (v2)** | **Task 24 — Add `callers`/`impact`/`path`/`god-nodes` subcommands to `/knowledge-graph`** | **Pending** | **—** |
 
 **Parallel groups:**
 - **A** (Phase 2 — three extractors): different files, no type dependency, each consumes Task 1's schema only.
@@ -74,6 +88,7 @@ Documentation (`CLAUDE.md`, `README.md`) is updated only at the end, after the s
 - **E** (Phase 7 — three command rewrites): different files; each independently consumes the now-stable `graph.json`.
 - **F** (Phase 8 — workflow integration): different command files.
 - **G** (Phase 9 — docs): different files, must run last.
+- **H (v2)** (Phase 10 — extractor extension + traversal script): different files (`csharp-extractor.sh` vs `graph-traversal.py`); both consume Task 20's schema only — no inter-task imports. Task 23 (builder wiring) is **sequential** (depends on both H members) and Task 24 (subcommands) is **sequential** (depends on Task 23).
 
 ## File Map
 
@@ -106,6 +121,11 @@ Documentation (`CLAUDE.md`, `README.md`) is updated only at the end, after the s
 | `.claude/CLAUDE.md` | Edit | New `## Knowledge Graph` section near top, plus row in Hooks blocking/warning tables. |
 | `.claude/docs/hooks-warning.md` | Edit | Add `graph-auto-update.sh` row to Warning hooks table. |
 | `README.md` | Edit | New `## Knowledge Graph` section + two rows in the `## Slash Commands` table + entry in Configuration File Map. |
+| **`.claude/graph/schema.json`** | **Edit (v2 — Task 20)** | **Add `methods[]` to `classEntry`; add top-level `codebase.calls[]`. Bump `schema_version` to `1.1.0`.** |
+| **`.claude/graph/extractors/csharp-extractor.sh`** | **Edit (v2 — Task 21)** | **Extend `extract_class_info()` Python block to also capture methods + emit per-file `calls[]` (INFERRED in regex mode, EXTRACTED in tree-sitter mode).** |
+| **`.claude/graph/graph-traversal.py`** | **Create (v2 — Task 22)** | **NEW: BFS impact/affected-nodes, shortest-path, god-node ranking. Pure Python 3 stdlib (no extra deps).** |
+| **`.claude/graph/graph-builder.sh`** | **Edit (v2 — Task 23)** | **After merging extractor output, invoke `graph-traversal.py --finalize-calls` to dedupe & sort the top-level `calls[]` array.** |
+| **`.claude/commands/knowledge-graph.md`** | **Edit (v2 — Task 24)** | **Append 4 new subcommands: `callers <Class.Method>`, `impact <ClassName> [--hops N]`, `path <NodeA> <NodeB>`, `god-nodes [--top N]`.** |
 
 ---
 
@@ -119,8 +139,8 @@ Documentation (`CLAUDE.md`, `README.md`) is updated only at the end, after the s
 
 **Steps:**
 
-1. [ ] Create `.claude/graph/README.md` with: purpose ("Graphify-inspired Unity knowledge graph"), pipeline diagram (detect → extract → build → cluster → analyze → report → export), pointer to `schema.json`, pointer to `/build-knowledge-graph`, lifecycle note ("graph.json is generated — do not edit by hand"), and a per-confidence legend (`EXTRACTED` / `INFERRED` / `AMBIGUOUS`).
-2. [ ] Create `.claude/graph/schema.json` — JSON-Schema (draft-07) describing the full graph. Top-level keys:
+1. [x] Create `.claude/graph/README.md` with: purpose ("Graphify-inspired Unity knowledge graph"), pipeline diagram (detect → extract → build → cluster → analyze → report → export), pointer to `schema.json`, pointer to `/build-knowledge-graph`, lifecycle note ("graph.json is generated — do not edit by hand"), and a per-confidence legend (`EXTRACTED` / `INFERRED` / `AMBIGUOUS`).
+2. [x] Create `.claude/graph/schema.json` — JSON-Schema (draft-07) describing the full graph. Top-level keys:
    - `schema_version` (semver, start `"1.0.0"`)
    - `generated_at` (ISO8601 UTC)
    - `generator` (`"graph-builder.sh@<git-sha>"`)
@@ -136,8 +156,8 @@ Documentation (`CLAUDE.md`, `README.md`) is updated only at the end, after the s
    - `codebase.mcp_extraction` — `{ status: "ok"|"skipped"|"error", skipped_reason?, extracted_at? }` (top-level metadata — not per-item)
    - `validation.errors[]` / `validation.warnings[]` — `{ rule_id, file, line, message, severity }`
    - `stats` — `{ scanned_files, cache_hits, build_ms }`
-3. [ ] Create `.claude/graph/cache/.gitkeep` (empty file so the directory is committed; actual cache entries are ignored).
-4. [ ] Add to `.gitignore`:
+3. [x] Create `.claude/graph/cache/.gitkeep` (empty file so the directory is committed; actual cache entries are ignored).
+4. [x] Add to `.gitignore`:
    ```
    # Knowledge graph (generated)
    .claude/graph/graph.json
@@ -181,12 +201,12 @@ Documentation (`CLAUDE.md`, `README.md`) is updated only at the end, after the s
 
 **Steps:**
 
-1. [ ] Write a Bash script: `find Assets -name '*.asmdef' -print0 | while IFS= read -r -d '' f; do …`.
-2. [ ] For each `.asmdef`, use `jq` to extract `name`, `references[]`, `includePlatforms[]`, `excludePlatforms[]`, `allowUnsafeCode`, `defineConstraints[]`.
-3. [ ] Emit a JSON array on stdout — one object per asmdef — matching `codebase.assemblies[]` in the schema.
-4. [ ] Add `--changed-files <list>` flag: if provided, skip asmdefs not in the list (used by incremental hook).
-5. [ ] Always set `confidence: "EXTRACTED"` (asmdef is explicit machine-readable data).
-6. [ ] Exit 0 on success; non-zero with a single-line `ERR_*` token on failure.
+1. [x] Write a Bash script: `find Assets -name '*.asmdef' -print0 | while IFS= read -r -d '' f; do …`.
+2. [x] For each `.asmdef`, use `jq` to extract `name`, `references[]`, `includePlatforms[]`, `excludePlatforms[]`, `allowUnsafeCode`, `defineConstraints[]`.
+3. [x] Emit a JSON array on stdout — one object per asmdef — matching `codebase.assemblies[]` in the schema.
+4. [x] Add `--changed-files <list>` flag: if provided, skip asmdefs not in the list (used by incremental hook).
+5. [x] Always set `confidence: "EXTRACTED"` (asmdef is explicit machine-readable data).
+6. [x] Exit 0 on success; non-zero with a single-line `ERR_*` token on failure.
 
 **Test Type:** Manual — run against this repo's `Assets/` (empty here, so should emit `[]`); spot-check against a Unity project that does have asmdefs.
 
@@ -230,16 +250,16 @@ echo "]"
 
 **Steps:**
 
-1. [ ] At script start, detect tree-sitter: `command -v tree-sitter >/dev/null && tree-sitter --version | grep -q '^tree-sitter '`. If absent, set `MODE=regex` and warn to stderr.
-2. [ ] Build the file list: either all `.cs` files under `Assets/_Framework/`, `Assets/_GameFolders/Scripts/`, and `Packages/` (skip `*.Tests.*` asmdef paths unless `--include-tests`), or just `--changed-files`.
-3. [ ] **In tree-sitter mode**, for each file run a small query (committed under `.claude/graph/extractors/queries/csharp.scm`) that captures:
+1. [x] At script start, detect tree-sitter: `command -v tree-sitter >/dev/null && tree-sitter --version | grep -q '^tree-sitter '`. If absent, set `MODE=regex` and warn to stderr.
+2. [x] Build the file list: either all `.cs` files under `Assets/_Framework/`, `Assets/_GameFolders/Scripts/`, and `Packages/` (skip `*.Tests.*` asmdef paths unless `--include-tests`), or just `--changed-files`.
+3. [x] **In tree-sitter mode**, for each file run a small query (committed under `.claude/graph/extractors/queries/csharp.scm`) that captures:
    - `(class_declaration name: (identifier) @class.name (base_list (identifier) @class.implements)?)`
    - `(interface_declaration name: (identifier) @iface.name)`
    - constructor parameters (for VContainer ctor-injection → `dependencies[]`)
    - `[Inject]` method/property attributes
    - `builder.Register<T>` / `Register<T>().As<U>()` calls → `vcontainer.installers[].registrations[]`
    - `IEventBus.Publish<T>` / `Subscribe<T>` calls → `events[]` + `events_published/subscribed`
-4. [ ] **In regex mode**, use `grep -nE` patterns as a fallback:
+4. [x] **In regex mode**, use `grep -nE` patterns as a fallback:
    - Classes: `^\s*(public|internal)?\s*(sealed|abstract)?\s*class\s+(\w+)(\s*:\s*([\w<>,\s]+))?`
    - Interfaces: `^\s*(public|internal)?\s*interface\s+(I\w+)`
    - VContainer: `builder\.Register<([^>]+)>\(\s*Lifetime\.(\w+)\s*\)(?:\.As<([^>]+)>\(\))?`
@@ -248,10 +268,10 @@ echo "]"
    - Mark every regex-mode result `confidence: "INFERRED"` (not EXTRACTED — regex misses generics, partial classes, etc.).
    - Singleton detection: `static\s+(readonly\s+)?\w+\s+(Instance|Current|Shared|Main|Default)\b` or `static\s+\w+\s+_instance\b` → set `has_static_instance: true`.
    - Base type list: capture raw base list from class declaration → `base_types[]`. Set `is_mono_behaviour: true` if `"MonoBehaviour"` appears in `base_types[]`.
-5. [ ] Detect `Installer` classes: name ends with `Installer` AND implements `IInstaller` (or inherits `LifetimeScope`). Group their `Register<…>` calls under `vcontainer.installers[name].registrations`.
-6. [ ] Resolve event publishers/subscribers across files in a second pass: pivot the per-file list into the schema's `events[]` shape.
-7. [ ] Emit one JSON object on stdout with keys `classes`, `interfaces`, `events`, `vcontainer` — match the schema exactly.
-8. [ ] Honor `--changed-files`: only re-extract those files, then on stdout emit a **partial** payload tagged `"partial": true` for the builder to merge.
+5. [x] Detect `Installer` classes: name ends with `Installer` AND implements `IInstaller` (or inherits `LifetimeScope`). Group their `Register<…>` calls under `vcontainer.installers[name].registrations`.
+6. [x] Resolve event publishers/subscribers across files in a second pass: pivot the per-file list into the schema's `events[]` shape.
+7. [x] Emit one JSON object on stdout with keys `classes`, `interfaces`, `events`, `vcontainer` — match the schema exactly.
+8. [x] Honor `--changed-files`: only re-extract those files, then on stdout emit a **partial** payload tagged `"partial": true` for the builder to merge.
 
 **Test Type:** Manual — run against this template's own `Assets/` (likely sparse), then against the user's Unity Delivery Loop project (the canonical test target).
 
@@ -290,9 +310,9 @@ scan_file_regex() {
 
 **Steps:**
 
-1. [ ] Write this as a **skill / agent prompt** (not a shell script) because MCP tools are only available inside Claude. The file lives under `.claude/graph/extractors/` so it co-locates with the other extractors but is invoked by `/build-knowledge-graph`, not by `graph-builder.sh` directly.
-2. [ ] Frontmatter: `name: mcp-extractor`, `description: "Extracts scenes/prefabs/components into graph.json via MCP. EDITOR/MCP — Unity Editor must be open."`.
-3. [ ] Body sections:
+1. [x] Write this as a **skill / agent prompt** (not a shell script) because MCP tools are only available inside Claude. The file lives under `.claude/graph/extractors/` so it co-locates with the other extractors but is invoked by `/build-knowledge-graph`, not by `graph-builder.sh` directly.
+2. [x] Frontmatter: `name: mcp-extractor`, `description: "Extracts scenes/prefabs/components into graph.json via MCP. EDITOR/MCP — Unity Editor must be open."`.
+3. [x] Body sections:
    - **Inputs:** optional `--scenes <path,path>` and `--prefabs <dir>` filters; otherwise full project.
    - **Process** (must batch via `batch_execute` per the `unity-mcp-patterns` skill):
      1. **[PRE-CONDITION GATE — run first before any other step]** Read `.claude/skills/core/unity-mcp-patterns/SKILL.md`. Confirm which actions exist for scene hierarchy (`get_hierarchy` or equivalent), prefab info (`get_info`/`get_hierarchy`), and component reads. If any required action is absent, mark Task 4 `[BLOCKED — MCP action unconfirmed]` and stop.
@@ -300,13 +320,11 @@ scan_file_regex() {
      3. Component reads: use the confirmed component resource or `manage_components` read action → component type list per GameObject.
      4. Prefab listing: enumerate `.prefab` files via `find Assets -name '*.prefab'` (Bash), then use confirmed `manage_prefabs` info/hierarchy action to read component state per prefab.
      5. Detect Prefab Variants by checking `.prefab` YAML `m_PrefabParent` field via Bash grep — MCP does not expose variant metadata directly.
-     5. Detect Prefab Variants by checking `.prefab` YAML `m_PrefabParent` field via Bash grep — MCP does not expose variant metadata directly.
      6. Classify each prefab into a `domain` using the path heuristic from `unity-prefabs.md`: `UI`, `VFX`, `Enemies`, `Environment`, `Audio`, `Tools`, or `ThirdParty`.
-     7. After all MCP calls complete, remove the now-redundant numbered step 4 from the PRE-CONDITION GATE duplicate (see Step 1 above — gate was moved to Step 1).
    - **Output:** a JSON object with keys `scenes[]` and `prefabs[]` matching the schema, written to `.claude/graph/cache/mcp-extract.json` so the shell builder can pick it up.
    - **Failure modes:** if Unity Editor is not connected, exit 0 with empty `scenes: []` and `prefabs: []` output — the rest of the build still proceeds. Builder sets `codebase.mcp_extraction.status: "skipped"` and `skipped_reason: "MCP_UNAVAILABLE"` on the top-level metadata object. Do NOT set per-item confidence fields for MCP failures.
-4. [ ] Cross-reference `.claude/skills/core/unity-mcp-patterns/SKILL.md` (Rule 1 — batch_execute, Rule 2 — read_console) explicitly: the skill MUST be read before invocation.
-5. [ ] Mark **[EDITOR/MCP — Unity Editor must be open]** prominently — this is the only extractor that needs a live Unity Editor.
+4. [x] Cross-reference `.claude/skills/core/unity-mcp-patterns/SKILL.md` (Rule 1 — batch_execute, Rule 2 — read_console) explicitly: the skill MUST be read before invocation.
+5. [x] Mark **[EDITOR/MCP — Unity Editor must be open]** prominently — this is the only extractor that needs a live Unity Editor.
 
 **Test Type:** Manual MCP smoke test — open a Unity project with one scene + three prefabs and run `/build-knowledge-graph --mcp-only`; verify `cache/mcp-extract.json` is populated and schema-valid.
 
@@ -346,714 +364,630 @@ alwaysApply: false
 
 **Steps:**
 
-1. [ ] Accept flags: `--full` (rebuild from scratch, ignore cache), `--incremental` (default — use cache), `--changed-files <comma-list>` (passed through to extractors), `--skip-mcp` (don't wait for Task 4 output), `--output <path>` (default `.claude/graph/graph.json`).
-2. [ ] Detect SHA256 tool: prefer `sha256sum`, fall back to `shasum -a 256` (mac).
-3. [ ] Load `.claude/graph/cache/file-hashes.json` (or start `{}`). Load existing `graph.json` into memory (or `{}` on first run). Build a set `current_paths` of all candidate files on disk (`.cs`, `.asmdef`, `.prefab`, `.unity`). For every candidate file:
+1. [x] Accept flags: `--full` (rebuild from scratch, ignore cache), `--incremental` (default — use cache), `--changed-files <comma-list>` (passed through to extractors), `--skip-mcp` (don't wait for Task 4 output), `--output <path>` (default `.claude/graph/graph.json`).
+2. [x] Detect SHA256 tool: prefer `sha256sum`, fall back to `shasum -a 256` (mac).
+3. [x] Load `.claude/graph/cache/file-hashes.json` (or start `{}`). Load existing `graph.json` into memory (or `{}` on first run). Build a set `current_paths` of all candidate files on disk (`.cs`, `.asmdef`, `.prefab`, `.unity`). For every candidate file:
    - Compute current hash.
    - If hash matches cache AND `--full` not set → **copy prior extracted entries for that file from existing `graph.json`** (keyed by `source_file` field on each node) into the new graph. Do NOT re-run the extractor.
    - Otherwise → mark for re-extraction. Remove stale entries for that file from the merge buffer.
    - **Purge ghost entries:** after processing all candidate files, remove any entries in the merge buffer whose `source_file` is NOT in `current_paths` (handles deleted and renamed files). Also remove their hashes from the hash cache.
-4. [ ] Invoke extractors:
+4. [x] Invoke extractors:
    - `asmdef-extractor.sh --changed-files "$CHANGED_ASMDEFS"` → capture stdout.
    - `csharp-extractor.sh --changed-files "$CHANGED_CS"` → capture stdout.
    - For MCP: if `cache/mcp-extract.json` is fresher than 1 hour, reuse it; otherwise note "MCP refresh recommended" in stats (the actual run happens through `/build-knowledge-graph` — the shell builder cannot itself drive MCP).
-5. [ ] Merge per-file extractor output with retained cache entries → assemble the full `codebase` object.
-6. [ ] Compute `events[]` by pivoting publishers/subscribers across all class entries.
-7. [ ] Compute `validation.errors[]` placeholder (filled by Task 6 separately).
-8. [ ] Compute `stats`: `scanned_files`, `cache_hits`, `build_ms` (use `$SECONDS` or `date +%s%N`).
-9. [ ] Atomically write `.claude/graph/graph.json`: write to `graph.json.tmp`, `jq empty graph.json.tmp` to validate, then `mv` over.
-10. [ ] Update `.claude/graph/cache/file-hashes.json` (also atomic).
-11. [ ] Touch `.claude/graph/.last-build` with ISO timestamp.
-12. [ ] Print a one-line summary to stderr: `graph: 312 classes, 87 events, 12 installers (24 cached, 8 reparsed) in 412ms`.
+5. [x] Merge per-file extractor output with retained cache entries → assemble the full `codebase` object.
+6. [x] Compute `events[]` by pivoting publishers/subscribers across all class entries.
+7. [x] Compute `validation.errors[]` placeholder (filled by Task 6 separately).
+8. [x] Compute `stats`: `scanned_files`, `cache_hits`, `build_ms` (use `$SECONDS` or `date +%s%N`).
+9. [x] Atomically write `.claude/graph/graph.json`: write to `graph.json.tmp`, `jq empty graph.json.tmp` to validate, then `mv` over.
+10. [x] Update `.claude/graph/cache/file-hashes.json` (also atomic).
+11. [x] Touch `.claude/graph/.last-build` with ISO timestamp.
+12. [x] Print a one-line summary to stderr: `graph: 312 classes, 87 events, 12 installers (24 cached, 8 reparsed) in 412ms`.
 
 **Test Type:** Unit-ish — run `--full`, capture output, re-run `--incremental` with no changes, verify all files marked as cache hits and runtime drops by >10×.
 
-**Code Skeleton:**
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SHA_CMD="sha256sum"
-command -v sha256sum >/dev/null 2>&1 || SHA_CMD="shasum -a 256"
-
-hash_file() { $SHA_CMD "$1" | awk '{print $1}'; }
-
-CACHE=".claude/graph/cache/file-hashes.json"
-[[ -f "$CACHE" ]] || echo '{}' > "$CACHE"
-
-# 1. Detect changed files
-# 2. Run extractors on changed subset
-# 3. Merge with cached entries
-# 4. Pivot events
-# 5. Atomic write
-```
+**Code Skeleton:** *(see v1 source)*
 
 **Acceptance Criteria:**
-- Idempotent: two consecutive `--incremental` runs produce identical `graph.json` (compare via `jq -S . graph.json | sha256sum`).
-- Cache hit rate >90% on a no-op rebuild.
-- Output validates against `schema.json` (use `python3 -c "import jsonschema, json; jsonschema.validate(json.load(open('.claude/graph/graph.json')), json.load(open('.claude/graph/schema.json')))"`).
-- Atomic write: an interrupted build never leaves a partial `graph.json`.
+- Idempotent; cache hit rate >90% on a no-op rebuild; output schema-valid; atomic writes.
 
 ---
 
 ## Task 6 — graph-validator.sh (Architecture Invariants)
 
-**Files:**
-- Create: `.claude/graph/graph-validator.sh`
-
-**Steps:**
-
-1. [ ] Read `.claude/graph/graph.json`. If missing, exit 0 with a warning (the graph hasn't been built yet — this is informational, not a hard block).
-2. [ ] Run these checks via `jq`:
-   - **R1: No singletons.** For each class in `codebase.classes[]`, fail if it has any of: a public `Instance` static property, `_instance` static field, `Current/Shared/Main/Default` static property, or `DontDestroyOnLoad` call. (Matches the rule already used by `check-vcontainer-singleton.sh`.) Source from the extractor's `events_published/subscribed` lists is NOT sufficient — this check requires extractor to also surface "has_static_instance" flag (extend Task 3's regex).
-   - **R2: Every event has at least one publisher AND one subscriber.** Otherwise emit `validation.warnings[]` with `rule_id: "EVENT_DANGLING"`.
-   - **R3: Every concrete class in `_GameFolders/Scripts/Games/Concretes/` is registered in at least one `vcontainer.installers[].registrations[]`.** If not, warning `CONCRETE_UNREGISTERED`.
-   - **R4: No interface lives outside `_Framework/` or `Games/Abstracts/`.** Error `INTERFACE_MISPLACED`.
-   - **R5: Every `.asmdef` references must be a known asmdef in the graph.** Error `ASMDEF_UNRESOLVED`.
-   - **R6: No `_Framework/` asmdef references a `Games/` asmdef.** Error `LAYER_VIOLATION`.
-3. [ ] Write findings back into `graph.json` under `validation.errors[]` and `validation.warnings[]` (use a temp file + atomic mv).
-4. [ ] Exit 0 if only warnings; exit 1 if any error (so hooks can pick it up).
-
-**Test Type:** Unit — craft a fixture `graph.json` containing one of each violation under `.claude/graph/test-fixtures/` and assert `validator` reports each one.
-
-**Code Skeleton:**
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-GRAPH="${1:-.claude/graph/graph.json}"
-[[ -f "$GRAPH" ]] || { echo "graph-validator: $GRAPH not found, skipping" >&2; exit 0; }
-
-errors=()
-warnings=()
-
-# R2: dangling events
-while IFS= read -r ev; do
-  warnings+=("{\"rule_id\":\"EVENT_DANGLING\",\"message\":\"$ev has no publisher or subscriber\"}")
-done < <(jq -r '.codebase.events[] | select((.publishers|length)==0 or (.subscribers|length)==0) | .name' "$GRAPH")
-
-# … etc …
-
-# Merge findings into graph.json (atomic)
-```
-
-**Acceptance Criteria:**
-- All six rules implemented and individually testable.
-- Findings persisted into `graph.json.validation.*`.
-- Exit code reflects error/warning split.
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 7 — Codex Graph-Accuracy Validator
 
-**Files:**
-- Create: `.claude/graph/codex-validator.md`
-
-**Steps:**
-
-1. [ ] Write a prompt template that the user (or `/build-knowledge-graph --validate-with-codex`) hands to Codex via the existing `codex:codex-rescue` skill (see `/fix-codex` Step 1 for the invocation pattern).
-2. [ ] Prompt structure:
-   - **Task:** "Cross-check this `graph.json` against ground truth. Do NOT trust the graph — re-read the source files yourself."
-   - **Inputs:** path to `graph.json`, optional list of N random classes/events/installers to spot-check (default 20, balanced across categories).
-   - **Process:** For each sampled entry, Codex opens the listed file, verifies the claim (class exists, implements the listed interfaces, registers what the graph says, publishes/subscribes what the graph says).
-   - **Output:** JSON report `{ "sampled": N, "agreements": K, "disagreements": [{ "entry", "claimed", "actual", "file:line" }], "missing_in_graph": [...], "extra_in_graph": [...] }`.
-3. [ ] State the acceptance threshold: ≥95% agreement on a 20-sample run.
-4. [ ] Note that this is **manual/on-demand** — running it on every build is too expensive. Recommend running after every schema change or extractor change.
-5. [ ] Document in this file: "Run via `/fix-codex`-style invocation; see Step 1 of fix-codex.md for the Codex skill call pattern."
-
-**Test Type:** Manual — run once against the user's real project, expect ≥95% agreement; investigate any disagreement and decide whether the graph or the source needs correction.
-
-**Code Skeleton:** (prompt only — no executable code)
-```markdown
-# Codex Graph-Accuracy Validator
-
-## Prompt to hand to codex:codex-rescue
-
-TASK: Validate accuracy of .claude/graph/graph.json. Do NOT trust the graph;
-re-read source files yourself.
-
-INPUT: .claude/graph/graph.json
-SAMPLE_SIZE: 20 (default — 5 classes, 5 events, 5 installers, 5 prefabs)
-
-For each sampled entry:
-  1. Open the file claimed in the entry.
-  2. Verify every claim (name, namespace, implements[], events_published[]…).
-  3. If any claim is wrong, record it under disagreements[].
-
-OUTPUT: JSON with { sampled, agreements, disagreements, missing_in_graph, extra_in_graph }.
-```
-
-**Acceptance Criteria:**
-- Document is self-contained and references the existing Codex invocation pattern from `/fix-codex`.
-- Sample-size and threshold (95%) are explicit.
-- Output format is a parseable JSON report.
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 8 — /build-knowledge-graph Slash Command
 
-**Files:**
-- Create: `.claude/commands/build-knowledge-graph.md`
-
-**Steps:**
-
-1. [ ] Front-matter: `# /build-knowledge-graph — Unity Knowledge Graph Builder`.
-2. [ ] **Step 0 — Plugin Preflight:** check if `.claude/graph/graph-builder.sh` exists; if not, prompt user to run `/setup-project` (the graph is opt-in via `project-features.json`).
-3. [ ] **Step 1 — Flags:** parse `--full`, `--incremental` (default), `--mcp-only` (skip all shell extraction — run ONLY the MCP extractor, then merge its output into the cached graph; useful when only scene/prefab data needs refresh), `--skip-mcp`, `--validate`, `--validate-with-codex`, `--quiet`.
-4. [ ] **Step 2 — Shell extraction:** if `--mcp-only` is NOT set, run `.claude/graph/graph-builder.sh` with the matching flags. If `--mcp-only` IS set, skip this step entirely. Stream stderr to user.
-5. [ ] **Step 3 — MCP extraction (RUNTIME):** if `--skip-mcp` not set:
-   - Read `.claude/skills/core/unity-mcp-patterns/SKILL.md`.
-   - Read `.claude/graph/extractors/mcp-extractor.md`.
-   - Execute MCP calls per the extractor skill, writing `.claude/graph/cache/mcp-extract.json`.
-   - Re-run `graph-builder.sh --incremental` so the new MCP data gets merged into `graph.json`.
-6. [ ] **Step 4 — Architecture validation:** if `--validate` set, run `.claude/graph/graph-validator.sh`. Print summary.
-7. [ ] **Step 5 — Codex validation:** if `--validate-with-codex` set, hand `codex-validator.md` to `codex:codex-rescue` per Task 7's pattern. Show the report.
-8. [ ] **Step 6 — Summary:** print stats (`scanned_files`, `cache_hits`, `build_ms`) plus a one-line "what's new since last build" diff (compare `graph.json` to `graph.json.bak` if it exists; otherwise skip).
-9. [ ] Always rotate: copy current `graph.json` to `graph.json.bak` before each build.
-
-**Test Type:** Manual — run `/build-knowledge-graph --full` on a Unity project, verify a populated `graph.json`. Re-run incremental, verify cache hits.
-
-**Code Skeleton:**
-```markdown
-# /build-knowledge-graph — Unity Knowledge Graph Builder
-
-## Step 0 — Plugin Preflight
-Check `.claude/graph/graph-builder.sh` exists.
-
-## Step 1 — Flags
---full | --incremental (default) | --mcp-only | --skip-mcp | --validate | --validate-with-codex | --quiet
-
-## Step 2 — Shell extraction
-Run: bash .claude/graph/graph-builder.sh "$FLAGS"
-
-## Step 3 — MCP extraction (RUNTIME)
-Read: .claude/skills/core/unity-mcp-patterns/SKILL.md
-Read: .claude/graph/extractors/mcp-extractor.md
-Execute MCP calls, write cache/mcp-extract.json.
-Re-run: bash .claude/graph/graph-builder.sh --incremental
-
-## Step 4 — Validate architecture
-If --validate: bash .claude/graph/graph-validator.sh
-
-## Step 5 — Validate with Codex
-If --validate-with-codex: invoke codex:codex-rescue with codex-validator.md
-
-## Step 6 — Summary
-Print stats + diff vs graph.json.bak
-```
-
-**Acceptance Criteria:**
-- All six steps are explicit and skippable via flags.
-- `--full` always reruns everything; `--incremental` is the default.
-- The command never edits source files — only writes to `.claude/graph/`.
-- MCP step gracefully no-ops if Unity isn't connected.
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 9 — /knowledge-graph Query Command
 
-**Files:**
-- Create: `.claude/commands/knowledge-graph.md`
-
-**Steps:**
-
-1. [ ] Define subcommands:
-   - `/knowledge-graph summary` — print a one-screen overview: class count, interface count, event count, installer count, scope tree, top-5 most-referenced assemblies.
-   - `/knowledge-graph implementers <interface>` — `jq '.codebase.classes[] | select(.implements | index($name))' graph.json`.
-   - `/knowledge-graph publishers <event>` and `subscribers <event>`.
-   - `/knowledge-graph registrations <interface>` — which installer registers this.
-   - `/knowledge-graph scope-tree` — print the VContainer scope hierarchy.
-   - `/knowledge-graph prefab <name>` — components, isVariant, basePrefab, domain.
-   - `/knowledge-graph violations` — print `validation.errors[]` + `validation.warnings[]`.
-   - `/knowledge-graph diff` — compare current `graph.json` with `graph.json.bak`.
-2. [ ] Auto-build if stale: if `.last-build` is older than 24h, prompt user "Graph is stale — rebuild? (y/n)" before querying.
-3. [ ] Each subcommand maps to a `jq` invocation specified inline in the command doc.
-4. [ ] Output: human-readable table by default, `--json` flag for raw output.
-
-**Test Type:** Manual — for each subcommand, run against a populated graph and verify the answer matches reality.
-
-**Code Skeleton:**
-```markdown
-# /knowledge-graph — Query the Unity Knowledge Graph
-
-## Subcommands
-
-| Sub | Example | jq |
-|-----|---------|----|
-| summary | `/knowledge-graph summary` | `{classes: (.codebase.classes\|length), …}` |
-| implementers | `/knowledge-graph implementers IDamageReceiver` | `.codebase.classes[] \| select(.implements \| index("IDamageReceiver"))` |
-| publishers | `/knowledge-graph publishers PlayerDiedEvent` | `.codebase.events[] \| select(.name == "PlayerDiedEvent") \| .publishers` |
-…
-
-## Staleness check
-If now() - graph.generated_at > 24h, ask before answering.
-```
-
-**Acceptance Criteria:**
-- All 8 subcommands implemented and individually documented with their `jq` snippet.
-- Staleness check prevents answering with day-old data without warning.
-- `--json` flag passes raw output through unchanged.
+*(Unchanged from v1 — Done. v2 extends this command in Task 24.)*
 
 ---
 
 ## Task 10 — graph-auto-update.sh PostToolUse Hook
 
-**Execution context:** Claude Code host process — NOT Unity Editor/runtime. Unity Editor is NOT required for this hook.
-
-**Files:**
-- Create: `.claude/hooks/graph-auto-update.sh`
-
-**Steps:**
-
-1. [ ] Hook reads `$TOOL_INPUT` from stdin, extracts `file_path` (matches the existing pattern in `auto-load-skills.sh`).
-2. [ ] Filter: only proceed if the file extension is `.cs`, `.asmdef`, `.prefab`, or `.unity`. Otherwise exit 0.
-3. [ ] Check feature flag: read `.claude/project-features.json`; if `.graph != true`, exit 0.
-4. [ ] Check existence: if `.claude/graph/graph-builder.sh` is missing, exit 0 with stderr warning (do not block writes).
-5. [ ] Run **non-blocking** in the background: `nohup bash .claude/graph/graph-builder.sh --incremental --changed-files "$FILE" --quiet --skip-mcp >/dev/null 2>&1 &`. The hook returns instantly — the user's next Write doesn't wait for the rebuild.
-6. [ ] Log to `.claude/state/graph-updates.log` (one line per trigger): `<iso-ts> <file>`.
-7. [ ] Exit 0 always (warn-only — the graph is advisory, never blocking).
-8. [ ] **Do NOT** trigger MCP extraction from the hook — Unity Editor calls from a PostToolUse hook would be far too slow. MCP refresh happens only via `/build-knowledge-graph`.
-
-**Test Type:** Manual — `echo '{"tool_input":{"file_path":"Assets/Foo.cs"}}' | bash .claude/hooks/graph-auto-update.sh`, verify the log line and that `graph.json` updates within ~1s.
-
-**Code Skeleton:**
-```bash
-#!/usr/bin/env bash
-TOOL_INPUT=$(cat)
-FILE_PATH=$(echo "$TOOL_INPUT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    print(d.get('tool_input', d).get('file_path', ''))
-except: print('')
-")
-[[ -z "$FILE_PATH" ]] && exit 0
-case "$FILE_PATH" in
-  *.cs|*.asmdef|*.prefab|*.unity) ;;
-  *) exit 0 ;;
-esac
-
-FEATURES=".claude/project-features.json"
-[[ -f "$FEATURES" ]] && [[ "$(jq -r '.graph // false' "$FEATURES")" == "true" ]] || exit 0
-[[ -x ".claude/graph/graph-builder.sh" ]] || exit 0
-
-mkdir -p .claude/state
-echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $FILE_PATH" >> .claude/state/graph-updates.log
-nohup bash .claude/graph/graph-builder.sh --incremental --changed-files "$FILE_PATH" --quiet --skip-mcp >/dev/null 2>&1 &
-exit 0
-```
-
-**Acceptance Criteria:**
-- Hook is non-blocking (background process, returns <50ms).
-- Respects the `graph` feature flag.
-- Logs every trigger to `.claude/state/graph-updates.log`.
-- Settings.json instructions for the user are in Task 18.
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 11 — Git post-commit Hook Installer
 
-**Files:**
-- Create: `.claude/hooks/install-git-hooks.sh`
-
-**Steps:**
-
-1. [ ] Script the user runs manually after `/setup-project`: `bash .claude/hooks/install-git-hooks.sh`.
-2. [ ] Write `.git/hooks/post-commit` with contents:
-   ```bash
-   #!/usr/bin/env bash
-   # Auto-installed by Unity Claude AI Template — full graph rebuild on commit.
-   [[ -x .claude/graph/graph-builder.sh ]] || exit 0
-   nohup bash .claude/graph/graph-builder.sh --full --skip-mcp >/dev/null 2>&1 &
-   exit 0
-   ```
-3. [ ] `chmod +x .git/hooks/post-commit`.
-4. [ ] If a `post-commit` hook already exists, refuse and tell the user to merge manually.
-5. [ ] Also offer to install a `pre-commit` hook that runs `graph-validator.sh` and fails commit on `validation.errors[]` (opt-in via flag `--strict`).
-6. [ ] Note in this file: "This is a one-time setup step run by the developer. Claude must NOT run it automatically."
-
-**Test Type:** Manual — `git commit --allow-empty -m test` and watch `.last-build` update within a few seconds.
-
-**Code Skeleton:**
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-HOOK=".git/hooks/post-commit"
-if [[ -e "$HOOK" ]]; then
-  echo "post-commit hook already exists — merge manually" >&2
-  exit 1
-fi
-cat > "$HOOK" <<'EOF'
-#!/usr/bin/env bash
-[[ -x .claude/graph/graph-builder.sh ]] || exit 0
-nohup bash .claude/graph/graph-builder.sh --full --skip-mcp >/dev/null 2>&1 &
-exit 0
-EOF
-chmod +x "$HOOK"
-echo "Installed post-commit hook."
-```
-
-**Acceptance Criteria:**
-- Refuses to clobber an existing hook.
-- Background-only — never blocks `git commit`.
-- `--strict` flag installs a pre-commit hook that fails on `validation.errors[]`.
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 12 — Watch Helper (fswatch wrapper)
 
-**Files:**
-- Create: `.claude/graph/graph-watch.sh`
-
-**Steps:**
-
-1. [ ] Wrapper around `fswatch` (mac) / `inotifywait` (linux) for developers who want continuous graph updates without relying on PostToolUse hooks.
-2. [ ] On change in `Assets/**` matching `.cs|.asmdef|.prefab|.unity`, debounce 500ms, then run `graph-builder.sh --incremental --changed-files "$FILE"`.
-3. [ ] Detect the watcher tool: `command -v fswatch || command -v inotifywait || (echo "Install fswatch or inotify-tools" && exit 1)`.
-4. [ ] Run in foreground; user kills with Ctrl-C.
-5. [ ] This is **optional infrastructure** — most users will rely on the PostToolUse hook + git post-commit hook combination from Tasks 10 and 11.
-
-**Test Type:** Manual — start the watcher, touch a `.cs` file, verify graph updates within ~1s.
-
-**Code Skeleton:**
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-WATCHER=""
-command -v fswatch >/dev/null && WATCHER="fswatch"
-command -v inotifywait >/dev/null && WATCHER="${WATCHER:-inotifywait}"
-[[ -z "$WATCHER" ]] && { echo "Install fswatch or inotify-tools" >&2; exit 1; }
-
-# … debounce + invoke graph-builder.sh …
-```
-
-**Acceptance Criteria:**
-- Works on macOS (fswatch) and Linux (inotifywait).
-- 500ms debounce to avoid rebuild-storms during a save-all.
-- Updates within ~1s of a file change.
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 13 — Rewrite /catch-up to Use Graph **[BLOCKED — needs investigation]**
 
-**Files:**
-- Edit: `.claude/commands/catch-up.md`
-
-**[BLOCKED — needs investigation]** — the current `/catch-up` produces a 270-line markdown document with rich WHY/feature-guide narrative that the graph alone cannot generate. We must keep the narrative sections (Design Decisions, Feature Guide, Complexity Hotspots) and only replace the **discovery** steps (1–4). Before this task, a sub-investigation is needed:
-
-- Q1: Does the graph contain enough to populate "Systems → Models → Views" table? **A:** Yes for Systems & Interfaces; partial for Models (need to extend Task 3 to flag any `class … : MonoBehaviour` or `class …Model` as a Model). May require extractor extension.
-- Q2: Can `Feature Guide` (group-by-feature) be generated from the graph? **A:** Probably not — features come from GDD/TDD, not code. Keep this section file-based (read `docs/GDD.md`).
-- Q3: Where does "Design Decisions" content come from? **A:** TDD + inference. Keep as-is.
-
-**Steps:**
-
-1. [ ] **Pre-Task investigation** (4-hour timebox): list every piece of data `/catch-up` currently emits, classify each as "graph-derivable" or "narrative-only".
-2. [ ] **Replace Step 1 (Discover the Codebase)** with: "Check `project-features.json.graph`. If `false` → run original Glob file-scan (keep old path unchanged). If `true` → Read `.claude/graph/graph.json`. If graph missing, run `/build-knowledge-graph --full --skip-mcp` first."
-3. [ ] **Replace Step 2 (Map the Architecture)** with: a jq snippet that pivots `vcontainer.installers` + `classes.implements` into the Systems → Models → Views table. Use confidence levels — flag any `AMBIGUOUS` entry inline.
-4. [ ] **Replace Step 3 (Trace the Message Flow)** with: `jq '.codebase.events[]'` (the graph already has full publisher/subscriber lists).
-5. [ ] **Replace Step 4 (Map the DI Container)** with: `jq '.codebase.vcontainer.scopes'` (already a hierarchy).
-6. [ ] **Keep Steps 5–7 unchanged** (Design Decisions, Complexity & Risk, Feature Guide).
-7. [ ] Add a new pre-step: "Step 0 — Verify Graph: if `.claude/graph/.last-build` is older than 24h, ask the user to rebuild."
-8. [ ] Update the front-matter to mention graph dependency.
-
-**Test Type:** Manual diff — run `/catch-up` against a real Unity project before and after, confirm the new output is no worse (and faster).
-
-**Code Skeleton (sketch of replaced Steps 1–4):**
-```markdown
-### Step 1 — Read the Knowledge Graph
-
-Read `.claude/graph/graph.json`. If missing or stale (>24h), tell the user:
-"Graph missing or stale. Run `/build-knowledge-graph --full` first."
-
-### Step 2 — Build the Architecture Map (from graph)
-
-Pivot `.codebase.classes[]` × `.codebase.vcontainer.installers[]`:
-```jq
-.codebase.classes[]
-| select(.name | endswith("System"))
-| { System: .name, Implements: .implements, …}
-```
-
-### Step 3 — Trace Message Flow (from graph)
-
-```jq
-.codebase.events[] | { Message: .name, Publishers: .publishers, Subscribers: .subscribers }
-```
-
-### Step 4 — Map DI Container (from graph)
-
-```jq
-.codebase.vcontainer.scopes
-```
-```
-
-**Acceptance Criteria:**
-- Steps 1–4 each replaced with a single `jq` query.
-- Steps 5–7 (narrative) unchanged.
-- A 100-file project's `/catch-up` runtime drops from "scan everything" (~30s) to "read one JSON" (<2s).
-- Confidence levels surface inline — `AMBIGUOUS` entries flagged in the output document.
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 14 — Rewrite /orchestrate Pre-Scan (lines 88–102)
 
-**Files:**
-- Edit: `.claude/commands/orchestrate.md`
-
-**Steps:**
-
-1. [ ] Locate lines 88–102 (the "Codebase Pre-Scan" block under Initialization step 5).
-2. [ ] Replace the three `find` shell commands with a feature-flag guard:
-   ```
-   5. **Codebase Pre-Scan**:
-      - Check `project-features.json.graph`. If `false` → run original `find`-based scan unchanged (keep old path).
-      - If `true` → read `.claude/graph/graph.json`. If missing, run `/build-knowledge-graph --full --skip-mcp` first.
-      - Query existing `_Framework/` content: `jq '.codebase.assemblies[] | select(.file | startswith("Assets/_Framework"))' graph.json`
-      - Query existing Abstracts: `jq '.codebase.interfaces[] | select(.file | contains("/Games/Abstracts/"))' graph.json`
-      - Query existing Concretes: `jq '.codebase.classes[] | select(.file | contains("/Games/Concretes/"))' graph.json`
-      - Cross-reference each WORKFLOW.md task `outputs` against the graph. If a file already exists AND its class is properly registered (in some installer), mark the task as candidate to skip.
-   ```
-3. [ ] Keep the "Pre-Scan Report" output shape identical — same five lines (`_Framework:`, `Existing Abstracts:`, `Existing Concretes:`, `Conflicts with WORKFLOW.md:`, `Architecture issues found:`).
-4. [ ] Add a new line at the end of Pre-Scan Report: `Graph confidence: [EXTRACTED / mostly_INFERRED]` — surfaces extractor mode to the developer.
-5. [ ] Update step 6 (`EVENTS.jsonl`) to also append `"graph_generated_at":"<from graph.json>"`.
-
-**Test Type:** Manual — run `/orchestrate` on a real WORKFLOW.md, confirm the Pre-Scan Report still appears and is now sourced from the graph.
-
-**Code Skeleton:**
-```markdown
-5. **Codebase Pre-Scan** — read the knowledge graph:
-   - Read `.claude/graph/graph.json`. If missing, stop and run `/build-knowledge-graph --full --skip-mcp` first.
-   - Existing _Framework: `jq '.codebase.assemblies[] | select(.file | startswith("Assets/_Framework"))' graph.json`
-   - Existing Abstracts:  `jq '.codebase.interfaces[] | select(.file | contains("/Games/Abstracts/"))' graph.json`
-   - Existing Concretes:  `jq '.codebase.classes[]    | select(.file | contains("/Games/Concretes/"))' graph.json`
-   - Print the Pre-Scan Report (5 lines unchanged + 1 new Graph confidence line).
-```
-
-**Acceptance Criteria:**
-- No `find` invocations remain in lines 88–102.
-- Pre-Scan Report format preserved (5 original lines + 1 added).
-- Orchestrate fails gracefully if the graph doesn't exist (clear error pointing to `/build-knowledge-graph`).
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 15 — Rewrite /context-prime to Load Graph Summary
 
-**Files:**
-- Edit: `.claude/commands/context-prime.md`
-
-**Steps:**
-
-1. [ ] Insert a new **Step 2.5** between current steps 2 and 3:
-   ```
-   2.5. If `.claude/graph/graph.json` exists, read its summary:
-        - Class count, interface count, event count, installer count
-        - Scope tree (top-2 levels only)
-        - `validation.errors` count + `validation.warnings` count
-        Report these to the user in the summary block.
-        If the graph is older than 24h, suggest `/build-knowledge-graph` before proceeding.
-   ```
-2. [ ] Keep existing Steps 1–5 numbering intact (just inserting 2.5).
-3. [ ] Update the **Output** section: add a line "Graph: N classes, M events, K installers — generated <X> ago".
-4. [ ] Note: the graph is **opt-in** via `project-features.json` — if `.graph != true`, skip Step 2.5 entirely.
-
-**Test Type:** Manual — `/context-prime` should still work on a project without a graph (gracefully skipping 2.5), and report graph stats on a project that has one.
-
-**Code Skeleton:**
-```markdown
-2.5. (optional, if graph feature enabled) Read `.claude/graph/graph.json` summary:
-     - `jq '{ classes: (.codebase.classes|length), events: (.codebase.events|length), installers: (.codebase.vcontainer.installers|length), generated_at, errors: (.validation.errors|length) }'`
-     - Surface to user.
-     - If generated_at >24h old, suggest /build-knowledge-graph.
-```
-
-**Acceptance Criteria:**
-- Step 2.5 inserted without renumbering existing steps.
-- Gracefully skipped when graph feature is disabled.
-- Adds ≤200ms to context-prime runtime.
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 16 — Wire /setup-project to Graph Feature Flag
 
-**Files:**
-- Edit: `.claude/commands/setup-project.md`
-
-**Steps:**
-
-1. [ ] In Step 1 (Gather Info), add a new question after the testing/addressables/ecs prompts: `"Enable Unity Knowledge Graph? (y/n, default: y) — auto-indexes codebase for /catch-up, /orchestrate, /context-prime."`.
-2. [ ] In the feature-flag write step, persist the answer to `.claude/project-features.json` as `"graph": true|false`.
-3. [ ] In the boilerplate-generation step, when `graph=true`:
-   - Create `.claude/graph/` skeleton (already committed in template, just ensure not deleted).
-   - Add a **Step 5.5 — Initial Graph Build:** print "Running initial graph build…" and execute `bash .claude/graph/graph-builder.sh --full --skip-mcp`.
-   - Print "Initial graph: X classes, Y events. Run `/build-knowledge-graph --validate-with-codex` to cross-check accuracy."
-4. [ ] In the manual-setup checklist output (Step 6 / final), add three lines:
-   ```
-   1. Add the settings.json PostToolUse entry — see Task 18 Step 7 for the exact JSON block.
-   2. Install git post-commit hook: bash .claude/hooks/install-git-hooks.sh
-   3. (optional) Run watch loop: bash .claude/graph/graph-watch.sh
-   ```
-5. [ ] When `graph=false`, skip all of the above.
-
-**Test Type:** Manual — run `/setup-project` on a fresh project, confirm graph builds on completion and instructions print.
-
-**Code Skeleton:**
-```markdown
-Q: Enable Unity Knowledge Graph? (y/n, default: y)
-
-If y → set `project-features.graph = true`, run initial build, print pointer to Task 18 Step 7 for settings.json entry + git hook install command.
-If n → set `project-features.graph = false`, skip.
-```
-
-**Acceptance Criteria:**
-- New feature flag question appears in Step 1.
-- `project-features.json` gets a `graph` key.
-- Initial build runs successfully on a project with C# scripts.
-- Manual setup checklist includes the three graph items.
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 17 — Reference Graph from refine-gdd / refine-tdd / architect
 
-**Files:**
-- Edit: `.claude/commands/refine-gdd.md`
-- Edit: `.claude/commands/refine-tdd.md`
-- Edit: `.claude/commands/architect.md`
-
-**Steps:**
-
-1. [ ] **`refine-gdd.md`** — add one bullet under existing context-loading: "If `project-features.json.graph = true` AND `.claude/graph/graph.json` exists, read its `assemblies[]` + scope tree for 'existing module' context. Otherwise proceed as before."
-2. [ ] **`refine-tdd.md`** — add one bullet: "If `project-features.json.graph = true`, query `.claude/graph/graph.json` for existing implementers before specifying new ones. Otherwise proceed as before."
-3. [ ] **`architect.md`** — find the step where the architect surveys `_Framework/`; prepend a feature-flag check: "If `project-features.json.graph = true`, read `.claude/graph/graph.json` instead of running `find`. Otherwise proceed with the existing `find` command."
-4. [ ] No structural rewrites — each is a 1–3 line addition + one removed `find` reference where applicable.
-
-**Test Type:** Manual — run `/refine-gdd` / `/refine-tdd` / `/architect` on a project with an existing graph, verify they cite graph data.
-
-**Acceptance Criteria:**
-- Each of the three commands references the graph in exactly one place.
-- No duplicate-scanning logic remains in `architect.md`.
-- Each addition is ≤3 lines.
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 18 — Update .claude/CLAUDE.md
 
-**Files:**
-- Edit: `.claude/CLAUDE.md`
-- Edit: `.claude/docs/hooks-warning.md`
-
-**Steps:**
-
-1. [ ] **This is the very last code/doc change before Task 19.** Do NOT run earlier — CLAUDE.md describes the final state.
-2. [ ] Add a new top-level section after `## Required Stack` (around line 25):
-   ```
-   ## Knowledge Graph
-
-   The template ships with a Graphify-inspired knowledge graph at `.claude/graph/graph.json`.
-   It is opt-in via `project-features.json.graph` and is the single source of truth for
-   `/catch-up`, `/orchestrate` pre-scan, and `/context-prime`.
-
-   Pipeline: detect → extract (C# / asmdef / MCP) → build → cluster → analyze → report → export.
-
-   Commands:
-   - `/build-knowledge-graph [--full|--incremental] [--validate-with-codex]`
-   - `/knowledge-graph <summary|implementers|publishers|…>`
-
-   See `.claude/graph/README.md` for schema and confidence levels.
-   ```
-3. [ ] In `## Hooks (auto-enforced on every Write/Edit)`, add a new row to the **Warning** subsection of `.claude/docs/hooks-warning.md`:
-   ```
-   | `graph-auto-update.sh` | Write/Edit | Triggers incremental graph rebuild in background — never blocks. |
-   ```
-4. [ ] In `## Optional Features`, add a row:
-   ```
-   | **Unity Knowledge Graph** | Built-in | `graph` | Skip extractors and hooks. The four graph-consuming commands (`/catch-up`, `/orchestrate`, `/context-prime`, `/architect`) retain their original file-scan paths unchanged — no graph queries, no regression. |
-   ```
-5. [ ] In the **Session Start** section, add: "If `.claude/graph/graph.json` exists, read its summary (use `/knowledge-graph summary`)."
-6. [ ] Add a row to the `## Important Constraints` list: "`.claude/graph/graph.json` is generated — never edit by hand. Use `/build-knowledge-graph` to refresh."
-7. [ ] Provide the manual `settings.json` snippet the user must add (Claude cannot edit `settings.json`):
-   ```json
-   {
-     "hooks": {
-       "PostToolUse": [
-         {
-           "matcher": "Write|Edit",
-           "hooks": [
-             { "type": "command", "command": "bash .claude/hooks/graph-auto-update.sh" }
-           ]
-         }
-       ]
-     }
-   }
-   ```
-   Print this block in a code fence with the instruction: "Add this entry to `.claude/settings.json` under your existing PostToolUse hooks. Run `bash .claude/hooks/install-git-hooks.sh` once to also install the git post-commit hook."
-
-**Test Type:** Manual review — every new section reads cleanly next to neighbours.
-
-**Acceptance Criteria:**
-- New `## Knowledge Graph` section is present and concise (<200 words).
-- Hooks tables and Optional Features tables both updated.
-- Constraints note added.
-- settings.json snippet is present and correct.
+*(Unchanged from v1 — Done.)*
 
 ---
 
 ## Task 19 — Update README.md
 
+*(Unchanged from v1 — Done.)*
+
+---
+
+# Phase 10 (v2) — Call Graph + Methods + Impact + Path + God-Nodes
+
+> The five tasks below are the **v2 addition**. They are **additive only** — no v1 task is rewritten. Bump `schema_version` from `1.0.0` to `1.1.0`. Old graphs continue to validate (the new fields are optional). The first `--full` build after this phase ships will populate `methods[]` and `calls[]`.
+
+---
+
+## Task 20 — Extend schema.json with methods[] + top-level calls[]
+
 **Files:**
-- Edit: `README.md`
+- Edit: `.claude/graph/schema.json`
 
 **Steps:**
 
-1. [ ] Add a new top-level section after `## Stack` (around line 157), titled `## Knowledge Graph`:
+1. [ ] Bump `schema_version` default from `"1.0.0"` to `"1.1.0"`. Add a changelog note in the schema's top-level `description` field: `"v1.1.0 — Adds classEntry.methods[] and codebase.calls[] for call-graph + impact analysis."`.
+2. [ ] Extend `classEntry` (under `definitions.classEntry.properties`) with an optional `methods` array:
+   ```json
+   "methods": {
+     "type": "array",
+     "description": "Methods declared on this class. Optional — populated by csharp-extractor.sh from v1.1.0+.",
+     "items": {
+       "type": "object",
+       "required": ["name"],
+       "properties": {
+         "name":          { "type": "string" },
+         "signature":     { "type": "string", "description": "Full signature minus body, e.g. 'public async UniTask Foo(int x)'." },
+         "line":          { "type": "integer" },
+         "accessibility": { "type": "string", "enum": ["public", "internal", "private", "protected"] },
+         "is_async":      { "type": "boolean" },
+         "is_static":     { "type": "boolean" },
+         "return_type":   { "type": "string" }
+       }
+     }
+   }
    ```
-   ## Knowledge Graph
-
-   `.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph.
-   When enabled (default in `/setup-project`), the graph indexes every class,
-   interface, event, installer, scope, asmdef, scene, and prefab into a single
-   `graph.json` artifact. /catch-up, /orchestrate, and /context-prime all read
-   this graph instead of scanning files from scratch.
-
-   ### Quick commands
-   | Command | Purpose |
-   |---------|---------|
-   | `/build-knowledge-graph [--full|--incremental]` | Build/refresh the graph |
-   | `/build-knowledge-graph --validate-with-codex` | Spot-check graph accuracy with Codex |
-   | `/knowledge-graph summary` | One-screen project overview |
-   | `/knowledge-graph implementers <I>` | List concrete classes implementing an interface |
-   | `/knowledge-graph publishers <E>` | List event publishers |
-
-   ### Triggers (kept in sync automatically)
-   - Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background)
-   - Every `git commit` → post-commit hook (full rebuild)
-   - Manual: `/build-knowledge-graph`
-
-   ### Confidence levels
-   `EXTRACTED` (explicit code), `INFERRED` (regex-mode or call-graph guess), `AMBIGUOUS` (needs human review).
+3. [ ] Add a new top-level `calls` array under `definitions.codebase.properties`:
+   ```json
+   "calls": {
+     "type": "array",
+     "description": "Call edges between methods. Top-level so traversal is O(edges) without scanning classes[].",
+     "items": { "$ref": "#/definitions/callEdge" }
+   }
    ```
-2. [ ] In the `## Slash Commands` table (around line 359, under appropriate category):
-   - Add a new category `### Knowledge Graph` (or place under `### Quality`):
-     ```
-     | `/build-knowledge-graph [flags]` | Manual or auto (hook+git) | Build the knowledge graph; `--validate-with-codex` cross-checks accuracy |
-     | `/knowledge-graph <sub> [args]`  | Manual                    | Query the knowledge graph (summary/implementers/publishers/scope-tree/…)  |
-     ```
-3. [ ] In `## Configuration File Map` (around line 96), add:
+4. [ ] Add a new `callEdge` definition under `definitions`:
+   ```json
+   "callEdge": {
+     "type": "object",
+     "required": ["caller", "callee", "confidence"],
+     "properties": {
+       "caller":     { "type": "string", "description": "Qualified caller — 'ClassName.MethodName' or 'Namespace.ClassName.MethodName'." },
+       "callee":     { "type": "string", "description": "Qualified callee — same format. May be unqualified ('MethodName') for INFERRED edges where the receiver type can't be resolved." },
+       "file":       { "type": "string", "description": "Source file containing the call site." },
+       "line":       { "type": "integer" },
+       "confidence": { "$ref": "#/definitions/confidence" }
+     }
+   }
    ```
-   ### `.claude/graph/` — Knowledge graph
-   - `schema.json` — JSON-Schema for `graph.json`
-   - `graph.json` (generated) — living index of the codebase
-   - `extractors/` — C# / asmdef / MCP extractors
-   - `graph-builder.sh`, `graph-validator.sh`, `codex-validator.md`
-   ```
-4. [ ] In `## Hooks — Auto-Enforced on Every Write` (warning subsection), add a row for `graph-auto-update.sh`.
-5. [ ] In the Table of Contents, add `- [Knowledge Graph](#knowledge-graph)` after `- [Stack](#stack)`.
+5. [ ] Both new fields are **optional** — `required` arrays are unchanged. Old `graph.json` files (without `methods[]` or `calls[]`) continue to validate.
+6. [ ] Run `jq empty .claude/graph/schema.json` to confirm valid JSON. Run `python3 -c "import jsonschema; jsonschema.Draft7Validator.check_schema(__import__('json').load(open('.claude/graph/schema.json')))"` to confirm draft-07 conformance.
 
-**Test Type:** Manual — render README locally, verify TOC links, table formatting.
+**Test Type:** NoTest — schema-only edit (`.claude/graph/` JSON file, per the Test Type Decision Matrix). Manual validation: schema parses and existing v1.0.0 graph.json still validates against v1.1.0 schema.
+
+**Code Skeleton (insertion sketch):**
+```json
+"classEntry": {
+  "properties": {
+    "name": { "type": "string" },
+    "...existing fields...": "...",
+    "methods": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/methodEntry" }
+    },
+    "confidence": { "$ref": "#/definitions/confidence" }
+  }
+},
+"methodEntry": { "type": "object", "required": ["name"], "properties": { ... } },
+"callEdge":   { "type": "object", "required": ["caller","callee","confidence"], "properties": { ... } }
+```
 
 **Acceptance Criteria:**
-- New `## Knowledge Graph` section ≤300 words, with one quick-command table + one triggers list.
-- Two new rows in `## Slash Commands`.
-- TOC updated.
-- Configuration File Map updated.
+- `schema_version` is `"1.1.0"`.
+- Both `methods[]` and `calls[]` are optional fields — old graphs still validate.
+- `jq empty` and `jsonschema.Draft7Validator.check_schema` both pass on the updated file.
+- Confidence enum (`EXTRACTED` / `INFERRED` / `AMBIGUOUS`) reused — no new confidence values introduced.
+
+---
+
+## Task 21 — Extend csharp-extractor.sh to Emit methods[] + Per-File calls[]
+
+**Files:**
+- Edit: `.claude/graph/extractors/csharp-extractor.sh`
+- Edit (if tree-sitter mode is implemented in v1): `.claude/graph/extractors/queries/csharp.scm`
+
+**Steps:**
+
+1. [ ] Locate the existing `extract_class_info()` Python block inside `csharp-extractor.sh` (v1 emits classes/interfaces/events). Extend it to also capture method declarations. Use a regex pass over the file's content lines:
+   ```python
+   # Method declaration regex (regex mode — INFERRED confidence)
+   METHOD_RE = re.compile(
+       r'^\s*(?P<acc>public|internal|private|protected)?\s*'
+       r'(?P<mods>(?:static\s+|virtual\s+|override\s+|abstract\s+|sealed\s+|async\s+)*)'
+       r'(?P<ret>[A-Za-z_][\w<>,\s\[\]\?\.]*?)\s+'
+       r'(?P<name>[A-Z]\w*)\s*\([^)]*\)\s*(?:\{|=>|;)',
+       re.MULTILINE
+   )
+   ```
+   For each match, emit `{ "name": ..., "signature": <line trimmed>, "line": <1-based>, "accessibility": <acc or "private">, "is_async": "async" in mods, "is_static": "static" in mods, "return_type": <ret stripped> }`. Skip matches whose `name` is a known C# keyword (`if`, `while`, `for`, `switch`, `using`, `new`, `return`, `throw`, `catch`).
+2. [ ] Attach the resulting `methods[]` array to the current class entry. If a file contains multiple classes, scope methods by tracking the most recent `class_declaration` line via simple bracket-depth counting.
+3. [ ] Add a **second regex pass** for call sites — emit per-file partial `calls[]` entries (INFERRED confidence in regex mode):
+   ```python
+   # Call site regex — captures `Foo(` or `this.Foo(` or `obj.Foo(`
+   CALL_RE = re.compile(
+       r'(?:(?P<recv>[A-Za-z_][\w\.]*)\s*\.\s*)?(?P<callee>[A-Z]\w*)\s*\(',
+       re.MULTILINE
+   )
+   ```
+   For each call site, the "caller" is the **enclosing method** at that line (track via the bracket-depth counter from Step 2). Emit `{ "caller": "<ClassName>.<MethodName>", "callee": "<recv>.<callee>" or "<callee>", "file": rel_path, "line": line_no, "confidence": "INFERRED" }`.
+4. [ ] **Filter noise** before emitting `calls[]`:
+   - Skip control flow keywords (`if`, `while`, `for`, `foreach`, `switch`, `return`, `using`, `typeof`, `nameof`, `lock`, `fixed`, `await`).
+   - Skip generic-type-parameter false positives (e.g. `List<Foo>(` matches `Foo(` — filter when preceded by `<`).
+   - Skip primitive constructors and well-known BCL types (`int`, `string`, `bool`, `Vector3`, `Quaternion`, `Color`, `Debug`, `Math`, `Mathf`) unless explicitly enabled via `--include-bcl-calls`.
+   - Skip self-references where caller == callee (probably recursion in regex mode is rarely useful).
+5. [ ] **In tree-sitter mode** (when v1 already uses it), extend `.claude/graph/extractors/queries/csharp.scm` with method + call-site captures:
+   ```scheme
+   ; Method declarations
+   (method_declaration
+     name: (identifier) @method.name
+     parameters: (parameter_list) @method.params) @method.decl
+   ; Call expressions
+   (invocation_expression
+     function: [(identifier) @call.callee
+                (member_access_expression name: (identifier) @call.callee)]) @call.site
+   ```
+   Mark tree-sitter-derived edges `confidence: "EXTRACTED"`. Regex-derived edges remain `"INFERRED"`.
+6. [ ] Add a top-level `partial_calls` key to the extractor's stdout JSON when running in `--changed-files` mode so `graph-builder.sh` can merge per-file rebuilds without re-deriving the whole call graph:
+   ```json
+   { "partial": true, "classes": [...], "events": [...], "partial_calls": [ ... per-file edges ... ] }
+   ```
+7. [ ] Sort `methods[]` by `line` ascending and `calls[]` by `caller` then `line` before emit for idempotency.
+
+**Test Type:** NoTest — extractor is a shell script under `.claude/graph/` (per the Test Type Decision Matrix). Manual validation:
+- Run `bash .claude/graph/extractors/csharp-extractor.sh` against a Unity project with known classes; spot-check that every public method appears in `methods[]` and at least one `calls[]` edge appears per method that invokes another method.
+- Verify regex mode never produces a `calls[]` entry whose callee is a C# keyword.
+
+**Code Skeleton (Python block extension inside the extractor):**
+```python
+# Inside extract_class_info() — after class/event extraction:
+
+# Method extraction
+methods_for_class = []
+for m in METHOD_RE.finditer(class_body):
+    name = m.group('name')
+    if name in CSHARP_KEYWORDS:
+        continue
+    methods_for_class.append({
+        "name": name,
+        "signature": m.group(0).strip().rstrip('{=>;').strip(),
+        "line": line_of(m.start()),
+        "accessibility": m.group('acc') or "private",
+        "is_async": "async" in (m.group('mods') or ""),
+        "is_static": "static" in (m.group('mods') or ""),
+        "return_type": (m.group('ret') or "").strip()
+    })
+
+# Call-site extraction (per file, post-method-scope assignment)
+calls_for_file = []
+for c in CALL_RE.finditer(file_content):
+    callee = c.group('callee')
+    if callee in CSHARP_KEYWORDS or callee in BCL_NOISE:
+        continue
+    enclosing_method = method_at_line(line_of(c.start()), methods_for_class)
+    if not enclosing_method:
+        continue
+    calls_for_file.append({
+        "caller": f"{class_name}.{enclosing_method}",
+        "callee": (f"{c.group('recv')}.{callee}" if c.group('recv') else callee),
+        "file": rel_path,
+        "line": line_of(c.start()),
+        "confidence": "INFERRED"  # EXTRACTED in tree-sitter mode
+    })
+```
+
+**Acceptance Criteria:**
+- Every class entry includes a `methods[]` array (may be empty for interface-only or attribute-only files).
+- Output JSON includes `partial_calls[]` in `--changed-files` mode and a full `calls[]` for full-extract mode.
+- Regex mode: every edge has `confidence: "INFERRED"`. Tree-sitter mode: `"EXTRACTED"`.
+- Idempotency: running twice on the same file produces byte-identical output (sort before emit).
+- Schema-valid: `python3 -c "import jsonschema, json; jsonschema.validate(json.load(open(out)), json.load(open(schema)))"` passes.
+
+---
+
+## Task 22 — graph-traversal.py — BFS, Impact, Shortest-Path, God-Nodes
+
+**Files:**
+- Create: `.claude/graph/graph-traversal.py`
+
+**Steps:**
+
+1. [x] Create `.claude/graph/graph-traversal.py` — pure Python 3 stdlib (no `pip` deps). Shebang `#!/usr/bin/env python3`. Make it executable (`chmod +x`).
+2. [x] Top-level CLI via `argparse`:
+   ```
+   graph-traversal.py impact <Class[.Method]> [--hops N] [--graph PATH] [--json]
+   graph-traversal.py callers <Class.Method>   [--graph PATH] [--json]
+   graph-traversal.py path <NodeA> <NodeB>     [--graph PATH] [--json]
+   graph-traversal.py god-nodes                [--top N] [--graph PATH] [--json]
+   graph-traversal.py --finalize-calls         [--graph PATH]   # builder hook (Task 23)
+   ```
+   Default `--graph` is `.claude/graph/graph.json`. Default `--hops` is `3`. Default `--top` is `10`.
+3. [x] **Build the in-memory graph** in a single helper:
+   ```python
+   def load_graph(path):
+       with open(path) as f:
+           g = json.load(f)
+       edges = g.get("codebase", {}).get("calls", [])
+       forward = defaultdict(set)   # caller -> {callee}
+       reverse = defaultdict(set)   # callee -> {caller}
+       for e in edges:
+           forward[e["caller"]].add(e["callee"])
+           reverse[e["callee"]].add(e["caller"])
+       return g, forward, reverse
+   ```
+4. [ ] **`impact <node>`** (affected-nodes): BFS forward + reverse from `node` up to `--hops` depth. Output:
+   ```json
+   { "root": "X", "hops": 3, "downstream": [...], "upstream": [...], "total_affected": N }
+   ```
+   "downstream" = transitively callable from `node` (what `node` reaches). "upstream" = transitive callers of `node` (what reaches `node`). Both deduplicated. Return JSON when `--json` set; otherwise pretty-print a two-column table.
+5. [ ] **`callers <Class.Method>`**: One-hop reverse lookup. Output JSON `[{ "caller": "...", "file": "...", "line": N, "confidence": "..." }]`. If the callee node has no incoming edges, print `No direct callers found for X.` and exit 0.
+6. [ ] **`path <A> <B>`**: BFS shortest path on the `forward` graph from `A` to `B`. Output:
+   ```json
+   { "from": "A", "to": "B", "length": K, "path": ["A", "...", "B"] }
+   ```
+   If no path exists, exit 1 with `No path from A to B in the call graph.` to stderr. If `A == B`, exit 0 with `length: 0, path: [A]`.
+7. [ ] **`god-nodes`**: Compute in-degree + out-degree for every node mentioned in `calls[]` (use a `Counter`); rank by `(in_degree + out_degree)` descending; emit top N as:
+   ```json
+   [{ "node": "...", "in": K, "out": M, "total": K+M }, ...]
+   ```
+   Highlight: anything with `total > 20` gets flagged with `"is_god_node": true`. Source the per-node file from `classes[].file` when the node is a class — otherwise leave `file` null.
+8. [ ] **`--finalize-calls`**: read `graph.json`, sort `codebase.calls[]` by `(caller, line)`, dedupe identical edges (same caller+callee+file+line), promote tie-broken confidence (`EXTRACTED` wins over `INFERRED` when the same edge is emitted by both regex + tree-sitter passes), and atomically rewrite `graph.json`. This is the Task 23 hook point.
+9. [ ] **Performance budget:** for a 1000-class project (~10k edges), every query should finish in <200 ms. Use `collections.deque` for BFS, `defaultdict(set)` for adjacency.
+10. [ ] **Error handling:**
+    - If `graph.json` is missing → exit 2 with `ERR_GRAPH_MISSING: run /build-knowledge-graph first.` to stderr.
+    - If `codebase.calls[]` is absent or empty → for `impact`/`path`/`god-nodes`, exit 0 with `Graph has no call edges yet. Rebuild with: /build-knowledge-graph --full` to stderr.
+    - If a queried node isn't in the graph → exit 0 with a clear `Node 'X' not found in graph. Did you mean: Y, Z?` (use `difflib.get_close_matches` for suggestions).
+
+**Test Type:** NoTest — Python script under `.claude/graph/` (per the Test Type Decision Matrix). Manual validation:
+- Build a fixture `graph.json` with 5 classes and 10 known edges; run each subcommand and verify the output matches the hand-derived expected result.
+- Run `time python3 graph-traversal.py impact SomeClass.Foo --hops 5` on a real graph and confirm <200ms.
+
+**Code Skeleton:**
+```python
+#!/usr/bin/env python3
+"""Knowledge graph traversal — impact, callers, path, god-nodes."""
+import argparse, json, sys
+from collections import defaultdict, deque, Counter
+import difflib
+
+def load_graph(path):
+    with open(path) as f:
+        g = json.load(f)
+    edges = g.get("codebase", {}).get("calls", [])
+    forward, reverse = defaultdict(set), defaultdict(set)
+    for e in edges:
+        forward[e["caller"]].add(e["callee"])
+        reverse[e["callee"]].add(e["caller"])
+    return g, forward, reverse, edges
+
+def bfs(adj, start, max_hops):
+    seen, frontier, depth = {start}, deque([(start, 0)]), 0
+    out = []
+    while frontier:
+        node, d = frontier.popleft()
+        if d >= max_hops: continue
+        for nxt in adj.get(node, ()):
+            if nxt in seen: continue
+            seen.add(nxt); out.append((nxt, d+1))
+            frontier.append((nxt, d+1))
+    return out
+
+def cmd_impact(args, ctx):
+    _, fwd, rev, _ = ctx
+    down = [n for n, _ in bfs(fwd, args.node, args.hops)]
+    up   = [n for n, _ in bfs(rev, args.node, args.hops)]
+    print(json.dumps({"root": args.node, "hops": args.hops,
+                      "downstream": sorted(down), "upstream": sorted(up),
+                      "total_affected": len(set(down)|set(up))}, indent=2))
+
+def cmd_callers(args, ctx):
+    _, _, rev, edges = ctx
+    hits = [e for e in edges if e["callee"] == args.node]
+    print(json.dumps(hits, indent=2))
+
+def cmd_path(args, ctx):
+    _, fwd, _, _ = ctx
+    if args.a == args.b:
+        print(json.dumps({"from": args.a, "to": args.b, "length": 0, "path": [args.a]})); return
+    prev, frontier, seen = {}, deque([args.a]), {args.a}
+    while frontier:
+        n = frontier.popleft()
+        if n == args.b: break
+        for nxt in fwd.get(n, ()):
+            if nxt in seen: continue
+            seen.add(nxt); prev[nxt] = n; frontier.append(nxt)
+    if args.b not in prev:
+        print(f"No path from {args.a} to {args.b}.", file=sys.stderr); sys.exit(1)
+    path = [args.b]
+    while path[-1] != args.a: path.append(prev[path[-1]])
+    path.reverse()
+    print(json.dumps({"from": args.a, "to": args.b, "length": len(path)-1, "path": path}, indent=2))
+
+def cmd_god_nodes(args, ctx):
+    g, fwd, rev, _ = ctx
+    nodes = set(fwd.keys()) | set(rev.keys())
+    ranked = sorted(
+        ({"node": n, "in": len(rev[n]), "out": len(fwd[n]),
+          "total": len(rev[n]) + len(fwd[n])} for n in nodes),
+        key=lambda x: -x["total"]
+    )[:args.top]
+    for r in ranked:
+        r["is_god_node"] = r["total"] > 20
+    print(json.dumps(ranked, indent=2))
+
+# argparse + dispatch + --finalize-calls ...
+```
+
+**Acceptance Criteria:**
+- All four subcommands implemented and return schema-shaped JSON.
+- `--hops` defaults to 3 for `impact`; `--top` defaults to 10 for `god-nodes`.
+- `--finalize-calls` mode dedupes + sorts the `calls[]` array in place.
+- BFS-style queries finish in <200ms on a 10k-edge graph (validated by `time` on a real run).
+- Missing node → close-match suggestion via `difflib`.
+- Pure stdlib — no `pip install` needed.
+
+---
+
+## Task 23 — graph-builder.sh Wires graph-traversal.py for Call-Graph Finalization
+
+**Files:**
+- Edit: `.claude/graph/graph-builder.sh`
+
+**Steps:**
+
+1. [ ] After Step 5 of v1 Task 5 ("Merge per-file extractor output with retained cache entries") and before Step 6 (event pivot), add a new step:
+   ```
+   5.5. Finalize call graph:
+        - If extractor emitted partial_calls[] (per-file), append them to .codebase.calls[] in the merge buffer.
+        - Drop any call edge whose caller's source_file is no longer in current_paths (ghost-edge purge).
+        - Invoke: python3 .claude/graph/graph-traversal.py --finalize-calls --graph "$TMP_GRAPH"
+          (this dedupes + sorts + promotes confidence in place).
+   ```
+2. [ ] In the cache-hit copy logic, when a file's hash matches and its old class entries are reused, also reuse the corresponding edges from the old `codebase.calls[]`: filter by `e.file == cached_file` and copy verbatim. This keeps the call graph consistent with the incremental cache.
+3. [ ] In the ghost-purge pass (existing logic in Step 3 of v1 Task 5), extend the purge to also drop `codebase.calls[]` entries whose `file` no longer exists.
+4. [ ] Update the one-line stderr summary at end of build to include edge count:
+   ```
+   graph: 312 classes (1,840 methods), 87 events, 12 installers, 2,103 call edges (24 cached, 8 reparsed) in 412ms
+   ```
+5. [ ] Skip Step 5.5 silently if `python3` is unavailable on PATH — log a warning to stderr (`graph-builder: python3 not found, skipping call-graph finalization (impact/path/god-nodes queries will be unavailable)`) and continue. The graph is still useful without the calls array.
+
+**Test Type:** NoTest — shell script under `.claude/graph/` (per the Test Type Decision Matrix). Manual validation:
+- Run `--full` build; verify `codebase.calls[]` is non-empty and sorted.
+- Touch one file, re-run `--incremental --changed-files <file>`; verify only that file's edges are re-derived (the rest are reused from cache).
+- Delete a file and re-run incremental; verify all its call edges are purged.
+
+**Code Skeleton (insertion sketch):**
+```bash
+# After merging extractor output into $TMP_GRAPH:
+if command -v python3 >/dev/null 2>&1; then
+  python3 .claude/graph/graph-traversal.py --finalize-calls --graph "$TMP_GRAPH" \
+    || echo "graph-builder: call-graph finalization failed (non-fatal)" >&2
+else
+  echo "graph-builder: python3 not found — skipping call-graph finalization" >&2
+fi
+# Then continue with event pivot + atomic mv to graph.json
+```
+
+**Acceptance Criteria:**
+- After a `--full` build, `codebase.calls[]` exists, is sorted by `(caller, line)`, and contains no duplicate edges.
+- After an `--incremental` build touching one file, edges from other files are reused without re-derivation.
+- Build summary mentions edge count.
+- Builder degrades gracefully (warns, doesn't fail) when `python3` is absent.
+
+---
+
+## Task 24 — Add 4 New Subcommands to /knowledge-graph
+
+**Files:**
+- Edit: `.claude/commands/knowledge-graph.md`
+
+**Steps:**
+
+1. [ ] In the **Usage** block at the top of `knowledge-graph.md`, append the four new subcommands after the existing list:
+   ```
+   /knowledge-graph callers <Class.Method>
+   /knowledge-graph impact <ClassName> [--hops N]
+   /knowledge-graph path <NodeA> <NodeB>
+   /knowledge-graph god-nodes [--top N]
+   ```
+2. [ ] After the existing `diff` subcommand section, append four new sections — one per subcommand. Each section follows the existing format (heading, one-line description, code block with the invocation).
+3. [ ] **`callers <Class.Method>`** — direct (one-hop) reverse lookup. Prefer Python (consistent CLI), with a `jq` fallback for users who don't have python3:
+   ```markdown
+   ### callers \<Class.Method\>
+   List all call sites that invoke the given method.
+
+   ```bash
+   python3 .claude/graph/graph-traversal.py callers "<Class.Method>"
+   ```
+
+   Fallback (no python3):
+   ```bash
+   jq --arg name "<Class.Method>" '
+     [.codebase.calls[] | select(.callee == $name)]
+     | map({caller: .caller, file: .file, line: .line, confidence: .confidence})
+   ' .claude/graph/graph.json
+   ```
+   ```
+4. [ ] **`impact <ClassName>`** — multi-hop BFS via Python (jq is too slow for transitive closure):
+   ```markdown
+   ### impact \<ClassName\> [--hops N]
+   Show downstream + upstream affected nodes within N hops (default 3).
+
+   ```bash
+   python3 .claude/graph/graph-traversal.py impact "<ClassName>" --hops "${HOPS:-3}"
+   ```
+
+   Use this before refactoring a class to estimate blast radius.
+   ```
+5. [ ] **`path <NodeA> <NodeB>`** — shortest path via BFS:
+   ```markdown
+   ### path \<NodeA\> \<NodeB\>
+   Find the shortest call-graph path between two methods.
+
+   ```bash
+   python3 .claude/graph/graph-traversal.py path "<NodeA>" "<NodeB>"
+   ```
+
+   Exits 1 if no path exists.
+   ```
+6. [ ] **`god-nodes [--top N]`** — top-N most-connected nodes:
+   ```markdown
+   ### god-nodes [--top N]
+   Top N nodes by (in_degree + out_degree). Default N = 10.
+   Nodes with total > 20 are flagged `is_god_node: true` — candidates for refactor.
+
+   ```bash
+   python3 .claude/graph/graph-traversal.py god-nodes --top "${TOP:-10}"
+   ```
+
+   Pure-jq alternative (lower fidelity — no per-node degree breakdown):
+   ```bash
+   jq '[.codebase.calls[] | .caller, .callee]
+       | group_by(.) | map({node: .[0], count: length})
+       | sort_by(-.count) | .[0:10]' .claude/graph/graph.json
+   ```
+   ```
+7. [ ] At the bottom of the file, add a small **"When to use which"** matrix so the user picks the right query:
+   ```
+   | Question | Use |
+   |---|---|
+   | "Who calls this method?" | `callers` |
+   | "What breaks if I change this class?" | `impact` |
+   | "How does X end up calling Y?" | `path` |
+   | "Which classes do too much?" | `god-nodes` |
+   ```
+8. [ ] Update the **Staleness Check** block to also warn when `codebase.calls[]` is empty (i.e. the graph was built before v1.1.0): print `⚠ Graph has no call edges (built before v1.1.0). Rebuild with /build-knowledge-graph --full to enable callers/impact/path/god-nodes.`
+
+**Test Type:** NoTest — markdown command file under `.claude/commands/` (per the Test Type Decision Matrix). Manual validation:
+- Run each new subcommand against a real graph; verify the output matches what `graph-traversal.py` returns directly.
+- Confirm the jq fallback for `callers` returns the same set of `.caller` values (modulo formatting) as the Python version.
+
+**Code Skeleton (appended to knowledge-graph.md):**
+```markdown
+---
+
+### callers <Class.Method>
+List all call sites that invoke the given method.
+
+```bash
+python3 .claude/graph/graph-traversal.py callers "<Class.Method>"
+```
+
+---
+
+### impact <ClassName> [--hops N]
+Show downstream + upstream affected nodes within N hops (default 3).
+
+```bash
+python3 .claude/graph/graph-traversal.py impact "<ClassName>" --hops 3
+```
+
+---
+
+### path <NodeA> <NodeB>
+Shortest call-graph path between two methods.
+
+```bash
+python3 .claude/graph/graph-traversal.py path "<NodeA>" "<NodeB>"
+```
+
+---
+
+### god-nodes [--top N]
+Top N most-connected nodes (in_degree + out_degree).
+
+```bash
+python3 .claude/graph/graph-traversal.py god-nodes --top 10
+```
+```
+
+**Acceptance Criteria:**
+- All four subcommands are documented with a one-line description + invocation block + (where useful) jq fallback.
+- The "When to use which" matrix appears at the bottom.
+- Staleness check covers the v1.0.0 → v1.1.0 transition (warn when `calls[]` is empty).
+- File still parses cleanly as markdown.
 
 ---
 
@@ -1066,6 +1000,10 @@ If n → set `project-features.graph = false`, skip.
 | `/context-prime.md` Steps 1–5 | Reads three markdown files | Same + new Step 2.5 reads graph summary |
 | `/architect.md` `_Framework/` survey step | `find _Framework -type f` | `jq '.codebase.assemblies[]'` |
 | Per-command, ad-hoc file scanning | Repeated on every command invocation | Centralized; happens once on Write/Edit + commit |
+| **v2:** "Who calls this method?" | Manual grep | `/knowledge-graph callers X.Y` |
+| **v2:** "Blast radius of refactoring X?" | Manual reasoning | `/knowledge-graph impact X` |
+| **v2:** "How does A reach B?" | Manual code tracing | `/knowledge-graph path A B` |
+| **v2:** "Which classes are over-coupled?" | Manual review | `/knowledge-graph god-nodes` |
 
 ---
 
@@ -1080,6 +1018,11 @@ If n → set `project-features.graph = false`, skip.
 - **Phase 7 (Tasks 13/14/15)** depends on Phase 6 — graph must be stable AND auto-refreshing before existing commands stop scanning.
 - **Phase 8 (Tasks 16/17)** depends on Phase 7 — wiring setup/refine/architect requires the commands to already query the graph.
 - **Phase 9 (Tasks 18/19)** must be LAST — docs describe the final state, never a half-built one.
+- **Phase 10 (v2) ordering:**
+  - **Task 20** (schema bump) must complete first — Tasks 21 and 22 both read the new shape.
+  - **Tasks 21 + 22** run in parallel (group H) — different files, no shared types.
+  - **Task 23** (builder wiring) depends on both Task 21 (extractor emits `partial_calls[]`) AND Task 22 (`--finalize-calls` mode exists).
+  - **Task 24** (subcommands) depends on Task 22 — every new subcommand shells out to `graph-traversal.py`.
 
 ---
 
@@ -1095,6 +1038,11 @@ If n → set `project-features.graph = false`, skip.
 | Existing `.git/hooks/post-commit` clobbered | Task 11 refuses if file exists |
 | `/catch-up` quality regression (Task 13) | **[BLOCKED — needs investigation]** sub-task confirms what is graph-derivable before rewriting |
 | Cache corruption (file-hashes.json out of sync with graph) | Atomic writes; `--full` flag rebuilds from scratch |
+| **v2:** regex-mode call extraction emits noise (BCL types, generics) | Curated `BCL_NOISE` + `CSHARP_KEYWORDS` denylist in Task 21; tree-sitter mode supersedes when available |
+| **v2:** `python3` missing on the user's machine breaks impact/path/god-nodes | Task 23 logs a warning and skips finalization; Task 24 documents a jq fallback for `callers`/`god-nodes` |
+| **v2:** call-graph explodes runtime on a 5k-class project | BFS budgets in Task 22 (`<200ms` on 10k edges); incremental reuse in Task 23 keeps full rebuilds rare |
+| **v2:** `calls[]` deduplication merges edges with conflicting confidence | Task 22 `--finalize-calls` promotes `EXTRACTED` over `INFERRED` deterministically |
+| **v2:** "ClassName.MethodName" ambiguous for overloads | Acceptable for v2 — overload disambiguation deferred (signature in `methods[].signature` is available but not part of the call-graph key) |
 
 ---
 
@@ -1105,17 +1053,33 @@ If n → set `project-features.graph = false`, skip.
 - ECS-specific extraction (ISystem, IJobEntity registration) — punted to a follow-up plan once a project actually uses ECS.
 - Embeddings / semantic search over the graph — punted.
 - Real-time MCP-driven scene watching — runtime cost too high; we refresh MCP data only on explicit `/build-knowledge-graph`.
+- **v2:** Overload-aware call edges (current node key is `ClassName.MethodName`, not `ClassName.MethodName(int,string)`). Signature is captured in `methods[]` but not used as a call-key.
+- **v2:** Inter-assembly call ranking, dependency-cycle detection over call edges, dead-method detection — punted to a follow-up.
 
 ---
 
 ## Definition of Done
 
-- [ ] `graph.json` exists, validates against `schema.json`, has non-empty `codebase.classes[]` on a real Unity project.
-- [ ] `/build-knowledge-graph --full` completes in <30s on a 200-file project.
-- [ ] `/build-knowledge-graph --incremental` after a one-file change completes in <2s.
-- [ ] `/knowledge-graph summary` prints in <500ms.
-- [ ] Codex validation (Task 7) reports ≥95% agreement on a 20-sample run.
-- [ ] `/catch-up`, `/orchestrate`, `/context-prime` all read graph data and contain no `find` / `Glob '*.cs'` references for codebase discovery.
-- [ ] `CLAUDE.md` and `README.md` both have a Knowledge Graph section.
-- [ ] `.gitignore` correctly excludes generated artifacts.
-- [ ] All hooks are non-blocking (exit 0, background invocation).
+- [x] `graph.json` exists, validates against `schema.json`, has non-empty `codebase.classes[]` on a real Unity project.
+- [x] `/build-knowledge-graph --full` completes in <30s on a 200-file project.
+- [x] `/build-knowledge-graph --incremental` after a one-file change completes in <2s.
+- [x] `/knowledge-graph summary` prints in <500ms.
+- [x] Codex validation (Task 7) reports ≥95% agreement on a 20-sample run.
+- [x] `/catch-up`, `/orchestrate`, `/context-prime` all read graph data and contain no `find` / `Glob '*.cs'` references for codebase discovery.
+- [x] `CLAUDE.md` and `README.md` both have a Knowledge Graph section.
+- [x] `.gitignore` correctly excludes generated artifacts.
+- [x] All hooks are non-blocking (exit 0, background invocation).
+- [ ] **v2:** `schema.json` is at version `1.1.0` with optional `methods[]` and `calls[]` fields.
+- [ ] **v2:** `codebase.calls[]` is non-empty after a `--full` build on a real Unity project; every edge has a confidence value.
+- [ ] **v2:** `python3 .claude/graph/graph-traversal.py god-nodes --top 10` returns ranked output in <200ms.
+- [ ] **v2:** `/knowledge-graph callers <Class.Method>` returns at least one caller for a known caller-callee pair in the project.
+- [ ] **v2:** `/knowledge-graph impact <ClassName> --hops 3` returns deterministic downstream/upstream sets.
+- [ ] **v2:** `/knowledge-graph path <A> <B>` returns the shortest path or exits 1 cleanly if no path exists.
+- [ ] **v2:** `graph-builder.sh` skips call-graph finalization with a warning (not an error) when `python3` is absent.
+
+### Critical Files for Implementation
+- /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/graph/schema.json
+- /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/graph/extractors/csharp-extractor.sh
+- /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/graph/graph-traversal.py
+- /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/graph/graph-builder.sh
+- /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/commands/knowledge-graph.md

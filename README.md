@@ -184,9 +184,9 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 
 ## Knowledge Graph
 
-`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph. When enabled (default in
+`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.1.0). When enabled (default in
 `/setup-project`), the graph indexes every class, interface, event, installer, scope, asmdef, scene,
-and prefab into a single `graph.json` artifact. `/catch-up`, `/orchestrate`, and `/context-prime`
+prefab, **method**, and **call edge** into a single `graph.json` artifact. `/catch-up`, `/orchestrate`, and `/context-prime`
 all read this graph instead of scanning files from scratch.
 
 ### Quick commands
@@ -204,10 +204,14 @@ all read this graph instead of scanning files from scratch.
 | `/knowledge-graph prefab <P>` | Prefab components and variant status |
 | `/knowledge-graph violations` | Print architecture errors and warnings |
 | `/knowledge-graph diff` | Compare current graph with last backup |
+| `/knowledge-graph callers <Class.Method>` | All direct callers of a method |
+| `/knowledge-graph impact <ClassName> [--hops N]` | Blast radius — upstream + downstream affected nodes |
+| `/knowledge-graph path <A> <B>` | Shortest call-graph path between two nodes |
+| `/knowledge-graph god-nodes [--top N]` | Most-connected classes (over-coupling candidates) |
 
 ### Triggers (kept in sync automatically)
 
-- Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background)
+- Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background, ~1–2s)
 - Every `git commit` → post-commit hook (full rebuild)
 - Manual: `/build-knowledge-graph`
 
@@ -216,6 +220,8 @@ all read this graph instead of scanning files from scratch.
 | Data | Detail |
 |------|--------|
 | Classes / interfaces | Name, namespace, file, base types, `implements[]`, `is_mono_behaviour`, `has_static_instance` |
+| Methods | Per-class: name, signature, line, accessibility, `is_async`, `is_static`, return type |
+| Call edges | `calls[]` — `ClassName.MethodName → callee`, file, line, confidence (INFERRED in regex mode) |
 | Events | Publishers + subscribers via `_eventBus.Publish<T>()` / `.Publish(new T())` and `Subscribe<T>()` |
 | VContainer registrations | `Register<T>`, `RegisterInstance`, `RegisterComponent` — including `.As<IFoo>()`, `.AsImplementedInterfaces()`, and real `Lifetime` (Singleton/Transient/Scoped) |
 | VContainer scopes | `LifetimeScope` subclasses; parent resolved from `[ParentScope(typeof(X))]` in C# code **or** from `LifetimeScope.parentReference` Inspector field via MCP (MCP wins on conflict) |
