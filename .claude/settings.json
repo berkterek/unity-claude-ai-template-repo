@@ -356,6 +356,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"UserPromptSubmit\", \"additionalContext\": \"REMINDER: Before responding or taking any action, check if any skill in the available-skills list might apply \u2014 even 1% chance means invoke it. This is NON-NEGOTIABLE per using-superpowers skill.\"}}'",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   },
   "env": {
