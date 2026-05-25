@@ -151,53 +151,14 @@ AppScope (Bootstrap scene — DontDestroyOnLoad, persistent root)
 - `MenuScope` / `GameScope` register scene-local dependencies
 - A scope cannot access sibling scope services — only parent scope
 
-### AppScope Pattern
+### AppScope / GameScope / ModuleInstaller Patterns
 
-```csharp
-// AppScope.cs — Bootstrap scene (this file never changes)
-public sealed class AppScope : LifetimeScope
-{
-    [SerializeField] private AppInstaller _appInstaller;
+> Full patterns, code examples, and rules: see `bootstrap-pattern.md`.
 
-    protected override void Configure(IContainerBuilder builder)
-    {
-        builder.Register<EventBus>(Lifetime.Singleton).As<IEventBus>();
-
-        _appInstaller?.Install(builder);
-
-        builder.RegisterBuildCallback(container =>
-        {
-            EventBusAccessor.Initialize(container.Resolve<IEventBus>());
-        });
-    }
-}
-```
-
-Adding a new module = create a new `ModuleInstaller` asset → drag into `AppInstaller.asset` Modules list. `AppScope.cs` never changes.
-
-### GameScope Pattern
-
-`GameScope` registers scene-local dependencies — MonoBehaviour references that exist on the Game scene. Unlike `AppScope`, it uses `[SerializeField]` fields assigned on the **scene instance** (not the prefab), and only `builder.RegisterComponent(...)` — never `builder.Register<T>(...)`.
-
-> Full pattern, rules, and example: see `bootstrap-pattern.md` → **GameScope — Sahne Bazlı Wiring**
-
-### ModuleInstaller Pattern
-
-```csharp
-public class AudioInstaller : ModuleInstaller
-{
-    [SerializeField] private AudioConfiguration _config;
-
-    public override void Install(IContainerBuilder builder)
-    {
-        if (_config == null)
-            throw new InvalidOperationException($"{nameof(AudioInstaller)}: _config is not assigned.");
-
-        builder.RegisterInstance(_config);
-        builder.Register<AudioService>(Lifetime.Singleton).As<IAudioService>();
-    }
-}
-```
+Key points:
+- `AppScope.cs` never changes — add modules via `AppInstaller.asset`
+- `GameScope` uses only `builder.RegisterComponent(...)` with `[SerializeField]` scene refs
+- `ModuleInstaller` subclasses register a single module's dependencies
 
 ### Interface-First Registration
 
