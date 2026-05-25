@@ -282,13 +282,13 @@ Reviewer prompt:
 Review the following NEW plan for a Unity project.
 
 ## Plan File
-$PLAN_FILE
+[INSERT HERE: the plan file name from the /create-plan argument]
 
 ## Feature Being Planned
-$CHANGE_DESCRIPTION
+[INSERT HERE: the change description from the /create-plan argument]
 
 ## Plan Content
-$PLANNER_OUTPUT
+[INSERT HERE: the full plan content from the Planner agent]
 
 ## Review Criteria
 1. Scope — does each task clearly state whether it is editor-only or runtime?
@@ -326,8 +326,8 @@ After 3 failed passes → stop and show the user all accumulated feedback. Ask:
 ## Step 4 — Save
 
 After APPROVED:
-- Write the plan content to `Docs/$PLAN_FILE`
-- Print: `Plan created: Docs/$PLAN_FILE`
+- Write the plan content to the plan file path from the /create-plan argument
+- Print: `Plan created: Docs/[plan file name]`
 
 ---
 
@@ -359,7 +359,7 @@ If **yes** → read the plan file. Extract the complexity score printed at the t
 You are a senior C# Unity developer implementing a plan.
 
 ## Plan File
-Docs/$PLAN_FILE
+[INSERT HERE: the full plan file path e.g. Docs/PLAN_audio.md]
 
 ## Project Rules
 - Read .claude/CLAUDE.md before writing any code
@@ -391,10 +391,10 @@ After implementer finishes → spawn the **Reviewer** using priority order (code
 Review the implementation of the following plan for a Unity project.
 
 ## Plan File
-Docs/$PLAN_FILE
+[INSERT HERE: the full plan file path e.g. Docs/PLAN_audio.md]
 
 ## Files Changed
-$IMPLEMENTER_OUTPUT
+[INSERT HERE: the list of files modified by the Implementer agent]
 
 ## Review Criteria
 1. Architecture — VContainer DI, no singletons, interfaces only across modules
@@ -421,10 +421,10 @@ If **APPROVED** → spawn a **committer** subagent:
 You are a release engineer. Commit the implementation of a plan for a Unity project.
 
 ## Plan Implemented
-Docs/$PLAN_FILE
+[INSERT HERE: the full plan file path e.g. Docs/PLAN_audio.md]
 
 ## Files Changed
-$IMPLEMENTER_OUTPUT
+[INSERT HERE: the list of files modified by the Implementer agent]
 
 ## Rules
 - Run: git status, git diff

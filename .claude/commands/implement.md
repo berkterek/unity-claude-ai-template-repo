@@ -133,7 +133,7 @@ If the task creates a new module folder (complexity score includes the +0.3 new-
 
 Read `.claude/skills/core/test-type-router.md` and apply the decision matrix to the task target.
 
-Extract the target class or file path from `$TASK_DESCRIPTION`. Run the router and emit:
+Extract the target class or file path from `[INSERT HERE: the task description from the /implement argument]`. Run the router and emit:
 
 ```
 TEST TYPE DECISION
@@ -250,10 +250,10 @@ Spawn a **unity-verifier** subagent with this prompt:
 You are a Unity build validator. Your only job is to verify that the project compiles and all tests pass.
 
 ## What Was Implemented
-$TASK_DESCRIPTION
+[INSERT HERE: the task description from the /implement argument]
 
 ## Files Changed
-$CODER_OUTPUT
+[INSERT HERE: the list of files modified by the Coder agent]
 
 ## Instructions
 1. Use `mcp__unityMCP__refresh_unity` to trigger a script recompile.
@@ -283,10 +283,10 @@ If validator reports **COMPILE FAILED** or **TEST FAILED** → spawn a **unity-c
 You are a senior C# Unity developer. Fix the following build or test failures.
 
 ## Original Task
-$TASK_DESCRIPTION
+[INSERT HERE: the task description from the /implement argument]
 
 ## Failures (fix ALL of these)
-$VALIDATOR_OUTPUT
+[INSERT HERE: the full COMPILE FAILED or TEST FAILED output from the Unity Validator]
 
 ## Rules
 - Fix only what is listed — do not refactor anything else
@@ -316,10 +316,10 @@ Reviewer priority — try in order, fall back if unavailable:
 Review the following Unity C# implementation.
 
 ## What Was Implemented
-$TASK_DESCRIPTION
+[INSERT HERE: the task description from the /implement argument]
 
 ## Files Changed
-$CODER_OUTPUT
+[INSERT HERE: the list of files modified by the Coder agent]
 
 ## Review Criteria
 1. Tests — all pre-written tests pass; no test files were modified
@@ -348,10 +348,10 @@ Repeat until APPROVED or stopped (max 3 passes):
    You are a senior C# Unity developer. Fix the following review issues.
 
    ## Original Task
-   $TASK_DESCRIPTION
+   [INSERT HERE: the task description from the /implement argument]
 
    ## Review Feedback (fix ALL of these)
-   $REVIEWER_FEEDBACK
+   [INSERT HERE: the full CHANGES NEEDED list from the Reviewer]
 
    ## Rules
    - Fix only what the reviewer flagged — do not refactor anything else
@@ -380,10 +380,10 @@ Spawn a **unity-verifier** subagent once with this prompt (max 3 internal iterat
 You are a Unity post-implementation verifier. Perform a final bounded check on the delivered implementation.
 
 ## What Was Implemented
-$TASK_DESCRIPTION
+[INSERT HERE: the task description from the /implement argument]
 
 ## Files Changed
-$CODER_OUTPUT
+[INSERT HERE: the list of files modified by the Coder agent]
 
 ## Instructions
 Run up to 3 internal fix-check iterations. In each iteration:
@@ -415,7 +415,7 @@ Spawn a **silent-failure-hunter** subagent with this prompt:
 ```
 Audit the following C# files for silent failure patterns:
 
-FILES: $CHANGED_FILES
+FILES: [INSERT HERE: the list of files modified by the Coder agent]
 
 Check for:
 1. catch blocks that swallow exceptions without logging or rethrowing
@@ -458,8 +458,8 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 **Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-- Task implemented: `$TASK_DESCRIPTION`
-- Files changed: `$CODER_OUTPUT`
+- Task implemented: `[INSERT HERE: the task description from the /implement argument]`
+- Files changed: `[INSERT HERE: the list of files modified by the Coder agent]`
 - Run: `git status`, `git diff` to confirm all changes
 - Stage only files related to this task
 - Commit message format: `"feat: <short description in English>"`

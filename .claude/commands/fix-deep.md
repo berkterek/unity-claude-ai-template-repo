@@ -88,7 +88,7 @@ If no log was provided → spawn a **unity-fixer** subagent with this prompt:
 You are a Unity log collector. Do NOT fix anything. Only collect evidence.
 
 ## Bug
-$BUG_DESCRIPTION
+[INSERT HERE: the bug description from the /fix-deep argument]
 
 ## Instructions
 1. Use `mcp__unityMCP__read_console` with type "Error" — collect all errors.
@@ -130,10 +130,10 @@ Spawn a **unity-fixer** subagent with this prompt:
 You are a senior Unity engineer doing root cause analysis. You have log evidence. Do NOT write any fix yet.
 
 ## Bug
-$BUG_DESCRIPTION
+[INSERT HERE: the bug description from the /fix-deep argument]
 
 ## Log Evidence
-$LOG_EVIDENCE
+[INSERT HERE: the log evidence collected in Step 0]
 
 ## Project Context
 - Read .claude/CLAUDE.md for architecture overview
@@ -174,13 +174,13 @@ Spawn a **unity-coder** subagent with this prompt:
 You are a Unity developer adding temporary diagnostic logs. Do NOT fix any logic. Only add Debug.Log statements.
 
 ## Bug
-$BUG_DESCRIPTION
+[INSERT HERE: the bug description from the /fix-deep argument]
 
 ## Hypothesis to Prove
-$HYPOTHESIS
+[INSERT HERE: the HYPOTHESIS line from Step 1]
 
 ## Injection Plan
-$DEBUG_INJECTION_PLAN
+[INSERT HERE: the DEBUG INJECTION PLAN list from Step 1]
 
 ## Rules
 - Add `Debug.Log("[FIX-DEEP] <context>: " + value)` at every injection point
@@ -214,7 +214,7 @@ Then spawn a **unity-fixer** subagent with this prompt:
 You are a Unity evidence reader. Collect the debug output from the injected logs.
 
 ## Hypothesis Being Tested
-$HYPOTHESIS
+[INSERT HERE: the HYPOTHESIS line from Step 1]
 
 ## Expected Log Markers
 All injected logs start with "[FIX-DEEP]"
@@ -239,7 +239,7 @@ NO_EVIDENCE — if no [FIX-DEEP] logs appeared (bug was not reproduced).
 ```
 You are a Unity risk analyst. While evidence logs are being collected, scan the codebase for Unity-specific patterns related to this bug hypothesis.
 
-HYPOTHESIS: $HYPOTHESIS
+HYPOTHESIS: [INSERT HERE: the HYPOTHESIS line from Step 1]
 
 ## Instructions
 
@@ -289,10 +289,10 @@ Spawn a **unity-fixer** subagent with this prompt:
 You are a strict evidence evaluator. Decide if the hypothesis is proven.
 
 ## Hypothesis
-$HYPOTHESIS
+[INSERT HERE: the HYPOTHESIS line from Step 1]
 
 ## Evidence Collected
-$EVIDENCE_LOGS
+[INSERT HERE: the EVIDENCE LOGS and STATIC_EVIDENCE from Step 3]
 
 ## Task
 1. Compare the evidence to the hypothesis.
@@ -316,7 +316,7 @@ Suggested action: <what the developer should do next in the editor>
 
 ### Gate Decision
 
-**PROVEN** → if the number of files in `$AFFECTED_FILES` is **more than 3**: fire **BREAKING_GATE** (see `.claude/docs/director-gates.md`) before proceeding. Show the full affected file list and wait for `go` or `stop`. Then proceed to Step 5 (Fix).
+**PROVEN** → if the number of affected files reported by the evidence gate is **more than 3**: fire **BREAKING_GATE** (see `.claude/docs/director-gates.md`) before proceeding. Show the full affected file list and wait for `go` or `stop`. Then proceed to Step 5 (Fix).
 
 **REFUTED** → print the revised hypothesis. Ask:
 - `retry` → go back to Step 2 with the revised hypothesis (max 2 revision cycles)
@@ -326,8 +326,8 @@ Suggested action: <what the developer should do next in the editor>
 ```
 ⚠ Cannot confirm root cause — more evidence needed.
 
-Missing: $MISSING_EVIDENCE
-Suggested action: $SUGGESTED_ACTION
+Missing: [the missing evidence described by the evidence evaluator]
+Suggested action: [the suggested action from the evidence evaluator]
 
 Options:
 1. Follow the suggested action in the editor, then type "retry"
@@ -364,16 +364,16 @@ Spawn the appropriate subagent with this prompt:
 You are a senior C# Unity developer. Fix a confirmed bug.
 
 ## Bug
-$BUG_DESCRIPTION
+[INSERT HERE: the bug description from the /fix-deep argument]
 
 ## Proven Root Cause
-$CONFIRMED_ROOT_CAUSE
+[INSERT HERE: the confirmed root cause from Step 4 Evidence Gate]
 
 ## Evidence
-$EVIDENCE_LOGS
+[INSERT HERE: the EVIDENCE LOGS and STATIC_EVIDENCE from Step 3]
 
 ## Files to Change
-$AFFECTED_FILES
+[INSERT HERE: the AFFECTED FILES list from the evidence gate]
 
 ## Rules
 - Read .claude/CLAUDE.md before writing any code
@@ -399,10 +399,10 @@ Spawn a **unity-verifier** subagent:
 You are a Unity build validator.
 
 ## What Was Fixed
-$BUG_DESCRIPTION — $CONFIRMED_ROOT_CAUSE
+[INSERT HERE: bug description — confirmed root cause]
 
 ## Files Changed
-$CODER_OUTPUT
+[INSERT HERE: the list of files modified by the Coder agent]
 
 ## Instructions
 1. Use `mcp__unityMCP__refresh_unity` to trigger recompile.
@@ -441,16 +441,16 @@ Reviewer priority — try in order, fall back if unavailable:
 Review this evidence-proven bug fix.
 
 ## Bug
-$BUG_DESCRIPTION
+[INSERT HERE: the bug description from the /fix-deep argument]
 
 ## Proven Root Cause
-$CONFIRMED_ROOT_CAUSE
+[INSERT HERE: the confirmed root cause from Step 4 Evidence Gate]
 
 ## Evidence That Proved It
-$EVIDENCE_LOGS
+[INSERT HERE: the EVIDENCE LOGS and STATIC_EVIDENCE from Step 3]
 
 ## Files Changed
-$CODER_OUTPUT
+[INSERT HERE: the list of files modified by the Coder agent]
 
 ## Review Criteria
 1. Fix addresses the proven root cause — not a broader change
@@ -479,7 +479,7 @@ Spawn a **silent-failure-hunter** subagent with this prompt:
 ```
 Audit the following C# files for silent failure patterns:
 
-FILES: $CHANGED_FILES
+FILES: [INSERT HERE: the list of files modified by the Coder agent]
 
 Check for:
 1. catch blocks that swallow exceptions without logging or rethrowing
@@ -522,9 +522,9 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 **Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-- Bug fixed: `$BUG_DESCRIPTION`
-- Proven root cause: `$CONFIRMED_ROOT_CAUSE`
-- Files changed: `$CODER_OUTPUT`
+- Bug fixed: [the bug description]
+- Proven root cause: [one sentence confirmed root cause]
+- Files changed: [list of modified files]
 - Run: `git status`, `git diff`
 - Stage only files related to this fix
 - Commit message format: `"fix(proven): <short description in English>"`

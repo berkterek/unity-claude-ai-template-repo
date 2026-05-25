@@ -33,10 +33,10 @@ Analyze the existing plan and relevant source files to understand:
 3. Concrete technical findings the planner needs to write precise tasks
 
 ## Plan File
-$PLAN_FILE
+[INSERT HERE: the plan file path from the /update-plan argument]
 
 ## Change Request
-$CHANGE_DESCRIPTION
+[INSERT HERE: the change description from the /update-plan argument]
 
 ## What to Read
 1. The plan file listed above
@@ -71,13 +71,13 @@ You are a senior technical writer for a Unity project.
 Your job is to update an existing Docs plan file with new tasks.
 
 ## Plan File to Update
-$PLAN_FILE
+[INSERT HERE: the plan file path from the /update-plan argument]
 
 ## Change Request
-$CHANGE_DESCRIPTION
+[INSERT HERE: the change description from the /update-plan argument]
 
 ## Analyzer Findings
-$ANALYZER_OUTPUT
+[INSERT HERE: the full output from the Analyzer agent]
 
 ## Test Type Decision Matrix
 
@@ -147,13 +147,13 @@ Reviewer prompt:
 Review the following plan update for a Unity project.
 
 ## Plan File
-$PLAN_FILE
+[INSERT HERE: the plan file path from the /update-plan argument]
 
 ## Change Request
-$CHANGE_DESCRIPTION
+[INSERT HERE: the change description from the /update-plan argument]
 
 ## Updated Plan Content
-$PLANNER_OUTPUT
+[INSERT HERE: the full updated plan content from the Planner agent]
 
 ## Review Criteria
 1. Scope — do new tasks stay within the intended boundaries?
@@ -187,7 +187,7 @@ After 3 failed passes → stop and show the user all accumulated feedback. Ask:
 
 ## Step 4 — Save
 
-After APPROVED → write the updated content to `$PLAN_FILE`.
+After APPROVED → write the updated content to `[INSERT HERE: the plan file path from the /update-plan argument]`.
 
 ---
 
@@ -219,7 +219,7 @@ If **yes** → read the plan file. Extract the complexity score printed at the t
 You are a senior C# Unity developer implementing a plan.
 
 ## Plan File
-$PLAN_FILE
+[INSERT HERE: the plan file path from the /update-plan argument]
 
 ## Project Rules
 - Read .claude/CLAUDE.md before writing any code
@@ -250,10 +250,10 @@ After implementer finishes → spawn the **Reviewer** using priority order (code
 Review the implementation of the following plan.
 
 ## Plan File
-$PLAN_FILE
+[INSERT HERE: the plan file path from the /update-plan argument]
 
 ## Files Changed
-$IMPLEMENTER_OUTPUT
+[INSERT HERE: the list of files modified by the Implementer agent]
 
 ## Review Criteria
 1. Architecture — VContainer DI, no singletons, interfaces only across modules
@@ -274,10 +274,10 @@ If **APPROVED** → spawn a **committer** subagent:
 You are a release engineer. Commit the implementation of a plan.
 
 ## Plan Implemented
-$PLAN_FILE
+[INSERT HERE: the plan file path from the /update-plan argument]
 
 ## Files Changed
-$IMPLEMENTER_OUTPUT
+[INSERT HERE: the list of files modified by the Implementer agent]
 
 ## Rules
 - Run: git status, git diff

@@ -112,7 +112,7 @@ Read .claude/CLAUDE.md for project architecture.
 - Only mock interfaces, never concrete classes
 
 ## Migration Task
-$MIGRATION_DESCRIPTION
+[INSERT HERE: the migration description from the /migrate argument]
 
 ## Your job
 1. Check if tests already exist for the code being migrated.
@@ -136,7 +136,7 @@ Spawn Agent with `subagent_type: "unity-migrator"` with this prompt:
 You are a Unity code migration specialist. Migrate legacy patterns in this project.
 
 ## Migration Task
-$MIGRATION_DESCRIPTION
+[INSERT HERE: the migration description from the /migrate argument]
 
 ## Project Rules
 - Read .claude/CLAUDE.md before making any changes
@@ -183,10 +183,10 @@ Reviewer prompt:
 Review this code migration.
 
 ## Migration
-$MIGRATION_DESCRIPTION
+[INSERT HERE: the migration description from the /migrate argument]
 
 ## Files Changed
-$MIGRATOR_OUTPUT
+[INSERT HERE: the list of files modified by the Migrator agent]
 
 ## Review Criteria
 1. Tests pass — all pre-migration tests still pass after migration; no test files were modified
@@ -209,10 +209,10 @@ Repeat until APPROVED or stopped (max 3 passes):
    You are a Unity code migration specialist. Fix the following review issues.
 
    ## Original Migration
-   $MIGRATION_DESCRIPTION
+   [INSERT HERE: the migration description from the /migrate argument]
 
    ## Review Feedback (fix ALL of these)
-   $REVIEWER_FEEDBACK
+   [INSERT HERE: the full CHANGES NEEDED list from the Reviewer]
 
    ## Rules
    - Fix only what the reviewer flagged — do not refactor anything else
@@ -239,10 +239,10 @@ If complexity score ≥ 0.7 and review mode is `lean` or `full`: after reviewer 
 Review this migration for Unity-specific correctness.
 
 ## Migration Task
-$MIGRATION_DESCRIPTION
+[INSERT HERE: the migration description from the /migrate argument]
 
 ## Files Changed
-$MIGRATOR_OUTPUT
+[INSERT HERE: the list of files modified by the Migrator agent]
 
 ## Review Criteria (from .claude/agents/unity-developer.md)
 - Hot-path allocations introduced?
@@ -275,8 +275,8 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 **Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-- Migration: `$MIGRATION_DESCRIPTION`
-- Files changed: `$MIGRATOR_OUTPUT`
+- Migration: `[INSERT HERE: the migration description from the /migrate argument]`
+- Files changed: `[INSERT HERE: the list of files modified by the Migrator agent]`
 - Run: `git status`, `git diff`
 - Stage only migration-related files
 - Commit message format: `"refactor: migrate <pattern> in <scope>"`

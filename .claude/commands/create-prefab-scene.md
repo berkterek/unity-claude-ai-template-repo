@@ -186,10 +186,10 @@ Spawn a **unity-setup** subagent with this prompt:
 You are a Unity scene architect. Create all prefabs listed in the Prefab Inventory following the project's NON-NEGOTIABLE prefab rules.
 
 ## Prefab Inventory
-$PREFAB_INVENTORY_CONTENT
+[INSERT HERE: the full prefab inventory output from the Analyzer agent]
 
 ## Source Scenes
-$SCENE_PATHS
+[INSERT HERE: the list of scene file paths being analyzed]
 
 ## Prefab Rules (NON-NEGOTIABLE)
 
@@ -252,10 +252,10 @@ Spawn a **unity-developer** subagent with this prompt:
 You are a Unity 6 specialist. Review the prefabs created by the unity-setup agent.
 
 ## Prefab Inventory (expected state)
-$PREFAB_INVENTORY_CONTENT
+[INSERT HERE: the full prefab inventory output from the Analyzer agent]
 
 ## Assets Created
-$UNITY_SETUP_OUTPUT
+[INSERT HERE: the output from the unity-setup agent — prefabs and GameObjects created]
 
 ## Review Checklist (prefab rules 8-10)
 
@@ -304,8 +304,8 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 **Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
 - What was done: Analyzed scenes under `_Scene/`, created prefabs following project prefab rules.
-- Scenes analyzed: `$SCENE_PATHS`
-- Prefabs created: `$UNITY_SETUP_OUTPUT`
+- Scenes analyzed: `[INSERT HERE: the list of scene file paths being analyzed]`
+- Prefabs created: `[INSERT HERE: the output from the unity-setup agent — prefabs and GameObjects created]`
 - Run: `git status`, `git diff --stat`
 - Stage: all `.prefab`, `.unity`, `.asset`, `.meta` files changed + `docs/PrefabInventory.md`
 - NEVER use `git add -A` or `git add .` — specific files only

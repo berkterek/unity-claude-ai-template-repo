@@ -147,7 +147,7 @@ Spawn a **unity-fixer** subagent with this prompt (note: unity-fixer reads surro
 You are a senior Unity engineer specializing in root cause analysis. Investigate the following bug.
 
 ## Bug Report
-$BUG_DESCRIPTION
+[INSERT HERE: the bug description from the /fix argument]
 
 ## Knowledge Graph (class/interface/event/installer inventory — use as primary reference)
 [INSERT HERE: the GRAPH_CONTEXT output from Step 0.25 — if empty, write "No graph available."]
@@ -178,7 +178,7 @@ DO NOT fix anything. Report only.
 ```
 You are a Unity risk analyst. While the debugger investigates the bug, scan in parallel for Unity-specific risk patterns.
 
-BUG: $BUG_DESCRIPTION
+BUG: [INSERT HERE: the bug description from the /fix argument]
 
 ## Instructions
 
@@ -219,13 +219,13 @@ Show the debugger output to the user. Ask: "Root cause found — proceed with fi
 
 If **stop** → abort.
 
-If the number of affected files in `$DEBUGGER_AFFECTED_FILES` is **more than 3**: fire **BREAKING_GATE** (see `.claude/docs/director-gates.md`) before proceeding to the Test Writer. Show the full affected file list and wait for `go` or `stop`.
+If the number of affected files reported by the debugger is **more than 3**: fire **BREAKING_GATE** (see `.claude/docs/director-gates.md`) before proceeding to the Test Writer. Show the full affected file list and wait for `go` or `stop`.
 
 ---
 
 ## Step 2 — Find Existing Test File
 
-For each file in `$DEBUGGER_AFFECTED_FILES`, check if a corresponding test file already exists:
+For each file in the debugger's AFFECTED FILES list, check if a corresponding test file already exists:
 
 ```bash
 find . -name "[ClassName]Tests.cs" -path "*/Tests/*"
@@ -254,13 +254,13 @@ Read .claude/CLAUDE.md for project architecture.
 - Only mock interfaces, never concrete classes
 
 ## Bug
-$BUG_DESCRIPTION
+[INSERT HERE: the bug description from the /fix argument]
 
 ## Root Cause
-$DEBUGGER_ROOT_CAUSE
+[INSERT HERE: the ROOT CAUSE line from the debugger output]
 
 ## Affected Files
-$DEBUGGER_AFFECTED_FILES
+[INSERT HERE: the AFFECTED FILES list from the debugger output]
 
 ## Your job
 Write regression test(s) that:
@@ -291,16 +291,16 @@ Spawn the appropriate subagent with this prompt:
 You are a senior C# Unity developer. Fix the following bug.
 
 ## Bug
-$BUG_DESCRIPTION
+[INSERT HERE: the bug description from the /fix argument]
 
 ## Root Cause (already investigated)
-$DEBUGGER_ROOT_CAUSE
+[INSERT HERE: the ROOT CAUSE line from the debugger output]
 
 ## Files to Change
-$DEBUGGER_AFFECTED_FILES
+[INSERT HERE: the AFFECTED FILES list from the debugger output]
 
 ## Regression Test (make this pass)
-$TEST_WRITER_OUTPUT
+[INSERT HERE: the full output from the Test Writer agent — test file path and test method names]
 
 ## Project Rules
 - Read .claude/CLAUDE.md before writing any code
@@ -328,10 +328,10 @@ Spawn a **unity-verifier** subagent with this prompt:
 You are a Unity build validator. Your only job is to verify that the project compiles and all tests pass.
 
 ## What Was Fixed
-$BUG_DESCRIPTION
+[INSERT HERE: the bug description from the /fix argument]
 
 ## Files Changed
-$CODER_OUTPUT
+[INSERT HERE: the list of files modified by the Coder agent]
 
 ## Instructions
 1. Use `mcp__unityMCP__refresh_unity` to trigger a script recompile.
@@ -361,11 +361,11 @@ If validator reports **COMPILE FAILED** or **TEST FAILED** → spawn a **unity-c
 You are a senior C# Unity developer. Fix the following build or test failures.
 
 ## Original Bug Fix Context
-Bug: $BUG_DESCRIPTION
-Root Cause: $DEBUGGER_ROOT_CAUSE
+Bug: [INSERT HERE: the bug description from the /fix argument]
+Root Cause: [INSERT HERE: the ROOT CAUSE line from the debugger output]
 
 ## Failures (fix ALL of these)
-$VALIDATOR_OUTPUT
+[INSERT HERE: the full COMPILE FAILED or TEST FAILED output from the Unity Validator]
 
 ## Rules
 - Fix only what is listed — do not refactor anything else
@@ -395,13 +395,13 @@ Reviewer priority — try in order, fall back if unavailable:
 Review this bug fix.
 
 ## Bug
-$BUG_DESCRIPTION
+[INSERT HERE: the bug description from the /fix argument]
 
 ## Root Cause
-$DEBUGGER_ROOT_CAUSE
+[INSERT HERE: the ROOT CAUSE line from the debugger output]
 
 ## Files Changed
-$CODER_OUTPUT
+[INSERT HERE: the list of files modified by the Coder agent]
 
 ## Review Criteria
 1. Regression test passes — the pre-written test now passes; test file was not modified
@@ -428,11 +428,11 @@ Repeat until APPROVED or stopped (max 3 passes):
    You are a senior C# Unity developer. Fix the following review issues.
 
    ## Original Bug Fix Context
-   Bug: $BUG_DESCRIPTION
-   Root Cause: $DEBUGGER_ROOT_CAUSE
+   Bug: [INSERT HERE: the bug description from the /fix argument]
+   Root Cause: [INSERT HERE: the ROOT CAUSE line from the debugger output]
 
    ## Review Feedback (fix ALL of these)
-   $REVIEWER_FEEDBACK
+   [INSERT HERE: the full CHANGES NEEDED list from the Reviewer]
 
    ## Rules
    - Fix only what the reviewer flagged — do not refactor anything else
@@ -461,13 +461,13 @@ Spawn a **unity-verifier** subagent once with this prompt (max 3 internal iterat
 You are a Unity post-fix verifier. Perform a final bounded check on the delivered bug fix.
 
 ## Bug Fixed
-$BUG_DESCRIPTION
+[INSERT HERE: the bug description from the /fix argument]
 
 ## Root Cause
-$DEBUGGER_ROOT_CAUSE
+[INSERT HERE: the ROOT CAUSE line from the debugger output]
 
 ## Files Changed
-$CODER_OUTPUT
+[INSERT HERE: the list of files modified by the Coder agent]
 
 ## Instructions
 Run up to 3 internal fix-check iterations. In each iteration:
@@ -499,7 +499,7 @@ Spawn a **silent-failure-hunter** subagent with this prompt:
 ```
 Audit the following C# files for silent failure patterns:
 
-FILES: $CHANGED_FILES
+FILES: [INSERT HERE: the list of files modified by the Coder agent]
 
 Check for:
 1. catch blocks that swallow exceptions without logging or rethrowing
@@ -542,9 +542,9 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 **Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-- Bug fixed: `$BUG_DESCRIPTION`
-- Root cause: `$DEBUGGER_ROOT_CAUSE`
-- Files changed: `$CODER_OUTPUT`
+- Bug fixed: [the bug description]
+- Root cause: [one sentence root cause]
+- Files changed: [list of modified files]
 - Run: `git status`, `git diff`
 - Stage only files related to this fix
 - Commit message format: `"fix: <short description in English>"`

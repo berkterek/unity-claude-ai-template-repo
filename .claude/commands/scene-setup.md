@@ -116,7 +116,7 @@ Spawn the coder agent determined in Step 0 (**unity-coder-lite** for Simple, **u
 You are a senior C# Unity developer. Write the C# scripts needed for the following Unity scene setup.
 
 ## Scene Setup Task
-$SETUP_DESCRIPTION
+[INSERT HERE: the scene setup description from the /scene-setup argument]
 
 ## Project Rules
 - Read .claude/CLAUDE.md before writing any code
@@ -146,10 +146,10 @@ Spawn a **unity-setup** subagent with this prompt:
 You are a Unity scene architect. Wire up the scene and prefabs for the following task.
 
 ## Scene Setup Task
-$SETUP_DESCRIPTION
+[INSERT HERE: the scene setup description from the /scene-setup argument]
 
 ## C# Scripts Already Created
-$CODER_OUTPUT
+[INSERT HERE: the list of files modified by the Coder agent]
 
 ## Your Responsibilities
 - Use Unity MCP tools to create/modify GameObjects, add components, set references
@@ -191,13 +191,13 @@ Reviewer priority — try in order, fall back if unavailable:
 Review this Unity scene setup implementation.
 
 ## Task
-$SETUP_DESCRIPTION
+[INSERT HERE: the scene setup description from the /scene-setup argument]
 
 ## C# Files Created
-$CODER_OUTPUT
+[INSERT HERE: the list of files modified by the Coder agent]
 
 ## Unity Assets Modified
-$UNITY_SETUP_OUTPUT
+[INSERT HERE: the output from the unity-setup agent — GameObjects and components created]
 
 ## Review Criteria (C# only — Unity assets cannot be reviewed as text)
 1. Architecture — VContainer DI, [Inject] Construct pattern on MonoBehaviours
@@ -219,10 +219,10 @@ Repeat until APPROVED or stopped (max 3 passes):
    You are a senior C# Unity developer. Fix the following review issues.
 
    ## Original Scene Setup Task
-   $SETUP_DESCRIPTION
+   [INSERT HERE: the scene setup description from the /scene-setup argument]
 
    ## Review Feedback (fix ALL of these)
-   $REVIEWER_FEEDBACK
+   [INSERT HERE: the full CHANGES NEEDED list from the Reviewer]
 
    ## Rules
    - Fix only what the reviewer flagged — do not refactor anything else
@@ -252,11 +252,11 @@ Spawn a **unity-verifier** subagent:
 You are a Unity verification agent. Run a final bounded check on this scene/prefab setup.
 
 ## Scene Setup Task
-$SETUP_DESCRIPTION
+[INSERT HERE: the scene setup description from the /scene-setup argument]
 
 ## Files Changed
-$CODER_OUTPUT
-$UNITY_SETUP_OUTPUT
+[INSERT HERE: the list of files modified by the Coder agent]
+[INSERT HERE: the output from the unity-setup agent — GameObjects and components created]
 
 ## Your Task (max 3 internal iterations)
 1. Compile check via MCP refresh_assets
@@ -285,8 +285,8 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 **Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-- What was set up: `$SETUP_DESCRIPTION`
-- Files changed: `$CODER_OUTPUT` + `$UNITY_SETUP_OUTPUT`
+- What was set up: `[INSERT HERE: the scene setup description from the /scene-setup argument]`
+- Files changed: `[INSERT HERE: the list of files modified by the Coder agent]` + `[INSERT HERE: the output from the unity-setup agent — GameObjects and components created]`
 - Run: `git status`, `git diff`
 - Stage all related `.cs`, `.unity`, `.prefab`, `.asset`, `.meta` files
 - Commit message format: `"feat: <short description in English>"`
