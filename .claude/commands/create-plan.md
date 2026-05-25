@@ -19,6 +19,41 @@ If no argument is given, ask: "What is the plan file name and what should be pla
 
 ---
 
+## Step 0 — Knowledge Graph Query
+
+If `.claude/project-features.json` has `graph == true` AND `.claude/graph/graph.json` exists:
+
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Keep this output in your active context as `GRAPH_CONTEXT`. You will embed it into subagent prompts below.
+
+If graph is disabled or missing → set `GRAPH_CONTEXT` to empty, proceed.
+
+---
+
 ## Step 1 — Researcher
 
 Spawn an **Explore** subagent with this prompt:
@@ -37,13 +72,16 @@ Specifically find:
 5. Related existing plans in Docs/ that might overlap
 
 ## Plan To Create
-File: $PLAN_FILE
-Topic: $CHANGE_DESCRIPTION
+File: [INSERT HERE: the plan file name from the /create-plan argument]
+Topic: [INSERT HERE: the change description from the /create-plan argument]
+
+## Knowledge Graph (class/interface/event/installer inventory — use as primary reference)
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0 — if empty, write "No graph available, scan source files."]
 
 ## What to Read
 1. Recent git log: `git log --oneline -15`
 2. Existing plans in Docs/ — check for overlap
-3. Source files relevant to the topic — look in Assets/ under the relevant module folders
+3. Source files relevant to the topic — look in Assets/ under the relevant module folders (use graph above to identify which files to read — skip files unrelated to the topic)
 4. .claude/skills/learned/ — load any relevant learned skills
 5. .claude/rules/architecture.md — for DI and event patterns
 
@@ -75,10 +113,10 @@ You are a senior technical writer for a Unity project.
 Your job is to create a brand-new plan file from scratch.
 
 ## Plan File to Create
-$PLAN_FILE  (will be saved to Docs/ folder)
+[INSERT HERE: the plan file name from the /create-plan argument]
 
 ## Feature / Bug to Plan
-$CHANGE_DESCRIPTION
+[INSERT HERE: the change description from the /create-plan argument]
 
 ## Complexity Assessment
 
@@ -99,7 +137,7 @@ Scoring signals:
 Print the score and label at the top of the plan before any tasks.
 
 ## Researcher Findings
-$RESEARCHER_OUTPUT
+[INSERT HERE: the full output from the Step 1 Researcher/Explore subagent]
 
 ## Project Context
 - Editor-only work stays in Editor/ assembly unless a runtime change is explicitly required

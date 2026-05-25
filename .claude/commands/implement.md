@@ -54,6 +54,41 @@ If complexity score ≥ 0.7 AND `superpowers:brainstorming` is available → inv
 
 ---
 
+## Step 0a — Knowledge Graph Query
+
+If `.claude/project-features.json` has `graph == true` AND `.claude/graph/graph.json` exists:
+
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Keep this output in your active context as `GRAPH_CONTEXT`. You will embed it into subagent prompts below.
+
+If graph is disabled or missing → set `GRAPH_CONTEXT` to empty, proceed.
+
+---
+
 ## Step 0b — Complexity Scoring
 
 **Step 0c — Read Review Mode**
@@ -139,12 +174,15 @@ Read .claude/agents/tester.md for your role and testing philosophy.
 Read .claude/rules/testing.md for project-specific rules — these override tester.md where they conflict.
 Read .claude/CLAUDE.md for project architecture.
 
+## Knowledge Graph (class/interface/event/installer inventory — use instead of scanning source files)
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0a — if empty, write "No graph available, scan source files."]
+
 ## Project overrides (take precedence over tester.md)
 - Use NSubstitute for mocking, not hand-rolled fakes
 - Only mock interfaces, never concrete classes
 
 ## Task
-$TASK_DESCRIPTION
+[INSERT HERE: the task description from the /implement argument]
 
 ## Your job
 1. Identify what class(es) and method(s) this task requires.
@@ -175,10 +213,13 @@ If the task targets `_Framework/` or pure C# service/interface code with no Unit
 You are a senior C# Unity developer. Implement the following task.
 
 ## Task
-$TASK_DESCRIPTION
+[INSERT HERE: the task description from the /implement argument]
+
+## Knowledge Graph (class/interface/event/installer inventory — use instead of scanning source files)
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0a — if empty, write "No graph available, scan source files."]
 
 ## Existing Tests (make these pass)
-$TEST_WRITER_OUTPUT
+[INSERT HERE: the full output from the Test Writer agent]
 
 ## Project Rules (read first)
 - Read .claude/CLAUDE.md before writing any code

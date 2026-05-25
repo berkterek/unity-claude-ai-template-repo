@@ -36,6 +36,41 @@ Plugins: superpowers:systematic-debugging [✓/✗] | claude-md-management [✓/
 
 ---
 
+## Step 0.25 — Knowledge Graph Query
+
+If `.claude/project-features.json` has `graph == true` AND `.claude/graph/graph.json` exists:
+
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Keep this output in your active context as `GRAPH_CONTEXT`. You will embed it into subagent prompts in Steps 1 and 2.
+
+If graph is disabled or missing → set `GRAPH_CONTEXT` to empty, proceed.
+
+---
+
 ## Step 0.5 — Complexity Scoring
 
 **Step 0a — Read Review Mode**
@@ -113,6 +148,9 @@ You are a senior Unity engineer specializing in root cause analysis. Investigate
 
 ## Bug Report
 $BUG_DESCRIPTION
+
+## Knowledge Graph (class/interface/event/installer inventory — use as primary reference)
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0.25 — if empty, write "No graph available."]
 
 ## Project Context
 - Read .claude/CLAUDE.md for architecture overview
