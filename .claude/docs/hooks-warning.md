@@ -18,3 +18,4 @@
 | `session-restore.sh` (SessionStart) | Restores session state from `.claude/state/` on session start |
 | `session-save.sh` (Stop) | Saves current session state to `.claude/state/` on stop |
 | `graph-auto-update.sh` (PostToolUse Write\|Edit) | Triggers incremental graph rebuild in background — never blocks. Respects `project-features.json.graph` flag. |
+| UserPromptSubmit inline hook | Injects skill-check reminder into every user prompt — enforces `using-superpowers` skill invocation before any action |
