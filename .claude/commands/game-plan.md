@@ -46,13 +46,29 @@ Read the project's design documents and scan the code to understand what's done 
 
 **Step A — Graph check (primary source when available):**
 Check if `.claude/graph/graph.json` exists:
-- If YES and file modified within 24h → run these graph queries first (skip to Step B with graph as primary):
-  - `cat .claude/graph/graph.json | python3 -c "import sys,json; g=json.load(sys.stdin); [print(n['id'],n.get('type',''),n.get('status','')) for n in g.get('nodes',[])]"` — list all classes with type/status
-  - Look for nodes with status STUB, PARTIAL, or TODO comments
-  - Extract all interfaces (type: Interface) from graph
-  - Extract all events (type: Event) from graph
-  - Extract all installers (type: Installer) and their registered services
-  - Note: graph data supplements steps 5–8 below — use it to fill DONE/STUB/MISSING sections directly
+- If YES and file modified within 24h → run these graph queries first (use as primary, supplement with Step B):
+  ```
+  cat .claude/graph/graph.json | python3 -c "
+  import sys,json
+  g=json.load(sys.stdin)
+  cb=g.get('codebase',{})
+  classes=cb.get('classes',[])
+  interfaces=cb.get('interfaces',[])
+  events=cb.get('events',[])
+  installers=cb.get('vcontainer',{}).get('installers',[])
+  print('=== CLASSES (%d) ===' % len(classes))
+  for c in classes: print(c['name'], c.get('file',''), 'mono=' + str(c.get('is_mono_behaviour',False)))
+  print('=== INTERFACES (%d) ===' % len(interfaces))
+  for i in interfaces: print(i['name'], i.get('file',''))
+  print('=== EVENTS (%d) ===' % len(events))
+  for e in events: print(e['name'], e.get('file',''))
+  print('=== INSTALLERS (%d) ===' % len(installers))
+  for inst in installers: print(inst['name'], [r.get('type','') for r in inst.get('registrations',[])])
+  "
+  ```
+  - Use graph output to fill DONE/STUB/MISSING sections (classes with empty `registrations` or no `events_published`/`events_subscribed` are candidates for STUB)
+  - Graph provides: all classes + files, interfaces, events, VContainer installers + registrations
+  - Note: graph has no explicit STUB flag — cross-reference file list with Step B's 40-line scan to confirm STUB vs IMPLEMENTED
 - If NO or stale (> 24h) → skip to Step B using direct file scan only
 
 **Step B — Direct file scan (always run; use as secondary if graph available):**
