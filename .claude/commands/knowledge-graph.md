@@ -15,6 +15,10 @@ All queries read `.claude/graph/graph.json` directly via `jq`.
 /knowledge-graph prefab <PrefabName>
 /knowledge-graph violations
 /knowledge-graph diff
+/knowledge-graph callers <Class.Method>
+/knowledge-graph impact <ClassName> [--hops N]
+/knowledge-graph path <NodeA> <NodeB>
+/knowledge-graph god-nodes [--top N]
 ```
 
 Append `--json` to any subcommand for raw JSON output.
@@ -29,6 +33,13 @@ Read `.claude/graph/.last-build`. If the file is missing or the timestamp is old
 ⚠ Knowledge graph is stale (last built: <timestamp or never>).
   Rebuild with /build-knowledge-graph before querying for accurate results.
   Proceed with stale data? (y/n)
+```
+
+If `codebase.calls[]` is absent or empty (graph built before v1.1.0):
+
+```
+⚠ Graph has no call edges (built before v1.1.0).
+  Rebuild with /build-knowledge-graph --full to enable callers/impact/path/god-nodes.
 ```
 
 If the user says `n` → stop. If `y` → continue.
@@ -184,3 +195,75 @@ diff \
 ```
 
 Show added/removed classes, events, and installers.
+
+---
+
+### callers \<Class.Method\>
+
+List all call sites that directly invoke the given method.
+
+```bash
+python3 .claude/graph/graph-traversal.py callers "<Class.Method>"
+```
+
+Fallback (no python3):
+```bash
+jq --arg name "<Class.Method>" '
+  [.codebase.calls[] | select(.callee == $name)]
+  | map({caller: .caller, file: .file, line: .line, confidence: .confidence})
+' .claude/graph/graph.json
+```
+
+---
+
+### impact \<ClassName\> [--hops N]
+
+Show downstream + upstream affected nodes within N hops (default 3).
+Use this before refactoring a class to estimate blast radius.
+
+```bash
+python3 .claude/graph/graph-traversal.py impact "<ClassName>" --hops 3
+```
+
+---
+
+### path \<NodeA\> \<NodeB\>
+
+Find the shortest call-graph path between two methods or classes.
+Exits 1 if no path exists.
+
+```bash
+python3 .claude/graph/graph-traversal.py path "<NodeA>" "<NodeB>"
+```
+
+---
+
+### god-nodes [--top N]
+
+Top N nodes by (in_degree + out_degree). Default N = 10.
+Nodes with total > 20 are flagged `is_god_node: true` — candidates for refactor.
+
+```bash
+python3 .claude/graph/graph-traversal.py god-nodes --top 10
+```
+
+Pure-jq alternative (lower fidelity — no per-node degree breakdown):
+```bash
+jq '[.codebase.calls[] | .caller, .callee]
+    | group_by(.) | map({node: .[0], count: length})
+    | sort_by(-.count) | .[0:10]' .claude/graph/graph.json
+```
+
+---
+
+## When to use which
+
+| Question | Use |
+|---|---|
+| "Who calls this method?" | `callers` |
+| "What breaks if I change this class?" | `impact` |
+| "How does X end up calling Y?" | `path` |
+| "Which classes do too much?" | `god-nodes` |
+| "Who implements this interface?" | `implementers` |
+| "Which installer registers this type?" | `registrations` |
+| "Who publishes/subscribes to this event?" | `publishers` / `subscribers` |

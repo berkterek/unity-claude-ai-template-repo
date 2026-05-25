@@ -74,8 +74,9 @@ extract_namespace() {
   grep -m1 -E '^[[:space:]]*namespace[[:space:]]+([A-Za-z0-9_.]+)' "$f" 2>/dev/null | sed -E 's/.*namespace[[:space:]]+([A-Za-z0-9_.]+).*/\1/' || echo ""
 }
 
-# extract_class_info: returns JSON array of {name, line, base_types, implements}
+# extract_class_info: returns JSON array of {name, line, base_types, implements, methods}
 # Uses python3 to handle multi-line class declarations reliably.
+# Also emits file-level partial_calls as a second JSON line: {"partial_calls": [...]}
 extract_class_info() {
   local f="$1"
   python3 - "$f" <<'PYEOF'
@@ -84,11 +85,14 @@ import re, sys, json
 try:
     text = open(sys.argv[1]).read()
 except Exception:
-    print("[]"); sys.exit(0)
+    print("[]")
+    print(json.dumps({"partial_calls": []}))
+    sys.exit(0)
 
 text = text.replace('\r\n', '\n').replace('\r', '\n')
 lines = text.split('\n')
-results = []
+
+# ── Regexes ──────────────────────────────────────────────────────────────────
 
 class_re = re.compile(
     r'^[ \t]*(?:(?:public|internal|private|protected)\s+)?'
@@ -96,16 +100,50 @@ class_re = re.compile(
     r'class\s+([A-Z][A-Za-z0-9_]*)'
 )
 
+METHOD_RE = re.compile(
+    r'^\s*(?P<acc>public|internal|private|protected)?\s*'
+    r'(?P<mods>(?:static\s+|virtual\s+|override\s+|abstract\s+|sealed\s+|async\s+)*)'
+    r'(?P<ret>[A-Za-z_][\w<>,\s\[\]\?\.]*?)\s+'
+    r'(?P<name>[A-Z]\w*)\s*\([^)]*\)\s*(?:\{|=>|;)',
+    re.MULTILINE
+)
+
+CALL_RE = re.compile(
+    r'(?:(?P<recv>[A-Za-z_][\w]*)\s*\.\s*)?(?P<callee>[A-Z]\w*)\s*\(',
+    re.MULTILINE
+)
+
+CSHARP_KEYWORDS = {
+    'if', 'while', 'for', 'foreach', 'switch', 'return', 'using', 'typeof', 'nameof',
+    'lock', 'fixed', 'await', 'new', 'throw', 'catch', 'finally', 'else', 'case', 'default'
+}
+
+BCL_NOISE = {
+    'Debug', 'Math', 'Mathf', 'Vector2', 'Vector3', 'Vector4', 'Quaternion', 'Color',
+    'string', 'int', 'bool', 'float', 'double', 'List', 'Dictionary', 'Array', 'Enumerable',
+    'Assert', 'Console', 'Convert', 'Encoding', 'StringBuilder', 'Task', 'UniTask'
+}
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def line_of(pos):
+    """Return 1-based line number for a character offset in `text`."""
+    return text[:pos].count('\n') + 1
+
+# ── Class extraction ──────────────────────────────────────────────────────────
+
+# Collect (line_num, class_name, start_char_offset) for each class declaration
+class_starts = []  # list of (line_1based, class_name, char_offset_of_open_brace)
+
+results = []
+
 i = 0
 while i < len(lines):
     m = class_re.match(lines[i])
     if m:
         class_name = m.group(1)
         line_num = i + 1
-        # Join up to 6 lines to capture multi-line declarations
         chunk = ' '.join(lines[i:i+6])
-        # Extract everything after the inheritance colon, stopping at '{' or 'where'
-        # Handle generic type params on class name: class Foo<T> : IBar
         base_match = re.search(
             r'class\s+' + re.escape(class_name) + r'(?:\s*<[^>]*>)?\s*:\s*([^{]+)',
             chunk
@@ -120,23 +158,142 @@ while i < len(lines):
         if base_str.strip():
             for b in base_str.split(','):
                 b = b.strip()
-                # Strip generic parameters (e.g. List<T> -> List)
                 b = re.sub(r'<[^<>]*>', '', b).strip()
                 if b:
-                    # Use last segment for fully qualified names (e.g. Game.Abstracts.IFoo → IFoo)
                     simple = b.split('.')[-1]
                     if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', simple):
                         base_types.append(simple)
         implements = [b for b in base_types if re.match(r'^I[A-Z]', b)]
+
+        # Find the character offset of line_num in text (for scoping)
+        char_offset = sum(len(l) + 1 for l in lines[:i])
+
         results.append({
             "name": class_name,
             "line": line_num,
             "base_types": base_types,
             "implements": implements,
+            "methods": [],          # filled in below
+            "_char_offset": char_offset,
         })
     i += 1
 
+# ── Method extraction & scoping ───────────────────────────────────────────────
+
+# For each method match, assign it to the class whose declaration line is
+# closest (and earlier) to the method line.
+
+all_methods = []  # (line, class_idx, method_dict)
+
+for m in METHOD_RE.finditer(text):
+    name = m.group('name')
+    if name in CSHARP_KEYWORDS:
+        continue
+    mods = m.group('mods') or ''
+    acc  = m.group('acc') or 'private'
+    ret  = (m.group('ret') or '').strip()
+    ln   = line_of(m.start())
+    sig  = m.group(0).strip()
+    # Trim trailing brace/arrow/semicolon from signature
+    sig  = re.sub(r'\s*[\{=>;]+\s*$', '', sig).strip()
+
+    # Find owning class: last class whose declaration is on or before this line
+    owner_idx = None
+    for idx, cls in enumerate(results):
+        if cls['line'] <= ln:
+            owner_idx = idx
+        else:
+            break
+
+    if owner_idx is None:
+        continue
+
+    method_entry = {
+        "name": name,
+        "signature": sig,
+        "line": ln,
+        "accessibility": acc,
+        "is_async": "async" in mods,
+        "is_static": "static" in mods,
+        "return_type": ret,
+    }
+    all_methods.append((ln, owner_idx, method_entry))
+
+# Attach methods to classes
+for ln, owner_idx, method_entry in all_methods:
+    results[owner_idx]['methods'].append(method_entry)
+
+# Sort methods by line ascending (idempotency)
+for cls in results:
+    cls['methods'].sort(key=lambda x: x['line'])
+
+# ── Call-site extraction ───────────────────────────────────────────────────────
+
+# Build a flat sorted list of (method_line, class_name, method_name) for quick lookup
+method_map = []  # (method_line, class_name, method_name)
+for cls in results:
+    for mth in cls['methods']:
+        method_map.append((mth['line'], cls['name'], mth['name']))
+method_map.sort(key=lambda x: x[0])
+
+def enclosing_method(call_line):
+    """Return (class_name, method_name) for the innermost method containing call_line."""
+    best = None
+    for mline, cname, mname in method_map:
+        if mline <= call_line:
+            best = (cname, mname)
+        else:
+            break
+    return best
+
+rel_path = sys.argv[1]
+partial_calls = []
+
+for c in CALL_RE.finditer(text):
+    callee = c.group('callee')
+    if callee in CSHARP_KEYWORDS or callee in BCL_NOISE:
+        continue
+    # Skip generic false positives: preceded by '<'
+    start = c.start()
+    preceding = text[max(0, start-1):start]
+    if preceding == '<':
+        continue
+
+    call_line = line_of(start)
+    enc = enclosing_method(call_line)
+    if not enc:
+        continue
+
+    recv = c.group('recv')
+    callee_str = f"{recv}.{callee}" if recv else callee
+
+    partial_calls.append({
+        "caller": f"{enc[0]}.{enc[1]}",
+        "callee": callee_str,
+        "file": rel_path,
+        "line": call_line,
+        "confidence": "INFERRED",
+    })
+
+# Sort for idempotency: by (caller, line)
+partial_calls.sort(key=lambda x: (x['caller'], x['line']))
+
+# Deduplicate exact duplicates (same caller+callee+line)
+seen_calls = set()
+deduped_calls = []
+for pc in partial_calls:
+    key = (pc['caller'], pc['callee'], pc['line'])
+    if key not in seen_calls:
+        seen_calls.add(key)
+        deduped_calls.append(pc)
+
+# Strip internal _char_offset before output
+for cls in results:
+    cls.pop('_char_offset', None)
+
+# Emit two JSON lines: classes array, then partial_calls wrapper
 print(json.dumps(results))
+print(json.dumps({"partial_calls": deduped_calls}))
 PYEOF
 }
 
@@ -293,16 +450,25 @@ process_file_regex() {
   scope_entry=$(extract_scope "$f")
 
   # Build classes array using python3-based extractor (handles multi-line declarations)
+  # extract_class_info emits TWO lines: JSON array of classes, then {"partial_calls":[...]}
   local classes_json="[]"
+  local file_partial_calls="[]"
+  local class_info_raw
+  class_info_raw=$(extract_class_info "$f")
   local class_info
-  class_info=$(extract_class_info "$f")
+  class_info=$(echo "$class_info_raw" | head -n1)
+  local calls_line
+  calls_line=$(echo "$class_info_raw" | tail -n1)
+  file_partial_calls=$(echo "$calls_line" | jq '.partial_calls // []' 2>/dev/null || echo "[]")
+
   while IFS= read -r entry_raw; do
     [[ -z "$entry_raw" ]] && continue
-    local class_name linenum base_arr impl mono
+    local class_name linenum base_arr impl mono methods_arr
     class_name=$(echo "$entry_raw" | jq -r '.name')
     linenum=$(echo "$entry_raw" | jq '.line')
     base_arr=$(echo "$entry_raw" | jq '.base_types')
     impl=$(echo "$entry_raw" | jq '.implements')
+    methods_arr=$(echo "$entry_raw" | jq '.methods // []')
     # Determine is_mono_behaviour from base_types
     mono=$(echo "$base_arr" | jq -r 'if (. | index("MonoBehaviour")) != null then "true" else "false" end')
 
@@ -319,6 +485,7 @@ process_file_regex() {
       --argjson published "$published" \
       --argjson subscribed "$subscribed" \
       --argjson has_static "$static_inst" \
+      --argjson methods "$methods_arr" \
       --arg confidence "$CONFIDENCE" \
       '{
         name: $name,
@@ -333,6 +500,7 @@ process_file_regex() {
         events_published: $published,
         events_subscribed: $subscribed,
         has_static_instance: $has_static,
+        methods: $methods,
         confidence: $confidence
       }')
     classes_json=$(echo "$classes_json" | jq ". + [$entry]")
@@ -378,6 +546,7 @@ process_file_regex() {
     --argjson subscribed "$subscribed" \
     --argjson installer "$installer_json" \
     --argjson scope "$scope_entry" \
+    --argjson partial_calls "$file_partial_calls" \
     '{
       file: $file,
       partial: true,
@@ -386,7 +555,8 @@ process_file_regex() {
       events_published: $published,
       events_subscribed: $subscribed,
       installer: $installer,
-      scope: $scope
+      scope: $scope,
+      partial_calls: $partial_calls
     }'
 }
 
@@ -405,6 +575,7 @@ ALL_CLASSES="[]"
 ALL_IFACES="[]"
 ALL_INSTALLERS="[]"
 ALL_SCOPES="[]"
+ALL_PARTIAL_CALLS="[]"
 
 for p in "${PAYLOADS[@]:-}"; do
   [[ -z "$p" ]] && continue
@@ -414,7 +585,12 @@ for p in "${PAYLOADS[@]:-}"; do
   [[ "$inst" != "null" ]] && ALL_INSTALLERS=$(echo "$ALL_INSTALLERS" | jq ". + [$inst]")
   scope=$(echo "$p" | jq '.scope')
   [[ "$scope" != "null" ]] && ALL_SCOPES=$(echo "$ALL_SCOPES" | jq ". + [$scope]")
+  pcalls=$(echo "$p" | jq '.partial_calls // []')
+  ALL_PARTIAL_CALLS=$(echo "$ALL_PARTIAL_CALLS" | jq ". + $pcalls")
 done
+
+# Sort partial_calls by (caller, line) for idempotency
+ALL_PARTIAL_CALLS=$(echo "$ALL_PARTIAL_CALLS" | jq 'sort_by([.caller, .line])')
 
 # Pivot events: aggregate publisher/subscriber lists across all classes
 ALL_EVENTS=$(echo "$ALL_CLASSES" | jq '
@@ -468,9 +644,11 @@ jq -n \
   --argjson events "$ALL_EVENTS" \
   --argjson installers "$ALL_INSTALLERS" \
   --argjson scopes "$ALL_SCOPES" \
+  --argjson partial_calls "$ALL_PARTIAL_CALLS" \
   '{
     classes: $classes,
     interfaces: $interfaces,
     events: $events,
-    vcontainer: { installers: $installers, scopes: $scopes }
+    vcontainer: { installers: $installers, scopes: $scopes },
+    partial_calls: $partial_calls
   }'

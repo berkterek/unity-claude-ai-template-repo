@@ -248,11 +248,27 @@ NEW_CLASSES=$(echo "$CS_OUTPUT" | jq '.classes // []')
 NEW_IFACES=$(echo "$CS_OUTPUT" | jq '.interfaces // []')
 NEW_EVENTS=$(echo "$CS_OUTPUT" | jq '.events // []')
 NEW_INSTALLERS=$(echo "$CS_OUTPUT" | jq '.vcontainer.installers // []')
+NEW_PARTIAL_CALLS=$(echo "$CS_OUTPUT" | jq '.partial_calls // []')
 
 ALL_CLASSES=$(jq -n --argjson a "$RETAINED_CLASSES" --argjson b "$NEW_CLASSES" '$a + $b')
 ALL_IFACES=$(jq -n --argjson a "$RETAINED_IFACES" --argjson b "$NEW_IFACES" '$a + $b')
 ALL_ASSEMBLIES=$(jq -n --argjson a "$RETAINED_ASSEMBLIES" --argjson b "$ASMDEF_OUTPUT" '$a + $b')
 ALL_INSTALLERS=$(jq -n --argjson a "$RETAINED_INSTALLERS" --argjson b "$NEW_INSTALLERS" '$a + $b')
+
+# Merge call edges: retain old edges for unchanged files, replace for changed files
+RETAINED_CALLS=$(echo "$EXISTING_GRAPH" | jq '.codebase.calls // []' 2>/dev/null || echo "[]")
+if [[ -n "$CHANGED_CS_STR" ]]; then
+  # Incremental: keep retained edges whose file is NOT in the changed set, add new partial_calls
+  CHANGED_FILES_JSON=$(echo "$CHANGED_CS_STR" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().strip().split(',')))")
+  ALL_CALLS=$(jq -n \
+    --argjson retained "$RETAINED_CALLS" \
+    --argjson new_calls "$NEW_PARTIAL_CALLS" \
+    --argjson changed "$CHANGED_FILES_JSON" \
+    '($retained | map(select(.file as $f | ($changed | index($f)) == null))) + $new_calls')
+else
+  # Full build: use only new partial_calls (all files were re-scanned)
+  ALL_CALLS="$NEW_PARTIAL_CALLS"
+fi
 
 # Re-pivot all events (full pass across merged classes)
 ALL_EVENTS=$(GRAPH_CLASSES="$ALL_CLASSES" GRAPH_EVENTS="$NEW_EVENTS" python3 - <<'PYEOF'
@@ -339,7 +355,7 @@ else
 fi
 
 FINAL_GRAPH=$(jq -n \
-  --arg sv "1.0.0" \
+  --arg sv "1.1.0" \
   --arg now "$NOW" \
   --arg gen "graph-builder.sh@${GIT_SHA}" \
   --argjson classes "$ALL_CLASSES" \
@@ -351,6 +367,7 @@ FINAL_GRAPH=$(jq -n \
   --argjson scenes "$MCP_SCENES" \
   --argjson prefabs "$MCP_PREFABS" \
   --argjson mcp_meta "$MCP_META" \
+  --argjson calls "$ALL_CALLS" \
   --argjson scanned "$SCANNED" \
   --argjson hits "$CACHE_HITS" \
   --argjson ms "$BUILD_MS" \
@@ -371,7 +388,8 @@ FINAL_GRAPH=$(jq -n \
       assemblies: $assemblies,
       scenes:     $scenes,
       prefabs:    $prefabs,
-      mcp_extraction: $mcp_meta
+      mcp_extraction: $mcp_meta,
+      calls:      $calls
     },
     validation: { errors: [], warnings: [] },
     stats: { scanned_files: $scanned, cache_hits: $hits, build_ms: $ms }
@@ -395,11 +413,22 @@ CACHE_TMP="${CACHE_FILE}.tmp"
 echo "$NEW_CACHE" > "$CACHE_TMP"
 mv "$CACHE_TMP" "$CACHE_FILE"
 
+# ── Call-graph finalization ───────────────────────────────────────────────────
+TRAVERSAL_PY="$(dirname "$0")/graph-traversal.py"
+if command -v python3 >/dev/null 2>&1 && [[ -f "$TRAVERSAL_PY" ]]; then
+  python3 "$TRAVERSAL_PY" --finalize-calls --graph "$OUTPUT" \
+    || echo "graph-builder: call-graph finalization failed (non-fatal)" >&2
+else
+  echo "graph-builder: python3 or graph-traversal.py not found — skipping call-graph finalization (impact/path/god-nodes queries will be unavailable)" >&2
+fi
+
 # ── Touch .last-build ─────────────────────────────────────────────────────────
 echo "$NOW" > "$LAST_BUILD"
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 CLASS_COUNT=$(echo "$ALL_CLASSES" | jq 'length')
+METHOD_COUNT=$(echo "$ALL_CLASSES" | jq '[.[].methods // [] | length] | add // 0')
 EVENT_COUNT=$(echo "$ALL_EVENTS" | jq 'length')
 INST_COUNT=$(echo "$ALL_INSTALLERS" | jq 'length')
-log "graph: ${CLASS_COUNT} classes, ${EVENT_COUNT} events, ${INST_COUNT} installers (${CACHE_HITS} cached, $((SCANNED - CACHE_HITS)) reparsed) in ${BUILD_MS}ms"
+CALL_COUNT=$(jq '.codebase.calls | length' "$OUTPUT" 2>/dev/null || echo 0)
+log "graph: ${CLASS_COUNT} classes (${METHOD_COUNT} methods), ${EVENT_COUNT} events, ${INST_COUNT} installers, ${CALL_COUNT} call edges (${CACHE_HITS} cached, $((SCANNED - CACHE_HITS)) reparsed) in ${BUILD_MS}ms"
