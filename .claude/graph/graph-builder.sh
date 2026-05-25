@@ -257,7 +257,7 @@ ALL_INSTALLERS=$(jq -n --argjson a "$RETAINED_INSTALLERS" --argjson b "$NEW_INST
 
 # Merge call edges: retain old edges for unchanged files, replace for changed files
 RETAINED_CALLS=$(echo "$EXISTING_GRAPH" | jq '.codebase.calls // []' 2>/dev/null || echo "[]")
-if [[ -n "$CHANGED_CS_STR" ]]; then
+if [[ -n "${CHANGED_CS_STR:-}" ]]; then
   # Incremental: keep retained edges whose file is NOT in the changed set, add new partial_calls
   CHANGED_FILES_JSON=$(echo "$CHANGED_CS_STR" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().strip().split(',')))")
   ALL_CALLS=$(jq -n \
@@ -265,9 +265,12 @@ if [[ -n "$CHANGED_CS_STR" ]]; then
     --argjson new_calls "$NEW_PARTIAL_CALLS" \
     --argjson changed "$CHANGED_FILES_JSON" \
     '($retained | map(select(.file as $f | ($changed | index($f)) == null))) + $new_calls')
-else
+elif [[ "$MODE" == "full" ]]; then
   # Full build: use only new partial_calls (all files were re-scanned)
   ALL_CALLS="$NEW_PARTIAL_CALLS"
+else
+  # Incremental with no changed files: retain all existing call edges unchanged
+  ALL_CALLS="$RETAINED_CALLS"
 fi
 
 # Re-pivot all events (full pass across merged classes)
