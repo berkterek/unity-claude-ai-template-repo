@@ -84,6 +84,35 @@ Batch `manage_prefabs get_hierarchy` calls (max 25 per batch):
 {"tool": "manage_prefabs", "params": {"action": "get_hierarchy", "prefab_path": "Assets/..."}}
 ```
 
+**IMPORTANT — child GO'lar:** `manage_prefabs get_hierarchy` sadece root item'ı döner; child/grandchild GO'ları
+içermez. Alt hiyerarşiyi (örn. `Player/Body`, `Tile/ItemSpawnPoints/Point1`) almak için `execute_code` kullan:
+
+```csharp
+// CodeDom-compatible prefab full hierarchy dump
+var sb = new System.Text.StringBuilder();
+var guids = UnityEditor.AssetDatabase.FindAssets("t:Prefab", new string[]{"Assets/_GameFolders/Prefabs"});
+System.Action<UnityEngine.Transform, int> walk = null;
+walk = delegate(UnityEngine.Transform t, int depth) {
+    string indent = new string(' ', depth * 2);
+    var comps = t.GetComponents<UnityEngine.Component>();
+    var names = new System.Collections.Generic.List<string>();
+    foreach (var c in comps) names.Add(c == null ? "null" : c.GetType().Name);
+    sb.AppendLine(indent + t.name + "|comps=" + string.Join(",", names.ToArray()));
+    foreach (UnityEngine.Transform child in t)
+        walk(child, depth + 1);
+};
+foreach (var guid in guids) {
+    var path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+    var go = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>(path);
+    if (go == null) continue;
+    sb.AppendLine("PREFAB:" + path);
+    walk(go.transform, 0);
+}
+return sb.ToString();
+```
+
+Parse: her `PREFAB:` satırı yeni prefab başlatır; indented satırlar GO ağacıdır.
+
 For each root item in the result:
 - `componentTypes[]` → `components[]` in the schema
 - `isNestedRoot: true` on root item → `isVariant: true`
@@ -130,11 +159,50 @@ Parse each line as `prefab_name | scope_class | parent_class`.
 
 ---
 
-### Step 2c — Prefab component field values (SKIP — not reliable via MCP)
+### Step 2c — Inspector field values via SerializedObject (OPTIONAL)
 
-`manage_components get` does not exist. Scalar field reading via `execute_code` is possible but
-noisy and slow. **Skip this step** unless a specific field is explicitly needed. The `component_fields`
-array in the schema remains empty by default.
+`manage_components get` does not exist. Use `execute_code` + `UnityEditor.SerializedObject` +
+`SerializedProperty` iterator instead. Verified working in live Editor session.
+
+```csharp
+// CodeDom-compatible inspector field reader
+// Reads primitive/enum/string serialized fields from all prefab components
+var sb = new System.Text.StringBuilder();
+var guids = UnityEditor.AssetDatabase.FindAssets("t:Prefab", new string[]{"Assets/_GameFolders/Prefabs"});
+foreach (var guid in guids) {
+    var path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+    var go = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>(path);
+    if (go == null) continue;
+    var comps = go.GetComponentsInChildren<UnityEngine.Component>();
+    foreach (var comp in comps) {
+        if (comp == null) continue;
+        var so = new UnityEditor.SerializedObject(comp);
+        var prop = so.GetIterator();
+        bool entered = prop.NextVisible(true);
+        while (entered) {
+            string val = null;
+            if (prop.propertyType == UnityEditor.SerializedPropertyType.Float)
+                val = prop.floatValue.ToString("F2");
+            else if (prop.propertyType == UnityEditor.SerializedPropertyType.Integer)
+                val = prop.intValue.ToString();
+            else if (prop.propertyType == UnityEditor.SerializedPropertyType.Boolean)
+                val = prop.boolValue.ToString();
+            else if (prop.propertyType == UnityEditor.SerializedPropertyType.String)
+                val = prop.stringValue;
+            else if (prop.propertyType == UnityEditor.SerializedPropertyType.Enum)
+                val = prop.enumNames[prop.enumValueIndex];
+            if (val != null)
+                sb.AppendLine(go.name + "|" + comp.GetType().Name + "|" + prop.name + "=" + val);
+            entered = prop.NextVisible(false);
+        }
+    }
+}
+return sb.ToString();
+```
+
+Parse each line as `prefab_name | component_name | field=value`. Skip this step for speed — it adds
+meaningful data (e.g. `SlingshotView._dragWorldScale=0.01`, `UpgradeButtonView._upgradeType=Speed`)
+but takes longer and can produce noisy output for large prefab sets.
 
 ---
 
