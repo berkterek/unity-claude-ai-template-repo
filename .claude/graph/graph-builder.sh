@@ -59,10 +59,10 @@ if [[ -n "$CHANGED_FILES" ]]; then
 else
   while IFS= read -r -d '' f; do
     ALL_CS+=("$f")
-  done < <(find HoleSphere/Assets/_Framework HoleSphere/Assets/_GameFolders/Scripts -name '*.cs' -print0 2>/dev/null || true)
+  done < <(find Assets/_Framework Assets/_GameFolders/Scripts -name '*.cs' -print0 2>/dev/null || true)
   while IFS= read -r -d '' f; do
     ALL_ASMDEF+=("$f")
-  done < <(find HoleSphere/Assets -name '*.asmdef' -print0 2>/dev/null || true)
+  done < <(find Assets -name '*.asmdef' -print0 2>/dev/null || true)
 fi
 
 # ── Cache-aware file selection ───────────────────────────────────────────────
