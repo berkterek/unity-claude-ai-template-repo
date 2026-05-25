@@ -43,6 +43,19 @@ Read the project's design documents and scan the code to understand what's done 
 4. Run: git log --oneline -20
 
 ## Codebase Scan
+
+**Step A — Graph check (primary source when available):**
+Check if `.claude/graph/graph.json` exists:
+- If YES and file modified within 24h → run these graph queries first (skip to Step B with graph as primary):
+  - `cat .claude/graph/graph.json | python3 -c "import sys,json; g=json.load(sys.stdin); [print(n['id'],n.get('type',''),n.get('status','')) for n in g.get('nodes',[])]"` — list all classes with type/status
+  - Look for nodes with status STUB, PARTIAL, or TODO comments
+  - Extract all interfaces (type: Interface) from graph
+  - Extract all events (type: Event) from graph
+  - Extract all installers (type: Installer) and their registered services
+  - Note: graph data supplements steps 5–8 below — use it to fill DONE/STUB/MISSING sections directly
+- If NO or stale (> 24h) → skip to Step B using direct file scan only
+
+**Step B — Direct file scan (always run; use as secondary if graph available):**
 5. List all .cs files under Assets/_GameFolders/Scripts/Games/Concretes/
 6. For each .cs file, read the first 40 lines (class declaration, fields, constructor, first method bodies)
    — assess: IMPLEMENTED (has real logic) | STUB (empty methods, TODO, placeholder returns) | PARTIAL (some logic, some stubs)
