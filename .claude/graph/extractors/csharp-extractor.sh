@@ -74,25 +74,76 @@ extract_namespace() {
   grep -m1 -E '^[[:space:]]*namespace[[:space:]]+([A-Za-z0-9_.]+)' "$f" 2>/dev/null | sed -E 's/.*namespace[[:space:]]+([A-Za-z0-9_.]+).*/\1/' || echo ""
 }
 
-extract_base_list() {
-  local line="$1"
-  # Strip leading "N:" line-number prefix from grep -n output, then grab everything after the inheritance :
-  local decl
-  decl=$(echo "$line" | sed 's/^[0-9]*://')
-  echo "$decl" | grep -oE 'class[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[[:space:]]*[A-Za-z0-9_<>, ]+' \
-    | sed -E 's/class[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[[:space:]]*//' \
-    | tr -d '\n' || echo ""
+# extract_class_info: returns JSON array of {name, line, base_types, implements}
+# Uses python3 to handle multi-line class declarations reliably.
+extract_class_info() {
+  local f="$1"
+  python3 - "$f" <<'PYEOF'
+import re, sys, json
+
+try:
+    text = open(sys.argv[1]).read()
+except Exception:
+    print("[]"); sys.exit(0)
+
+text = text.replace('\r\n', '\n').replace('\r', '\n')
+lines = text.split('\n')
+results = []
+
+class_re = re.compile(
+    r'^[ \t]*(?:(?:public|internal|private|protected)\s+)?'
+    r'(?:(?:sealed|abstract|static|partial)\s+)*'
+    r'class\s+([A-Z][A-Za-z0-9_]*)'
+)
+
+i = 0
+while i < len(lines):
+    m = class_re.match(lines[i])
+    if m:
+        class_name = m.group(1)
+        line_num = i + 1
+        # Join up to 6 lines to capture multi-line declarations
+        chunk = ' '.join(lines[i:i+6])
+        # Extract everything after the inheritance colon, stopping at '{' or 'where'
+        # Handle generic type params on class name: class Foo<T> : IBar
+        base_match = re.search(
+            r'class\s+' + re.escape(class_name) + r'(?:\s*<[^>]*>)?\s*:\s*([^{]+)',
+            chunk
+        )
+        base_str = ""
+        if base_match:
+            base_str = base_match.group(1)
+            where_idx = base_str.find(' where ')
+            if where_idx >= 0:
+                base_str = base_str[:where_idx]
+        base_types = []
+        if base_str.strip():
+            for b in base_str.split(','):
+                b = b.strip()
+                # Strip generic parameters (e.g. List<T> -> List)
+                b = re.sub(r'<[^<>]*>', '', b).strip()
+                if b:
+                    # Use last segment for fully qualified names (e.g. Game.Abstracts.IFoo → IFoo)
+                    simple = b.split('.')[-1]
+                    if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', simple):
+                        base_types.append(simple)
+        implements = [b for b in base_types if re.match(r'^I[A-Z]', b)]
+        results.append({
+            "name": class_name,
+            "line": line_num,
+            "base_types": base_types,
+            "implements": implements,
+        })
+    i += 1
+
+print(json.dumps(results))
+PYEOF
 }
 
 has_static_instance() {
   local f="$1"
   grep -qE 'static[[:space:]]+(readonly[[:space:]]+)?[A-Za-z0-9_<>]+[[:space:]]+(Instance|Current|Shared|Main|Default)[[:space:]]*[{;=]' "$f" 2>/dev/null && echo "true" || \
   grep -qE 'static[[:space:]]+[A-Za-z0-9_<>]+[[:space:]]+_instance\b' "$f" 2>/dev/null && echo "true" || echo "false"
-}
-
-is_mono_behaviour() {
-  local base_list="$1"
-  echo "$base_list" | grep -q 'MonoBehaviour' && echo "true" || echo "false"
 }
 
 extract_events_published() {
@@ -241,21 +292,19 @@ process_file_regex() {
   local scope_entry
   scope_entry=$(extract_scope "$f")
 
-  # Build classes array
+  # Build classes array using python3-based extractor (handles multi-line declarations)
   local classes_json="[]"
-  while IFS= read -r match; do
-    [[ -z "$match" ]] && continue
-    local linenum class_name raw_base base_arr mono impl
-    linenum=$(echo "$match" | cut -d: -f1)
-    class_name=$(echo "$match" | grep -oE 'class[[:space:]]+([A-Z][A-Za-z0-9_]*)' | awk '{print $2}')
-    [[ -z "$class_name" ]] && continue
-    raw_base=$(extract_base_list "$match")
-    local base_arr_r impl_r
-    base_arr_r=$(echo "$raw_base" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | grep -v '^$' | jq -R . | jq -sc . 2>/dev/null) || base_arr_r=""
-    base_arr="${base_arr_r:-[]}"
-    mono=$(is_mono_behaviour "$raw_base")
-    impl_r=$(echo "$raw_base" | tr ',' '\n' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | grep -E '^I[A-Z]' | jq -R . | jq -sc . 2>/dev/null) || impl_r=""
-    impl="${impl_r:-[]}"
+  local class_info
+  class_info=$(extract_class_info "$f")
+  while IFS= read -r entry_raw; do
+    [[ -z "$entry_raw" ]] && continue
+    local class_name linenum base_arr impl mono
+    class_name=$(echo "$entry_raw" | jq -r '.name')
+    linenum=$(echo "$entry_raw" | jq '.line')
+    base_arr=$(echo "$entry_raw" | jq '.base_types')
+    impl=$(echo "$entry_raw" | jq '.implements')
+    # Determine is_mono_behaviour from base_types
+    mono=$(echo "$base_arr" | jq -r 'if (. | index("MonoBehaviour")) != null then "true" else "false" end')
 
     local entry
     entry=$(jq -nc \
@@ -287,7 +336,7 @@ process_file_regex() {
         confidence: $confidence
       }')
     classes_json=$(echo "$classes_json" | jq ". + [$entry]")
-  done < <(extract_classes "$f")
+  done < <(echo "$class_info" | jq -c '.[]')
 
   # Build interfaces array
   local ifaces_json="[]"

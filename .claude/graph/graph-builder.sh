@@ -142,17 +142,27 @@ print(int((time.time() - mtime) / 60))
 " 2>/dev/null || echo 9999)
   fi
   if [[ $MCP_AGE -lt 60 ]]; then
-    MCP_SCENES=$(jq -r '.scenes // []' "$MCP_CACHE")
-    MCP_PREFABS=$(jq -r '.prefabs // []' "$MCP_CACHE")
-    MCP_SCOPE_PARENTS=$(jq -r '.scope_parents // []' "$MCP_CACHE")
+    MCP_SCENES=$(jq '.scenes // []' "$MCP_CACHE")
+    MCP_PREFABS=$(jq '.prefabs // []' "$MCP_CACHE")
+    MCP_SCOPE_PARENTS=$(jq '.scope_parents // []' "$MCP_CACHE")
     MCP_EXTRACTED_AT=$(jq -r '.extracted_at // null' "$MCP_CACHE")
     MCP_STATUS="ok"
     log "mcp cache reused (${MCP_AGE}m old)"
   else
-    log "mcp cache stale (${MCP_AGE}m old) — MCP refresh recommended; pass --skip-mcp to suppress"
+    # Cache stale — retain prefabs/scenes from existing graph to avoid data loss
+    MCP_SCENES=$(jq '.codebase.scenes // []' "$OUTPUT" 2>/dev/null || echo "[]")
+    MCP_PREFABS=$(jq '.codebase.prefabs // []' "$OUTPUT" 2>/dev/null || echo "[]")
+    MCP_SCOPE_PARENTS=$(jq '.scope_parents // []' "$MCP_CACHE" 2>/dev/null || echo "[]")
+    MCP_EXTRACTED_AT=$(jq -r '.extracted_at // null' "$MCP_CACHE" 2>/dev/null || echo "null")
+    MCP_STATUS="retained"
+    PREFAB_COUNT=$(echo "$MCP_PREFABS" | jq 'length' 2>/dev/null || echo 0)
+    log "mcp cache stale (${MCP_AGE}m old) — retaining ${PREFAB_COUNT} prefabs from existing graph; run /build-knowledge-graph to refresh"
   fi
 elif [[ $SKIP_MCP -eq 1 ]]; then
   MCP_SKIP_REASON="SKIP_MCP_FLAG"
+  # Even when skipping MCP, retain existing prefabs/scenes
+  MCP_SCENES=$(jq '.codebase.scenes // []' "$OUTPUT" 2>/dev/null || echo "[]")
+  MCP_PREFABS=$(jq '.codebase.prefabs // []' "$OUTPUT" 2>/dev/null || echo "[]")
 fi
 
 # ── Merge with existing graph (retained cache entries) ────────────────────────
@@ -301,6 +311,8 @@ GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 MCP_META="{}"
 if [[ "$MCP_STATUS" == "ok" ]]; then
   MCP_META=$(jq -n --arg at "$MCP_EXTRACTED_AT" '{"status":"ok","extracted_at":$at}')
+elif [[ "$MCP_STATUS" == "retained" ]]; then
+  MCP_META=$(jq -n --arg at "$MCP_EXTRACTED_AT" '{"status":"retained","note":"stale cache — prefabs retained from previous extraction","extracted_at":$at}')
 else
   MCP_META=$(jq -n --arg reason "$MCP_SKIP_REASON" '{"status":"skipped","skipped_reason":$reason}')
 fi
