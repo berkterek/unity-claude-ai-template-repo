@@ -112,7 +112,7 @@ If the Reader missed obvious GDD systems, add them to the module list.
 
 ## Step 3 — Master Planner
 
-Spawn a **Plan** subagent (model: opus):
+Spawn a **Plan** subagent (model: opus). Write the prompt yourself as prose — embed the Explore agent's full output and the module list inline where indicated:
 
 ```
 You are a senior technical writer creating a master tracking plan for a Unity game project.
@@ -121,10 +121,10 @@ You are a senior technical writer creating a master tracking plan for a Unity ga
 Create the content for docs/0_MasterPlan.md.
 
 ## Reader Findings
-$READER_OUTPUT
+[INSERT HERE: the full output from the Step 1 Explore subagent — GDD systems, DONE, STUB/PARTIAL, MISSING, Module Breakdown]
 
 ## Module List
-$MODULE_LIST
+[INSERT HERE: the numbered module list from Step 2 — name, description, key files, size for each module]
 
 ## Required Format
 
@@ -173,19 +173,16 @@ Return the full 0_MasterPlan.md content. Nothing else.
 
 For each module in the module list, spawn a **Plan** subagent (model: opus) simultaneously. All module planners run at the same time.
 
-Each subagent gets this prompt (fill in the module-specific fields):
+For each module, write the prompt yourself as prose — fill in the module's actual number, name, description, key files, and the relevant excerpt from the Reader output inline:
 
 ```
 You are a senior technical writer creating a module execution plan for a Unity project.
 
 ## Module
-Number: $MODULE_NUMBER
-Name: $MODULE_NAME
-Description: $MODULE_DESCRIPTION
-Key files: $MODULE_KEY_FILES
+[INSERT HERE: the module's number, name, description, key files, and size from the Step 2 module list]
 
 ## Reader Findings (relevant to this module)
-$READER_FINDINGS_EXCERPT
+[INSERT HERE: the portion of the Step 1 Explore output that relates to this module — relevant stubs, missing files, GDD systems it covers]
 
 ## Architecture Rules (non-negotiable)
 - VContainer DI — no singletons. New services → ModuleInstaller → AppInstaller.asset
@@ -199,7 +196,7 @@ $READER_FINDINGS_EXCERPT
 ## Required File Format
 
 ---
-# $MODULE_NUMBER — $MODULE_NAME
+# [module number] — [module name]
 
 > **Version:** v1 — [today's date]
 > **Status:** ⏳ Pending
@@ -279,13 +276,13 @@ Reviewer priority — try in order, fall back if unavailable:
 1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
 2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
-After all planners complete, spawn the reviewer:
+After all planners complete, spawn the reviewer. Write the prompt yourself — embed the full content of every generated plan file inline where indicated:
 
 ```
 Review these Unity project plan files for a game completion project.
 
 ## All Plan Files
-$ALL_PLAN_CONTENTS
+[INSERT HERE: the full content of 0_MasterPlan.md followed by each module plan file, separated by "---"]
 
 ## Review Criteria
 1. 0_MasterPlan: lists all modules? status table links match real filenames?
