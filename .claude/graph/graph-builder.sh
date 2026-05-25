@@ -46,6 +46,27 @@ mkdir -p "${SCRIPT_DIR}/cache"
 [[ -f "$CACHE_FILE" ]] || echo '{}' > "$CACHE_FILE"
 [[ -f "$OUTPUT" ]] || echo '{}' > "$OUTPUT"
 
+# ── Unity project folder ─────────────────────────────────────────────────────
+# Read from project-features.json: unity_project_folder
+# If the Unity project lives in a subfolder (e.g. "HoleSphere"), set that here.
+# Default "." means Assets/ is at repo root (standard new-project layout).
+FEATURES_FILE="$(git rev-parse --show-toplevel 2>/dev/null)/.claude/project-features.json"
+UNITY_FOLDER=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$FEATURES_FILE'))
+    f = d.get('unity_project_folder', '.')
+    print(f.rstrip('/'))
+except:
+    print('.')
+" 2>/dev/null || echo ".")
+
+if [[ "$UNITY_FOLDER" == "." ]]; then
+  ASSETS_ROOT="Assets"
+else
+  ASSETS_ROOT="${UNITY_FOLDER}/Assets"
+fi
+
 # ── Determine changed files ──────────────────────────────────────────────────
 # Gather all candidate source files
 declare -a ALL_CS=() ALL_ASMDEF=()
@@ -59,10 +80,10 @@ if [[ -n "$CHANGED_FILES" ]]; then
 else
   while IFS= read -r -d '' f; do
     ALL_CS+=("$f")
-  done < <(find Assets/_Framework Assets/_GameFolders/Scripts -name '*.cs' -print0 2>/dev/null || true)
+  done < <(find "${ASSETS_ROOT}/_Framework" "${ASSETS_ROOT}/_GameFolders/Scripts" -name '*.cs' -print0 2>/dev/null || true)
   while IFS= read -r -d '' f; do
     ALL_ASMDEF+=("$f")
-  done < <(find Assets -name '*.asmdef' -print0 2>/dev/null || true)
+  done < <(find "${ASSETS_ROOT}" -name '*.asmdef' -print0 2>/dev/null || true)
 fi
 
 # ── Cache-aware file selection ───────────────────────────────────────────────
