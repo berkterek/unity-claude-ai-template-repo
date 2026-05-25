@@ -100,13 +100,24 @@ This generates project-specific boilerplate: assembly definition files, base fra
 
 ### `.claude/CLAUDE.md` — Main entry point
 
-Contains: stack requirements, session start instructions, hooks table (blocking), commands table, review modes, director gates, and session state. Includes three `@`-referenced sub-files:
+Contains: stack requirements, session start instructions, hooks table (blocking), commands table, review modes, director gates, and session state. Includes `@`-referenced sub-files loaded inline at session start:
 
 | Referenced file | What it contains |
 |-----------------|-----------------|
+| `.claude/docs/knowledge-graph.md` | Knowledge graph query cheatsheet and session-start graph instructions |
+| `.claude/docs/quick-start.md` | Quick start guide |
+| `.claude/docs/model-tiers.md` | Model tier definitions and aliases |
+| `.claude/docs/hooks-blocking.md` | Blocking hooks table (exit 2) |
 | `.claude/docs/hooks-warning.md` | Warning hooks (exit 0) — full table of non-blocking style/quality checks |
+| `.claude/docs/commands.md` | Full slash commands reference |
 | `.claude/docs/agents-index.md` | All custom agents and their roles |
+| `.claude/docs/architecture-summary.md` | Key architecture rules summary |
+| `.claude/docs/context-management.md` | Review modes, compaction, checkpoint usage |
+| `.claude/docs/director-gates.md` | Full gate definitions (SCOPE, ARCHITECTURE, BREAKING, QUALITY, COMMIT) |
+| `.claude/docs/orchestrate-rules.md` | NON-NEGOTIABLE /orchestrate execution rules |
+| `.claude/docs/setup-checklist.md` | Manual post-setup steps |
 | `.claude/docs/skills-index.md` | Skills library index — core, platform, systems, third-party |
+| `.claude/docs/auto-loaded-skills.md` | Auto-managed @-references for third-party/plugin/learned/platform skills |
 
 ### `.claude/graph/` — Knowledge graph
 
@@ -157,6 +168,8 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `quick-start.md` | Quick start guide |
 | `setup-checklist.md` | Manual post-setup steps |
 | `model-tiers.md` | Model tier definitions and aliases |
+| `knowledge-graph.md` | Knowledge graph query cheatsheet and session-start instructions |
+| `orchestrate-rules.md` | NON-NEGOTIABLE /orchestrate execution rules |
 
 ### `docs/` — Human-readable project docs
 
