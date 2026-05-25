@@ -18,77 +18,125 @@ if MCP is unavailable and sets `codebase.mcp_extraction.status: "skipped"`.
 | `--scenes <path1>,<path2>` | (all scenes) | Comma-separated scene paths to extract |
 | `--prefabs <dir>` | `Assets/_GameFolders/Prefabs` | Prefab root directory |
 
+## KNOWN MCP TOOL LIMITATIONS (read before writing any extraction code)
+
+| Tool | Limitation |
+|------|-----------|
+| `manage_scene get_hierarchy` with `target` param | **Does NOT filter by parent.** Always returns root-level list regardless of `target` value. Use `execute_code` for deep hierarchy traversal. |
+| `manage_components` | **No `get`/`read` action exists.** Only `add`, `remove`, `set_property`. For reading component data use `execute_code`. |
+| Roslyn compiler in `execute_code` | **Not available** in most Unity projects (requires Microsoft.CodeAnalysis NuGet). Always use `compiler: "codedom"`. |
+| CodeDom compiler in `execute_code` | **C# 6 only.** No local functions, no `var` in lambdas, no string interpolation with complex expressions. Use `delegate` + explicit `Action<T>` for recursion. |
+
 ## PRE-CONDITION GATE — Run Before Any Other Step
 
-1. Read `.claude/skills/core/unity-mcp-patterns/SKILL.md`.
-2. Confirm which MCP actions exist:
-   - Scene hierarchy: `manage_scene` with `get_hierarchy` or equivalent
-   - Component reads: `manage_components` read action
-   - Prefab info: `manage_scene` or `get_info`/`get_hierarchy` on prefab
-3. If any required action is ABSENT → mark extraction as `[BLOCKED — MCP action unconfirmed]`, write empty output (see Failure Modes), and stop.
+Confirm `execute_code` is available — it is the primary extraction tool for scene hierarchy and component data. If unavailable, fall back to `manage_prefabs get_hierarchy` for prefabs only (scenes will be empty).
 
 ## Process
 
-All MCP calls must be batched via `batch_execute` per the unity-mcp-patterns skill Rule 1.
+All read-only MCP calls must be batched via `batch_execute` per the unity-mcp-patterns skill Rule 1.
 
-### Step 1 — Scene extraction
+---
 
-For each scene (all scenes, or filtered by `--scenes`):
-1. Load the scene via `manage_scene`.
-2. Walk root GameObjects and their children (2 levels deep).
-3. For each GameObject: collect component type list via `manage_components`.
-4. Build the `gameobjects[]` tree matching the schema.
+### Step 1 — Scene extraction via execute_code (PRIMARY METHOD)
 
-### Step 2 — Prefab enumeration
+**Do NOT use `manage_scene get_hierarchy` for component extraction — its `target` filter is broken.**
+
+Use `execute_code` with `compiler: "codedom"` and the recursive delegate pattern:
+
+```csharp
+// CodeDom-compatible recursive scene dump
+// IMPORTANT: use delegate, NOT local functions (CodeDom = C# 6)
+var sb = new System.Text.StringBuilder();
+var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+
+System.Action<UnityEngine.GameObject, int> printGO = null;
+printGO = delegate(UnityEngine.GameObject go, int depth) {
+    string indent = new string(' ', depth * 2);
+    var comps = go.GetComponents<UnityEngine.Component>();
+    var names = new System.Collections.Generic.List<string>();
+    foreach (var c in comps) names.Add(c == null ? "null" : c.GetType().Name);
+    sb.AppendLine(indent + go.name + "  active=" + go.activeSelf + "  comps=(" + string.Join(", ", names.ToArray()) + ")");
+    foreach (UnityEngine.Transform child in go.transform)
+        printGO(child.gameObject, depth + 1);
+};
+
+foreach (var root in scene.GetRootGameObjects())
+    printGO(root, 0);
+
+return sb.ToString();
+```
+
+Parse the string output to build `gameobjects[]` entries per the schema.
+
+---
+
+### Step 2 — Prefab enumeration via manage_prefabs (WORKS CORRECTLY)
+
+`manage_prefabs get_hierarchy` correctly returns component lists per prefab. Use it.
 
 ```bash
 find Assets -name '*.prefab' 2>/dev/null
 ```
 
-For each `.prefab` file:
-1. Use the confirmed prefab action to read component list.
-2. Detect `isVariant` by checking the `.prefab` YAML for `m_PrefabParent`:
-   ```bash
-   grep -l 'm_PrefabParent:' Assets/**/*.prefab
-   ```
-3. Classify `domain` from path using this heuristic:
-   - `**/UI/**` → `UI`
-   - `**/VFX/**` → `VFX`
-   - `**/Enemies/**` → `Enemies`
-   - `**/Characters/**` → `Characters`
-   - `**/Environment/**` → `Environment`
-   - `**/Audio/**` → `Audio`
-   - `**/Bootstrap/**` → `Bootstrap`
-   - `**/CoreObjects/**` → `CoreObjects`
-   - Otherwise → `ThirdParty`
+Batch `manage_prefabs get_hierarchy` calls (max 25 per batch):
 
-### Step 2b — Scope parent extraction (LifetimeScope prefabs)
+```json
+{"tool": "manage_prefabs", "params": {"action": "get_hierarchy", "prefab_path": "Assets/..."}}
+```
 
-For each prefab whose component list includes `LifetimeScope` (or any subclass):
-1. Use `manage_components` with action `get` to read the Inspector state of that prefab.
-2. Look for the serialized field `parentReference` on the `LifetimeScope` component.
-3. If `parentReference` is non-null and references another prefab, extract the referenced prefab's name.
-4. Record: `{ scope_name: "<ClassName on prefab>", parent_name: "<referenced LifetimeScope class>" }`.
+For each root item in the result:
+- `componentTypes[]` → `components[]` in the schema
+- `isNestedRoot: true` on root item → `isVariant: true`
 
-This populates the top-level `scope_parents` array in `mcp-extract.json`, which `graph-builder.sh` uses to backfill `parent` on scope entries that the C# extractor left as `null`.
+Classify `domain` from path:
+- `**/UI/**` → `UI`
+- `**/VFX/**` → `VFX`
+- `**/Enemies/**` → `Enemies`
+- `**/Characters/**` → `Characters`
+- `**/Environment/**` → `Environment`
+- `**/Audio/**` → `Audio`
+- `**/Bootstrap/**` or `**/Services/**` → `Bootstrap`
+- `**/CoreObjects/**` → `CoreObjects`
+- Otherwise → `ThirdParty`
 
-### Step 2c — Prefab component field values
+---
 
-For each prefab, after reading the component list:
-1. For each component (skip Transform, Rigidbody, Collider-only components with no serialized fields), use `manage_components` with action `get` to read Inspector field values.
-2. Capture simple scalar field values only: `int`, `float`, `string`, `bool`, `enum` (as string label).
-3. Skip: array fields, nested object fields, UnityEngine.Object references (too noisy).
-4. Store as `component_fields` on the prefab entry:
-   ```json
-   "component_fields": [
-     {
-       "component": "AudioConfiguration",
-       "fields": { "masterVolume": 1.0, "sfxVolume": 0.8, "musicVolume": 0.7 }
-     }
-   ]
-   ```
+### Step 2b — Scope parent extraction
 
-This allows `/knowledge-graph prefab <Name>` to show actual configured values, not just component names.
+For each prefab whose component list includes a `LifetimeScope` subclass, use `execute_code` to read the `parentReference` field:
+
+```csharp
+// CodeDom-compatible
+// NOTE: parentReference is a VContainer.Unity.ParentReference STRUCT — != null won't compile.
+// Use .TypeName field (string) instead; empty string means no parent.
+var results = new System.Collections.Generic.List<string>();
+var prefabs = UnityEditor.AssetDatabase.FindAssets("t:Prefab", new string[]{"Assets/_GameFolders/Prefabs"});
+foreach (var guid in prefabs) {
+    var path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+    var go = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>(path);
+    if (go == null) continue;
+    var scope = go.GetComponent<VContainer.Unity.LifetimeScope>();
+    if (scope == null) continue;
+    var parentTypeName = scope.parentReference.TypeName;
+    var shortParent = string.IsNullOrEmpty(parentTypeName) ? "null"
+        : parentTypeName.Contains(".") ? parentTypeName.Substring(parentTypeName.LastIndexOf('.') + 1)
+        : parentTypeName;
+    results.Add(go.name + "|" + scope.GetType().Name + "|" + shortParent);
+}
+return string.Join("\n", results.ToArray());
+```
+
+Parse each line as `prefab_name | scope_class | parent_class`.
+
+---
+
+### Step 2c — Prefab component field values (SKIP — not reliable via MCP)
+
+`manage_components get` does not exist. Scalar field reading via `execute_code` is possible but
+noisy and slow. **Skip this step** unless a specific field is explicitly needed. The `component_fields`
+array in the schema remains empty by default.
+
+---
 
 ### Step 3 — Write output
 
@@ -97,7 +145,7 @@ Write the result to `.claude/graph/cache/mcp-extract.json`:
 ```json
 {
   "scenes": [ /* sceneEntry[] per schema */ ],
-  "prefabs": [ /* prefabEntry[] — each may include component_fields[] */ ],
+  "prefabs": [ /* prefabEntry[] */ ],
   "scope_parents": [
     { "scope_name": "GameScope", "parent_name": "AppScope" }
   ],
@@ -109,24 +157,19 @@ After writing, re-run:
 ```bash
 bash .claude/graph/graph-builder.sh --incremental
 ```
-so the new MCP data gets merged into `graph.json`.
+
+---
 
 ## Failure Modes
 
-If Unity Editor is not connected or any MCP action is unavailable:
+If Unity Editor is not connected or `execute_code` is unavailable:
 
 1. Exit 0 (never crash — the rest of the build still proceeds).
 2. Write empty output to `.claude/graph/cache/mcp-extract.json`:
    ```json
-   {
-     "scenes": [],
-     "prefabs": [],
-     "extracted_at": null
-   }
+   { "scenes": [], "prefabs": [], "extracted_at": null }
    ```
-3. The builder sets `codebase.mcp_extraction.status: "skipped"` with
-   `skipped_reason: "MCP_UNAVAILABLE"` in the top-level metadata.
-4. Do NOT set per-item confidence fields for skipped entries.
+3. The builder sets `codebase.mcp_extraction.status: "skipped"`.
 
 ## Confidence
 
