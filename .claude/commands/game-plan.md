@@ -35,8 +35,33 @@ Reads GDD + TDD + PROGRESS + codebase, then produces `0_MasterPlan.md` and numbe
 python3 -c "import os,time; p='.claude/graph/graph.json'; print('missing' if not os.path.exists(p) else ('stale' if (time.time()-os.path.getmtime(p))/3600>24 else 'fresh'))"
 ```
 
-**Step B — If fresh, read the graph with the Read tool:**
-Read the file `.claude/graph/graph.json` — note the counts under `codebase.classes`, `codebase.interfaces`, `codebase.events`, and `codebase.vcontainer.installers`. Keep this in your active context — you will reference it when writing the Explore agent prompt below.
+**Step B — If fresh, extract graph data with python3:**
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Keep this output in your active context — you will embed it into the Explore agent prompt below.
 
 If the graph is missing or stale, skip Step B.
 
