@@ -22,3 +22,8 @@
 !.claude/graph/cache/.gitkeep
 .claude/graph/.last-build
 .claude/state/graph-updates.log
+.claude/state/session-edits.txt
+.claude/state/session-reads.txt
+.claude/state/stop-verify-batch.txt
+.claude/state/graph-updates.log
+.claude/state/pending-verify.txt
