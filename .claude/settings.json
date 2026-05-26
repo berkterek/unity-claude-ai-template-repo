@@ -167,6 +167,17 @@
             "statusMessage": "Checking reviewer order (Codex first)..."
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/guard-sparc-approved.sh",
+            "timeout": 3000,
+            "statusMessage": "Checking SPARC Gate..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -319,6 +330,16 @@
             "command": ".claude/hooks/auto-load-skills.sh",
             "timeout": 5000,
             "statusMessage": "Syncing skill references to CLAUDE.md..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/verify-after-write.sh",
+            "timeout": 5000
           }
         ]
       }
