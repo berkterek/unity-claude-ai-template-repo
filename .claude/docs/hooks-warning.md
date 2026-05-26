@@ -19,3 +19,16 @@
 | `session-save.sh` (Stop) | Saves current session state to `.claude/state/` on stop |
 | `graph-auto-update.sh` (PostToolUse Write\|Edit) | Triggers incremental graph rebuild in background — never blocks. Respects `project-features.json.graph` flag. |
 | UserPromptSubmit inline hook | Injects skill-check reminder into every user prompt — enforces `using-superpowers` skill invocation before any action |
+
+## verify-after-write.sh
+
+| Property | Value |
+|----------|-------|
+| Hook type | PostToolUse |
+| Matcher | `Write\|Edit` |
+| File filter | `.cs` files only — filtering done **in-script** (hook matchers do not support file extension filtering) |
+| Exit semantics | Always exit 0 — warning mode, never blocks pipeline |
+| Compile backend | `dotnet build -v q` (MCP tools are not callable from bash hook scripts) |
+| `--no-restore` | Omitted — false negatives from missing restore are worse than slower builds |
+| No-sln fallback | Prints skip message to stderr, exits 0 |
+| Loop risk | None — hook calls no Write/Edit tools |

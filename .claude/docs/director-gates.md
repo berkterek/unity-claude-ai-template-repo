@@ -219,3 +219,21 @@ Automated gates (spawn a subagent or inline check):
 Apply gate TD-ARCHITECTURE from .claude/docs/director-gates.md.
 Files to check: $CODER_OUTPUT
 ```
+
+### Hook-Enforced Gates
+
+These gates are enforced automatically by PreToolUse hooks — the hook exits 2 to block the spawn if the approval state file is missing.
+
+#### SPARC_GATE
+
+| Property | Value |
+|----------|-------|
+| **Fires** | Before `coder` / `unity-coder` / `unity-coder-lite` spawn, after SCOPE_GATE |
+| **Commands** | Any pipeline command spawning a coder-class agent (`/implement`, `/orchestrate`, `/fix` when complexity ≥ 0.4) |
+| **State file** | `.claude/state/sparc-approved` (independent of `gate-cleared`) |
+| **Shows user** | Specification (what will be built) + Architecture (which files, interfaces, data flow) |
+| **Cleared by** | User types "go" → `mkdir -p .claude/state && touch .claude/state/sparc-approved` |
+| **Deleted** | After gated coder agent completes — same pattern as `gate-cleared` (pipeline deletes before committer runs) |
+| **Guard hook** | `guard-sparc-approved.sh` (PreToolUse on Agent, exits 2 if state file absent) |
+
+**Note:** `.claude/state/sparc-approved` and `.claude/state/gate-cleared` are independent files.

@@ -10,6 +10,7 @@
 | `committer` | Staged changes → semantic git commit. Runs inline (not as subagent). |
 | `debugger` | Root cause analysis |
 | `migrator` | Pattern migration |
+| `lean-planner` | Compact plan writer (Sonnet) — used by `/create-plan --lean`. Produces a 3-5 task table (name, files, one-line note). No code skeletons, no acceptance criteria. Implementer auto-spawn disabled. |
 | `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |
 | `unity-shader-dev` | URP shader authoring — complexity router: basit efektler HLSL, karmaşık/görsel efektler ShaderGraph (.shadergraph JSON üretir + MCP ile materyal atar) |
 | `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy |
