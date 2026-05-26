@@ -608,7 +608,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `silent-failure-hunter` | Swallowed exception audit — empty catch, `.Forget()` without handler, dangerous fallbacks |
 | `package-analyzer` | Read-only analyst — walks `Packages/manifest.json` and resolved package directories, emits multi-file skill drafts under `.claude/skills/third-party/<pkg>/`. Detects prefabs, maps them to `_GameFolders/Prefabs/<Category>/` destinations, and scans for architecture violations. For singletons (all variants: `Instance`, `_instance`, `Current`/`Shared`/`Main`/`Default`, `GetInstance()`, `DontDestroyOnLoad`), generates Adapter pattern boilerplate + NSubstitute mock lines instead of generic fix notes. |
 | `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |
-| `unity-shader-dev` | URP shader authoring — complexity router: basit efektler HLSL (.shader), karmaşık/görsel efektler ShaderGraph (.shadergraph JSON üretir + MCP ile materyal atar) |
+| `unity-shader-dev` | URP shader authoring — complexity router: simple effects use HLSL (.shader), complex/visual effects use ShaderGraph (.shadergraph JSON output + material assigned via MCP) |
 | `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy |
 | `unity-ui-toolkit-builder` | Editor UI Toolkit specialist — UXML layouts, USS stylesheets, custom inspectors, EditorWindows, SerializedObject data binding (Editor-only; runtime UI uses UGUI) |
 | `unity-optimizer` | Runtime performance — allocations, draw calls, ECS hot paths, profiler-guided fixes |
@@ -843,7 +843,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `cinemachine` | Virtual cameras, blends, impulse, follow targets |
 | `navmesh` | NavMeshAgent setup, dynamic obstacles, off-mesh links |
 | `physics` | Layer matrix, non-alloc queries, trigger vs collision |
-| `shader-graph` | ShaderGraph JSON format rehberi — node template'leri, edge wiring, UUID kuralı, Dissolve/Rim/Scroll/Toon efekt tarifleri, MCP entegrasyonu |
+| `shader-graph` | ShaderGraph JSON format guide — node templates, edge wiring, UUID rules, Dissolve/Rim/Scroll/Toon effect recipes, MCP integration |
 | `ui-toolkit` | USS, UXML, data binding, runtime panel setup |
 | `urp-pipeline` | Renderer features, camera stacking, custom render passes, SRP Batcher, Forward+ |
 | `urp-quality-settings` | URP quality tiers (Low/Medium/High/Ultra), runtime asset swap, auto-detect, adaptive performance |
@@ -1030,7 +1030,7 @@ Arts/
 - Only valid top-level folders under `Scripts/`: `Games/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/` or other folders alongside `Games/`
 - Every `_Framework` subfolder has its own `.asmdef` — never a single root-level assembly covering all subfolders
 - All prefabs under `_GameFolders/Prefabs/<Domain>/` (`Bootstrap/`, `CoreObjects/`, `Enemies/`, `UI/Canvases/`, `VFX/`, `Environment/`…); shared-base objects use Prefab Variants; all Canvas prefabs are Prefab Variants of `BaseCanvas`
-- All material assets (.mat) under `Arts/Materials/<Domain>/` — never inside `Prefabs/`; shader files (.shader / .shadergraph) under `_GameFolders/Arts/Shaders/`; URP projesinde Built-in Standard shader kullanma — shader authoring için `unity-shader-dev` agent'ı çağır (HLSL veya ShaderGraph complexity'e göre otomatik seçilir); particle VFX için `unity-particle-designer` agent'ı çağır (`Arts/Materials/VFX/` + `_GameFolders/Prefabs/VFX/` + pooling)
+- All material assets (.mat) under `Arts/Materials/<Domain>/` — never inside `Prefabs/`; shader files (.shader / .shadergraph) under `_GameFolders/Arts/Shaders/`; never use Built-in Standard shader in a URP project — use the `unity-shader-dev` agent for shader authoring (automatically routes to HLSL or ShaderGraph based on complexity); use the `unity-particle-designer` agent for particle VFX (`Arts/Materials/VFX/` + `_GameFolders/Prefabs/VFX/` + pooling)
 - `AppScope` saved as `Prefabs/Bootstrap/AppScope.prefab`; `EventSystem` and `MainCamera` saved as `Prefabs/CoreObjects/` prefabs — same prefab instance reused across all scenes
 - New Input System only — `InputView` owns `PlayerControls`
 - UniTask everywhere — no coroutines, no `async void`, always pass `CancellationToken`
