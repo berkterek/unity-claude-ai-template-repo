@@ -69,7 +69,7 @@ _GameFolders/Prefabs/Bootstrap/
 
 A LifetimeScope that holds references to **scene objects** (e.g. `PlayerProvider`, `UIRoot`) is saved as a prefab — `[SerializeField]` fields are left empty on the prefab and filled on the scene instance via Inspector drag-drop.
 
-> Full wiring rules: see `bootstrap-pattern.md` → **GameScope — Sahne Bazlı Wiring**
+> Full wiring rules: see `bootstrap-pattern.md` → **GameScope — Scene-Based Wiring**
 
 ### EventSystem / MainCamera Prefab Rule (NON-NEGOTIABLE)
 

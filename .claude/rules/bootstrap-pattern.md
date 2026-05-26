@@ -1,17 +1,17 @@
 # Bootstrap & Installer Pattern (NON-NEGOTIABLE)
 
-## Katman Yapısı
+## Layer Structure
 
 ```
-IInstaller (interface)          ← Framework katmanı
+IInstaller (interface)          ← Framework layer
     ↑
-ModuleInstaller (abstract SO)   ← Framework katmanı — ScriptableObject + IInstaller
+ModuleInstaller (abstract SO)   ← Framework layer — ScriptableObject + IInstaller
     ↑
-[Module]Installer (sealed SO)   ← Game katmanı — tek modülün kayıtlarını yapar
+[Module]Installer (sealed SO)   ← Game layer — registers a single module's dependencies
     ↑
-AppInstaller (sealed SO)        ← Game katmanı — modülleri listeler, sırayla çağırır
+AppInstaller (sealed SO)        ← Game layer — lists modules, calls them in order
     ↑
-AppScope (LifetimeScope)        ← Bootstrap sahnesi — AppInstaller'ı çağırır, sahne altyapısını register eder
+AppScope (LifetimeScope)        ← Bootstrap scene — calls AppInstaller, registers scene infrastructure
 ```
 
 ---
@@ -29,8 +29,8 @@ namespace Framework.Installers
 }
 ```
 
-- Pure C# interface — `using VContainer` gerekmez, `IContainerBuilder` parametresi yeterli
-- `ModuleInstaller` ve `AppInstaller` her ikisi de bu interface'i implement eder
+- Pure C# interface — `using VContainer` is not needed, the `IContainerBuilder` parameter is sufficient
+- Both `ModuleInstaller` and `AppInstaller` implement this interface
 
 ---
 
@@ -50,9 +50,9 @@ namespace Framework.Installers
 }
 ```
 
-- `ScriptableObject` içerdiği için `_Framework/Installers/` altında yaşar (`Games/Abstracts/` değil — `check-pure-csharp.sh` bloklardı)
-- Her `[Module]Installer` bu sınıftan türer
-- Soyut — doğrudan instance alınamaz
+- Lives under `_Framework/Installers/` because it contains `ScriptableObject` (not `Games/Abstracts/` — `check-pure-csharp.sh` would block it)
+- Every `[Module]Installer` derives from this class
+- Abstract — cannot be instantiated directly
 
 ---
 
@@ -92,11 +92,11 @@ namespace Game.Concretes.Infrastructure
 }
 ```
 
-**Kurallar:**
-- `AppInstaller` sadece listeyi iterate eder — hiçbir şeyi doğrudan register etmez
-- Modül sırası önemlidir: `EventBusInstaller` her zaman listenin **ilk** elemanıdır
-- Null modüller sessizce atlanır — eksik slot build'i patlatmaz
-- `List<ModuleInstaller>` kullanılır, array değil — Inspector'da sıralama kolaylığı için
+**Rules:**
+- `AppInstaller` only iterates the list — it does not register anything directly
+- Module order matters: `EventBusInstaller` is always the **first** element in the list
+- Null modules are silently skipped — a missing slot does not crash the build
+- `List<ModuleInstaller>` is used, not an array — for easy reordering in the Inspector
 
 ---
 
@@ -142,13 +142,13 @@ namespace Game.Concretes.Audio
 }
 ```
 
-**Kurallar:**
-- Config null ise `Debug.LogError` + `return` — `throw` kullanma (build context'te crash istemiyoruz)
-- `.AsImplementedInterfaces()` kullan — `IInitializable`, `IDisposable` gibi lifecycle interface'leri otomatik register eder
-- `[CreateAssetMenu]` path formatı: `"Game/Installers/[ModuleName]"`
-- Bir installer yalnızca kendi modülünün bağımlılıklarını register eder — başka modüllere dokunmaz
+**Rules:**
+- If config is null: `Debug.LogError` + `return` — do not use `throw` (we don't want a crash in build context)
+- Use `.AsImplementedInterfaces()` — automatically registers lifecycle interfaces like `IInitializable`, `IDisposable`
+- `[CreateAssetMenu]` path format: `"Game/Installers/[ModuleName]"`
+- An installer registers only its own module's dependencies — it does not touch other modules
 
-### EventBusInstaller (her projede zorunlu, listede ilk)
+### EventBusInstaller (required in every project, first in the list)
 
 ```csharp
 [CreateAssetMenu(menuName = "Game/Installers/EventBus", fileName = "EventBusInstaller")]
@@ -162,9 +162,9 @@ public sealed class EventBusInstaller : ModuleInstaller
 }
 ```
 
-- Config tutmaz — `EventBus`'ın config'i yoktur
-- `.AsImplementedInterfaces()` ile `IEventBus`, `IInitializable`, `IDisposable` hepsi register edilir
-- `AppInstaller._modules` listesinde **daima ilk sıradadır**
+- Holds no config — `EventBus` has no config
+- `.AsImplementedInterfaces()` registers `IEventBus`, `IInitializable`, `IDisposable` all at once
+- **Always first in the `AppInstaller._modules` list**
 
 ---
 
@@ -222,27 +222,27 @@ namespace Game.Concretes.Infrastructure
 }
 ```
 
-**Kurallar:**
-- `AppScope.cs` **asla değişmez** — yeni modül eklemek için `AppInstaller.asset`'e modül eklenir
-- `EventBus` burada doğrudan register edilmez — `EventBusInstaller` bunu yapar
-- Sahne altyapısı (`UIRoot`, `AudioRoot`) `RegisterComponentInHierarchy` ile register edilir — bu bileşenler sahnede fiziksel olarak bulunur
-- Null guard'lar `Debug.LogError` + `return` — `Configure()` yarım kalır ama Unity crash etmez
+**Rules:**
+- `AppScope.cs` **never changes** — to add a new module, add it to `AppInstaller.asset`
+- `EventBus` is not registered directly here — `EventBusInstaller` does that
+- Scene infrastructure (`UIRoot`, `AudioRoot`) is registered with `RegisterComponentInHierarchy` — these components are physically present in the scene
+- Null guards use `Debug.LogError` + `return` — `Configure()` is left incomplete but Unity does not crash
 
 ---
 
-## GameScope — Sahne Bazlı Wiring (NON-NEGOTIABLE)
+## GameScope — Scene-Based Wiring (NON-NEGOTIABLE)
 
-`GameScope`, Game sahnesine özgü bağımlılıkları (sahne üzerindeki prefab referansları) register eder. AppScope'tan farklı olarak **tüm referansları `[SerializeField]` ile sahnede manuel atanır** — ScriptableObject almaz.
+`GameScope` registers Game-scene-specific dependencies (prefab references on the scene). Unlike AppScope, **all references are assigned manually in the scene via `[SerializeField]`** — it does not take ScriptableObjects.
 
-### AppScope vs GameScope Farkı
+### AppScope vs GameScope Difference
 
 | | AppScope | GameScope |
 |--|----------|-----------|
-| Referans tipi | ScriptableObject (asset) | Sahne üzerindeki prefab instance |
-| Prefab olarak kaydedilir mi? | Evet — `Prefabs/Bootstrap/` | Evet — `Prefabs/Bootstrap/` |
-| Referanslar nerede atanır? | Prefab üzerinde (Inspector'da asset sürüklenir) | Sahnedeki instance üzerinde (Inspector'da sahne objesi sürüklenir) |
-| `Configure()` içeriği | `_appInstaller.Install(builder)` + altyapı kayıtları | `[SerializeField]` alanları doğrudan `builder.RegisterInstance(...)` ile register edilir |
-| Değişir mi? | `AppScope.cs` asla değişmez | Yeni modül eklenince `GameScope.cs`'e `[SerializeField]` eklenir |
+| Reference type | ScriptableObject (asset) | Prefab instance on the scene |
+| Saved as prefab? | Yes — `Prefabs/Bootstrap/` | Yes — `Prefabs/Bootstrap/` |
+| Where are references assigned? | On the prefab (asset dragged in Inspector) | On the scene instance (scene object dragged in Inspector) |
+| `Configure()` content | `_appInstaller.Install(builder)` + infrastructure registrations | `[SerializeField]` fields are registered directly with `builder.RegisterInstance(...)` |
+| Does it change? | `AppScope.cs` never changes | A `[SerializeField]` is added to `GameScope.cs` when a new module is added |
 
 ### GameScope Örneği
 
@@ -282,34 +282,34 @@ namespace Game.Concretes.Infrastructure
 }
 ```
 
-### Kurulum Akışı
+### Setup Flow
 
-1. `GameScope.prefab` oluştur → `_GameFolders/Prefabs/Bootstrap/` altına kaydet
-2. Prefab üzerinde `Parent` alanını `AppScope` olarak işaretle (VContainer parent scope)
-3. Game sahnesine `GameScope.prefab` instance'ını yerleştir → `[Setup]` container'ı altına
-4. **Sahnedeki instance üzerinde** `[SerializeField]` alanlarını sahne objeleriyle doldur — prefab üzerinde değil
-5. Yeni sahne objesi eklenince: `GameScope.cs`'e yeni `[SerializeField]` ekle → sahnede instance'ı güncelle
+1. Create `GameScope.prefab` → save it under `_GameFolders/Prefabs/Bootstrap/`
+2. On the prefab, set the `Parent` field to `AppScope` (VContainer parent scope)
+3. Place a `GameScope.prefab` instance in the Game scene → under the `[Setup]` container
+4. **On the scene instance**, populate the `[SerializeField]` fields with scene objects — not on the prefab
+5. When a new scene object is added: add a new `[SerializeField]` to `GameScope.cs` → update the scene instance
 
-### Kurallar
+### Rules
 
-- `GameScope.cs`'te `builder.Register<T>(...)` **yasaktır** — pure C# servisler AppScope üzerinden `AppInstaller` ile register edilir
-- `GameScope` yalnızca `builder.RegisterComponent(...)` kullanır — sahne üzerindeki MonoBehaviour'ları container'a bildirir
-- Prefab üzerindeki `[SerializeField]` alanları boş kalır; her sahnede instance bazlı doldurulur
-- `Debug.LogError` + `return` guard — null sahne objesi build'i crashlememeli
-
----
-
-## Yeni Modül Ekleme Akışı (NON-NEGOTIABLE)
-
-1. `[Module]Installer.cs` yaz — `ModuleInstaller`'dan türet, `[CreateAssetMenu]` ekle
-2. Unity'de asset oluştur: `Assets → Create → Game/Installers/[ModuleName]`
-3. Inspector'da config ScriptableObject'ini ata
-4. `AppInstaller.asset` aç → yeni installer'ı `_modules` listesine ekle
-5. `AppScope.cs`'e **dokunma**
+- `builder.Register<T>(...)` is **forbidden** in `GameScope.cs` — pure C# services are registered via `AppInstaller` through AppScope
+- `GameScope` only uses `builder.RegisterComponent(...)` — it registers MonoBehaviours on the scene into the container
+- `[SerializeField]` fields on the prefab remain empty; they are filled per-scene on the instance
+- `Debug.LogError` + `return` guard — a null scene object should not crash the build
 
 ---
 
-## Klasör Yapısı
+## New Module Addition Flow (NON-NEGOTIABLE)
+
+1. Write `[Module]Installer.cs` — derive from `ModuleInstaller`, add `[CreateAssetMenu]`
+2. Create the asset in Unity: `Assets → Create → Game/Installers/[ModuleName]`
+3. Assign the config ScriptableObject in the Inspector
+4. Open `AppInstaller.asset` → add the new installer to the `_modules` list
+5. **Do not touch** `AppScope.cs`
+
+---
+
+## Folder Structure
 
 ```
 _Framework/
@@ -319,21 +319,21 @@ _Framework/
 
 _GameFolders/
 ├── Scripts/Games/Concretes/Infrastructure/
-│   ├── AppInstaller.cs        ← modül listesi
+│   ├── AppInstaller.cs        ← module list
 │   └── AppScope.cs            ← bootstrap scope
 └── Scripts/Games/Concretes/[Domain]/
-    └── [Domain]Installer.cs   ← modüle özgü installer
+    └── [Domain]Installer.cs   ← domain-specific installer
 ```
 
 ---
 
-## Yaygın Hatalar
+## Common Mistakes
 
-| Hata | Çözüm |
-|------|-------|
-| `EventBus` `AppScope.Configure()` içinde doğrudan register ediliyor | `EventBusInstaller` oluştur, `AppInstaller` listesine ilk sıraya ekle |
-| `AppScope` yeni modül register etmek için değiştiriliyor | `AppInstaller.asset`'e yeni installer ekle — `AppScope.cs` değişmez |
-| `ModuleInstaller` `GameFolders/Abstracts/` altında | `ScriptableObject` içerdiği için `_Framework/Installers/` altında olmalı |
-| `Debug.LogError` yerine `throw` kullanılıyor | Config null guard'da `return` + `LogError` — build context crash riski |
-| `.As<IEventBus>()` ile tek interface register | `.AsImplementedInterfaces()` kullan — lifecycle interface'leri de kapsar |
-| `AppInstaller._modules` array olarak tanımlı | `List<ModuleInstaller>` kullan — Inspector'da sıralama desteği için |
+| Mistake | Solution |
+|---------|----------|
+| `EventBus` is registered directly inside `AppScope.Configure()` | Create `EventBusInstaller`, add it first in the `AppInstaller` list |
+| `AppScope` is modified to register a new module | Add the new installer to `AppInstaller.asset` — `AppScope.cs` never changes |
+| `ModuleInstaller` is placed under `GameFolders/Abstracts/` | It contains `ScriptableObject` so it must live under `_Framework/Installers/` |
+| `throw` is used instead of `Debug.LogError` | Use `return` + `LogError` in the config null guard — risk of crash in build context |
+| Single interface registered with `.As<IEventBus>()` | Use `.AsImplementedInterfaces()` — also covers lifecycle interfaces |
+| `AppInstaller._modules` is declared as an array | Use `List<ModuleInstaller>` — for reordering support in the Inspector |
