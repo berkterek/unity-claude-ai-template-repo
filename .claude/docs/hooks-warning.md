@@ -17,6 +17,7 @@
 | `instinct-distill.sh` (Stop) | Distills captured observations into confidence-scored instincts |
 | `session-restore.sh` (SessionStart) | Restores session state from `.claude/state/` on session start |
 | `session-save.sh` (Stop) | Saves current session state to `.claude/state/` on stop |
+| `stop-verify.sh` (Stop) | Drains the edit accumulator (`session-edits.txt`) at session end and runs batch verifiers — shell syntax check for `.sh`, JSON validity for `.json`, one `dotnet build` for all accumulated `.cs` files. Must be listed **after** `session-save.sh` in the Stop array. Implements the ECC pattern: catches subagent writes whose PostToolUse hooks never fired in the main session. |
 | `graph-auto-update.sh` (PostToolUse Write\|Edit) | Triggers incremental graph rebuild in background — never blocks. Respects `project-features.json.graph` flag. |
 | UserPromptSubmit inline hook | Injects skill-check reminder into every user prompt — enforces `using-superpowers` skill invocation before any action |
 

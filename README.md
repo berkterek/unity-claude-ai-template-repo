@@ -472,6 +472,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
 | `session-restore` (SessionStart) | Restores session state from `.claude/state/` on session start |
 | `session-save` (Stop) | Saves current session state to `.claude/state/` on stop |
+| `stop-verify` (Stop) | Drains the edit accumulator at session end — runs batch verifiers (shell syntax, JSON validity, one `dotnet build` for all `.cs` files written this session). ECC pattern: catches subagent writes whose PostToolUse hooks never fired in the main session. Must be listed after `session-save` in the Stop array. |
 | `graph-auto-update` (PostToolUse Write\|Edit) | Incremental graph rebuild in background on file change — never blocks |
 | `verify-after-write` (PostToolUse Write\|Edit) | Runs `dotnet build` after each `.cs` write — prints WARNING to stderr if compile errors found; never blocks (exit 0). Reads `unity_project_folder` from `project-features.json` to locate `.sln`. MCP unavailable in bash hooks — dotnet CLI only. |
 
