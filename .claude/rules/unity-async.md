@@ -31,13 +31,24 @@ Always pass `CancellationToken`. In Views: `this.GetCancellationTokenOnDestroy()
 
 ## Fire-and-Forget
 
+`.Forget()` discards the returned `UniTask` so the call site doesn't have to `await`. **Naked `.Forget()` swallows every exception** — including `NullReferenceException` from destroyed objects. Always pair it with an exception handler.
+
 ```csharp
-// GOOD
+// BAD — silently swallows all exceptions, impossible to debug
 InitializeAsync(ct).Forget();
 
-// BAD
+// BAD — async void cannot be awaited or cancelled
 async void Initialize() { }
+
+// GOOD — log unexpected failures, ignore expected cancellations
+InitializeAsync(ct).Forget(ex =>
+{
+    if (ex is OperationCanceledException) return;
+    Debug.LogException(ex);
+});
 ```
+
+If a method is genuinely throw-proof (e.g. only `await UniTask.Yield()`), a bare `.Forget()` is acceptable — leave a `// safe: throw-proof body` comment.
 
 ## CancellationToken — Mandatory Pattern
 

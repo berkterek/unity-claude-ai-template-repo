@@ -1,6 +1,6 @@
 {
   "addressables": false,
-  "testing": false,
+  "testing": true,
   "ecs": false,
   "graph": true,
   "unity_project_folder": "."

@@ -19,7 +19,7 @@ trap '_hook_log $?' EXIT
 # --- End Hook Audit Logging ---
 # Hook: Warns when an enum inside an ECS component or IEvent struct does not inherit from byte.
 # Only fires for files in Ecs/ folders or files containing IEvent / IComponentData context.
-# Exit 0 — warning only (does not block writes).
+# Exit 2 — blocking. Enums in ECS/IEvent context MUST inherit from byte (non-negotiable per rules/ecs-dots.md).
 
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')

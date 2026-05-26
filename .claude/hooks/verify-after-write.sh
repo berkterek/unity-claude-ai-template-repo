@@ -4,8 +4,17 @@
 # NOTE: MCP tools are unavailable in bash hooks. Compile backend is dotnet build only.
 # NOTE: .cs filter is in-script — hook matcher "Write|Edit" has no file extension support.
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="standard"
+source "${SCRIPT_DIR}/_lib.sh"
+
 INPUT=$(cat)
-FILE_PATH=$(echo "$INPUT" | jq -r '.path // .file_path // ""' 2>/dev/null || true)
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
+
+# Accumulate path for Stop-time batch verification.
+if [[ -n "$FILE_PATH" ]]; then
+    unity_track_edit "$FILE_PATH"
+fi
 
 if [[ "$FILE_PATH" != *.cs ]]; then
   exit 0

@@ -92,6 +92,35 @@ SynchronizationContext.Current.Post(_ => { /* Unity API here */ }, null);
 - Never use `Time.deltaTime` in `FixedUpdate` (it equals `fixedDeltaTime` there, but it's confusing)
 - `Time.unscaledDeltaTime` for pause-independent logic (UI animations, etc.)
 
+## DOTween Cleanup
+
+DOTween tweens hold a strong reference to their target. If the target `GameObject` is destroyed while a tween runs, DOTween will NRE on the next tick or silently leak. Always kill tweens explicitly.
+
+```csharp
+public sealed class FadeView : MonoBehaviour
+{
+    private Tween _activeTween;
+
+    private void OnDisable()
+    {
+        _activeTween?.Kill();
+        _activeTween = null;
+    }
+
+    private void OnDestroy()
+    {
+        transform.DOKill();
+        gameObject.DOKill();
+    }
+}
+```
+
+Rules:
+- `tween?.Kill()` if you cache the `Tween` reference (preferred — surgical).
+- `transform.DOKill()` / `gameObject.DOKill()` as a safety net in `OnDestroy`.
+- Never rely on `SetLink(gameObject)` alone — explicit `Kill()` is auditable.
+- For re-issued tweens (hover animations), kill the previous before assigning a new one.
+
 ## Transform
 
 - `transform.SetParent(parent, false)` — use `worldPositionStays: false` to preserve local transform
