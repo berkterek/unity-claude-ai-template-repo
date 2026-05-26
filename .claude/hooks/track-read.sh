@@ -18,7 +18,7 @@ HOOK_PROFILE_LEVEL="strict"
 source "${SCRIPT_DIR}/_lib.sh"
 
 INPUT=$(cat)
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .file_path // .path // empty' 2>/dev/null || true)
 
 if [[ -n "$FILE_PATH" ]]; then
     unity_track_read "$FILE_PATH"
