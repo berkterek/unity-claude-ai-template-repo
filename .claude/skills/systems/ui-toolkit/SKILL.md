@@ -1,6 +1,6 @@
 ---
 name: ui-toolkit
-description: "UI Toolkit — UXML document structure, USS styling (CSS-like), UQuery, data binding, ListView virtualization, custom visual elements."
+description: "UI Toolkit — UXML document structure, USS styling (CSS-like), UQuery, data binding, ListView virtualization, custom visual elements, design system (typography, icons, USS architecture, layout recipes, safe area)."
 globs: ["**/*.uxml", "**/*.uss", "**/UIDocument*"]
 ---
 
@@ -725,3 +725,381 @@ Corresponding USS:
 
 This pattern avoids runtime allocations and leverages the USS transition engine
 for smooth, GPU-friendly animations.
+
+---
+
+## Design System
+
+### USS File Architecture
+
+Organize stylesheets in three layers. Each layer imports from the one below it:
+
+```
+Assets/UI/Styles/
+├── tokens.uss        ← design tokens only (colors, spacing, type scale)
+├── components.uss    ← reusable component classes (.btn, .card, .badge…)
+└── screens/
+    ├── hud.uss       ← screen-specific overrides
+    ├── menu.uss
+    └── inventory.uss
+```
+
+Every UXML file imports the layers it needs:
+
+```xml
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="../Styles/tokens.uss" />
+    <ui:Style src="../Styles/components.uss" />
+    <ui:Style src="../Styles/screens/hud.uss" />
+    ...
+</ui:UXML>
+```
+
+Keep `tokens.uss` free of layout rules — only `:root` variable definitions. This is the single source of truth for every color, size, and spacing value in the project.
+
+---
+
+### Typography System
+
+**1. Register fonts in the project**
+
+Place `.otf` / `.ttf` files under `Assets/UI/Fonts/`. Create a **Font Asset** from each via `Assets → Create → TextMeshPro → Font Asset` (required for SDF rendering quality).
+
+**2. Define the type scale in tokens.uss**
+
+```css
+:root {
+    /* sizes */
+    --font-size-xs:      11px;
+    --font-size-sm:      13px;
+    --font-size-body:    16px;
+    --font-size-lg:      20px;
+    --font-size-heading: 28px;
+    --font-size-display: 48px;
+
+    /* weights — map to your actual font assets */
+    --font-regular: resource("Fonts/Inter-Regular SDF");
+    --font-bold:    resource("Fonts/Inter-Bold SDF");
+
+    /* line-height */
+    --line-height-tight:  1.1;
+    --line-height-normal: 1.4;
+    --line-height-loose:  1.8;
+}
+```
+
+**3. Apply via utility classes in components.uss**
+
+```css
+.text-xs      { font-size: var(--font-size-xs); }
+.text-sm      { font-size: var(--font-size-sm); }
+.text-body    { font-size: var(--font-size-body); }
+.text-lg      { font-size: var(--font-size-lg); }
+.text-heading { font-size: var(--font-size-heading); -unity-font-style: bold; }
+.text-display { font-size: var(--font-size-display); -unity-font-style: bold; }
+
+.text-muted   { color: var(--color-text-muted); }
+.text-danger  { color: var(--color-danger); }
+.text-success { color: var(--color-success); }
+
+.text-center  { -unity-text-align: middle-center; }
+.text-right   { -unity-text-align: middle-right; }
+```
+
+**Key USS typography properties**
+
+| Property | Values | Notes |
+|----------|--------|-------|
+| `font-size` | `px` only | No em/rem in USS |
+| `-unity-font-style` | `normal`, `bold`, `italic`, `bold-and-italic` | Unity-specific |
+| `-unity-text-align` | `upper-left`, `middle-center`, `lower-right` … | 9 combinations |
+| `-unity-text-overflow-position` | `start`, `middle`, `end` | Where `…` appears |
+| `white-space` | `normal`, `nowrap` | `nowrap` prevents line breaks |
+| `overflow` | `visible`, `hidden` | Clip long text |
+
+---
+
+### Icon and Sprite Usage
+
+**Background image (preferred for icons)**
+
+```css
+.icon-play {
+    background-image: resource("UI/Icons/play");
+    width: 32px;
+    height: 32px;
+    /* tinting via -unity-background-image-tint-color */
+    -unity-background-image-tint-color: rgb(255, 255, 255);
+}
+
+.icon-play:hover {
+    -unity-background-image-tint-color: var(--color-primary);
+}
+```
+
+**Slice a sprite for scalable borders (9-slice)**
+
+```css
+.dialog-frame {
+    background-image: resource("UI/Frames/dialog-9slice");
+    /* left, top, right, bottom slice offsets in px */
+    -unity-slice-left:   16;
+    -unity-slice-top:    16;
+    -unity-slice-right:  16;
+    -unity-slice-bottom: 16;
+    -unity-slice-scale:  1;
+}
+```
+
+**Set via C# when the icon is dynamic**
+
+```csharp
+VisualElement icon = root.Q("item-icon");
+icon.style.backgroundImage = new StyleBackground(sprite);
+
+// Tint from code
+icon.style.unityBackgroundImageTintColor = new StyleColor(Color.yellow);
+```
+
+**Icon button pattern (image + label stacked)**
+
+```xml
+<ui:VisualElement class="icon-btn" name="btn-craft">
+    <ui:VisualElement class="icon-btn__image icon-craft" />
+    <ui:Label text="Craft" class="icon-btn__label text-xs" />
+</ui:VisualElement>
+```
+
+```css
+.icon-btn {
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    cursor: link;
+}
+
+.icon-btn__image {
+    width: 40px;
+    height: 40px;
+    -unity-background-image-tint-color: var(--color-text);
+    transition: scale 0.15s ease-out;
+}
+
+.icon-btn:hover .icon-btn__image {
+    scale: 1.15;
+    -unity-background-image-tint-color: var(--color-primary);
+}
+
+.icon-btn__label {
+    margin-top: 2px;
+    color: var(--color-text-muted);
+}
+```
+
+---
+
+### Common Layout Recipes
+
+#### HUD Bar (health / stamina / mana)
+
+```xml
+<ui:VisualElement class="hud-bar" name="health-bar-root">
+    <ui:VisualElement class="hud-bar__track">
+        <ui:VisualElement class="hud-bar__fill" name="health-fill" />
+    </ui:VisualElement>
+    <ui:Label text="100 / 100" name="health-label" class="hud-bar__label text-sm" />
+</ui:VisualElement>
+```
+
+```css
+.hud-bar {
+    flex-direction: row;
+    align-items: center;
+    height: 24px;
+    width: 200px;
+}
+
+.hud-bar__track {
+    flex-grow: 1;
+    height: 12px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.hud-bar__fill {
+    height: 100%;
+    width: 100%;          /* set via C#: style.width = Length.Percent(pct) */
+    background-color: var(--color-success);
+    transition: width 0.3s ease-out;
+}
+
+.hud-bar__label {
+    margin-left: 8px;
+    color: var(--color-text);
+    min-width: 64px;
+    -unity-text-align: middle-right;
+}
+```
+
+```csharp
+// Update fill width
+float pct = (float)current / max * 100f;
+root.Q("health-fill").style.width = new StyleLength(Length.Percent(pct));
+root.Q<Label>("health-label").text = $"{current} / {max}";
+```
+
+---
+
+#### Modal Dialog
+
+```xml
+<ui:VisualElement class="modal-overlay" name="modal-overlay">
+    <ui:VisualElement class="modal">
+        <ui:Label text="Confirm" class="modal__title text-heading" />
+        <ui:Label text="Are you sure you want to quit?" class="modal__body text-body" />
+        <ui:VisualElement class="modal__actions">
+            <ui:Button text="Cancel" name="btn-cancel" class="btn btn--ghost" />
+            <ui:Button text="Confirm" name="btn-confirm" class="btn btn--danger" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:VisualElement>
+```
+
+```css
+.modal-overlay {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal {
+    background-color: var(--color-surface);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    min-width: 360px;
+    max-width: 480px;
+}
+
+.modal__title  { margin-bottom: 12px; }
+.modal__body   { color: var(--color-text-muted); margin-bottom: 24px; }
+
+.modal__actions {
+    flex-direction: row;
+    justify-content: flex-end;
+}
+
+.modal__actions .btn { margin-left: 8px; }
+```
+
+---
+
+#### Inventory Grid
+
+```csharp
+// Build grid from C# — UI Toolkit has no native grid container
+VisualElement grid = root.Q("inventory-grid");
+grid.Clear();
+
+for (int i = 0; i < m_Items.Count; i++)
+{
+    var slot = new InventorySlot(m_Items[i]);
+    grid.Add(slot);
+}
+```
+
+```css
+.inventory-grid {
+    flex-direction: row;
+    flex-wrap: wrap;         /* wraps items to next row */
+    padding: 8px;
+}
+
+.inventory-slot {
+    width: 64px;
+    height: 64px;
+    margin: 4px;
+    background-color: var(--color-surface-light);
+    border-radius: var(--radius-sm);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.1);
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s ease, scale 0.1s ease-out;
+}
+
+.inventory-slot:hover  { border-color: var(--color-primary); scale: 1.06; }
+.inventory-slot.filled { background-color: var(--color-surface); }
+.inventory-slot.selected {
+    border-color: var(--color-primary);
+    border-width: 2px;
+}
+```
+
+---
+
+### Safe Area / Notch Handling
+
+Mobile devices have notches, punch-holes, and rounded corners. The safe area
+is the region guaranteed to be unobstructed.
+
+```csharp
+public sealed class SafeAreaAdapter : MonoBehaviour
+{
+    [SerializeField] private UIDocument m_Document;
+
+    private void OnEnable()
+    {
+        ApplySafeArea();
+    }
+
+    private void ApplySafeArea()
+    {
+        Rect safe   = Screen.safeArea;
+        float sw    = Screen.width;
+        float sh    = Screen.height;
+
+        VisualElement root = m_Document.rootVisualElement;
+
+        // Convert Unity screen-space safe area to USS pixel offsets
+        root.style.paddingLeft   = safe.xMin;
+        root.style.paddingRight  = sw - safe.xMax;
+        root.style.paddingTop    = sh - safe.yMax;
+        root.style.paddingBottom = safe.yMin;
+    }
+}
+```
+
+Apply `SafeAreaAdapter` to the root `UIDocument` GameObject. Child panels
+that should ignore safe area (e.g. full-bleed backgrounds) use `position:
+absolute` with explicit 0 offsets to break out of the padding.
+
+```css
+/* Full-bleed background — ignores safe area padding */
+.background-image {
+    position: absolute;
+    left: 0; top: 0; right: 0; bottom: 0;
+}
+
+/* HUD content — stays inside safe area (inherits padding from root) */
+.hud-container {
+    flex-grow: 1;
+}
+```
+
+**When to call `ApplySafeArea`:** Call it in `OnEnable` and also subscribe
+to `Screen.orientation` changes if the game supports rotation.
+
+```csharp
+private void Update()
+{
+    // Re-apply when orientation changes (portrait ↔ landscape)
+    if (m_LastOrientation != Screen.orientation)
+    {
+        m_LastOrientation = Screen.orientation;
+        ApplySafeArea();
+    }
+}
+```
