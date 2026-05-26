@@ -10,6 +10,7 @@
 .claude/state/gate-cleared
 .claude/state/gateguard-facts-denied.txt
 .claude/state/gateguard-facts-passed.txt
+.claude/state/gateguard-reads.txt
 .claude/state/session-warnings.txt
 .claude/state/search-findings.md
 .claude/state/sparc-approved
