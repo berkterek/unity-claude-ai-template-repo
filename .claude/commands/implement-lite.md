@@ -1,3 +1,8 @@
+---
+name: implement-lite
+description: /implement-lite — Lightweight single-class implementation pipeline. Use when the user wants to add a field, method, property, or simple behavior to an existing class, or create a new single-class file with no new interfaces, no DI wiring changes, and no EventBus events. Faster than /implement: no test writer, no reviewer, no verifier. Auto-triggered by /implement when complexity score < 0.3. Also invoke directly when user says things like "add SerializeField", "implement IDisposable", "add a method to", "create a simple class", or any small targeted code addition to one or two files.
+---
+
 # /implement-lite — Lightweight Single-File Implementation
 
 **Pipeline:** Read Files → unity-coder-lite → Compile Check → Committer
