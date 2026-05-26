@@ -11,6 +11,7 @@
 | `check-async-void.sh` | `async void` outside Unity lifecycle methods (swallows exceptions) |
 | `check-unitask-cancellation.sh` | `async UniTask` methods without `CancellationToken` parameter |
 | `check-null-propagation.sh` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
+| `track-read.sh` (PostToolUse Read) | Records every `Read` tool call into `gateguard-reads.txt` so `gateguard.sh`'s Stage 1 (`unity_was_read()`) check passes on the next Edit/Write. Without this hook, `gateguard-reads.txt` is never populated and every edit is blocked even after the file is read. |
 | `track-codex-review.sh` (PostToolUse) | Creates `.claude/state/codex-reviewed` when `codex:codex-rescue` agent completes — enables `unity-reviewer` as fallback in reviewer-order enforcement |
 | `instinct-capture.sh` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker.sh` (PostToolUse) | Logs every tool call with timestamp for cost auditing |

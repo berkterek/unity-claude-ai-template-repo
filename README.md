@@ -464,6 +464,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `check-unitask-cancellation` | `async UniTask` methods missing `CancellationToken` parameter |
 | `check-null-propagation` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
 | `check-test-scene-exists` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test` |
+| `track-read` (PostToolUse Read) | Records every `Read` tool call into `gateguard-reads.txt` — required for `gateguard.sh` Stage 1 (`unity_was_read()`) to pass. Without this, every edit is blocked even after reading the file. |
 | `track-codex-review` (PostToolUse) | Creates `.claude/state/codex-reviewed` when `codex:codex-rescue` completes |
 | `auto-load-skills` (PostToolUse) | Adds `@`-reference to `.claude/docs/auto-loaded-skills.md` whenever a skill is written to `third-party/`, `plugins/`, `learned/`, or `platform/` |
 | `instinct-capture` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
