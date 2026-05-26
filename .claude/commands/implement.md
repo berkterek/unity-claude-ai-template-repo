@@ -107,7 +107,7 @@ Before spawning any agents, score the task complexity on a 0.0–1.0 scale and d
 
 | Score | Label | Signals | Pipeline |
 |-------|-------|---------|----------|
-| 0.0–0.3 | **Simple** | Single class, no new interfaces, no DI wiring, no events | **Auto-route to `/implement-lite`** — stop here, run `/implement-lite` with the same argument |
+| 0.0–0.3 | **Simple** | Single class, no new interfaces, no DI wiring, no events | → **route to implement-lite** |
 | 0.4–0.6 | **Medium** | 2–4 classes, new interface, or touches existing event bus | Full pipeline: Test Writer → Coder → Reviewer → Committer |
 | 0.7–1.0 | **Complex** | New module, cross-system events, ECS integration, or Addressables | Full pipeline + unity-developer reviewer (always active in `full` mode, or when score ≥ 0.7 in `lean` mode) |
 
@@ -118,7 +118,17 @@ Before spawning any agents, score the task complexity on a 0.0–1.0 scale and d
 - Modifies AppScope, InputView, or an Installer? +0.2
 - Single method addition to existing class? −0.3
 
-**Print before proceeding:**
+**Simple routing (score < 0.3):** Stop the /implement pipeline and show:
+
+```
+Complexity: [score] — Simple
+→ This task is /implement-lite scope. Route to implement-lite? (go / full-implement)
+```
+
+- `go` → run /implement-lite pipeline (implement-lite opens its own SCOPE_GATE in Step 0)
+- `full-implement` → continue with full /implement pipeline below
+
+**Print before proceeding (Medium/Complex):**
 ```
 Complexity: [score] — [Label]
 Rationale: [one sentence]
