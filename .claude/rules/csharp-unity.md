@@ -283,3 +283,43 @@ public void OnPointerDown(Vector2 pos)
             ProcessInput(pos);
 }
 ```
+
+---
+
+## Interface Contract Documentation
+
+Every public interface method must document its contract where it is non-obvious. Only document fields that add real information — skip trivial ones (e.g. "Thread-safe: No" is obvious for all Unity API; "Throws: Never" adds noise if the method clearly cannot fail).
+
+**Document these fields when non-obvious:**
+
+| Field | When to include |
+|-------|----------------|
+| `Precondition:` | Input has constraints (range, non-null, must-be-registered) |
+| `Postcondition:` | Guaranteed state after the call that a caller would rely on |
+| `Side effect:` | Other state changes beyond the obvious return value |
+| `Idempotent:` | When calling twice has a different outcome than calling once |
+| `Throws:` | Which exception and under what condition |
+
+```csharp
+public interface IAudioService
+{
+    /// <summary>Plays a sound effect by registered ID.</summary>
+    /// <remarks>
+    /// Precondition: soundId must exist in AudioConfiguration.
+    /// Postcondition: Sound plays from frame N+1 at configured SFX volume.
+    /// Side effect: If soundId already playing, stops and restarts it.
+    /// Idempotent: No — two calls play the sound twice if engine allows overlap.
+    /// Throws: InvalidOperationException if soundId not found in configuration.
+    /// </remarks>
+    void PlaySound(string soundId);
+
+    /// <summary>Sets master volume; applied immediately to all active sounds.</summary>
+    /// <remarks>
+    /// Precondition: None — any float accepted, clamped to [0, 1] internally.
+    /// Side effect: Persists until next SetMasterVolume call.
+    /// </remarks>
+    void SetMasterVolume(float volume);
+}
+```
+
+**Rule: Document contracts where silence would cause caller surprise. Skip fields that state the obvious.**

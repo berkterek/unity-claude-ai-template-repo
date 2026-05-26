@@ -138,6 +138,50 @@ public sealed class ScoreView : MonoBehaviour
 }
 ```
 
+### Avoid One-Caller Overfitting — When NOT to Create a Module
+
+Do NOT create a new module, interface, or installer just because one caller exists. Overfitting produces unnecessary boilerplate and makes the codebase harder to navigate.
+
+**Create a module/interface only when:**
+- At least 2 independent callers exist, OR
+- The service has its own lifecycle (async setup, pooling, Dispose), OR
+- A provider is needed to hide Unity API behind a pure C# boundary
+
+**Red flags for premature abstraction:**
+- Interface has ≤1 public method
+- Only one caller in the entire codebase
+- Implementation has ≤1 meaningful line of code
+- No real decoupling — the interface is only a constructor parameter alias
+
+```csharp
+// BAD — IScoreDisplayService used only by ScoreView, wraps one Debug.Log
+public interface IScoreDisplayService { void Display(int score); }
+public sealed class ScoreDisplayService : IScoreDisplayService
+{
+    public void Display(int score) => Debug.Log($"Score: {score}");
+}
+
+// GOOD — ScoreView injects ScoreModel directly; no intermediate service needed
+// Note: injecting the concrete ScoreModel here is intentional — the point of this rule
+// is that no interface wrapper is needed when only one caller exists. If ScoreModel were
+// shared across modules, IAudioService-style interface-first registration would apply.
+public sealed class ScoreView : MonoBehaviour
+{
+    private ScoreModel _model;
+
+    [Inject]
+    public void Construct(ScoreModel model) => _model = model;
+
+    private void OnEnable()  => _model.OnScoreChanged += Display;
+    private void OnDisable() => _model.OnScoreChanged -= Display;
+    private void Display(int score) => _scoreLabel.text = score.ToString();
+}
+```
+
+**Rule: Make it concrete. Add the interface only when a second caller arrives or a real boundary is needed.**
+
+---
+
 ### Scene Scope Hierarchy
 
 ```
@@ -159,6 +203,37 @@ Key points:
 - `AppScope.cs` never changes — add modules via `AppInstaller.asset`
 - `GameScope` uses only `builder.RegisterComponent(...)` with `[SerializeField]` scene refs
 - `ModuleInstaller` subclasses register a single module's dependencies
+
+### GameScope Wiring: Complex Orchestration Belongs in ModuleInstaller
+
+`GameScope` is for scene-specific registration only: binding scene components to their interfaces via `RegisterComponent`. Complex orchestration — service wiring, factory setup, conditional dependencies — belongs in `ModuleInstaller` subclasses.
+
+| Task | Location | Why |
+|------|----------|-----|
+| Register a scene-local MonoBehaviour | `GameScope` | Tied to scene hierarchy |
+| Wire services and factories | `ModuleInstaller` | Reusable, testable, scene-independent |
+| Conditional setup (difficulty, feature flags) | `ModuleInstaller` | Co-located with the module it configures |
+| Register a provider that depends on a scene object | `GameScope` via `RegisterComponent` | Scene ref required |
+
+```csharp
+// BAD — GameScope doing orchestration
+protected override void Configure(IContainerBuilder builder)
+{
+    builder.RegisterComponent(_playerView);
+    builder.Register<PlayerService>(Lifetime.Singleton);           // ← belongs in PlayerInstaller
+    builder.Register<BattleOrchestrator>(Lifetime.Singleton);     // ← belongs in BattleInstaller
+}
+
+// GOOD — GameScope registers scene components only
+protected override void Configure(IContainerBuilder builder)
+{
+    builder.RegisterComponent(_playerView);   // scene object
+    builder.RegisterComponent(_uiRoot);       // scene object
+    // Service wiring is in PlayerInstaller, BattleInstaller (via AppInstaller.asset)
+}
+```
+
+**Rule: If the wiring logic does not directly reference a scene object, it belongs in a `ModuleInstaller`.**
 
 ### Interface-First Registration
 
