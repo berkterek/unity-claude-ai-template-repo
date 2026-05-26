@@ -7,6 +7,7 @@ This is a personal Unity development template for Claude Code. It enforces archi
 - `settings.json` cannot be edited by Claude — `check-config-protection.sh` blocks it. User must add hook entries manually after any new hook is created.
 - Hook exit 0 = warning only (pipeline continues). Exit 2 = blocking. A hook that only warns has minimal enforcement value.
 - `skills/genre/` and `skills/gameplay/` were removed. Use `/skill-creator` to generate project-specific genre/gameplay skills when needed.
+- `.claude/agents/*.md` files define agent roles and prompts but **cannot be used as `subagent_type`** in the Agent tool — only built-in FleetView agent types (e.g. `general-purpose`, `unity-coder`) are valid. For `--lean` plan commands, the `lean-planner.md` prompt is inlined into a `general-purpose` agent call.
 - Command `/create-test-scene` was renamed to `/create-test`. Agent `unity-test-scene-builder` was renamed to `unity-test-builder`.
 - Claude's file tools (`Write`/`Edit`) cannot write `.unity` scene files — `block-scene-edit.sh` blocks this. **However, MCP tools (`manage_scene`, `manage_gameobject`, `manage_components`, `manage_build`) can create and wire scenes through the Unity Editor directly.** Always prefer MCP over listing manual Editor steps when MCP is connected.
 - `.claude/graph/graph.json` is generated — never edit by hand. Use `/build-knowledge-graph` to refresh.
@@ -136,6 +137,7 @@ Named prompts that pause the pipeline and wait for human approval before continu
 | `BREAKING_GATE` | `/fix` (>3 files), `/fix-deep` (>3 files), `/migrate` (>5 files) | After affected files identified | Confirm wide-blast-radius change is intentional |
 | `QUALITY_GATE` | All pipeline commands | After reviewer returns CHANGES NEEDED | Choose: `fix` / `skip` / `stop` |
 | `COMMIT_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/create-prefab-scene` | After all verification, immediately before committer | Final sign-off on staged files — type `go` or `stop` |
+| `SPARC_GATE` | `/implement`, `/orchestrate`, `/fix` (≥ 0.4) | Before coder spawn, after SCOPE_GATE | Approve Specification + Architecture (how it will be built) |
 
 ## NON-NEGOTIABLE: /orchestrate Rules
 

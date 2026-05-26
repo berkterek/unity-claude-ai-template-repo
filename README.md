@@ -473,6 +473,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `session-restore` (SessionStart) | Restores session state from `.claude/state/` on session start |
 | `session-save` (Stop) | Saves current session state to `.claude/state/` on stop |
 | `graph-auto-update` (PostToolUse Write\|Edit) | Incremental graph rebuild in background on file change — never blocks |
+| `verify-after-write` (PostToolUse Write\|Edit) | Runs `dotnet build` after each `.cs` write — prints WARNING to stderr if compile errors found; never blocks (exit 0). Reads `unity_project_folder` from `project-features.json` to locate `.sln`. MCP unavailable in bash hooks — dotnet CLI only. |
 
 ---
 
@@ -517,8 +518,10 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/fix-codex [--files f1,f2] <bug>` | Manual to start → **Codex Analysis** (fresh eyes, no hypotheses) → Human Gate → **Codex Implementation** → **Claude Review** → loop back to Codex if NEEDS REVISION (max 2x) → committer | Legacy/large codebase or when stuck 30+ min — Codex analyzes and implements, Claude reviews |
 | `/migrate <pattern> in <scope>` | Manual to start → test guard → migrator → reviewer → committer | Legacy pattern migration (coroutine→UniTask, singleton→VContainer, etc.) |
 | `/scene-setup <description>` | Manual to start → coder + unity-setup → verifier → reviewer → committer | Scene and prefab wiring pipeline |
-| `/create-plan <file> <what>` | Manual to start → researcher → planner → reviewer loop → save → optional implementer | Create a phased WORKFLOW.md plan from a spec |
-| `/update-plan <file> <change>` | Manual to start → analyzer → planner → reviewer loop → save → optional implementer | Update an existing plan |
+| `/create-plan <file> <what>` | Manual to start → researcher → planner (Opus) → reviewer loop → save → optional implementer | Create a phased plan from a spec |
+| `/create-plan --lean <file> <what>` | Manual to start → researcher → **general-purpose + lean-planner prompt** (Sonnet) → reviewer → save. No implementer auto-spawn. | Compact 3-5 task table plan — faster for small tasks. `lean-planner.md` is inlined into a general-purpose call (local agents are not valid `subagent_type` values). |
+| `/update-plan <file> <change>` | Manual to start → analyzer → planner (Opus) → reviewer loop → save → optional implementer | Update an existing plan |
+| `/update-plan --lean <file> <change>` | analyzer → **general-purpose + lean-planner prompt** (Sonnet) → reviewer → save. No implementer auto-spawn. | Small plan changes — task add/remove, file path fix. Same general-purpose workaround as `/create-plan --lean`. |
 | `/smart-commit` | Manual to start → analyze dirty tree → group commits → commit | Group working tree changes into logical semantic commits |
 | `/smart-commit-selected` | Manual to start → analyze → plan groups → multiSelect checklist → commit selected | Commit only user-selected groups from working tree |
 | `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier (compile + assembly error check + Play Mode entry + VContainerException scan — **blocking**) → reviewer → committer. **Between phases:** pauses for `Proceed?` | Execute WORKFLOW.md end-to-end, phase by phase |
@@ -705,6 +708,16 @@ Human-pause checkpoints defined in `.claude/docs/director-gates.md`. Every pipel
 | `BREAKING_GATE` | `/fix` (>3 files), `/fix-deep` (>3 files), `/migrate` (>5 files) | After affected files identified | Confirm wide-blast-radius change is intentional |
 | `QUALITY_GATE` | All pipeline commands | After reviewer returns CHANGES NEEDED | Choose: `fix` / `skip` / `stop` |
 | `COMMIT_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/create-prefab-scene` | After all verification, immediately before committer | Final sign-off on staged files — type `go` or `stop` |
+
+### Hook-Enforced Gates
+
+Automatically blocked by a PreToolUse hook — no mid-run pause, the hook exits 2 if the approval file is missing.
+
+| Gate | Commands | When it fires | What you decide |
+|------|----------|--------------|-----------------|
+| `SPARC_GATE` | `/implement`, `/orchestrate`, `/fix` (complexity ≥ 0.4) | Before `coder` / `unity-coder` / `unity-coder-lite` spawn, after SCOPE_GATE | Approve Specification + Architecture (how it will be built — files, interfaces, data flow) |
+
+State file: `.claude/state/sparc-approved` (independent of `gate-cleared`). Written after "go", deleted after the gated agent completes. Guard hook: `guard-sparc-approved.sh`.
 
 ### Automated Check Gates
 
