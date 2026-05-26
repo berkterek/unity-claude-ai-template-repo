@@ -1,7 +1,8 @@
 ## Commands (slash commands)
 
 ### Pipelines (multi-agent)
-- `/implement <task>` — **complexity score** → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → **silent failure audit** (changed files) → committer
+- `/implement <task>` — **complexity score** → [auto-routes to `/implement-lite` if score < 0.3] → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → **silent failure audit** (changed files) → committer
+- `/implement-lite <task>` — **Lightweight single-class implementation**: read target file(s) → **unity-coder-lite** → compile check → committer. No test writer, no reviewer, no verifier. `/implement` auto-routes here when complexity score < 0.3.
 - `/fix <bug>` — **complexity score** → Step 1: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → test writer → **unity-coder** → **unity-verifier** (compile + tests via MCP) → reviewer priority: **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → **silent failure audit** (changed files) → committer
 - `/fix-deep <bug>` — **complexity score** → **evidence-first pipeline**: log intake (file / text / MCP) → hypothesis → debug injection → Step 3: **unity-fixer** + **unity-scout** simultaneously (complexity ≥ 0.4) → **evidence gate** (proven / refuted / inconclusive) → fix only if proven → validator → reviewer → **silent failure audit** (changed files) → committer; refuses to fix if root cause cannot be proven
   - Use for: logic bugs, "sometimes happens" issues, wrong values at runtime, NullRef with unclear source
