@@ -40,12 +40,12 @@ Before writing any shader, score the request and choose the output format:
 When score > 0.6, show this prompt to the user:
 
 ```
-Bu efekt için iki yol var:
+There are two options for this effect:
 
-• HLSL (kod) — hızlı, direkt çalışır, tweaklemek için kodu düzenlemek gerekir
-• ShaderGraph (görsel) — Unity editor'da node bazlı düzenleme yapabilirsin
+• HLSL (code) — fast, works directly, editing code is required to tweak it
+• ShaderGraph (visual) — node-based editing in the Unity Editor
 
-Hangisini tercih edersin?
+Which do you prefer?
 ```
 
 ---
@@ -147,7 +147,7 @@ When the user chooses ShaderGraph (or score > 0.6 and user confirms):
 2. Generate `.shadergraph` file → `Write` tool to `_GameFolders/Arts/Shaders/`
 3. MCP `execute_code` → `AssetDatabase.Refresh()` to import
 4. MCP `execute_code` → create material, assign shader
-5. Tell user: "ShaderGraph dosyası oluşturuldu — Unity'de açıp node'ları tweakleyebilirsin"
+5. Tell user: "ShaderGraph file created — you can open it in Unity and tweak the nodes"
 
 ### ShaderGraph File Path Convention
 

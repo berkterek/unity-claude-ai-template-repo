@@ -84,8 +84,7 @@ Batch `manage_prefabs get_hierarchy` calls (max 25 per batch):
 {"tool": "manage_prefabs", "params": {"action": "get_hierarchy", "prefab_path": "Assets/..."}}
 ```
 
-**IMPORTANT — child GO'lar:** `manage_prefabs get_hierarchy` sadece root item'ı döner; child/grandchild GO'ları
-içermez. Alt hiyerarşiyi (örn. `Player/Body`, `Tile/ItemSpawnPoints/Point1`) almak için `execute_code` kullan:
+**IMPORTANT — child GOs:** `manage_prefabs get_hierarchy` only returns the root item; it does not include child/grandchild GOs. To get the full hierarchy (e.g. `Player/Body`, `Tile/ItemSpawnPoints/Point1`) use `execute_code`:
 
 ```csharp
 // CodeDom-compatible prefab full hierarchy dump
@@ -111,7 +110,7 @@ foreach (var guid in guids) {
 return sb.ToString();
 ```
 
-Parse: her `PREFAB:` satırı yeni prefab başlatır; indented satırlar GO ağacıdır.
+Parse: each `PREFAB:` line starts a new prefab; indented lines are the GO tree.
 
 For each root item in the result:
 - `componentTypes[]` → `components[]` in the schema

@@ -12,7 +12,7 @@
 | `migrator` | Pattern migration |
 | `lean-planner` | Compact plan writer (Sonnet) — used by `/create-plan --lean`. Produces a 3-5 task table (name, files, one-line note). No code skeletons, no acceptance criteria. Implementer auto-spawn disabled. |
 | `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |
-| `unity-shader-dev` | URP shader authoring — complexity router: basit efektler HLSL, karmaşık/görsel efektler ShaderGraph (.shadergraph JSON üretir + MCP ile materyal atar) |
+| `unity-shader-dev` | URP shader authoring — complexity router: simple effects use HLSL, complex/visual effects use ShaderGraph (generates .shadergraph JSON + assigns material via MCP) |
 | `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy |
 | `unity-ui-toolkit-builder` | Editor UI Toolkit specialist — UXML layouts, USS stylesheets, custom inspectors, EditorWindows, SerializedObject data binding (Editor-only; runtime UI uses UGUI) |
 | `unity-optimizer` | Runtime performance — allocations, draw calls, ECS hot paths, profiler-guided fixes |

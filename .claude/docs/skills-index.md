@@ -20,9 +20,9 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `code-simplification` | Chesterton's Fence discipline for `/clean-slop` — understand before removing, behavior-preserving refactor |
 | `commit-trailers` | Conventional commit trailers — co-author, ticket links, sign-off |
 | `event-systems` | IEventBus patterns — pub/sub, struct events, subscribe/unsubscribe lifecycle |
-| `bootstrap-pattern` | IInstaller → ModuleInstaller → AppInstaller → AppScope katman yapısı, yeni modül ekleme akışı |
-| `input-system` | New Input System & InputView pattern, OnEnable/OnDisable abonelik kuralları, action map switching |
-| `scene-hierarchy` | 6-container sahne yapısı, GO sınıflandırma tablosu, prefab domain eşleştirmesi |
+| `bootstrap-pattern` | IInstaller → ModuleInstaller → AppInstaller → AppScope layer structure, new module addition flow |
+| `input-system` | New Input System & InputView pattern, OnEnable/OnDisable subscription rules, action map switching |
+| `scene-hierarchy` | 6-container scene structure, GO classification table, prefab domain mapping |
 | `event-bus` | Project-specific IEventBus implementation — location, namespace, and code examples |
 | `logging` | Project-specific DLog pattern — logging implementation, location, and usage |
 | `save-load` | Project-specific SaveLoadSystem pattern — location, namespace, and usage |

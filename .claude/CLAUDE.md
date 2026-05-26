@@ -89,7 +89,7 @@ Detailed coding standards in `.claude/rules/`:
 |------|--------|
 | `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope; one-caller overfitting rule; GameScope vs ModuleInstaller wiring boundary |
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; interface contract documentation (precondition/postcondition/side-effect) |
-| `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; **material folder structure** (`Arts/Materials/<Domain>/`); **shader file structure** (`.shader`/`.shadergraph` → `_GameFolders/Arts/Shaders/`); shader authoring → `unity-shader-dev` agent (HLSL veya ShaderGraph complexity router); particle VFX → `unity-particle-designer` agent |
+| `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; **material folder structure** (`Arts/Materials/<Domain>/`); **shader file structure** (`.shader`/`.shadergraph` → `_GameFolders/Arts/Shaders/`); shader authoring → `unity-shader-dev` agent (HLSL or ShaderGraph complexity router); particle VFX → `unity-particle-designer` agent |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
@@ -100,7 +100,7 @@ Detailed coding standards in `.claude/rules/`:
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]`→`[VFX]`), classification table, prefab/container rules, enforcement |
-| `bootstrap-pattern.md` | IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope katman yapısı, EventBusInstaller zorunluluğu, GameScope sahne bazlı wiring (SerializeField + RegisterComponent), yeni modül ekleme akışı |
+| `bootstrap-pattern.md` | IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope layer structure, EventBusInstaller requirement, GameScope scene-based wiring (SerializeField + RegisterComponent), new module addition flow |
 
 ## Hooks (auto-enforced on every Write/Edit)
 
