@@ -1,87 +1,87 @@
 ---
 name: scene-hierarchy
-description: Sahne hierarchy standartları — 6 container GO (Setup/Services/UI/Environment/Characters/VFX), GO sınıflandırma tablosu, prefab domain eşleştirmesi, AppScope ve CoreObjects prefab kuralları. Sahneye bir GameObject eklerken, sahneyi organize ederken, MCP ile sahne oluştururken, /scene-setup veya /unity-scene-update çalıştırırken bu skill'i kullan. Root level GO yasak — her GO doğru container'ın altına girer.
+description: Scene hierarchy standards — 6 container GOs (Setup/Services/UI/Environment/Characters/VFX), GO classification table, prefab domain mapping, AppScope and CoreObjects prefab rules. Use this skill when adding a GameObject to a scene, organizing a scene, creating a scene with MCP, or running /scene-setup or /unity-scene-update. Root level GOs are forbidden — every GO goes under the correct container.
 model-tier: normal
 ---
 
 # Scene Hierarchy Standard
 
-## 6 Container (Sabit Sıra)
+## 6 Containers (Fixed Order)
 
 ```
 Scene
-├── [Setup]        ← Yalnızca VContainer LifetimeScope alt sınıfları
-├── [Services]     ← Provider, Manager, Service MonoBehaviour'ları
-├── [UI]           ← Tüm Canvas objeleri ve çocukları
-├── [Environment]  ← Odalar, terrain, statik objeler, ışıklar, Volume'lar
-├── [Characters]   ← Player, NPC, düşman prefab instance'ları
-└── [VFX]          ← Standalone ParticleSystem objeleri
+├── [Setup]        ← VContainer LifetimeScope subclasses only
+├── [Services]     ← Provider, Manager, Service MonoBehaviours
+├── [UI]           ← All Canvas objects and their children
+├── [Environment]  ← Rooms, terrain, static objects, lights, Volumes
+├── [Characters]   ← Player, NPC, enemy prefab instances
+└── [VFX]          ← Standalone ParticleSystem objects
 ```
 
-**Container kuralları:**
-- Bare GO (component yok) — izin verilen tek bare GO bunlar
-- Prefab değil — hierarchy organizer'ların prefab olmaması onaylı istisnâdır
-- İsimler `[` parantezi ile tam olarak bu şekilde — varyasyon yok
-- Sıra sabittir
+**Container rules:**
+- Bare GO (no components) — these are the only allowed bare GOs
+- Not prefabs — hierarchy organizers being non-prefabs is the approved exception
+- Names use `[` brackets exactly as shown — no variations
+- Order is fixed
 
-## Sınıflandırma Tablosu
+## Classification Table
 
-GO eklerken ilk eşleşen kuralı uygula:
+When adding a GO, apply the first matching rule:
 
-| Sinyal | Container |
+| Signal | Container |
 |--------|-----------|
-| `LifetimeScope` component'i var | `[Setup]` |
-| İsim: `*Provider`, `*Manager`, `*Service` | `[Services]` |
-| `Canvas` component'i var veya isim: `*Canvas`, `*UI`, `*Panel`, `*HUD`, `*Popup` | `[UI]` |
-| İsim: `*Player`, `*Hero`, `*Enemy`, `*NPC`, `*Character`, `*Boss` | `[Characters]` |
-| İsim: `*VFX`, `*Effect`, `*Particle` veya top-level `ParticleSystem` var | `[VFX]` |
-| Diğer her şey (oda, volume, ışık, terrain, kamera, statik mesh) | `[Environment]` |
+| Has `LifetimeScope` component | `[Setup]` |
+| Name: `*Provider`, `*Manager`, `*Service` | `[Services]` |
+| Has `Canvas` component or name: `*Canvas`, `*UI`, `*Panel`, `*HUD`, `*Popup` | `[UI]` |
+| Name: `*Player`, `*Hero`, `*Enemy`, `*NPC`, `*Character`, `*Boss` | `[Characters]` |
+| Name: `*VFX`, `*Effect`, `*Particle` or has top-level `ParticleSystem` | `[VFX]` |
+| Everything else (room, volume, light, terrain, camera, static mesh) | `[Environment]` |
 
-Birden fazla kural eşleşirse üstteki kazanır.
+If multiple rules match, the first one wins.
 
-## Prefab Domain Eşleştirmesi
+## Prefab Domain Mapping
 
-Bir GO'yu prefab'a dönüştürürken kaydet:
+When converting a GO to a prefab, save to:
 
-| Sinyal | Prefab klasörü |
-|--------|---------------|
-| `[Characters]`'a gidiyor | `_GameFolders/Prefabs/Characters/` |
-| `[UI]`'ya gidiyor | `_GameFolders/Prefabs/UI/` |
-| `[VFX]`'e gidiyor | `_GameFolders/Prefabs/VFX/` |
+| Signal | Prefab folder |
+|--------|--------------|
+| Going to `[Characters]` | `_GameFolders/Prefabs/Characters/` |
+| Going to `[UI]` | `_GameFolders/Prefabs/UI/` |
+| Going to `[VFX]` | `_GameFolders/Prefabs/VFX/` |
 | `*Provider`, `*Manager`, `*Service` | `_GameFolders/Prefabs/Services/` |
-| `[Environment]`'a gidiyor | `_GameFolders/Prefabs/Environment/` |
-| `LifetimeScope` + yalnızca SO/asset ref'leri | `_GameFolders/Prefabs/Bootstrap/` |
+| Going to `[Environment]` | `_GameFolders/Prefabs/Environment/` |
+| `LifetimeScope` + only SO/asset refs | `_GameFolders/Prefabs/Bootstrap/` |
 | `EventSystem` | `_GameFolders/Prefabs/CoreObjects/` |
-| `MainCamera` veya `Camera` component'i | `_GameFolders/Prefabs/CoreObjects/` |
+| `MainCamera` or has `Camera` component | `_GameFolders/Prefabs/CoreObjects/` |
 
-## AppScope Prefab Kuralı
+## AppScope Prefab Rule
 
-`AppScope` tüm serialized ref'leri ScriptableObject asset'se prefab olarak kaydedilmeli:
+`AppScope` must be saved as a prefab when all serialized refs are ScriptableObject assets:
 
 ```
 _GameFolders/Prefabs/Bootstrap/
 ├── AppScope.prefab      ← [SerializeField] AppInstaller (SO asset)
-└── GameScope.prefab     ← tüm ref'ler asset ise
+└── GameScope.prefab     ← if all refs are assets
 ```
 
-`RegisterComponentInHierarchy` kullanan scope'lar null ref ile prefab olabilir — Inspector ataması gerekmez.
+Scopes using `RegisterComponentInHierarchy` can be prefabs with null refs — no Inspector assignment needed.
 
-## EventSystem / MainCamera Kuralı
+## EventSystem / MainCamera Rule
 
-Her iki GO da `CoreObjects/` altında prefab olmalı — **her sahnede aynı prefab instance'ı** kullanılır, her sahne için sıfırdan bare GO oluşturulmamalı.
+Both GOs must be prefabs under `CoreObjects/` — the **same prefab instance** is used in every scene; a new bare GO must not be created from scratch for each scene.
 
-## MCP Sahne İşlemlerinde Zorunlu Akış
+## Mandatory Flow for MCP Scene Operations
 
-1. Sahne başında 6 container oluştur
-2. Her GO için sınıflandırma tablosuna bak
-3. GO'yu doğru container'ın child'ı olarak yerleştir
-4. Root level yerleştirme yasak — bloklayıcıdır
+1. Create the 6 containers at the start of the scene
+2. For each GO, consult the classification table
+3. Place the GO as a child of the correct container
+4. Root level placement is forbidden — it is a blocking violation
 
-## Logic / Visual Ayrımı (Tüm Prefab'larda)
+## Logic / Visual Separation (All Prefabs)
 
 ```
 MyObject.prefab        ← Root: logic (Provider, Controller, Collider, Rigidbody)
 └── Body/              ← Child: visual (MeshRenderer, Animator, ParticleSystem)
 ```
 
-Root'ta Renderer yok — `Body`'de logic script yok.
+No Renderer on root — no logic scripts on `Body`.

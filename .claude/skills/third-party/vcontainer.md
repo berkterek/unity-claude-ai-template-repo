@@ -8,7 +8,7 @@ model-tier: normal
 
 # VContainer — Setup & Usage Guide
 
-> Full bootstrap/installer pattern (IInstaller → ModuleInstaller → AppInstaller → AppScope katman kuralları) için bkz. `rules/bootstrap-pattern.md`.
+> For the full bootstrap/installer pattern (IInstaller → ModuleInstaller → AppInstaller → AppScope layer rules) see `rules/bootstrap-pattern.md`.
 
 ## What VContainer Does
 
@@ -34,7 +34,7 @@ AppScope (Bootstrap scene — DontDestroyOnLoad)
 
 ## AppScope Pattern
 
-`AppScope.cs` **asla değişmez.** Yeni modül eklemek için `AppInstaller.asset`'e yeni installer eklenir.
+`AppScope.cs` **never changes.** To add a new module, add a new installer to `AppInstaller.asset`.
 
 ```csharp
 public sealed class AppScope : LifetimeScope
@@ -71,14 +71,14 @@ public sealed class AppScope : LifetimeScope
 }
 ```
 
-**Önemli:**
-- `EventBus` burada doğrudan register edilmez — `EventBusInstaller` bunu yapar
-- Sahne bileşenleri (`UIRoot`, `AudioRoot`) `RegisterComponentInHierarchy` ile bulunur
-- Null guard'lar `Debug.LogError + return` — `throw` değil
+**Important:**
+- `EventBus` is not registered directly here — `EventBusInstaller` does that
+- Scene components (`UIRoot`, `AudioRoot`) are found with `RegisterComponentInHierarchy`
+- Null guards use `Debug.LogError + return` — not `throw`
 
 ---
 
-## Installer Katmanı
+## Installer Layer
 
 ### IInstaller
 
@@ -109,7 +109,7 @@ namespace Framework.Installers
 }
 ```
 
-### AppInstaller (modül listesi)
+### AppInstaller (module list)
 
 ```csharp
 // _GameFolders/Scripts/Games/Concretes/Infrastructure/AppInstaller.cs
@@ -129,14 +129,14 @@ public sealed class AppInstaller : ScriptableObject, IInstaller
 }
 ```
 
-- `List<ModuleInstaller>` kullan — array değil (Inspector'da sıralama için)
-- `EventBusInstaller` **daima listenin ilk elemanıdır**
+- Use `List<ModuleInstaller>` — not array (for reordering in the Inspector)
+- `EventBusInstaller` **is always the first element in the list**
 
 ---
 
-## [Module]Installer Yazma
+## Writing [Module]Installer
 
-Her modülün kendi installer'ı vardır. Config varsa null guard zorunludur.
+Each module has its own installer. If there is a config, a null guard is required.
 
 ```csharp
 [CreateAssetMenu(menuName = "Game/Installers/Audio", fileName = "AudioInstaller")]
@@ -154,12 +154,12 @@ public sealed class AudioInstaller : ModuleInstaller
 
         builder.RegisterInstance(_config);
         builder.Register<AudioService>(Lifetime.Singleton)
-            .AsImplementedInterfaces();  // IInitializable, IDisposable otomatik register
+            .AsImplementedInterfaces();  // IInitializable, IDisposable registered automatically
     }
 }
 ```
 
-### EventBusInstaller (her projede zorunlu)
+### EventBusInstaller (required in every project)
 
 ```csharp
 [CreateAssetMenu(menuName = "Game/Installers/EventBus", fileName = "EventBusInstaller")]
@@ -173,15 +173,15 @@ public sealed class EventBusInstaller : ModuleInstaller
 }
 ```
 
-Config tutmaz. `AppInstaller._modules` listesinde **her zaman ilk sıradadır**.
+Holds no config. **Always first in the `AppInstaller._modules` list.**
 
-### Yeni modül ekleme akışı
+### New module addition flow
 
-1. `[Domain]Installer.cs` yaz, `ModuleInstaller`'dan türet
-2. Unity'de asset oluştur: `Assets → Create → Game/Installers/[Domain]`
-3. Config SO'yu Inspector'da ata
-4. `AppInstaller.asset` → yeni installer'ı `_modules` listesine ekle
-5. `AppScope.cs`'e **dokunma**
+1. Write `[Domain]Installer.cs`, derive from `ModuleInstaller`
+2. Create the asset in Unity: `Assets → Create → Game/Installers/[Domain]`
+3. Assign the config SO in the Inspector
+4. Open `AppInstaller.asset` → add the new installer to the `_modules` list
+5. **Do not touch** `AppScope.cs`
 
 ---
 
@@ -190,26 +190,26 @@ Config tutmaz. `AppInstaller._modules` listesinde **her zaman ilk sıradadır**.
 ### Pure C# Service
 
 ```csharp
-// GOOD — interface üzerinden resolve
+// GOOD — resolve through interface
 builder.Register<AudioService>(Lifetime.Singleton).As<IAudioService>();
 
-// GOOD — lifecycle interface'leri de dahil
+// GOOD — lifecycle interfaces also included
 builder.Register<AudioService>(Lifetime.Singleton).AsImplementedInterfaces();
 
-// BAD — concrete bağımlılık
+// BAD — concrete dependency
 builder.Register<AudioService>(Lifetime.Singleton);
 ```
 
 ### MonoBehaviour / Component
 
 ```csharp
-// Sahnede hazır bulunan — hierarchy'de arar
+// Present in scene — searches the hierarchy
 builder.RegisterComponentInHierarchy<InputView>();
 
-// Inspector'dan sürüklenmiş referans
+// Reference dragged from Inspector
 builder.RegisterComponent(_audioRoot);
 
-// Prefab'dan instantiate
+// Instantiate from prefab
 builder.RegisterComponentInNewPrefab(prefab, Lifetime.Scoped);
 ```
 
@@ -219,7 +219,7 @@ builder.RegisterComponentInNewPrefab(prefab, Lifetime.Scoped);
 builder.RegisterInstance(_appConfiguration);
 ```
 
-`RegisterInstance` construction yapmaz — nesne zaten var. SO'lar ve pre-built instance'lar için kullanılır.
+`RegisterInstance` does not construct — the object already exists. Used for SOs and pre-built instances.
 
 ### Factory
 
@@ -232,19 +232,19 @@ builder.RegisterFactory<EnemyService>(container =>
 
 ## Lifetime Options
 
-| Lifetime | Instances | Ne zaman |
-|----------|-----------|----------|
-| `Singleton` | Scope başına 1 | Uygulama geneli servisler |
-| `Scoped` | Scope başına 1 | Sahneye özel servisler |
-| `Transient` | Her resolve'da yeni | Stateless yardımcılar |
+| Lifetime | Instances | When |
+|----------|-----------|------|
+| `Singleton` | 1 per scope | Application-wide services |
+| `Scoped` | 1 per scope | Scene-specific services |
+| `Transient` | New on each resolve | Stateless helpers |
 
-Pratikte servisler için `Singleton` kullan.
+In practice, use `Singleton` for services.
 
 ---
 
 ## Injection Methods
 
-### Constructor Injection (pure C# için tercih)
+### Constructor Injection (preferred for pure C#)
 
 ```csharp
 public sealed class ScoreService : IScoreService
@@ -260,9 +260,9 @@ public sealed class ScoreService : IScoreService
 }
 ```
 
-VContainer constructor parametrelerini otomatik çözümler — attribute gerekmez.
+VContainer resolves constructor parameters automatically — no attribute needed.
 
-### Method Injection (MonoBehaviour için)
+### Method Injection (for MonoBehaviour)
 
 ```csharp
 public sealed class PlayerView : MonoBehaviour
@@ -277,7 +277,7 @@ public sealed class PlayerView : MonoBehaviour
 }
 ```
 
-MonoBehaviour'u scope'a bildirmek için:
+To register the MonoBehaviour with the scope:
 
 ```csharp
 builder.RegisterComponentInHierarchy<PlayerView>();
@@ -300,7 +300,7 @@ public sealed class AudioService : IAudioService, IInitializable, IDisposable
 }
 ```
 
-`.AsImplementedInterfaces()` ile `IInitializable` ve `IDisposable` otomatik register edilir.
+`.AsImplementedInterfaces()` automatically registers `IInitializable` and `IDisposable`.
 
 ---
 
@@ -318,21 +318,21 @@ public sealed class GameScope : LifetimeScope
 }
 ```
 
-Inspector'da `Parent` alanını `AppScope`'a bağla — global kayıtlar miras alınır.
+Set the `Parent` field to `AppScope` in the Inspector — global registrations are inherited.
 
 ---
 
 ## No GameContext / Service Locator (NON-NEGOTIABLE)
 
 ```csharp
-// BAD — gizli bağımlılık, her sınıf her şeyi alır
+// BAD — hidden dependency, every class gets everything
 public class GameContext
 {
     public IPlayerService Player { get; }
     public IScoreService Score { get; }
 }
 
-// GOOD — her sınıf sadece kendi ihtiyacını bildirir
+// GOOD — each class declares only what it needs
 public sealed class ScoreView : MonoBehaviour
 {
     [Inject]
@@ -346,13 +346,13 @@ public sealed class ScoreView : MonoBehaviour
 
 ### `VContainerException: Unable to find type registration`
 
-1. İlgili `[Module]Installer.Install()` içinde `builder.Register<T>()` var mı?
-2. O installer `AppInstaller.asset → _modules` listesinde mi?
-3. Bağımlılığı isteyen scope, register eden scope'u görebiliyor mu? (parent/child ilişkisi)
+1. Does the relevant `[Module]Installer.Install()` have `builder.Register<T>()`?
+2. Is that installer in the `AppInstaller.asset → _modules` list?
+3. Can the scope requesting the dependency see the scope that registered it? (parent/child relationship)
 
 ### `[Inject] method never called`
 
-MonoBehaviour scope'a bildirilmemiş:
+The MonoBehaviour was not registered with the scope:
 ```csharp
 builder.RegisterComponentInHierarchy<MyMonoBehaviour>();
 ```
@@ -367,11 +367,11 @@ builder.Register<MyService>(Lifetime.Singleton)
 
 ### Circular dependency
 
-A → B → A. VContainer build time'da fırlatır. Çözüm: ortak concern'i üçüncü bir servis C'ye taşı ya da `IEventBus` kullan.
+A → B → A. VContainer throws at build time. Solution: move the shared concern to a third service C, or use `IEventBus`.
 
 ### `RegisterBuildCallback`
 
-Container build'i tamamlandıktan sonra resolved instance'lara erişmek için:
+To access resolved instances after the container build is complete:
 
 ```csharp
 builder.RegisterBuildCallback(container =>
@@ -386,10 +386,10 @@ builder.RegisterBuildCallback(container =>
 
 | Rule | Why |
 |------|-----|
-| `.AsImplementedInterfaces()` kullan | `IInitializable`, `IDisposable` lifecycle'ları otomatik kapsar |
-| Her zaman interface'e register et | Caller contract'a bağımlı olur, implementasyona değil |
-| `AppScope.cs` asla değişmez | Yeni modül → `AppInstaller.asset`'e installer ekle |
-| `EventBusInstaller` listede ilk | Diğer tüm modüller `IEventBus`'a bağımlı — önce register edilmeli |
-| Config null guard'ı `LogError + return` | `throw` build context'te crash riski taşır |
-| `OnDestroy()` yerine `Dispose()`'da unsubscribe | VContainer scope destroy'dan önce dispose eder |
-| `FindObjectOfType` / `GetComponent` servis için kullanma | DI'yi bypass eder, hidden coupling yaratır |
+| Use `.AsImplementedInterfaces()` | Automatically covers `IInitializable`, `IDisposable` lifecycles |
+| Always register to interface | Caller depends on the contract, not the implementation |
+| `AppScope.cs` never changes | New module → add installer to `AppInstaller.asset` |
+| `EventBusInstaller` first in list | All other modules depend on `IEventBus` — it must be registered first |
+| Config null guard uses `LogError + return` | `throw` carries a crash risk in build context |
+| Unsubscribe in `Dispose()` not `OnDestroy()` | VContainer disposes before scope destroy |
+| Don't use `FindObjectOfType` / `GetComponent` for services | Bypasses DI, creates hidden coupling |

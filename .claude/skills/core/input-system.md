@@ -1,18 +1,18 @@
 ---
 name: input-system
-description: New Input System & InputView pattern — PlayerControls generated class kullanımı, OnEnable/OnDisable abonelik kuralları, action map switching, legacy Input API yasağı. Input ile ilgili herhangi bir şey yazarken, InputView oluştururken, Input.GetKey/GetAxis gören kodda, action map geçişi yaparken bu skill'i kullan. Legacy Input API tamamen yasak — her input New Input System üzerinden geçer.
+description: New Input System & InputView pattern — using the PlayerControls generated class, OnEnable/OnDisable subscription rules, action map switching, legacy Input API ban. Use this skill when writing anything input-related, creating an InputView, when you see Input.GetKey/GetAxis in code, or when switching action maps. Legacy Input API is completely banned — all input goes through the New Input System.
 model-tier: normal
 ---
 
 # Input System — InputView Pattern
 
-## Kurulum
+## Setup
 
-1. `Assets/Input/PlayerControls.inputactions` oluştur — tüm action map'leri tanımla
-2. Inspector'da "Generate C# Class" aktif et → `PlayerControls.cs` üretilir
-3. `InputView` MonoBehaviour yaz — `PlayerControls`'a dokunan tek sınıf
+1. Create `Assets/Input/PlayerControls.inputactions` — define all action maps
+2. Enable "Generate C# Class" in the Inspector → `PlayerControls.cs` is generated
+3. Write an `InputView` MonoBehaviour — the only class that touches `PlayerControls`
 
-## InputView — Tam Örnek
+## InputView — Full Example
 
 ```csharp
 public sealed class InputView : MonoBehaviour
@@ -71,34 +71,34 @@ public sealed class InputView : MonoBehaviour
 }
 ```
 
-## Zorunlu Kurallar
+## Mandatory Rules
 
-| Kural | Sebep |
-|-------|-------|
-| `Enable` → `OnEnable`, `Disable` → `OnDisable` | Enable eksikse sıfır input gelir; Disable eksikse ghost callback + leak |
-| `+=` ve `-=` aynı method'a | Her Subscribe'ın eşleşen Unsubscribe'ı olmalı |
-| Sürekli input (`ReadValue`) → `Update` | FixedUpdate farklı rate'de çalışır, input kaçar |
-| Fizik için input cache'le, `FixedUpdate`'de uygula | Physics force'lar cached değeri kullanır |
-| `Input.GetKey` / `Input.GetAxis` yasak | Hook tarafından bloklanır (exit 2) |
-| Bir sahnede tek `InputView` | Duplicate subscription önler |
+| Rule | Reason |
+|------|--------|
+| `Enable` → `OnEnable`, `Disable` → `OnDisable` | If Enable is missing, zero input arrives; if Disable is missing, ghost callbacks + leaks |
+| `+=` and `-=` on the same method | Every Subscribe must have a matching Unsubscribe |
+| Continuous input (`ReadValue`) → `Update` | FixedUpdate runs at a different rate, input can be missed |
+| Cache input for physics, apply in `FixedUpdate` | Physics forces use the cached value |
+| `Input.GetKey` / `Input.GetAxis` are forbidden | Blocked by hook (exit 2) |
+| One `InputView` per scene | Prevents duplicate subscriptions |
 
 ## Action Map Switching
 
 ```csharp
-// Gameplay → UI (pause menu açılırken)
+// Gameplay → UI (when opening the pause menu)
 _controls.Player.Disable();
 _controls.UI.Enable();
 
-// UI → Gameplay (menu kapanırken)
+// UI → Gameplay (when closing the menu)
 _controls.UI.Disable();
 _controls.Player.Enable();
 ```
 
-Mevcut map'i devre dışı bırak, **sonra** yenisini aç. Aynı anda birden fazla gameplay map açık kalmamalı.
+Disable the current map, **then** enable the new one. Multiple gameplay maps must not be open at the same time.
 
-## Service Tarafı
+## Service Side
 
-Servisler input'tan habersizdir — sadece komut alır:
+Services are input-agnostic — they only receive commands:
 
 ```csharp
 public interface IPlayerService
@@ -109,20 +109,20 @@ public interface IPlayerService
 }
 ```
 
-`InputView` ince bir adaptör — okur, iletir, sıfır logic.
+`InputView` is a thin adapter — reads, forwards, zero logic.
 
-## Yasak Kullanımlar
+## Forbidden Usages
 
 ```csharp
-// YASAK — legacy API, hook bloklar
+// FORBIDDEN — legacy API, blocked by hook
 Input.GetKey(KeyCode.Space)
 Input.GetAxis("Horizontal")
 Input.GetButton("Fire1")
 
-// YASAK — InputView dışında PlayerControls oluşturmak
-var controls = new PlayerControls(); // başka sınıfta
+// FORBIDDEN — creating PlayerControls outside of InputView
+var controls = new PlayerControls(); // in another class
 
-// DOĞRU
+// CORRECT
 _controls.Player.Move.ReadValue<Vector2>()
 _controls.Player.Jump.performed += OnJump;
 ```

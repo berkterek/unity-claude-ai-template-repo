@@ -1,12 +1,12 @@
 ---
 name: bootstrap-pattern
-description: Bootstrap & Installer katman yapısı — IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope hiyerarşisi, yeni modül ekleme akışı, EventBusInstaller zorunluluğu. Yeni bir modül eklerken, installer yazarken, AppScope veya AppInstaller'a dokunmayı düşünürken, VContainer kayıt yapısını kurarken bu skill'i kullan. AppScope.cs asla değişmez — sadece AppInstaller.asset güncellenir.
+description: Bootstrap & Installer layer structure — IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope hierarchy, new module addition flow, EventBusInstaller requirement. Use this skill when adding a new module, writing an installer, considering touching AppScope or AppInstaller, or setting up VContainer registration structure. AppScope.cs never changes — only AppInstaller.asset is updated.
 model-tier: normal
 ---
 
 # Bootstrap & Installer Pattern
 
-## Katman Yapısı
+## Layer Structure
 
 ```
 IInstaller (interface)          ← _Framework/Installers/
@@ -17,7 +17,7 @@ ModuleInstaller (abstract SO)   ← _Framework/Installers/
     ↑
 AppInstaller (sealed SO)        ← _GameFolders/Scripts/Games/Concretes/Infrastructure/
     ↑
-AppScope (LifetimeScope)        ← Bootstrap sahnesi — AppInstaller'ı çağırır
+AppScope (LifetimeScope)        ← Bootstrap scene — calls AppInstaller
 ```
 
 ## IInstaller
@@ -43,7 +43,7 @@ public abstract class ModuleInstaller : ScriptableObject, IInstaller
 }
 ```
 
-`ScriptableObject` içerdiği için `_Framework/Installers/` altında yaşar — `Games/Abstracts/` değil.
+Lives under `_Framework/Installers/` because it contains `ScriptableObject` — not `Games/Abstracts/`.
 
 ## [Module]Installer
 
@@ -76,12 +76,12 @@ public sealed class AudioInstaller : ModuleInstaller
 }
 ```
 
-**Kurallar:**
-- Config null → `Debug.LogError` + `return` (throw değil)
-- `.AsImplementedInterfaces()` — lifecycle interface'leri otomatik kapsar
+**Rules:**
+- Config null → `Debug.LogError` + `return` (not throw)
+- `.AsImplementedInterfaces()` — automatically covers lifecycle interfaces
 - `[CreateAssetMenu]` format: `"Game/Installers/[ModuleName]"`
 
-## EventBusInstaller (her projede zorunlu, listede ilk)
+## EventBusInstaller (required in every project, first in the list)
 
 ```csharp
 [CreateAssetMenu(menuName = "Game/Installers/EventBus", fileName = "EventBusInstaller")]
@@ -95,7 +95,7 @@ public sealed class EventBusInstaller : ModuleInstaller
 }
 ```
 
-`AppInstaller._modules` listesinde **daima ilk sıradadır**.
+**Always first in the `AppInstaller._modules` list.**
 
 ## AppInstaller
 
@@ -124,7 +124,7 @@ public sealed class AppInstaller : ScriptableObject, IInstaller
 }
 ```
 
-`List<ModuleInstaller>` kullanılır (array değil) — Inspector'da sıralama kolaylığı için.
+`List<ModuleInstaller>` is used (not an array) — for easy reordering in the Inspector.
 
 ## AppScope
 
@@ -161,17 +161,17 @@ public sealed class AppScope : LifetimeScope
 }
 ```
 
-**AppScope.cs asla değişmez** — yeni modül eklemek için `AppInstaller.asset`'e installer eklenir.
+**AppScope.cs never changes** — to add a new module, add the installer to `AppInstaller.asset`.
 
-## Yeni Modül Ekleme Akışı
+## New Module Addition Flow
 
-1. `[Module]Installer.cs` yaz — `ModuleInstaller`'dan türet, `[CreateAssetMenu]` ekle
-2. Unity'de asset oluştur: `Assets → Create → Game/Installers/[ModuleName]`
-3. Inspector'da config ScriptableObject'ini ata
-4. `AppInstaller.asset` → `_modules` listesine ekle
-5. `AppScope.cs`'e **dokunma**
+1. Write `[Module]Installer.cs` — derive from `ModuleInstaller`, add `[CreateAssetMenu]`
+2. Create the asset in Unity: `Assets → Create → Game/Installers/[ModuleName]`
+3. Assign the config ScriptableObject in the Inspector
+4. Open `AppInstaller.asset` → add to the `_modules` list
+5. **Do not touch** `AppScope.cs`
 
-## Klasör Yapısı
+## Folder Structure
 
 ```
 _Framework/Installers/
@@ -186,12 +186,12 @@ _GameFolders/Scripts/Games/Concretes/[Domain]/
 └── [Domain]Installer.cs
 ```
 
-## Yaygın Hatalar
+## Common Mistakes
 
-| Hata | Çözüm |
-|------|-------|
-| `EventBus` `AppScope.Configure()` içinde doğrudan register | `EventBusInstaller` oluştur, listede ilk sıraya koy |
-| Yeni modül için `AppScope.cs` değiştiriliyor | `AppInstaller.asset`'e installer ekle — `AppScope.cs` değişmez |
-| `ModuleInstaller` `GameFolders/Abstracts/` altında | `ScriptableObject` içerdiği için `_Framework/Installers/` altında olmalı |
-| `throw` ile null guard | `Debug.LogError` + `return` kullan |
-| `.As<IEventBus>()` tek interface | `.AsImplementedInterfaces()` kullan |
+| Mistake | Solution |
+|---------|----------|
+| `EventBus` registered directly in `AppScope.Configure()` | Create `EventBusInstaller`, put it first in the list |
+| `AppScope.cs` is modified to add a new module | Add the installer to `AppInstaller.asset` — `AppScope.cs` never changes |
+| `ModuleInstaller` placed under `GameFolders/Abstracts/` | It contains `ScriptableObject` so it must be under `_Framework/Installers/` |
+| Null guard uses `throw` | Use `Debug.LogError` + `return` |
+| Single interface registered with `.As<IEventBus>()` | Use `.AsImplementedInterfaces()` |
