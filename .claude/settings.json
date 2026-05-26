@@ -338,6 +338,17 @@
         "hooks": [
           {
             "type": "command",
+            "command": ".claude/hooks/graph-auto-update.sh",
+            "timeout": 10000,
+            "statusMessage": "Updating knowledge graph..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
             "command": ".claude/hooks/verify-after-write.sh",
             "timeout": 5000
           }
@@ -374,6 +385,16 @@
             "command": ".claude/hooks/session-save.sh",
             "timeout": 3000,
             "statusMessage": "Saving session state..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/stop-verify.sh",
+            "timeout": 30000,
+            "statusMessage": "Verifying session edits..."
           }
         ]
       }
