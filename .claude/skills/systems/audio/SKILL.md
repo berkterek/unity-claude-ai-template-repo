@@ -1,6 +1,6 @@
 ---
 name: audio
-description: "Unity audio system — AudioMixer groups, snapshots, spatial audio, audio source pooling, compression per platform."
+description: "Unity audio system — AudioSource component setup, spatial audio, audio source pooling, beat sync, procedural SFX, compression per platform. NOT for AudioMixer routing/snapshots (see audio-mixer), NOT for import settings (see audio-clip-settings), NOT for UI volume controls (see audio-settings)."
 globs: ["**/*.mixer", "**/*Audio*.cs", "**/*Sound*.cs", "**/*Music*.cs"]
 ---
 

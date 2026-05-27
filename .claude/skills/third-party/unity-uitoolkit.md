@@ -1,6 +1,6 @@
 ---
 name: unity-uitoolkit
-description: Unity UI Toolkit patterns for custom Editor windows, custom inspectors, PropertyDrawers, and level editors. Use when building EditorWindow, custom Inspector, PropertyDrawer, UXML/USS layouts, VisualElement hierarchies, SerializedProperty binding, or any Editor tooling with UI Toolkit. Also use for runtime UI Toolkit questions.
+description: "Unity UI Toolkit patterns for custom Editor windows, custom inspectors, PropertyDrawers, and level editors. Use when building EditorWindow, custom Inspector, PropertyDrawer, UXML/USS layouts, VisualElement hierarchies, or SerializedProperty binding. Editor-only — NOT for runtime UI (this project uses UGUI; see unity-ugui skill for runtime UI)."
 user-invocable: true
 model-tier: normal
 ---

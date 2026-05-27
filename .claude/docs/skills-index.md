@@ -19,11 +19,11 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `planning-and-task-breakdown` | Vertical slice decomposition + per-task acceptance criteria for `/create-plan` and `/plan-workflow` |
 | `code-simplification` | Chesterton's Fence discipline for `/clean-slop` — understand before removing, behavior-preserving refactor |
 | `commit-trailers` | Conventional commit trailers — co-author, ticket links, sign-off |
-| `event-systems` | IEventBus patterns — pub/sub, struct events, subscribe/unsubscribe lifecycle |
+| `event-systems` | Decide which event mechanism to use — C# events vs IEventBus vs Action vs UnityEvent |
+| `event-bus` | Project IEventBus implementation — location, namespace, Subscribe/Unsubscribe/Publish API, EventBusAccessor |
 | `bootstrap-pattern` | IInstaller → ModuleInstaller → AppInstaller → AppScope layer structure, new module addition flow |
 | `input-system` | New Input System & InputView pattern, OnEnable/OnDisable subscription rules, action map switching |
 | `scene-hierarchy` | 6-container scene structure, GO classification table, prefab domain mapping |
-| `event-bus` | Project-specific IEventBus implementation — location, namespace, and code examples |
 | `logging` | Project-specific DLog pattern — logging implementation, location, and usage |
 | `save-load` | Project-specific SaveLoadSystem pattern — location, namespace, and usage |
 | `tdd-nsubstitute` | Project-specific TDD pattern — assembly structure, test templates, and mock rules |
@@ -32,11 +32,16 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `scriptable-objects` | ScriptableObject config authoring, CreateAssetMenu, validation |
 | `serialization-safety` | FormerlySerializedAs, SerializeReference, Unity null semantics |
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
-| `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns for real MonoBehaviour and prefab integration tests |
-| `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed. Used by all MCP-dependent pipeline commands before spawning agents |
-| `test-type-router` | Determines test type (EditMode / PlayMode-Programmatic / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path. Used by `/implement`, `/generate-tests`, `/create-test`, `/create-plan` before any test writing |
-| `fix-codex` | Full Codex-driven fix pipeline — Codex analyzes fresh (no prior hypotheses), implements, then Claude reviews (correct location? root cause understood? complete? architecture?); committer on APPROVED |
-| `unity-ugui` | Runtime UGUI implementation — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area, Canvas split strategy, performance rules |
+| `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns |
+| `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed |
+| `test-type-router` | Determines test type (EditMode / PlayMode-Programmatic / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path |
+| `unity-ugui` | Runtime UGUI implementation — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area |
+| `caveman` | Ultra-compressed communication mode (~75% fewer tokens) — `/caveman` to enter, `/normal` to exit |
+| `context-prime` | Brief Claude on project context at session start — reads key files and summarizes current state |
+| `create-changelog` | Create or update CHANGELOG.md with recent git changes |
+| `dump` | Save current session notes and decisions to `.claude/logs/` as markdown |
+| `five` | 5 Whys root cause analysis — drill down to true cause of a bug or architectural problem |
+| `mermaid` | Generate a Mermaid architecture diagram for a module, system, or the full project |
 
 ## Platform (`skills/platform/`)
 
@@ -72,10 +77,22 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | Skill | Covers |
 |-------|--------|
 | `dotween` | Tween creation, sequences, callbacks, memory management |
-| `odin-inspector` | Custom attributes, validators, group drawers — `third-party/odin-inspector/SKILL.md` |
+| `nsubstitute` | NSubstitute setup, configuration, and usage patterns for Unity test assemblies |
+| `odin-inspector` | Custom attributes, validators, group drawers |
 | `textmeshpro` | Font assets, rich text, SDF materials, localization |
 | `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid |
+| `unity-editor-tools` | AssetDatabase, AssetPostprocessor, InitializeOnLoad, EditorPrefs, PrefabUtility, build pipeline hooks |
+| `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
 | `vcontainer` | Scope hierarchy, registration, lifecycle interfaces, DI failure diagnosis |
+
+## Plugins (`skills/plugins/`)
+
+Static skills for pre-installed plugins:
+
+| Skill | Covers |
+|-------|--------|
+| `primetween` | PrimeTween API, sequences, UniTask integration |
+| `r3` | R3 (Cysharp) Observable, Subject, ReactiveProperty, UniTask integration |
 
 ## Discovered Packages (`skills/third-party/`)
 
