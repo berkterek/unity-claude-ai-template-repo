@@ -1,8 +1,8 @@
 # Agents (`.claude/agents/`)
 
-> **Not:** `.claude/agents/*.md` dosyaları agent davranışını özelleştiren prompt overlay'leridir — yeni `subagent_type` tanımlamazlar.
-> Agent tool'unda `subagent_type` olarak aşağıdaki **"Invoke"** sütunundaki değeri kullan.
-> `lean-planner` tek istisnadır: `.md` dosyası prompt şablonu sağlar, ama `subagent_type: general-purpose` ile inline edilir.
+> `.claude/agents/*.md` files are prompt overlays for built-in FleetView agent types — they do not define new `subagent_type` values.
+> Use the **Invoke** column below as the exact `subagent_type` value when spawning an agent.
+> Every agent's `subagent_type` matches its filename (e.g. `unity-coder.md` → `subagent_type: unity-coder`).
 
 | Agent | Invoke (`subagent_type`) | Role |
 |-------|--------------------------|------|
@@ -14,7 +14,7 @@
 | `committer` | `committer` | Staged changes → semantic git commit. Runs inline (not as subagent). |
 | `debugger` | `debugger` | Root cause analysis |
 | `migrator` | `migrator` | Pattern migration |
-| `lean-planner` | `general-purpose` ⚠️ | Compact plan writer (Sonnet) — used by `/create-plan --lean`. Prompt inlined from `lean-planner.md` into a `general-purpose` agent call. Produces a 3-5 task table (name, files, one-line note). No code skeletons, no acceptance criteria. Implementer auto-spawn disabled. |
+| `lean-planner` | `lean-planner` | Compact plan writer (Sonnet) — used by `/create-plan --lean`. Produces a 3-5 task table (name, files, one-line note). No code skeletons, no acceptance criteria. Implementer auto-spawn disabled. |
 | `unity-critic` | `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |
 | `unity-shader-dev` | `unity-shader-dev` | URP shader authoring — complexity router: simple effects use HLSL, complex/visual effects use ShaderGraph (generates .shadergraph JSON + assigns material via MCP) |
 | `unity-ui-builder` | `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy |
