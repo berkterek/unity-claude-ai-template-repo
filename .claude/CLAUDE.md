@@ -166,7 +166,7 @@ Configured by `/setup-project`. Source of truth: `.claude/project-features.json`
 | Feature | Status | Effect when disabled |
 |---------|--------|----------------------|
 | `addressables` | **DISABLED** | Skip `rules/addressables.md`, Addressables hooks, and address-constant checks |
-| `testing` | **DISABLED** | Skip `rules/testing.md`, NSubstitute rules, test-folder/asmdef requirements, and test hooks |
+| `testing` | **ENABLED** | Enforce `rules/testing.md`, NSubstitute rules, test-folder/asmdef requirements, and test hooks |
 | `ecs` | **DISABLED** | Skip `rules/ecs-dots.md`, ECS structural-change hook (`check-ecs-structural-changes.sh`), and enum-byte-base hook (`check-enum-byte-base.sh`) |
 | `graph` | **ENABLED** | `graph.json` is the primary source of truth. `/orchestrate` pre-scan reads graph instead of scanning folders. `/catch-up`, `/context-prime`, `/architect` query graph first; fall back to file-scan only if graph is stale (> 24h) or disabled. |
 
