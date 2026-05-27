@@ -41,6 +41,56 @@ These are NOT manual — `/setup-project` Step 5d handles them via `manage_scene
   }
   ```
 
+# Testing Infrastructure
+
+When `testing: true` in `project-features.json`, `/setup-project` generates the following. If testing was enabled after initial setup, re-run `/setup-project` to generate missing pieces.
+
+## What Gets Generated
+
+| Artifact | Path | Notes |
+|----------|------|-------|
+| Edit Mode test assembly | `Scripts/Tests/[Project]EditModeTest/[Project]EditModeTest.asmdef` | NSubstitute refs included if DLL present |
+| Play Mode test assembly | `Scripts/Tests/[Project]PlayModeTest/[Project]PlayModeTest.asmdef` | All platforms, NSubstitute refs included if DLL present |
+| Edit Mode sample test | `Scripts/Tests/[Project]EditModeTest/SampleEditModeTests.cs` | AAA pattern, IEventBus mock example |
+| Play Mode sample test | `Scripts/Tests/[Project]PlayModeTest/SamplePlayModeTests.cs` | UnityTest + yield return pattern |
+
+## NSubstitute Dependency
+
+NSubstitute cannot be installed via Package Manager — it requires a manual DLL drop:
+
+1. Download from [nuget.org/packages/NSubstitute](https://www.nuget.org/packages/NSubstitute) → "Download package"
+2. Rename `.nupkg` → `.zip`, extract, copy `NSubstitute.dll` from `lib/netstandard2.0/`
+3. Place at `Assets/Plugins/NSubstitute/NSubstitute.dll`
+4. Re-run `/setup-project` — it will regenerate `.asmdef` files with `precompiledReferences` and `overrideReferences: true`
+
+Without NSubstitute.dll, test asmdefs are generated without mock support. `Substitute.For<T>()` will not compile.
+
+## Test Type Decision
+
+Every class goes through `test-type-router` before a test is written. Some classes are always `NoTest` — no test file is generated for them:
+
+| Class type | Decision |
+|-----------|----------|
+| `LifetimeScope` subclass | NoTest — DI wiring tested via integration |
+| `ScriptableObject` | NoTest — data container, no logic |
+| `IComponentData` struct | NoTest — data only |
+| `Baker<T>` | NoTest — bake-time only |
+| Pure C# service | EditMode |
+| MonoBehaviour (no lifecycle deps) | EditMode or PlayMode-Programmatic |
+| MonoBehaviour (lifecycle matters) | PlayMode-Programmatic or PlayMode-Scene |
+| ECS System | PlayMode-ECS (isolated World) |
+
+## PlayMode Scene Tests
+
+PlayMode-Scene tests require a real Unity scene. Each test scene lives in `Assets/_Scenes/TestScenes/` and must:
+- Contain exactly one `TestBootstrap` prefab
+- Be added to Build Settings
+- Have a matching `[Feature]TestScope.cs` + `[Feature]TestInstaller.cs`
+
+The `check-test-scene-exists.sh` hook warns when a PlayMode test references a scene that doesn't exist yet. See the manual hook entry in the checklist above.
+
+---
+
 # Project-Specific Setup
 
 When first adding this template to a new project, run `/setup-project`. It:
