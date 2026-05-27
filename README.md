@@ -416,9 +416,9 @@ Skip `/qa` if you're inside an active `/orchestrate` run — the phase gate alre
 
 | Command | How it runs | When to use |
 |---------|------------|-------------|
-| `/implement` | Manual to start. Inside: complexity score → [routes to `/implement-lite` if < 0.3] → test writer → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Implement a feature or task with full TDD pipeline |
+| `/implement` | Manual to start. Inside: complexity score → [routes to `/implement-lite` if < 0.3] → test-type-router → [tester if not NoTest] → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Implement a feature or task with full TDD pipeline |
 | `/implement-lite` | Manual to start (or auto-routed from `/implement` when complexity < 0.3). Inside: read file(s) → unity-coder-lite → compile check → committer | Single-class addition or change — no test writer, no reviewer, fastest path |
-| `/fix` | Manual to start. Inside: unity-fixer + unity-scout → test writer → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Bug fix when stack trace clearly points to root cause |
+| `/fix` | Manual to start. Inside: unity-fixer + unity-scout → test-type-router → [tester (regression) if not NoTest] → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Bug fix when stack trace clearly points to root cause |
 | `/fix-deep` | Manual to start. Inside: log intake → hypothesis → debug injection → evidence gate → fix (only if proven) → committer run **automatically**. **Refuses to fix if root cause is unproven** | Logic bugs, intermittent issues, or any uncertain root cause |
 | `/fix-lite` | Manual to start (or auto-routed from `/fix` when complexity < 0.2). Inside: pin file+line → read file → unity-fixer-lite → compile check → committer | NullRef, missing ref, typo, obvious one-liner — fastest path |
 | `/fix-codex` | Manual to start. Inside: **Codex Analysis** (fresh eyes) → **Human Gate** → **Codex Implementation** → **Claude Review** → loop back to Codex if NEEDS REVISION (max 2x) → committer | Legacy/large codebase (2000+ line files) or stuck 30+ min — Codex analyzes and implements, Claude reviews |
@@ -516,9 +516,9 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 
 | Command | How it runs | Description |
 |---------|------------|-------------|
-| `/implement <task>` | Manual to start → complexity score → [routes to `/implement-lite` if < 0.3] → test writer → coder → verifier → reviewer → silent failure audit → committer | TDD implementation pipeline for a single well-defined task |
+| `/implement <task>` | Manual to start → complexity score → [routes to `/implement-lite` if < 0.3] → test-type-router → [tester if not NoTest] → coder → verifier → reviewer → silent failure audit → committer | TDD implementation pipeline for a single well-defined task |
 | `/implement-lite <task>` | Manual to start (or auto-routed from `/implement` when complexity < 0.3) → read file(s) → unity-coder-lite → compile check → committer | Single-class addition or change — no test writer, no reviewer |
-| `/fix <bug>` | Manual to start → unity-fixer + unity-scout → test writer → coder → verifier → reviewer → committer | Bug fix pipeline — use when stack trace points to root cause |
+| `/fix <bug>` | Manual to start → unity-fixer + unity-scout → test-type-router → [tester (regression) if not NoTest] → coder → verifier → reviewer → committer | Bug fix pipeline — use when stack trace points to root cause |
 | `/fix-deep <bug>` | Manual to start → log intake → hypothesis → debug injection → evidence gate → fix (only if proven) → committer. **Refuses to fix if root cause is unproven** | Evidence-first bug fix — use for logic bugs or intermittent issues |
 | `/fix-lite <bug>` | Manual to start → pin file+line from stack trace → unity-fixer-lite → compile check → committer | NullRef, missing ref, typo, obvious one-liner — also auto-routed from `/fix` when complexity < 0.2 |
 | `/fix-codex [--files f1,f2] <bug>` | Manual to start → **Codex Analysis** (fresh eyes, no hypotheses) → Human Gate → **Codex Implementation** → **Claude Review** → loop back to Codex if NEEDS REVISION (max 2x) → committer | Legacy/large codebase or when stuck 30+ min — Codex analyzes and implements, Claude reviews |
@@ -880,7 +880,7 @@ All skills under `skills/third-party/`, `skills/plugins/`, `skills/learned/`, an
 | `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid |
 | `unity-asmdef` | Assembly definition authoring, references, define constraints |
 | `unity-editor-tools` | Custom Editor windows, PropertyDrawers, EditorUtility patterns |
-| `unity-uitoolkit` | UI Toolkit runtime panels, UXML, USS, data binding |
+| `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
 | `vcontainer` | VContainer registration patterns, scope hierarchy, lifecycle |
 
 #### Discovered Package Skills (`skills/third-party/<pkg>/`)
