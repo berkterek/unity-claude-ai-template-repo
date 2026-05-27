@@ -1,7 +1,6 @@
 ---
 name: event-systems
-description: "Event system patterns — C# events, UnityEvent, SO event channels, static EventBus. When to use each, zero-allocation patterns, memory leak prevention."
-alwaysApply: true
+description: "Decide which event mechanism to use — C# events vs IEventBus vs Action vs UnityEvent. Use when choosing between event patterns, not when implementing IEventBus code. NOT a substitute for the event-bus skill (which covers project IEventBus implementation details)."
 ---
 
 # Event Systems

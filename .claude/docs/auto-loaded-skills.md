@@ -9,7 +9,6 @@
 @.claude/skills/platform/mobile/SKILL.md
 @.claude/skills/plugins/primetween.md
 @.claude/skills/plugins/r3.md
-@.claude/skills/plugins/unitask.md
 @.claude/skills/third-party/dotween/SKILL.md
 @.claude/skills/third-party/nsubstitute.md
 @.claude/skills/third-party/odin-inspector/SKILL.md

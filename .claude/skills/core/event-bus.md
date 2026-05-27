@@ -1,6 +1,6 @@
 ---
 name: event-bus
-description: IEventBus usage pattern — project EventBus implementation, location, namespace, and code examples
+description: Project IEventBus implementation reference — location (_Framework/Events/), namespace, Subscribe/Unsubscribe/Publish API, EventBusAccessor for ECS. Use when writing code that publishes or subscribes to IEventBus. NOT for deciding which event mechanism to use — see event-systems for that.
 model-tier: normal
 ---
 
