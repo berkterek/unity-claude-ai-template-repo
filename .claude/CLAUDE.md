@@ -130,6 +130,8 @@ Detailed coding standards in `.claude/rules/`:
 
 Named prompts that pause the pipeline and wait for human approval before continuing. Full definitions in `.claude/docs/director-gates.md`.
 
+@.claude/docs/director-gates.md
+
 | Gate | Commands | When it fires | What you decide |
 |------|----------|--------------|-----------------|
 | `SCOPE_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/orchestrate`, `/create-prefab-scene` | After complexity scoring, before any agent spawns | Confirm scope matches intent — type `go` or redirect |
