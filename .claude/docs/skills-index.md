@@ -36,6 +36,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed |
 | `test-type-router` | Determines test type (EditMode / PlayMode-Programmatic / PlayMode-ECS / PlayMode-Scene / NoTest) from class name or file path |
 | `unity-ugui` | Runtime UGUI implementation — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area |
+| `fix-codex` | Full Codex-driven fix pipeline — Codex analyzes fresh (no prior hypotheses), implements, then Claude reviews (correct location? root cause understood? complete? architecture?); committer on APPROVED |
 | `caveman` | Ultra-compressed communication mode (~75% fewer tokens) — `/caveman` to enter, `/normal` to exit |
 | `context-prime` | Brief Claude on project context at session start — reads key files and summarizes current state |
 | `create-changelog` | Create or update CHANGELOG.md with recent git changes |
