@@ -44,6 +44,27 @@ Format: `<Layer>.<Domain>` — underscore prefix on folder names is dropped.
 
 Namespace follows folder depth. Third-party libraries keep their own namespaces (`VContainer`, `UniTask`, etc.).
 
+### Namespace Collision Rule (NON-NEGOTIABLE)
+
+`Game.Concretes.<Domain>` namespace adı `UnityEngine` tip adlarıyla çakışabilir. Çakışma olduğunda C# derleyicisi hangi tipi kastettiğini bilemez ve ambiguous reference hatası verir.
+
+**Bilinen çakışmalar:**
+
+| Domain namespace | Çakışan UnityEngine tipi | Çözüm |
+|-----------------|--------------------------|-------|
+| `Game.Concretes.Camera` | `Camera` | `using UCamera = UnityEngine.Camera;` |
+| `Game.Concretes.Random` | `Random` | `using URandom = UnityEngine.Random;` |
+
+**Kural:** `Game.Concretes.<Domain>` namespace'i `UnityEngine` içinde aynı adlı bir tip barındırıyorsa, o domain'in **tüm** `.cs` dosyalarının en üstüne alias ekle:
+
+```csharp
+using UCamera = UnityEngine.Camera;
+// using System.Random yerine:
+using URandom = UnityEngine.Random;
+```
+
+**Plan aşamasında kontrol:** Yeni bir domain klasörü oluşturulmadan önce Researcher, domain adının (`Camera`, `Random`, `Object`, `Input`, `Physics`, `Collider`, `Transform`…) `UnityEngine` namespace'inde bir tiple eşleşip eşleşmediğini kontrol etmeli ve varsa alias'ı plana görev olarak eklemelidir.
+
 ---
 
 ## Field Declarations
