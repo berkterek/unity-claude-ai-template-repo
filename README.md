@@ -525,9 +525,9 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/migrate <pattern> in <scope>` | Manual to start → test guard → migrator → reviewer → committer | Legacy pattern migration (coroutine→UniTask, singleton→VContainer, etc.) |
 | `/scene-setup <description>` | Manual to start → coder + unity-setup → verifier → reviewer → committer | Scene and prefab wiring pipeline |
 | `/create-plan <file> <what>` | Manual to start → researcher → planner (Opus) → reviewer loop → save → optional implementer | Create a phased plan from a spec |
-| `/create-plan --lean <file> <what>` | Manual to start → researcher → **general-purpose + lean-planner prompt** (Sonnet) → reviewer → save. No implementer auto-spawn. | Compact 3-5 task table plan — faster for small tasks. `lean-planner.md` is inlined into a general-purpose call (local agents are not valid `subagent_type` values). |
+| `/create-plan --lean <file> <what>` | Manual to start → researcher → **lean-planner** (Sonnet) → reviewer → save. No implementer auto-spawn. | Compact 3-5 task table plan — faster for small tasks. |
 | `/update-plan <file> <change>` | Manual to start → analyzer → planner (Opus) → reviewer loop → save → optional implementer | Update an existing plan |
-| `/update-plan --lean <file> <change>` | analyzer → **general-purpose + lean-planner prompt** (Sonnet) → reviewer → save. No implementer auto-spawn. | Small plan changes — task add/remove, file path fix. Same general-purpose workaround as `/create-plan --lean`. |
+| `/update-plan --lean <file> <change>` | analyzer → **lean-planner** (Sonnet) → reviewer → save. No implementer auto-spawn. | Small plan changes — task add/remove, file path fix. |
 | `/smart-commit` | Manual to start → analyze dirty tree → group commits → commit | Group working tree changes into logical semantic commits |
 | `/smart-commit-selected` | Manual to start → analyze → plan groups → multiSelect checklist → commit selected | Commit only user-selected groups from working tree |
 | `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier (compile + assembly error check + Play Mode entry + VContainerException scan — **blocking**) → reviewer → committer. **Between phases:** pauses for `Proceed?` | Execute WORKFLOW.md end-to-end, phase by phase |
