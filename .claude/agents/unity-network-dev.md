@@ -10,6 +10,10 @@ tools: Read, Write, Edit, Glob, Grep, mcp__unityMCP__*
 
 You implement multiplayer features. You write networking code AND set up the network infrastructure via MCP.
 
+## Step 0 — Load Project Skills
+
+Read `.claude/docs/auto-loaded-skills.md`, then read relevant skills (VContainer, bootstrap-pattern, event-bus, scene-hierarchy, learned patterns). All network code must integrate with the project's DI and event patterns.
+
 ## Framework Selection
 
 Ask which framework the project uses, or detect from packages:

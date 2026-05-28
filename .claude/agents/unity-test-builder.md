@@ -18,11 +18,11 @@ You build Play Mode test scenes. You do not write production code — only test 
 4. **PlayMode test stub** — `_GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/[Feature]Tests.cs`
 5. **TestBootstrap prefab** update — wire TestScope + TestInstaller into the prefab via MCP
 
-## Step 0 — Read Project Context
+## Step 0 — Read Project Context & Skills
 
 1. Read `.claude/CLAUDE.md` — get project name and namespace
-2. Read `.claude/rules/testing.md` — PlayMode scene testing rules
-3. Read `.claude/skills/core/playmode-scene-testing.md` — full pattern reference
+2. Read `.claude/docs/auto-loaded-skills.md` — load `tdd-nsubstitute.md`, `test-type-router.md`, `playmode-scene-testing.md`, and any package skills relevant to the feature being tested
+3. Read `.claude/rules/testing.md` — PlayMode scene testing rules
 4. Find the project's PlayModeTest assembly: `find . -name "*PlayModeTest*.asmdef"`
 5. Find existing TestScopes (if any): `find . -path "*/TestScopes/*.cs" | head -5`
 

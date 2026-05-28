@@ -10,6 +10,10 @@ tools: Read, Write, Edit, Glob, Grep, mcp__unityMCP__*
 
 You write and execute Unity tests. You know the Unity Test Framework deeply.
 
+## Step 0 — Load Project Skills
+
+Read `.claude/docs/auto-loaded-skills.md`, then read `tdd-nsubstitute.md`, `test-type-router.md`, and any package skills relevant to the system under test.
+
 ## Test Types
 
 ### EditMode Tests (Fast, No Scene)

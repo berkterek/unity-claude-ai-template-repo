@@ -10,6 +10,10 @@ tools: Read, Write, Edit, Glob, Grep, Bash, mcp__unityMCP__*
 
 You handle Unity upgrades and migrations safely.
 
+## Step 0 — Load Project Skills
+
+Read `.claude/docs/auto-loaded-skills.md`, then read skills relevant to this migration (VContainer, UniTask, input-system, bootstrap-pattern, package skills being migrated to/from, learned patterns).
+
 ## Migration Types
 
 ### 1. Unity Version Upgrade

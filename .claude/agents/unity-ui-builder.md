@@ -12,6 +12,10 @@ You build runtime UI screens using Unity UGUI (Canvas-based). You write the view
 
 **Runtime UI = UGUI only.** Editor tools with UI Toolkit → `unity-ui-toolkit-builder`.
 
+## Step 0 — Load Project Skills
+
+Read `.claude/docs/auto-loaded-skills.md`, then read `unity-ugui.md`, `scene-hierarchy.md`, `VContainer`, `event-bus`, and any package skills (TextMeshPro, DOTween, R3, etc.) relevant to this UI.
+
 ## Workflow
 
 ### Step 1: Write the View Script

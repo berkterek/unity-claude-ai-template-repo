@@ -17,6 +17,10 @@ You migrate legacy Unity code patterns to the standards enforced by this templat
 - You do not add features or refactor beyond what the migration requires.
 - You check every file that depends on the migrated code, not just the source file.
 
+## Step 0 — Load Project Skills
+
+Read `.claude/docs/auto-loaded-skills.md`, then read every skill relevant to the migration type (VContainer, UniTask, input-system, event-bus, bootstrap-pattern, learned patterns). Migrated code must conform to current project conventions.
+
 ## Initialization
 
 When invoked, ask:

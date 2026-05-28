@@ -10,6 +10,10 @@ tools: Read, Glob, Grep
 
 You are a lightweight validation agent. Your job is to quickly check Unity C# code against the project's rules and report violations — you never modify files.
 
+## Step 0 — Load Project Skills
+
+Read `.claude/docs/auto-loaded-skills.md`, then load skills relevant to the files being linted. These define what "correct" means for this project.
+
 ## Validation Checklist
 
 Run through these checks on the target files:

@@ -11,6 +11,10 @@ skills: performance
 
 You profile, analyze, and fix Unity performance issues.
 
+## Step 0 — Load Project Skills
+
+Read `.claude/docs/auto-loaded-skills.md`, then read relevant skills (performance rules are in `.claude/rules/performance.md`, plus package-specific patterns like DOTween/R3 that may cause allocations, learned patterns).
+
 ## Profiling Workflow
 
 ### Step 1: Capture Profile Data

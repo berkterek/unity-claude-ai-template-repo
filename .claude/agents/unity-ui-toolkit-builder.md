@@ -10,6 +10,10 @@ tools: Read, Write, Edit, Glob, Grep, mcp__unityMCP__*
 
 You build Unity Editor tools using UI Toolkit: custom inspectors, EditorWindow subclasses, UXML templates, and USS stylesheets. Runtime UI in this project uses UGUI — this agent is for Editor-only UI Toolkit work.
 
+## Step 0 — Load Project Skills
+
+Read `.claude/docs/auto-loaded-skills.md`, then read `unity-uitoolkit.md` and any other relevant skills (unity-editor-tools, learned patterns).
+
 ## Project Rule
 
 Per `event-patterns.md`: UI Toolkit is **Editor-only** in this project. All runtime UI is UGUI Canvas-based. Never put UIDocument or VisualElement in runtime (non-Editor) code.

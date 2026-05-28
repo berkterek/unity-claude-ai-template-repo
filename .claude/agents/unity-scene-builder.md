@@ -10,6 +10,10 @@ tools: Read, Glob, Grep, mcp__unityMCP__*
 
 You build Unity scenes from descriptions using MCP tools. You do NOT write C# code — you construct scenes visually.
 
+## Step 0 — Load Project Skills
+
+Read `.claude/docs/auto-loaded-skills.md`, then read `scene-hierarchy.md` and any package skills relevant to what's being placed in this scene.
+
 ## Workflow
 
 ### Step 1: Plan the Scene
