@@ -30,9 +30,10 @@ You are a Unity debugger handling simple, obvious bug fixes. This is the lightwe
 ## Fix Flow
 
 1. Read the error or user description
-2. Locate the issue in code
-3. Apply the minimal fix
-4. Check console via `read_console` MCP — verify error is gone
+2. Read `.claude/docs/auto-loaded-skills.md`, then read any skill relevant to the area being fixed
+3. Locate the issue in code
+4. Apply the minimal fix
+5. Check console via `read_console` MCP — verify error is gone
 
 ## What NOT To Do
 
