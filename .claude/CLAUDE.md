@@ -187,6 +187,8 @@ Configured by `/setup-project`. Source of truth: `.claude/project-features.json`
 
 Skills under `third-party/`, `plugins/`, `learned/`, and `platform/` are auto-loaded into every session via `@`-references in `auto-loaded-skills.md`. The `auto-load-skills.sh` PostToolUse hook keeps that file in sync — whenever a skill file is written, the reference is added automatically.
 
+**Agent-side skill loading:** All code-writing and review agents (`unity-coder`, `coder`, `tester`, `reviewer`, `unity-fixer`, `debugger`, and 20+ others) include a **Step 0** that reads `auto-loaded-skills.md` and then loads every relevant skill before starting work. This ensures subagents — which do not receive the parent session's `@`-includes — still have access to project-specific conventions. Subagents that handle git operations (`committer`, `unity-git-master`) read `.claude/skills/core/unity-git.md` specifically at Step 0.
+
 @.claude/docs/skills-index.md
 
 ## Engine Version Reference

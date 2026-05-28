@@ -824,6 +824,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed |
 | `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Programmatic / PlayMode-Scene / NoTest) from class name or file path |
 | `unity-ugui` | Runtime UGUI implementation — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area, Canvas split strategy, performance rules |
+| `unity-git` | Unity git conventions — .meta hygiene, .gitattributes (YAML merge / binary), LFS patterns, conventional commits, commit grouping by dependency order; loaded by `committer` and `unity-git-master` agents |
 
 ### Platform (`skills/platform/`)
 
