@@ -472,6 +472,29 @@ Review loop: max 3 passes (same as `/fix`).
 
 ---
 
+## Step 6.6 — Play Mode Smoke Test (NON-SKIPPABLE)
+
+> **Ders:** Derleme ve testlerin geçmesi runtime davranışını garanti etmez. Play mode'da 10 saniyede görülecek bir hata, 3 fix döngüsüne neden olabilir.
+
+Show the user this message:
+
+```
+⚠️  Play Mode Smoke Test — Manuel Adım
+
+Lütfen Unity'de şunları kontrol et:
+  1. Play moduna gir
+  2. [INSERT HERE: orijinal bug'ın tekrar edip etmediğini gösteren 1-2 cümle — root cause'dan türet]
+  3. Console'da yeni hata veya beklenmedik davranış var mı?
+
+Sonuç:
+  ok    — devam et
+  fail  — sorunu açıkla, düzeltelim
+```
+
+Wait for `ok` or `fail`. On `fail` → spawn unity-coder with the reported issue, then repeat from Step 5.5.
+
+---
+
 ## Step 6.7 — Silent Failure Audit
 
 Spawn a **silent-failure-hunter** subagent with this prompt:
