@@ -1,0 +1,31 @@
+{
+  "eval_id": 3,
+  "variant": "with_skill",
+  "expectations": [
+    {
+      "text": "identifies_as_problem",
+      "passed": true,
+      "evidence": "problem keywords: 4"
+    },
+    {
+      "text": "fix_provided",
+      "passed": true,
+      "evidence": "fix keywords: 10"
+    },
+    {
+      "text": "guid_or_reference_explained",
+      "passed": true,
+      "evidence": "GUID/reference keywords: 5"
+    },
+    {
+      "text": "prevention_tip",
+      "passed": true,
+      "evidence": "prevention keywords: 3"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "total": 4,
+    "pass_rate": 1.0
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "eval_id": 2,
+  "eval_name": "commit-grouping",
+  "prompt": "AudioService.cs ve AudioInstaller.cs dosyalarını yazdım, ayrıca IAudioService.cs arayüzü var. Bunları commit etmem lazım. Nasıl gruplandırmalıyım ve commit message ne olmalı?",
+  "assertions": [
+    {"name": "conventional_commit_type", "description": "feat veya infra type kullanılmalı"},
+    {"name": "meta_files_mentioned", "description": ".meta dosyalarından bahsedilmeli"},
+    {"name": "no_git_add_dot", "description": "git add . önerilmemeli"},
+    {"name": "audio_scope_used", "description": "scope olarak audio kullanılmalı"}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "eval_id": 1,
+  "eval_name": "gitattributes-creation",
+  "prompt": "Unity projem için .gitattributes dosyasını oluştur. Projede FBX modeller, PNG textureler, C# scriptler, .unity sahneleri ve .prefab dosyaları var. LFS kullanmak istiyorum.",
+  "assertions": [
+    {"name": "has_binary_for_png", "description": "*.png binary veya LFS ile işaretlenmeli"},
+    {"name": "has_unityyamlmerge", "description": "*.unity veya *.prefab için merge=unityyamlmerge olmalı"},
+    {"name": "has_csharp_diff", "description": "*.cs için diff=csharp olmalı"},
+    {"name": "lfs_track_or_filter_lfs", "description": "LFS kurulum komutu veya filter=lfs pattern verilmeli"}
+  ]
+}

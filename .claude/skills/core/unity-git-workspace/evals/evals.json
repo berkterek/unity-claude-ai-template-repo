@@ -1,0 +1,92 @@
+{
+  "skill_name": "unity-git",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Unity projem için .gitattributes dosyasını oluştur. Projede FBX modeller, PNG textureler, C# scriptler, .unity sahneleri ve .prefab dosyaları var. LFS kullanmak istiyorum.",
+      "expected_output": "Doğru .gitattributes içeriği: binary dosyalar için 'binary' etiketi, Unity YAML dosyaları için 'merge=unityyamlmerge', C# için 'text=auto diff=csharp'. LFS track komutları da verilmeli.",
+      "assertions": [
+        {
+          "name": "gitattributes_has_binary_for_png",
+          "description": "*.png dosyası binary olarak işaretlenmeli",
+          "type": "contains",
+          "value": "*.png    binary"
+        },
+        {
+          "name": "gitattributes_has_unityyamlmerge_for_unity",
+          "description": "*.unity dosyası unityyamlmerge stratejisi kullanmalı",
+          "type": "contains",
+          "value": "merge=unityyamlmerge"
+        },
+        {
+          "name": "gitattributes_has_csharp_diff",
+          "description": "*.cs dosyası diff=csharp içermeli",
+          "type": "contains",
+          "value": "diff=csharp"
+        },
+        {
+          "name": "lfs_track_commands_provided",
+          "description": "git lfs track komutları verilmeli",
+          "type": "contains",
+          "value": "git lfs track"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "AudioService.cs ve AudioInstaller.cs dosyalarını yazdım, ayrıca IAudioService.cs arayüzü var. Bunları commit etmem lazım. Nasıl gruplandırmalıyım ve commit message ne olmalı?",
+      "expected_output": "Dependency sırasına göre gruplandırma: önce IAudioService.cs (interface), sonra AudioService.cs + AudioInstaller.cs birlikte. Conventional commit format ile örnekler. .meta dosyalarının da eklenmesi gerektiği belirtilmeli.",
+      "assertions": [
+        {
+          "name": "commit_type_correct",
+          "description": "feat veya infra type kullanılmalı",
+          "type": "regex",
+          "value": "(feat|infra)\\(audio"
+        },
+        {
+          "name": "meta_files_mentioned",
+          "description": ".meta dosyalarının da commit edilmesi gerektiği belirtilmeli",
+          "type": "contains",
+          "value": ".meta"
+        },
+        {
+          "name": "no_git_add_dot",
+          "description": "git add . veya git add -A önerilmemeli",
+          "type": "not_contains",
+          "value": "git add ."
+        },
+        {
+          "name": "interface_committed_first",
+          "description": "Interface dosyası önce commit edilmeli (dependency order)",
+          "type": "contains",
+          "value": "IAudioService"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Takım arkadaşım Assets/Scripts/Player/PlayerController.cs dosyasını sildi ama PlayerController.cs.meta dosyasını bıraktı. Bu bir sorun mu? Ne yapmalıyım?",
+      "expected_output": "Evet sorun. Orphaned .meta dosyası açıklanmalı. Unity'nin sahte asset database girdisi oluşturacağı belirtilmeli. Dosyanın nasıl temizleneceği (git rm veya Unity Editor'dan silme) anlatılmalı.",
+      "assertions": [
+        {
+          "name": "identifies_orphaned_meta",
+          "description": "Orphaned .meta problemi doğru tanımlanmalı",
+          "type": "regex",
+          "value": "(orphan|sahte|sorun|problem|broken|dangling)"
+        },
+        {
+          "name": "provides_fix",
+          "description": "Çözüm yolu verilmeli",
+          "type": "regex",
+          "value": "(git rm|sil|remove|delete|Unity Editor)"
+        },
+        {
+          "name": "explains_why",
+          "description": "Neden sorun olduğu açıklanmalı (GUID veya asset database)",
+          "type": "regex",
+          "value": "(GUID|guid|asset database|referans|reference)"
+        }
+      ]
+    }
+  ]
+}

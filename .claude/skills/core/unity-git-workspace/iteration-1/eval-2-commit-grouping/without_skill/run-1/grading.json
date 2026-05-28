@@ -1,0 +1,31 @@
+{
+  "eval_id": 2,
+  "variant": "without_skill",
+  "expectations": [
+    {
+      "text": "conventional_commit_type",
+      "passed": true,
+      "evidence": "feat/infra match: 3"
+    },
+    {
+      "text": "meta_files_mentioned",
+      "passed": true,
+      "evidence": ".meta match: 4"
+    },
+    {
+      "text": "no_git_add_dot",
+      "passed": true,
+      "evidence": "git add . occurrences: 0"
+    },
+    {
+      "text": "audio_scope_used",
+      "passed": true,
+      "evidence": "(audio match: 3"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "total": 4,
+    "pass_rate": 1.0
+  }
+}

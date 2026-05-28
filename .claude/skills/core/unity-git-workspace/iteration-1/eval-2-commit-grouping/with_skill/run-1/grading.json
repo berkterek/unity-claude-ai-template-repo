@@ -1,0 +1,31 @@
+{
+  "eval_id": 2,
+  "variant": "with_skill",
+  "expectations": [
+    {
+      "text": "conventional_commit_type",
+      "passed": true,
+      "evidence": "feat/infra match: 2"
+    },
+    {
+      "text": "meta_files_mentioned",
+      "passed": true,
+      "evidence": ".meta match: 11"
+    },
+    {
+      "text": "no_git_add_dot",
+      "passed": true,
+      "evidence": "Response says 'Asla git add . kullanma' — correctly warns against it"
+    },
+    {
+      "text": "audio_scope_used",
+      "passed": true,
+      "evidence": "(audio match: 4"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "total": 4,
+    "pass_rate": 1.0
+  }
+}

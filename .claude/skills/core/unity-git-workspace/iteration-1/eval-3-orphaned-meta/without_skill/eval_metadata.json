@@ -1,0 +1,11 @@
+{
+  "eval_id": 3,
+  "eval_name": "orphaned-meta-detection",
+  "prompt": "Takım arkadaşım Assets/Scripts/Player/PlayerController.cs dosyasını sildi ama PlayerController.cs.meta dosyasını bıraktı. Bu bir sorun mu? Ne yapmalıyım?",
+  "assertions": [
+    {"name": "identifies_as_problem", "description": "Sorun olduğu açıkça belirtilmeli"},
+    {"name": "fix_provided", "description": "git rm veya Unity Editor çözümü verilmeli"},
+    {"name": "guid_or_reference_explained", "description": "GUID veya referans mekanizması açıklanmalı"},
+    {"name": "prevention_tip", "description": "Önleme önerisi (Unity Editor'dan silme) verilmeli"}
+  ]
+}

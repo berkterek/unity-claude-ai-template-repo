@@ -1,0 +1,31 @@
+{
+  "eval_id": 1,
+  "variant": "with_skill",
+  "expectations": [
+    {
+      "text": "has_binary_for_png",
+      "passed": true,
+      "evidence": "png match count: 2"
+    },
+    {
+      "text": "has_unityyamlmerge",
+      "passed": true,
+      "evidence": "unityyamlmerge match count: 11"
+    },
+    {
+      "text": "has_csharp_diff",
+      "passed": true,
+      "evidence": "diff=csharp match count: 2"
+    },
+    {
+      "text": "lfs_track_or_filter_lfs",
+      "passed": true,
+      "evidence": "LFS match count: 19"
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "total": 4,
+    "pass_rate": 1.0
+  }
+}

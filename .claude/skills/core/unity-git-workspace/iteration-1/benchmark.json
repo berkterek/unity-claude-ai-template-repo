@@ -1,0 +1,293 @@
+{
+  "metadata": {
+    "skill_name": "unity-git",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-05-28T14:32:53Z",
+    "evals_run": [
+      1,
+      2,
+      3
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 30.0,
+        "tokens": 50000,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "has_binary_for_png",
+          "passed": true,
+          "evidence": "png match count: 2"
+        },
+        {
+          "text": "has_unityyamlmerge",
+          "passed": true,
+          "evidence": "unityyamlmerge match count: 11"
+        },
+        {
+          "text": "has_csharp_diff",
+          "passed": true,
+          "evidence": "diff=csharp match count: 2"
+        },
+        {
+          "text": "lfs_track_or_filter_lfs",
+          "passed": true,
+          "evidence": "LFS match count: 19"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 30.0,
+        "tokens": 50000,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "conventional_commit_type",
+          "passed": true,
+          "evidence": "feat/infra match: 2"
+        },
+        {
+          "text": "meta_files_mentioned",
+          "passed": true,
+          "evidence": ".meta match: 11"
+        },
+        {
+          "text": "no_git_add_dot",
+          "passed": true,
+          "evidence": "Response says 'Asla git add . kullanma' \u2014 correctly warns against it"
+        },
+        {
+          "text": "audio_scope_used",
+          "passed": true,
+          "evidence": "(audio match: 4"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 30.0,
+        "tokens": 50000,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "identifies_as_problem",
+          "passed": true,
+          "evidence": "problem keywords: 4"
+        },
+        {
+          "text": "fix_provided",
+          "passed": true,
+          "evidence": "fix keywords: 10"
+        },
+        {
+          "text": "guid_or_reference_explained",
+          "passed": true,
+          "evidence": "GUID/reference keywords: 5"
+        },
+        {
+          "text": "prevention_tip",
+          "passed": true,
+          "evidence": "prevention keywords: 3"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 30.0,
+        "tokens": 50000,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "has_binary_for_png",
+          "passed": true,
+          "evidence": "png match count: 2"
+        },
+        {
+          "text": "has_unityyamlmerge",
+          "passed": true,
+          "evidence": "unityyamlmerge match count: 26"
+        },
+        {
+          "text": "has_csharp_diff",
+          "passed": true,
+          "evidence": "diff=csharp match count: 1"
+        },
+        {
+          "text": "lfs_track_or_filter_lfs",
+          "passed": true,
+          "evidence": "LFS match count: 53"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 30.0,
+        "tokens": 50000,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "conventional_commit_type",
+          "passed": true,
+          "evidence": "feat/infra match: 3"
+        },
+        {
+          "text": "meta_files_mentioned",
+          "passed": true,
+          "evidence": ".meta match: 4"
+        },
+        {
+          "text": "no_git_add_dot",
+          "passed": true,
+          "evidence": "git add . occurrences: 0"
+        },
+        {
+          "text": "audio_scope_used",
+          "passed": true,
+          "evidence": "(audio match: 3"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "time_seconds": 30.0,
+        "tokens": 50000,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "identifies_as_problem",
+          "passed": true,
+          "evidence": "problem keywords: 3"
+        },
+        {
+          "text": "fix_provided",
+          "passed": true,
+          "evidence": "fix keywords: 5"
+        },
+        {
+          "text": "guid_or_reference_explained",
+          "passed": true,
+          "evidence": "GUID/reference keywords: 2"
+        },
+        {
+          "text": "prevention_tip",
+          "passed": true,
+          "evidence": "prevention keywords: 2"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 30.0,
+        "stddev": 0.0,
+        "min": 30.0,
+        "max": 30.0
+      },
+      "tokens": {
+        "mean": 50000.0,
+        "stddev": 0.0,
+        "min": 50000,
+        "max": 50000
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 30.0,
+        "stddev": 0.0,
+        "min": 30.0,
+        "max": 30.0
+      },
+      "tokens": {
+        "mean": 50000.0,
+        "stddev": 0.0,
+        "min": 50000,
+        "max": 50000
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.00",
+      "time_seconds": "+0.0",
+      "tokens": "+0"
+    }
+  },
+  "notes": []
+}
