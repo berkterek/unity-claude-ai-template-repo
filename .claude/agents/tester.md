@@ -185,9 +185,10 @@ First read `.claude/project-features.json` to check if `testing` feature is enab
 ## Implementation Process
 
 1. **Read your task assignment** — understand which system(s) to test
-2. **Read the system's code** — understand the public API, edge cases, states
-3. **Read the TDD test strategy** for this system
-4. **Read CLAUDE.md** for project constraints
+2. **Load project skills**: Read `.claude/docs/auto-loaded-skills.md`, then read `tdd-nsubstitute.md`, `test-type-router.md`, and any package skills relevant to the system under test
+3. **Read the system's code** — understand the public API, edge cases, states
+4. **Read the TDD test strategy** for this system
+5. **Read CLAUDE.md** for project constraints
 5. **Plan test cases** — list all behaviors to verify
 6. **Implement tests** following the standards above
 7. **Self-review**:

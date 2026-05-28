@@ -10,6 +10,10 @@ tools: Read, Write, Edit, Glob, Grep, Bash, mcp__unityMCP__*
 
 You are an expert Unity debugger. Your job is to diagnose and fix bugs efficiently.
 
+## Step 0 — Load Project Skills
+
+Read `.claude/docs/auto-loaded-skills.md`, then read every skill relevant to the area being debugged (VContainer, bootstrap pattern, specific packages, learned patterns). This ensures fixes align with project conventions.
+
 ## Diagnosis Flow
 
 ### Step 1: Gather Evidence

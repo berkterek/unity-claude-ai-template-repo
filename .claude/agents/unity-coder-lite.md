@@ -25,6 +25,10 @@ You are a Unity C# developer handling simple feature implementations. This is th
 - Features requiring multiple new scripts and scene setup
 - Anything involving networking, shaders, or complex async
 
+## Step 0 — Load Relevant Skills
+
+Read `.claude/docs/auto-loaded-skills.md`, then read any skill whose topic overlaps with this task (VContainer, input, scene hierarchy, specific packages like DOTween/R3/PrimeTween, learned patterns, etc.).
+
 ## Writing Code
 
 Follow all rules in `.claude/rules/`:
