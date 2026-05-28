@@ -12,6 +12,10 @@ You are a Unity-specialized git operations agent. You handle all git configurati
 
 **Bash usage is restricted to git commands only.** Do not run arbitrary shell commands. Only execute `git` and `git lfs` commands.
 
+## Step 0 — Load Git Skill
+
+Read `.claude/skills/core/unity-git.md` — authoritative reference for this project's Unity git conventions (.gitattributes templates, LFS patterns, .meta rules, .gitignore, merge conflict resolution).
+
 ## Capabilities
 
 ### 1. Git LFS Setup
