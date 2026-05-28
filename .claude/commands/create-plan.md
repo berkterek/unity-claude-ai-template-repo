@@ -85,10 +85,31 @@ Topic: [INSERT HERE: the change description from the /create-plan argument]
 4. .claude/skills/learned/ — load any relevant learned skills
 5. .claude/rules/architecture.md — for DI and event patterns
 
+## Scene & Prefab Pre-Scan (MANDATORY if topic touches UI, scene objects, or VContainer registration)
+
+Graph age check: read `.claude/graph/graph.json` → check `metadata.generated_at`. If < 24h old, use graph. If stale or missing, note it and skip graph queries.
+
+**If graph is fresh:**
+- For each prefab the plan will touch: read `codebase.prefabs[]` — list components and isVariant
+- For the affected scene: read `codebase.scenes[].gameobjects[]` — list all GO names and children
+- For affected VContainer scopes: read `codebase.vcontainer[]` — list registrations
+
+**After graph queries, check these fields (now captured by the graph extractor):**
+- `active: false` entries — `RegisterComponentInHierarchy<T>()` fails silently if the GO is inactive at registration time. Flag every `active: false` GO that a VContainer registration depends on.
+- `duplicate: true` entries — same GO name appearing more than once under the same parent. Flag all duplicates.
+
+If graph is stale (> 24h) or MCP was skipped during last build, note affected GOs as "unverified — rebuild graph with Unity Editor open before implementing" in Technical Notes.
+
 ## Output Format
 ### Current State
 - What already exists related to this topic (files, classes, methods)
 - What is partial or broken
+
+### Scene / Prefab State (new)
+- Active/inactive status of relevant GOs
+- Any duplicate GOs found
+- VContainer registrations that depend on scene objects (`RegisterComponentInHierarchy`)
+- Prefab variants that will be affected
 
 ### Missing / Broken
 - Concrete gaps that the plan must address
@@ -98,6 +119,7 @@ Topic: [INSERT HERE: the change description from the /create-plan argument]
 - Exact method signatures, field names, serialized property paths
 - Architecture constraints (editor-only? runtime? event bus?)
 - Any gotchas or ordering dependencies
+- **VContainer scene preconditions:** for every `RegisterComponentInHierarchy<T>()` the plan will add, explicitly state: "GO must be active in scene at registration time"
 
 Report findings only. Do NOT write plan tasks or code.
 ```
@@ -117,6 +139,24 @@ Your job is to create a brand-new plan file from scratch.
 
 ## Feature / Bug to Plan
 [INSERT HERE: the change description from the /create-plan argument]
+
+## Step 0 — Modify Pre-Read (MANDATORY before writing any task)
+
+Before scoring complexity or writing any tasks:
+
+1. From the Researcher Findings, identify every file listed under "What to Modify" or implied as an existing file to be changed.
+2. Read each of those files now.
+3. For each file, note:
+   - Current method signatures that the plan will call or override
+   - Existing field names and types (avoid renaming without `[FormerlySerializedAs]`)
+   - Subscribe/Unsubscribe pairs already in place (avoid duplicate subscriptions)
+   - Any namespace that could collide with UnityEngine types (Camera, Random, Object, Input, Physics, Collider, Transform)
+
+If a file the plan intends to modify does not exist yet → it is an Add, not a Modify. Correct the File Map accordingly.
+
+Only after reading all Modify files → proceed to Complexity Assessment.
+
+---
 
 ## Complexity Assessment
 
@@ -305,19 +345,42 @@ APPROVED — plan is ready to save.
 CHANGES NEEDED:
 - [section] Issue and fix.
 (list every issue)
+
+Revision classification (add one line after CHANGES NEEDED):
+REVISION_TYPE: INCREMENTAL   ← small fixes, no structural changes
+REVISION_TYPE: BREAKING      ← removes/renames existing tasks, changes module structure, or contradicts a previous plan decision
 ```
 
 If Codex is unavailable → fall back to a **general-purpose** subagent with the same prompt.
 
-If reviewer reports **CHANGES NEEDED** → automatically re-run the pipeline (no user prompt):
+If reviewer reports **CHANGES NEEDED**:
 
-1. Re-spawn the **Researcher** with the original topic + reviewer feedback appended.
-2. Re-spawn the **Planner** (opus) with original inputs + researcher output + reviewer feedback.
-3. Re-spawn the **Reviewer** on the new planner output.
+- **REVISION_TYPE: INCREMENTAL** → automatically re-run the pipeline (no user prompt):
+  1. Re-spawn the **Researcher** with the original topic + reviewer feedback appended.
+  2. Re-spawn the **Planner** (opus) with original inputs + researcher output + reviewer feedback.
+  3. Re-spawn the **Reviewer** on the new planner output.
 
-Repeat up to **2 more times** (3 total reviewer passes).
+- **REVISION_TYPE: BREAKING** → stop immediately and show the user:
+  ```
+  ⚠️  BREAKING REVISION DETECTED (v[N])
 
-After 3 failed passes → stop and show the user all accumulated feedback. Ask:
+  The reviewer flagged a structural change — this means the codebase
+  was not fully read before planning. Proceeding risks another round
+  of breaking fixes during implementation.
+
+  Reviewer feedback:
+  [INSERT HERE: the full CHANGES NEEDED list]
+
+  Options:
+    re-research  — re-run Researcher with expanded scope, then re-plan
+    accept       — proceed with breaking revision (user accepts risk)
+    stop         — abort
+  ```
+  Wait for user input before continuing.
+
+Repeat INCREMENTAL passes up to **2 more times** (3 total reviewer passes).
+
+After 3 failed INCREMENTAL passes → stop and show the user all accumulated feedback. Ask:
 - `skip` → save the last planner output as-is (user accepts responsibility)
 - `stop` → abort, do not save
 

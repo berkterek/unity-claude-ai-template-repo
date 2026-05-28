@@ -68,6 +68,27 @@ return sb.ToString();
 
 Parse the string output to build `gameobjects[]` entries per the schema.
 
+Each line format: `<indent><name>  active=<true|false>  comps=(<comp1>, <comp2>)`
+
+Parse rules:
+- `indent` depth (2 spaces per level) → determines parent/child nesting
+- `active=false` → set `"active": false` on the entry (default `true` when missing)
+- `comps=(...)` → split by `, ` → `components[]` array
+- Duplicate detection: within the same parent's children list, if two entries share the same `name`, add `"duplicate": true` to both and log a warning
+
+Schema for each `gameobject` entry:
+```json
+{
+  "name": "TapToStartPanel",
+  "active": false,
+  "components": ["RectTransform", "Image", "TapToStartView"],
+  "duplicate": false,
+  "children": []
+}
+```
+
+`"active": false` entries are the primary risk signal for `RegisterComponentInHierarchy<T>()` failures — always surface them in Researcher output.
+
 ---
 
 ### Step 2 — Prefab enumeration via manage_prefabs (WORKS CORRECTLY)

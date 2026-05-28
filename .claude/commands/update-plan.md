@@ -41,12 +41,33 @@ Analyze the existing plan and relevant source files to understand:
 ## What to Read
 1. The plan file listed above
 2. Recent git log: `git log --oneline -10`
-3. Source files relevant to the change request
+3. Source files relevant to the change request — **read every file the change request implies modifying, before anything else**
 4. Any relevant .claude/skills/learned/ files
+
+## Modify Pre-Read (MANDATORY)
+From the plan's File Map and the change request, identify every existing file that will be modified.
+Read each of those files now. Note:
+- Current method signatures the planner will call or override
+- Existing field names (avoid renaming without `[FormerlySerializedAs]`)
+- Subscribe/Unsubscribe pairs already in place
+- Namespace collision risk: does the domain name match a UnityEngine type? (Camera, Random, Object, Input, Physics…)
+
+## Scene & Prefab Pre-Scan (if change touches UI, scene objects, or VContainer registration)
+Graph age check: read `.claude/graph/graph.json` → `metadata.generated_at`. If < 24h:
+- Read `codebase.scenes[].gameobjects[]` — flag any `active: false` GO that a VContainer registration depends on
+- Read `codebase.prefabs[]` — check components and isVariant for affected prefabs
+- Flag any `duplicate: true` GO entries
+
+If graph is stale → note "unverified — rebuild graph with Unity Editor open" in Technical Notes.
 
 ## Output Format
 ### Already Implemented
 - List tasks/steps from the plan that are confirmed in code
+
+### Scene / Prefab State (if applicable)
+- `active: false` GOs relevant to VContainer registrations
+- Duplicate GOs found
+- Prefab variants affected
 
 ### Gaps Found
 - For each gap: what is missing, which file it belongs to, why it matters
@@ -54,6 +75,7 @@ Analyze the existing plan and relevant source files to understand:
 ### Technical Notes for Planner
 - Concrete findings (method signatures, field names, patterns) the planner needs
 - Constraints or gotchas discovered in the code
+- VContainer scene preconditions: for every `RegisterComponentInHierarchy<T>()` the update will add, state: "GO must be active at registration time"
 
 Report findings only. Do NOT write plan tasks or code.
 ```
@@ -167,19 +189,41 @@ APPROVED — plan is ready to save.
 
 CHANGES NEEDED:
 - [section] Issue and fix.
+
+Revision classification (add one line after CHANGES NEEDED):
+REVISION_TYPE: INCREMENTAL   ← small fixes, no structural changes
+REVISION_TYPE: BREAKING      ← removes/renames existing tasks, changes module structure, or contradicts a previous plan decision
 ```
 
 If Codex is unavailable → fall back to a **general-purpose** subagent with the same prompt.
 
-If reviewer reports **CHANGES NEEDED** → automatically re-run the pipeline (no user prompt):
+If reviewer reports **CHANGES NEEDED**:
 
-1. Re-spawn the **Analyzer** with original change request + reviewer feedback appended.
-2. Re-spawn the **Planner** (opus) with original inputs + analyzer output + reviewer feedback.
-3. Re-spawn the **Reviewer** on the new planner output.
+- **REVISION_TYPE: INCREMENTAL** → automatically re-run the pipeline (no user prompt):
+  1. Re-spawn the **Analyzer** with original change request + reviewer feedback appended.
+  2. Re-spawn the **Planner** (opus) with original inputs + analyzer output + reviewer feedback.
+  3. Re-spawn the **Reviewer** on the new planner output.
 
-Repeat up to **2 more times** (3 total reviewer passes).
+- **REVISION_TYPE: BREAKING** → stop immediately and show the user:
+  ```
+  ⚠️  BREAKING REVISION DETECTED (v[N])
 
-After 3 failed passes → stop and show the user all accumulated feedback. Ask:
+  The reviewer flagged a structural change — the codebase was not fully
+  read before planning. Proceeding risks another round of fix cycles.
+
+  Reviewer feedback:
+  [INSERT HERE: the full CHANGES NEEDED list]
+
+  Options:
+    re-research  — re-run Analyzer with expanded scope, then re-plan
+    accept       — proceed with breaking revision (user accepts risk)
+    stop         — abort
+  ```
+  Wait for user input before continuing.
+
+Repeat INCREMENTAL passes up to **2 more times** (3 total reviewer passes).
+
+After 3 failed INCREMENTAL passes → stop and show the user all accumulated feedback. Ask:
 - `skip` → save the last planner output as-is (user accepts responsibility)
 - `stop` → abort, do not save
 
