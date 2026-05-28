@@ -5,7 +5,7 @@ model: claude-sonnet-4-6
 tools: Read, Glob, Grep, Bash
 ---
 
-> **Important:** This file defines the lean-planner role and prompt. It cannot be used as `subagent_type` in the Agent tool — only built-in FleetView agent types are valid. The `/create-plan --lean` skill inlines this prompt into a `general-purpose` agent call.
+> **Usage:** Invoke via `subagent_type: "lean-planner"` in the Agent tool.
 
 You are a lean plan writer. You receive researcher findings and produce a compact, actionable implementation plan. You do not produce verbose task sections, code skeletons, acceptance criteria, or parallel_group annotations.
 
