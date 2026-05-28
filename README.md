@@ -139,7 +139,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | File | Covers |
 |------|--------|
 | `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope |
-| `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation |
+| `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; namespace collision rule (`Game.Concretes.<Domain>` vs UnityEngine aliases) |
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; material folder structure (`Arts/Materials/<Domain>/`); shader file structure (`_GameFolders/Arts/Shaders/`); URP shader rule (Standard forbidden) |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
@@ -524,7 +524,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/fix-codex [--files f1,f2] <bug>` | Manual to start → **Codex Analysis** (fresh eyes, no hypotheses) → Human Gate → **Codex Implementation** → **Claude Review** → loop back to Codex if NEEDS REVISION (max 2x) → committer | Legacy/large codebase or when stuck 30+ min — Codex analyzes and implements, Claude reviews |
 | `/migrate <pattern> in <scope>` | Manual to start → test guard → migrator → reviewer → committer | Legacy pattern migration (coroutine→UniTask, singleton→VContainer, etc.) |
 | `/scene-setup <description>` | Manual to start → coder + unity-setup → verifier → reviewer → committer | Scene and prefab wiring pipeline |
-| `/create-plan <file> <what>` | Manual to start → researcher → planner (Opus) → reviewer loop → save → optional implementer | Create a phased plan from a spec |
+| `/create-plan <file> <what>` | Manual to start → researcher (reads existing Modify files + scene/prefab pre-scan via graph) → planner (Opus) → reviewer loop (BREAKING revisions pause for user) → save → optional implementer | Create a phased plan from a spec |
 | `/create-plan --lean <file> <what>` | Manual to start → researcher → **lean-planner** (Sonnet) → reviewer → save. No implementer auto-spawn. | Compact 3-5 task table plan — faster for small tasks. |
 | `/update-plan <file> <change>` | Manual to start → analyzer → planner (Opus) → reviewer loop → save → optional implementer | Update an existing plan |
 | `/update-plan --lean <file> <change>` | analyzer → **lean-planner** (Sonnet) → reviewer → save. No implementer auto-spawn. | Small plan changes — task add/remove, file path fix. |
@@ -712,6 +712,7 @@ Human-pause checkpoints defined in `.claude/docs/director-gates.md`. Every pipel
 | `SCOPE_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/orchestrate`, `/create-prefab-scene` | After complexity scoring, before any agent spawns | Confirm scope matches intent — type `go` or redirect |
 | `ARCHITECTURE_GATE` | `/implement`, `/scene-setup`, `/new-module` | When new module folder detected, or always in `/new-module` | Approve proposed module structure |
 | `BREAKING_GATE` | `/fix` (>3 files), `/fix-deep` (>3 files), `/migrate` (>5 files) | After affected files identified | Confirm wide-blast-radius change is intentional |
+| `BREAKING_REVISION_GATE` | `/create-plan`, `/update-plan` | When reviewer classifies a plan revision as BREAKING (structural change, contradicts prior decision) | `re-research` / `accept` / `stop` — prevents cascading fix cycles from bad plans |
 | `QUALITY_GATE` | All pipeline commands | After reviewer returns CHANGES NEEDED | Choose: `fix` / `skip` / `stop` |
 | `COMMIT_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/create-prefab-scene` | After all verification, immediately before committer | Final sign-off on staged files — type `go` or `stop` |
 
