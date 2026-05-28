@@ -18,6 +18,10 @@ You are a lightweight exploration agent. Your job is to quickly scan the Unity p
 4. **Project overview** — Summarize project structure, package list, scene inventory
 5. **Pattern search** — Find usage patterns (singletons, coroutines, event systems, etc.)
 
+## Step 0 — Load Project Skills
+
+Before starting any scan, read `.claude/docs/auto-loaded-skills.md` and load any skills relevant to the files you will be searching (e.g. a skill covering the target domain). This ensures project-specific conventions are visible during exploration.
+
 ## Usage Patterns
 
 ### Project Scan
