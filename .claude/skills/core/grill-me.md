@@ -24,6 +24,22 @@ Conduct a relentless interview about a plan, design decision, or architectural c
 - You want to stress-test a GDD, TDD, or WORKFLOW phase
 - You suspect a decision will cause problems later but can't articulate why
 
+## Model Delegation (NON-NEGOTIABLE)
+
+Grill-me always runs on Opus (heavy tier). When this skill is invoked:
+
+1. Check the current session model from the system prompt (`model named ...` line).
+2. If the model is NOT `claude-opus-4-*`, immediately spawn an Agent with `model: "opus"` and delegate the full grill session to it. Pass the topic/plan as the prompt along with the complete grill-me protocol below.
+3. If already on Opus, proceed directly.
+
+```
+Agent({
+  description: "Grill-me stress-test on Opus",
+  model: "opus",
+  prompt: "You are running a grill-me design stress-test session. Topic: <topic>. Follow the grill-me protocol: ask one question at a time, offer a recommended answer, resolve every branch, end with a Decision Record saved to docs/decisions/. Full protocol: [paste skill body]"
+})
+```
+
 ## Protocol
 
 1. **Read the plan** — if a file path is given, read it first; if text is given inline, use that; if nothing is given, ask: "What plan or decision should I stress-test?"
