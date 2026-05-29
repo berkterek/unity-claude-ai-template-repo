@@ -335,7 +335,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 |---------|------------|-------------|
 | `/game-idea` | Manual — single step | Refines a raw idea into a GDD — surfaces assumptions, defines scope, creates a "Not Doing" list |
 | `/architect` | Manual — single step | Converts the GDD into a TDD — `unity-critic` adversarially challenges the design before you review |
-| `/grill-me [plan or file]` | Manual — single step | Stress-tests a plan or decision — one pointed question at a time, recommends an answer, ends with a Decision Record. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed. |
+| `/grill-me [plan or file]` | Manual — single step | Stress-tests a plan or decision — one pointed question at a time, recommends an answer, ends with a Decision Record. Auto-delegates to Opus (heavy tier) regardless of current session model. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed. |
 
 ### Phase 2 — Planning
 
@@ -504,7 +504,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 |---------|------------|-------------|
 | `/game-idea` | Manual — single step | Refine a raw idea into a GDD (assumption surfacing + "Not Doing" list) |
 | `/architect` | Manual — single step | Create a Technical Design Document from a GDD (`unity-critic` adversarial challenge included) |
-| `/grill-me [plan or file]` | Manual — single step | Stress-test a plan or decision — one pointed question at a time, produces a Decision Record on `/done`. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed. |
+| `/grill-me [plan or file]` | Manual — single step | Stress-test a plan or decision — one pointed question at a time, produces a Decision Record on `/done`. Auto-delegates to Opus (heavy tier) regardless of current session model. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed. |
 | `/refine-gdd` | Manual — single step | Iterate on an existing GDD |
 | `/refine-tdd` | Manual — single step | Iterate on an existing TDD |
 | `/plan-workflow` | Manual — single step | Create a phased execution plan from a TDD — assigns `parallel_group` numbers compatible with `/orchestrate`. Gates: cycle detection, task atomicity (XL split), testing-capability preflight |
