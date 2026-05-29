@@ -189,6 +189,8 @@ Skills under `third-party/`, `plugins/`, `learned/`, and `platform/` are auto-lo
 
 **Agent-side skill loading:** All code-writing, review, and exploration agents (`unity-coder`, `coder`, `tester`, `reviewer`, `unity-fixer`, `debugger`, `unity-scout`, and 20+ others) include a **Step 0** that reads `auto-loaded-skills.md` and then loads every relevant skill before starting work. This ensures subagents — which do not receive the parent session's `@`-includes — still have access to project-specific conventions. Subagents that handle git operations (`committer`, `unity-git-master`) read `.claude/skills/core/unity-git.md` specifically at Step 0.
 
+**Skill enforcement (NON-NEGOTIABLE):** `enforce-skill-for-keywords.sh` (UserPromptSubmit hook) detects third-party package keywords in every prompt. If the relevant skill has not been invoked via the `Skill` tool yet this session, it injects a blocking context message — you MUST invoke the skill before writing code, giving advice, or calling MCP tools. `track-skill-invocations.sh` (PostToolUse/Skill hook) records each invocation so enforcement does not repeat for already-loaded skills. To add a new keyword mapping, edit the `KEYWORD_MAP` array in `.claude/hooks/enforce-skill-for-keywords.sh`.
+
 @.claude/docs/skills-index.md
 
 ## Engine Version Reference
