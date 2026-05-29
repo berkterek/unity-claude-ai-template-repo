@@ -364,6 +364,17 @@
             "timeout": 5000
           }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/track-skill-invocations.sh",
+            "timeout": 3000,
+            "statusMessage": "Tracking skill invocation..."
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -417,6 +428,16 @@
             "type": "command",
             "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"UserPromptSubmit\", \"additionalContext\": \"REMINDER: Before responding or taking any action, check if any skill in the available-skills list might apply — even 1% chance means invoke it. This is NON-NEGOTIABLE per using-superpowers skill.\"}}'",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/enforce-skill-for-keywords.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking required skills for keywords..."
           }
         ]
       }
