@@ -658,7 +658,7 @@ Or manually:
 ```bash
 alias claude-light='claude --model claude-haiku-4-5'
 alias claude-normal='claude --model claude-sonnet-4-6'
-alias claude-heavy='claude --model claude-opus-4-7'
+alias claude-heavy='claude --model claude-opus-4-8'
 ```
 
 The alias file lives at `.claude/aliases.sh`.

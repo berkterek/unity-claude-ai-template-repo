@@ -16,4 +16,4 @@ alias claude-normal='claude --model claude-sonnet-4-6'
 
 # Heavy — Claude Opus
 # Deep thinking: /architect, /plan-workflow, /game-idea, /add-feature
-alias claude-heavy='claude --model claude-opus-4-7'
+alias claude-heavy='claude --model claude-opus-4-8'
