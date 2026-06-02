@@ -346,13 +346,16 @@ fi
 # ── Path Drift Detector — validate retained prefab paths against disk ────────
 STALE_PATH_WARNINGS="[]"
 if [[ "$MCP_PREFABS" != "[]" && "$MCP_PREFABS" != "null" ]]; then
-  STALE_PATH_WARNINGS=$(MCP_PREFABS_JSON="$MCP_PREFABS" python3 <<'PYEOF'
+  STALE_PATH_WARNINGS=$(MCP_PREFABS_JSON="$MCP_PREFABS" UNITY_FOLDER="$UNITY_FOLDER" python3 <<'PYEOF'
 import json, os, sys
 prefabs = json.loads(os.environ['MCP_PREFABS_JSON'])
+unity_folder = os.environ.get('UNITY_FOLDER', '.')
 warnings = []
 for p in prefabs:
     path = p.get("path", "")
-    if path and not os.path.exists(path):
+    # Paths from MCP start with "Assets/..." — prepend unity_folder if not "."
+    disk_path = path if unity_folder == "." else os.path.join(unity_folder, path)
+    if path and not os.path.exists(disk_path):
         warnings.append({
             "code": "STALE_PREFAB_PATH",
             "message": "Prefab path no longer exists on disk: " + path,
@@ -391,7 +394,7 @@ def check_go(go, scene_name, path=""):
 
 for scene in data.get("scenes", []):
     scene_name = scene.get("name", "?")
-    for go in scene.get("gameobjects", []):
+    for go in scene.get("gameObjects", scene.get("gameobjects", [])):
         check_go(go, scene_name)
 
 for prefab in data.get("prefabs", []):
