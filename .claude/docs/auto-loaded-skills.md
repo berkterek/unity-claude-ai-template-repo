@@ -2,6 +2,7 @@
 
 <!-- managed by auto-load-skills.sh — do not edit manually -->
 
+@.claude/skills/core/solid-oop.md
 @.claude/skills/core/unity-git.md
 @.claude/skills/core/bootstrap-pattern.md
 @.claude/skills/core/input-system.md
