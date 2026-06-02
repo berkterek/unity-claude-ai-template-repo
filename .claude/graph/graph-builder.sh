@@ -365,6 +365,48 @@ PYEOF
   )
 fi
 
+# ── Missing Script Detector — warn on null components in scenes/prefabs ──────
+MISSING_SCRIPT_WARNINGS="[]"
+MISSING_INPUT=$(jq -n --argjson scenes "$MCP_SCENES" --argjson prefabs "$MCP_PREFABS" \
+  '{scenes: $scenes, prefabs: $prefabs}' 2>/dev/null || echo '{"scenes":[],"prefabs":[]}')
+
+MISSING_SCRIPT_WARNINGS=$(echo "$MISSING_INPUT" | python3 - <<'PYEOF'
+import json, sys
+
+data = json.load(sys.stdin)
+warnings = []
+
+def check_go(go, scene_name, path=""):
+    full_path = (path + "/" + go["name"]) if path else go["name"]
+    if go.get("has_missing_scripts"):
+        warnings.append({
+            "code": "MISSING_SCRIPT",
+            "message": "Null component (missing/deleted script) on: " + full_path + " in scene: " + scene_name,
+            "entity": go["name"],
+            "scene": scene_name
+        })
+    for child in go.get("children", []):
+        check_go(child, scene_name, full_path)
+
+for scene in data.get("scenes", []):
+    scene_name = scene.get("name", "?")
+    for go in scene.get("gameobjects", []):
+        check_go(go, scene_name)
+
+for prefab in data.get("prefabs", []):
+    if prefab.get("has_missing_scripts"):
+        warnings.append({
+            "code": "MISSING_SCRIPT",
+            "message": "Null component (missing/deleted script) on prefab: " + prefab.get("path", prefab.get("name", "?")),
+            "entity": prefab.get("name", "?")
+        })
+
+if warnings:
+    print("graph-builder: MISSING_SCRIPT — " + str(len(warnings)) + " missing script(s) detected.", file=sys.stderr)
+print(json.dumps(warnings))
+PYEOF
+)
+
 # ── Assemble final graph ──────────────────────────────────────────────────────
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 END_EPOCH=$(python3 -c "import time; print(int(time.time() * 1000))")
@@ -396,6 +438,7 @@ FINAL_GRAPH=$(jq -n \
   --argjson mcp_meta "$MCP_META" \
   --argjson calls "$ALL_CALLS" \
   --argjson stale_warnings "$STALE_PATH_WARNINGS" \
+  --argjson missing_warnings "$MISSING_SCRIPT_WARNINGS" \
   --argjson scanned "$SCANNED" \
   --argjson hits "$CACHE_HITS" \
   --argjson ms "$BUILD_MS" \
@@ -419,7 +462,7 @@ FINAL_GRAPH=$(jq -n \
       mcp_extraction: $mcp_meta,
       calls:      $calls
     },
-    validation: { errors: [], warnings: $stale_warnings },
+    validation: { errors: [], warnings: ($stale_warnings + $missing_warnings) },
     stats: { scanned_files: $scanned, cache_hits: $hits, build_ms: $ms }
   }')
 

@@ -75,6 +75,7 @@ Parse rules:
 - `active=false` → set `"active": false` on the entry (default `true` when missing)
 - `comps=(...)` → split by `, ` → `components[]` array
 - Duplicate detection: within the same parent's children list, if two entries share the same `name`, add `"duplicate": true` to both and log a warning
+- `null` component string in `comps=(...)` → set `"has_missing_scripts": true` on the gameobject entry (default `false` when absent)
 
 Schema for each `gameobject` entry:
 ```json
@@ -82,6 +83,7 @@ Schema for each `gameobject` entry:
   "name": "TapToStartPanel",
   "active": false,
   "components": ["RectTransform", "Image", "TapToStartView"],
+  "has_missing_scripts": false,
   "duplicate": false,
   "children": []
 }
@@ -136,6 +138,7 @@ Parse: each `PREFAB:` line starts a new prefab; indented lines are the GO tree.
 For each root item in the result:
 - `componentTypes[]` → `components[]` in the schema
 - `isNestedRoot: true` on root item → `isVariant: true`
+- If any component name in the `comps=` list is `null`, set `"has_missing_scripts": true` on that prefab's root entry.
 
 Classify `domain` from path:
 - `**/UI/**` → `UI`
