@@ -346,9 +346,9 @@ fi
 # ── Path Drift Detector — validate retained prefab paths against disk ────────
 STALE_PATH_WARNINGS="[]"
 if [[ "$MCP_PREFABS" != "[]" && "$MCP_PREFABS" != "null" ]]; then
-  STALE_PATH_WARNINGS=$(echo "$MCP_PREFABS" | python3 - <<'PYEOF'
+  STALE_PATH_WARNINGS=$(MCP_PREFABS_JSON="$MCP_PREFABS" python3 <<'PYEOF'
 import json, os, sys
-prefabs = json.load(sys.stdin)
+prefabs = json.loads(os.environ['MCP_PREFABS_JSON'])
 warnings = []
 for p in prefabs:
     path = p.get("path", "")
@@ -371,10 +371,10 @@ MISSING_INPUT=$(jq -n --argjson scenes "$MCP_SCENES" --argjson prefabs "$MCP_PRE
   '{scenes: $scenes, prefabs: $prefabs}' 2>/dev/null || echo '{"scenes":[],"prefabs":[]}')
 [[ -z "$MISSING_INPUT" ]] && MISSING_INPUT='{"scenes":[],"prefabs":[]}'
 
-MISSING_SCRIPT_WARNINGS=$(echo "$MISSING_INPUT" | python3 - <<'PYEOF'
-import json, sys
+MISSING_SCRIPT_WARNINGS=$(MISSING_INPUT_JSON="$MISSING_INPUT" python3 <<'PYEOF'
+import json, os, sys
 
-data = json.load(sys.stdin)
+data = json.loads(os.environ['MISSING_INPUT_JSON'])
 warnings = []
 
 def check_go(go, scene_name, path=""):
