@@ -369,6 +369,7 @@ fi
 MISSING_SCRIPT_WARNINGS="[]"
 MISSING_INPUT=$(jq -n --argjson scenes "$MCP_SCENES" --argjson prefabs "$MCP_PREFABS" \
   '{scenes: $scenes, prefabs: $prefabs}' 2>/dev/null || echo '{"scenes":[],"prefabs":[]}')
+[[ -z "$MISSING_INPUT" ]] && MISSING_INPUT='{"scenes":[],"prefabs":[]}'
 
 MISSING_SCRIPT_WARNINGS=$(echo "$MISSING_INPUT" | python3 - <<'PYEOF'
 import json, sys
