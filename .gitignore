@@ -15,6 +15,7 @@
 .claude/state/search-findings.md
 .claude/state/sparc-approved
 .claude/state/skills-invoked.txt
+.claude/state/compact-suggest-state.json
 
 # Knowledge graph (generated)
 .claude/graph/graph.json

@@ -30,8 +30,13 @@ fi
 
 # Check domain/service directories
 if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.*\.cs$"; then
-    # Skip providers, MonoBehaviours, views, editors — Unity API lives here
-    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Inspector|Editor|Drawer)\.(cs)$"; then
+    # Skip providers, MonoBehaviours, views, handlers, editors — Unity API lives here
+    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Handler|Inspector|Editor|Drawer)\.(cs)$"; then
+        exit 0
+    fi
+
+    # Skip event files — IEvent structs are data containers that may use Unity math types (Vector3 etc.)
+    if echo "$FILE_PATH" | grep -qiE "Events?\.(cs)$"; then
         exit 0
     fi
 
