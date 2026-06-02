@@ -162,6 +162,8 @@ mtime = os.path.getmtime('$MCP_CACHE')
 print(int((time.time() - mtime) / 60))
 " 2>/dev/null || echo 9999)
   fi
+  # --full forces fresh extraction — ignore cache age
+  [[ "$MODE" == "full" ]] && MCP_AGE=9999
   if [[ $MCP_AGE -lt 60 ]]; then
     MCP_SCENES=$(jq '.scenes // []' "$MCP_CACHE")
     MCP_PREFABS=$(jq '.prefabs // []' "$MCP_CACHE")
@@ -341,6 +343,28 @@ if [[ "$MCP_SCOPE_PARENTS" != "[]" && "$MCP_SCOPE_PARENTS" != "null" ]]; then
     )' 2>/dev/null || echo "$SCOPES")
 fi
 
+# ── Path Drift Detector — validate retained prefab paths against disk ────────
+STALE_PATH_WARNINGS="[]"
+if [[ "$MCP_PREFABS" != "[]" && "$MCP_PREFABS" != "null" ]]; then
+  STALE_PATH_WARNINGS=$(echo "$MCP_PREFABS" | python3 - <<'PYEOF'
+import json, os, sys
+prefabs = json.load(sys.stdin)
+warnings = []
+for p in prefabs:
+    path = p.get("path", "")
+    if path and not os.path.exists(path):
+        warnings.append({
+            "code": "STALE_PREFAB_PATH",
+            "message": "Prefab path no longer exists on disk: " + path,
+            "entity": p.get("name", "?")
+        })
+if warnings:
+    print("graph-builder: STALE_PREFAB_PATH — " + str(len(warnings)) + " stale prefab(s) detected. Run /build-knowledge-graph with MCP to refresh.", file=sys.stderr)
+print(json.dumps(warnings))
+PYEOF
+  )
+fi
+
 # ── Assemble final graph ──────────────────────────────────────────────────────
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 END_EPOCH=$(python3 -c "import time; print(int(time.time() * 1000))")
@@ -371,6 +395,7 @@ FINAL_GRAPH=$(jq -n \
   --argjson prefabs "$MCP_PREFABS" \
   --argjson mcp_meta "$MCP_META" \
   --argjson calls "$ALL_CALLS" \
+  --argjson stale_warnings "$STALE_PATH_WARNINGS" \
   --argjson scanned "$SCANNED" \
   --argjson hits "$CACHE_HITS" \
   --argjson ms "$BUILD_MS" \
@@ -394,7 +419,7 @@ FINAL_GRAPH=$(jq -n \
       mcp_extraction: $mcp_meta,
       calls:      $calls
     },
-    validation: { errors: [], warnings: [] },
+    validation: { errors: [], warnings: $stale_warnings },
     stats: { scanned_files: $scanned, cache_hits: $hits, build_ms: $ms }
   }')
 
