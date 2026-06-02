@@ -37,7 +37,7 @@ A personal Claude Code configuration template for Unity 6 projects. Drop the `.c
 
 Claude Code reads the `.claude/` folder when it opens a project. This template pre-loads it with:
 
-- **Rules** — architecture, naming, testing, ECS, serialization, and Addressables standards that Claude follows automatically
+- **Rules** — architecture, naming, SOLID/OOP, testing, ECS, serialization, and Addressables standards that Claude follows automatically
 - **Hooks** — shell scripts that run on every file write, blocking bad patterns before they land
 - **Commands** — slash commands for common workflows (`/new-module`, `/setup-project`, `/debug-session`, etc.)
 - **Agents** — specialized AI roles (`unity-coder`, `unity-fixer`, `unity-reviewer`, `unity-scout`, `committer`, and more)
@@ -152,6 +152,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]` → `[Services]` → `[UI]` → `[Environment]` → `[Characters]` → `[VFX]`), classification table, prefab/container rules |
 | `bootstrap-pattern.md` | IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope layer chain, EventBusInstaller requirement, GameScope scene-based wiring (SerializeField + RegisterComponent), new module workflow |
+| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider only, ~100 satır max); SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
 
 ### `.claude/docs/` — Key reference docs (not loaded at startup)
 

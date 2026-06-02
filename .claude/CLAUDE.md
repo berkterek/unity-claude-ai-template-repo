@@ -62,6 +62,7 @@ Optional Claude Code plugins. Each pipeline command checks for these at Step 0/0
 When starting a new conversation on this project, read these files first:
 - `.claude/CLAUDE.md` (this file — already loaded)
 - `.claude/rules/architecture.md` — module structure, VContainer, IEventBus patterns
+- `.claude/rules/solid-oop.md` — SOLID & OOP kuralları (MonoBehaviour rol sınırları, SRP, OCP, DIP)
 - `docs/CATCH_UP.md` if it exists — human-readable codebase guide
 - If `.claude/graph/graph.json` exists and `graph` feature is enabled: run `/knowledge-graph summary` — **this is the primary source of truth** for classes, interfaces, events, installers, scopes, prefabs, methods, and call edges. Do NOT manually scan source folders if the graph is available and fresh (< 24h).
 
