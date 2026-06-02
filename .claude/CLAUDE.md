@@ -101,6 +101,7 @@ Detailed coding standards in `.claude/rules/`:
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]`→`[VFX]`), classification table, prefab/container rules, enforcement |
 | `bootstrap-pattern.md` | IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope layer structure, EventBusInstaller requirement, GameScope scene-based wiring (SerializeField + RegisterComponent), new module addition flow |
+| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider only, ~100 satır max); SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
 
 ## Hooks (auto-enforced on every Write/Edit)
 
