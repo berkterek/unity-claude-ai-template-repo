@@ -474,6 +474,42 @@
           }
         ]
       }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/agent-start-log.sh",
+            "timeout": 2000,
+            "statusMessage": "Logging agent spawn..."
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/agent-stop-log.sh",
+            "timeout": 3000,
+            "statusMessage": "Logging agent stop..."
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/task-completed-log.sh",
+            "timeout": 2000,
+            "statusMessage": "Logging task completion..."
+          }
+        ]
+      }
     ]
   },
   "env": {
