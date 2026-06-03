@@ -32,3 +32,4 @@
 .claude/state/pending-verify.txt
 .claude/state/last-notify.json
 .claude/state/precompact-state.md
+.claude/state/graph-empty-warned
