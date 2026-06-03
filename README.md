@@ -882,7 +882,6 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `deep-interview` | 5-dimension ambiguity gating before implementation starts |
 | `learner` | Post-debug insight extraction — writes findings to CLAUDE.md Project Learnings |
 | `unity-instincts` | Instinct system for learned Unity patterns — capture, score, promote, apply |
-| `assembly-definitions` | .asmdef authoring — references, platforms, define constraints |
 | `source-driven-development` | Fetch official Unity docs before writing API calls — cites sources, flags deprecated APIs |
 | `documentation-and-adrs` | ADR creation — `/adr` command writes to `docs/decisions/`, lifecycle management |
 | `planning-and-task-breakdown` | Vertical slice decomposition + per-task acceptance criteria |
@@ -948,20 +947,17 @@ All skills under `skills/third-party/`, `skills/plugins/`, `skills/learned/`, an
 | `odin-inspector` | Custom attributes, validators, group drawers |
 | `textmeshpro` | Font assets, rich text, SDF materials, localization |
 | `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid |
+| `unity-asmdef` | Assembly definition authoring, references, define constraints |
+| `unity-editor-tools` | Custom Editor windows, PropertyDrawers, EditorUtility patterns |
+| `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
 | `vcontainer` | Scope hierarchy, registration patterns, `IInitializable`/`IDisposable` lifecycle, DI failure diagnosis |
 
 **`skills/plugins/`** (flat `.md` skills + `/discover` output)
 
 | Skill | Covers |
 |-------|--------|
-| `odin-inspector` | Custom attributes, validators, group drawers |
 | `primetween` | PrimeTween setup, tween API, sequences, and UniTask integration |
 | `r3` | R3 (Cysharp) Observable, Subject, ReactiveProperty, and UniTask integration |
-| `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid |
-| `unity-asmdef` | Assembly definition authoring, references, define constraints |
-| `unity-editor-tools` | Custom Editor windows, PropertyDrawers, EditorUtility patterns |
-| `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
-| `vcontainer` | VContainer registration patterns, scope hierarchy, lifecycle |
 
 #### Discovered Package Skills (`skills/third-party/<pkg>/`)
 
