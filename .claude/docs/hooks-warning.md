@@ -25,6 +25,58 @@
 | UserPromptSubmit inline hook | Injects skill-check reminder into every user prompt — enforces `using-superpowers` skill invocation before any action |
 | `enforce-skill-for-keywords.sh` (UserPromptSubmit) | Detects third-party package keywords in the user's prompt (cinemachine, vcam, dotween, primetween, dreamteck, feel, odin, textmeshpro…). If the relevant skill has not been invoked yet this session, injects a blocking `additionalContext` message demanding `Skill` tool invocation before any code, advice, or MCP operation. Pairs with `track-skill-invocations.sh`. |
 | `track-skill-invocations.sh` (PostToolUse Skill) | Records every `Skill` tool invocation to `${UNITY_HOOK_STATE_DIR}/skills-invoked.txt` — one skill name per line. Required by `enforce-skill-for-keywords.sh` to know which skills were already loaded so the enforcement message does not fire again for the same skill. |
+| `agent-start-log.sh` (SubagentStart) | Logs agent spawn (`agent_type`, `agent_id`, `session_id`) to `subagent-log.jsonl`. Advisory only — exit 2 is not honoured on SubagentStart. **[MANUAL: add to settings.json]** |
+| `agent-stop-log.sh` (SubagentStop) | Logs agent stop with approximate duration to `subagent-log.jsonl`. No `exit_code` in payload — pure audit trail, no blocking. **[MANUAL: add to settings.json]** |
+| `task-completed-log.sh` (TaskCompleted) | Logs successful task completion (`task_id`, `task_title`, `task_subject`) to `task-log.jsonl`. Event fires on success only — no `status` field. **[MANUAL: add to settings.json]** |
+
+## Subagent Audit Trail
+
+Three hooks produce two persistent JSONL audit files in `.claude/state/`:
+
+| File | Written by | Event |
+|------|-----------|-------|
+| `subagent-log.jsonl` | `agent-start-log.sh`, `agent-stop-log.sh` | SubagentStart, SubagentStop |
+| `task-log.jsonl` | `task-completed-log.sh` | TaskCompleted |
+
+**Fields — SubagentStart entry:**
+```json
+{"event":"SubagentStart","agent_type":"unity-coder","agent_id":"abc123","session_id":"xyz","started_at":"2026-06-04T10:00:00Z","logged_at":"2026-06-04T10:00:00Z"}
+```
+
+**Fields — SubagentStop entry:**
+```json
+{"event":"SubagentStop","agent_type":"unity-coder","agent_id":"abc123","session_id":"xyz","duration_approx_s":47,"stopped_at":"2026-06-04T10:00:47Z","logged_at":"2026-06-04T10:00:47Z"}
+```
+`duration_approx_s` is `-1` when no matching SubagentStart entry exists.
+
+**Fields — TaskCompleted entry:**
+```json
+{"event":"TaskCompleted","task_id":"t1","task_title":"Add AudioService","task_subject":"audio","session_id":"xyz","team_name":"","logged_at":"2026-06-04T10:01:00Z"}
+```
+
+**Persistence:** Both JSONL files accumulate across sessions (project-level state dir). They are NOT auto-expired by `session-save.sh`. `session.json` captures all-time totals in `subagent_summary`:
+```json
+"subagent_summary": {"spawned": 12, "stopped": 11, "tasks_completed": 5}
+```
+
+**Payload limitations:**
+- SubagentStart/SubagentStop carry: `agent_type`, `agent_id`, `session_id`, `transcript_path`, `cwd` — no `exit_code`, no `duration_ms`
+- TaskCompleted carries: `task_id`, `task_title`, `task_subject`, `team_name`, `session_id` — no `status` field (event fires = task succeeded)
+
+**Useful jq queries:**
+```bash
+# Count agents spawned today
+jq -s '[.[] | select(.event=="SubagentStart")] | length' .claude/state/subagent-log.jsonl
+
+# List all agent types that ran
+jq -rs '[.[] | select(.event=="SubagentStart") | .agent_type] | unique[]' .claude/state/subagent-log.jsonl
+
+# Find slow agents (> 120s)
+jq -s '[.[] | select(.event=="SubagentStop" and .duration_approx_s > 120)]' .claude/state/subagent-log.jsonl
+
+# List completed tasks
+jq -rs '[.[] | "\(.task_title) [\(.task_subject)]"] | .[]' .claude/state/task-log.jsonl
+```
 
 ## verify-after-write.sh
 

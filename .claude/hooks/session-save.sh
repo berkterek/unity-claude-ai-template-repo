@@ -67,6 +67,14 @@ if [ -f "${UNITY_HOOK_STATE_DIR}/agent-context.json" ]; then
     AGENT_CONTEXT=$(cat "${UNITY_HOOK_STATE_DIR}/agent-context.json" 2>/dev/null || echo '{}')
 fi
 
+# Gather subagent / task audit counters (all-time totals — JSONL files persist across sessions by design)
+SUBAGENT_LOG="${UNITY_HOOK_STATE_DIR}/subagent-log.jsonl"
+TASK_LOG="${UNITY_HOOK_STATE_DIR}/task-log.jsonl"
+
+SUBAGENT_SPAWNED=$(jq -s '[.[] | select(.event=="SubagentStart")] | length' "$SUBAGENT_LOG" 2>/dev/null || echo 0)
+SUBAGENT_STOPPED=$(jq -s '[.[] | select(.event=="SubagentStop")]  | length' "$SUBAGENT_LOG" 2>/dev/null || echo 0)
+TASKS_COMPLETED=$(jq -s  '[.[] | select(.event=="TaskCompleted")] | length' "$TASK_LOG"     2>/dev/null || echo 0)
+
 # Gather warnings summary
 WARNINGS_COUNT=0
 if [ -f "$UNITY_WARNINGS_FILE" ]; then
@@ -87,6 +95,9 @@ jq -n \
     --argjson plan "$PLAN" \
     --argjson verification "$VERIFICATION" \
     --argjson agent_context "$AGENT_CONTEXT" \
+    --arg subagent_spawned "$SUBAGENT_SPAWNED" \
+    --arg subagent_stopped "$SUBAGENT_STOPPED" \
+    --arg tasks_completed  "$TASKS_COMPLETED" \
     '{
         schema_version: $schema_version,
         branch: $branch,
@@ -99,7 +110,12 @@ jq -n \
         saved_at: $saved_at,
         plan: $plan,
         verification: $verification,
-        agent_context: $agent_context
+        agent_context: $agent_context,
+        subagent_summary: {
+            spawned:         ($subagent_spawned  | tonumber),
+            stopped:         ($subagent_stopped  | tonumber),
+            tasks_completed: ($tasks_completed   | tonumber)
+        }
     }' > "$UNITY_SESSION_FILE"
 
 echo "" >&2
