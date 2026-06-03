@@ -1,4 +1,7 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="strict"   # minimal | standard | strict
+source "${SCRIPT_DIR}/_lib.sh"
 # Central hook audit logger.
 # Usage: hook-logger.sh <hook-name> <exit-code> <file-path> [message]
 #

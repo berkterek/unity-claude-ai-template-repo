@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="strict"   # minimal | standard | strict
+source "${SCRIPT_DIR}/_lib.sh"
 # install-git-hooks.sh — One-time setup: install post-commit (and optionally pre-commit) hooks.
 # Usage:
 #   bash .claude/hooks/install-git-hooks.sh          # install post-commit

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="strict"   # minimal | standard | strict
+source "${SCRIPT_DIR}/_lib.sh"
 # ============================================================================
 # track-codex-review.sh — PostToolUse hook
 #

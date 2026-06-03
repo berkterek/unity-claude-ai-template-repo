@@ -1,4 +1,7 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
+source "${SCRIPT_DIR}/_lib.sh"
 # PostToolUse hook: auto-adds @-references for new skill files into CLAUDE.md
 # Triggers on Write/Edit to .claude/skills/{third-party,plugins,learned}/
 

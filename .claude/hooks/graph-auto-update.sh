@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
+source "${SCRIPT_DIR}/_lib.sh"
 # graph-auto-update.sh — PostToolUse hook: incremental graph rebuild on Write/Edit.
 # Non-blocking: launches graph-builder.sh in background, always exits 0.
 # Execution context: Claude Code host process — Unity Editor NOT required.
