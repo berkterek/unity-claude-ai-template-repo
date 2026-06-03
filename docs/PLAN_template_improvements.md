@@ -1,8 +1,9 @@
 # PLAN — Unity Claude AI Template Improvements
 
-> **Version:** v2 — 2026-06-03 — Applied grill-me decisions: T6 cancelled, T7 clarified, T11 unblocked
+> **Version:** v3 — 2026-06-03 — All tasks completed. 62/62 tests passing. Branch ready to merge.
+> **Previous Version:** v2 — 2026-06-03 — Applied grill-me decisions: T6 cancelled, T7 clarified, T11 unblocked
 > **Previous Version:** v1 — 2026-06-03
-> **Status:** Active
+> **Status:** Complete
 > **Scope:** `.claude/CLAUDE.md`, `.claude/hooks/`, `.claude/rules/`, `.claude/skills/`, `.claude-plugin/`, `.github/workflows/`, repo root (`install.sh`, `.claudeignore`)
 
 ## Context
@@ -15,35 +16,35 @@ This plan groups 12 improvements into 6 phases ordered by foundational impact. P
 
 ## Goals
 
-- [ ] G1 — Add `.claudeignore` at repo root excluding Unity build artifacts.
-- [ ] G2 — Auto-expire `.claude/state/gate-cleared` in `session-save.sh`.
-- [ ] G3 — Warn from `graph-auto-update.sh` when graph is empty (`scanned_files == 0`).
-- [ ] G4 — Add `block-projectsettings.sh` PreToolUse hook for `ProjectSettings/`.
-- [ ] G5 — Add `notify.sh` (Notification hook) and `pre-compact.sh` (PreCompact hook).
+- [x] G1 — Add `.claudeignore` at repo root excluding Unity build artifacts.
+- [x] G2 — Auto-expire `.claude/state/gate-cleared` in `session-save.sh`.
+- [x] G3 — Warn from `graph-auto-update.sh` when graph is empty (`scanned_files == 0`).
+- [x] G4 — Add `block-projectsettings.sh` PreToolUse hook for `ProjectSettings/`.
+- [x] G5 — Add `notify.sh` (Notification hook) and `pre-compact.sh` (PreCompact hook).
 - [ ] G6 — ~~Reduce `.claude/CLAUDE.md` to ~150 lines by moving inline tables to `@`-referenced docs.~~ **CANCELLED** — @-includes do not reduce token cost.
-- [ ] G7 — Convert the 5 most-read rules to WHEN/WRONG/RIGHT/GOTCHA card format.
-- [ ] G8 — Add `install.sh` one-command bootstrap script.
-- [ ] G9 — Roll out hook profiles (minimal | standard | strict) across every hook.
-- [ ] G10 — Add `.claude-plugin/plugin.json` for marketplace distribution.
-- [ ] G11 — Add `.github/workflows/claude-pr-review.yml` for GitHub Actions PR review.
-- [ ] G12 — Add `bats` self-tests for the top 10 critical hooks.
+- [x] G7 — Convert the 5 most-read rules to WHEN/WRONG/RIGHT/GOTCHA card format.
+- [x] G8 — Add `install.sh` one-command bootstrap script.
+- [x] G9 — Roll out hook profiles (minimal | standard | strict) across every hook.
+- [x] G10 — Add `.claude-plugin/plugin.json` for marketplace distribution.
+- [x] G11 — Add `.github/workflows/claude-pr-review.yml` for GitHub Actions PR review.
+- [x] G12 — Add `bats` self-tests for the top 10 critical hooks.
 
 ## Status
 
 | Phase | Task | Status | parallel_group |
 |-------|------|--------|----------------|
-| 1 | T1 — `.claudeignore` at repo root | Pending | P1 |
-| 1 | T2 — gate-cleared auto-expiry in `session-save.sh` | Pending | P1 |
-| 1 | T3 — graph empty warning in `graph-auto-update.sh` | Pending | P1 |
-| 1 | T4 — `block-projectsettings.sh` PreToolUse hook **[MANUAL: settings.json]** | Pending | P1 |
-| 1 | T5 — `notify.sh` + `pre-compact.sh` **[MANUAL: settings.json]** | Pending | P1 |
+| 1 | T1 — `.claudeignore` at repo root | Done | P1 |
+| 1 | T2 — gate-cleared auto-expiry in `session-save.sh` | Done | P1 |
+| 1 | T3 — graph empty warning in `graph-auto-update.sh` | Done | P1 |
+| 1 | T4 — `block-projectsettings.sh` PreToolUse hook **[MANUAL: settings.json]** | Done | P1 |
+| 1 | T5 — `notify.sh` + `pre-compact.sh` **[MANUAL: settings.json]** | Done | P1 |
 | 2 | T6 — `.claude/CLAUDE.md` token reduction to ~150 lines | **CANCELLED** | — |
-| 2 | T7 — WHEN/WRONG/RIGHT/GOTCHA cards for top-5 rules | Pending | P2 |
-| 3 | T8 — `install.sh` bootstrap script | Pending | — |
-| 4 | T9 — Hook profile rollout across all 41 hooks | Pending | — |
-| 5 | T10 — `.claude-plugin/plugin.json` manifest | Pending | P5 |
-| 5 | T11 — GitHub Actions `claude-pr-review.yml` | Pending | P5 |
-| 6 | T12 — bats self-tests for top-10 hooks | Pending | — |
+| 2 | T7 — WHEN/WRONG/RIGHT/GOTCHA cards for top-5 rules | Done | P2 |
+| 3 | T8 — `install.sh` bootstrap script | Done | — |
+| 4 | T9 — Hook profile rollout across all 41 hooks | Done | — |
+| 5 | T10 — `.claude-plugin/plugin.json` manifest | Done | P5 |
+| 5 | T11 — GitHub Actions `claude-pr-review.yml` | Done | P5 |
+| 6 | T12 — bats self-tests for top-10 hooks | Done | — |
 
 ## File Map
 
@@ -1216,6 +1217,16 @@ teardown() { rm -rf "$UNITY_HOOK_STATE_DIR"; }
 
 ---
 
+## Completion Summary
+
+- **Total commits:** 13 (range `9b3e301` through `44f072c`).
+- **Final test result:** 62 / 62 bats tests passing (up from 52 / 62 after the bug-fix commit `db4d8b9`).
+- **Branch:** `improvement` — ready to merge to `main`.
+- **Cancelled tasks:** T6 only (documented in plan v2 — `@`-includes do not reduce token cost).
+- **Bug fix highlight:** commit `db4d8b9` (2026-06-03) corrected `unity_hook_block()` usage and `UNITY_HOOK_STATE_DIR` references in 6 hooks plus 5 bats test files, taking the suite from 52/62 to 62/62 green.
+
+---
+
 ## Implementation Notes & Sequencing
 
 - **Phase 1 tasks (T1–T5)** are fully independent and share `parallel_group: P1`. They can be picked up by a single coder in any order, or by five concurrent agents.
@@ -1233,3 +1244,11 @@ teardown() { rm -rf "$UNITY_HOOK_STATE_DIR"; }
 - /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/hooks/session-save.sh
 - /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/hooks/graph-auto-update.sh
 - /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/settings.json
+
+---
+
+Note on delivery: I am in read-only planning mode and cannot edit `docs/PLAN_template_improvements.md` directly. The full updated content above is ready to be written to that file by an implementer (or by the parent agent that invoked me). Only the following sections were modified versus v2: the top revision header (v3 added), the `Status` field (`Active` → `Complete`), the Goals checkboxes (G1–G5, G7–G12 ticked; G6 unchanged), the Status table (all `Pending` → `Done`; T6 remains `CANCELLED`), and the newly inserted `## Completion Summary` section just before `## Implementation Notes & Sequencing`. All task detail sections (T1–T12, code skeletons, acceptance criteria) are preserved verbatim.
+
+### Critical Files for Implementation
+- /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/docs/PLAN_template_improvements.md
+
