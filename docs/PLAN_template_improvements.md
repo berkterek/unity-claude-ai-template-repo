@@ -1,6 +1,7 @@
 # PLAN — Unity Claude AI Template Improvements
 
-> **Version:** v1 — 2026-06-03
+> **Version:** v2 — 2026-06-03 — Applied grill-me decisions: T6 cancelled, T7 clarified, T11 unblocked
+> **Previous Version:** v1 — 2026-06-03
 > **Status:** Active
 > **Scope:** `.claude/CLAUDE.md`, `.claude/hooks/`, `.claude/rules/`, `.claude/skills/`, `.claude-plugin/`, `.github/workflows/`, repo root (`install.sh`, `.claudeignore`)
 
@@ -19,7 +20,7 @@ This plan groups 12 improvements into 6 phases ordered by foundational impact. P
 - [ ] G3 — Warn from `graph-auto-update.sh` when graph is empty (`scanned_files == 0`).
 - [ ] G4 — Add `block-projectsettings.sh` PreToolUse hook for `ProjectSettings/`.
 - [ ] G5 — Add `notify.sh` (Notification hook) and `pre-compact.sh` (PreCompact hook).
-- [ ] G6 — Reduce `.claude/CLAUDE.md` to ~150 lines by moving inline tables to `@`-referenced docs.
+- [ ] G6 — ~~Reduce `.claude/CLAUDE.md` to ~150 lines by moving inline tables to `@`-referenced docs.~~ **CANCELLED** — @-includes do not reduce token cost.
 - [ ] G7 — Convert the 5 most-read rules to WHEN/WRONG/RIGHT/GOTCHA card format.
 - [ ] G8 — Add `install.sh` one-command bootstrap script.
 - [ ] G9 — Roll out hook profiles (minimal | standard | strict) across every hook.
@@ -36,12 +37,12 @@ This plan groups 12 improvements into 6 phases ordered by foundational impact. P
 | 1 | T3 — graph empty warning in `graph-auto-update.sh` | Pending | P1 |
 | 1 | T4 — `block-projectsettings.sh` PreToolUse hook **[MANUAL: settings.json]** | Pending | P1 |
 | 1 | T5 — `notify.sh` + `pre-compact.sh` **[MANUAL: settings.json]** | Pending | P1 |
-| 2 | T6 — `.claude/CLAUDE.md` token reduction to ~150 lines | Pending | — |
+| 2 | T6 — `.claude/CLAUDE.md` token reduction to ~150 lines | **CANCELLED** | — |
 | 2 | T7 — WHEN/WRONG/RIGHT/GOTCHA cards for top-5 rules | Pending | P2 |
 | 3 | T8 — `install.sh` bootstrap script | Pending | — |
 | 4 | T9 — Hook profile rollout across all 41 hooks | Pending | — |
 | 5 | T10 — `.claude-plugin/plugin.json` manifest | Pending | P5 |
-| 5 | T11 — GitHub Actions `claude-pr-review.yml` **[BLOCKED-EXTERNAL]** | Pending | P5 |
+| 5 | T11 — GitHub Actions `claude-pr-review.yml` | Pending | P5 |
 | 6 | T12 — bats self-tests for top-10 hooks | Pending | — |
 
 ## File Map
@@ -54,9 +55,9 @@ This plan groups 12 improvements into 6 phases ordered by foundational impact. P
 | `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/hooks/block-projectsettings.sh` | Create | T4 |
 | `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/hooks/notify.sh` | Create | T5 |
 | `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/hooks/pre-compact.sh` | Create | T5 |
-| `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/CLAUDE.md` | Edit | T6 — strip inline tables |
-| `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/docs/project-features.md` | Create | T6 — receives moved table |
-| `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/docs/required-stack.md` | Create | T6 — receives moved table |
+| `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/CLAUDE.md` | ~~Edit~~ | ~~T6 — strip inline tables~~ — CANCELLED |
+| `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/docs/project-features.md` | ~~Create~~ | ~~T6 — receives moved table~~ — CANCELLED |
+| `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/docs/required-stack.md` | ~~Create~~ | ~~T6 — receives moved table~~ — CANCELLED |
 | `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/rules/architecture.md` | Edit | T7 — card format |
 | `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/rules/csharp-unity.md` | Edit | T7 — card format |
 | `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/rules/unity-prefabs.md` | Edit | T7 — card format |
@@ -456,7 +457,9 @@ exit 0
 
 ## Phase 2 — CLAUDE.md & Skill Format
 
-## Task T6 — CLAUDE.md Token Reduction to ~150 Lines
+## ~~CANCELLED~~ Task T6 — CLAUDE.md Token Reduction to ~150 Lines
+
+> **Cancelled:** @-includes do not reduce token cost — content is still loaded into context at session start. Splitting CLAUDE.md into multiple files referenced via `@.claude/docs/foo.md` makes the file shorter on disk but the resolver expands every `@`-include before the agent's first turn, so the effective token bill is identical (and sometimes slightly larger due to additional file headers and markdown framing). Real token reduction requires either (a) deleting content outright, (b) moving content to skills/rules that load on-demand only when triggered, or (c) tightening the prose. This task pursued the wrong lever and is therefore cancelled. Section retained below for historical reference.
 
 **Files:**
 - `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.claude/CLAUDE.md` (Edit — shrink from 202 to ~150 lines)
@@ -570,7 +573,8 @@ exit 0
 1. [ ] At the top of the file, insert a `## Cards` section containing 3–8 atomic rules in the WHEN/WRONG/RIGHT/GOTCHA format.
 2. [ ] Each card must fit on roughly 10 lines and reference one and only one decision.
 3. [ ] Preserve all existing prose content **below** the cards section — cards are an additive index, not a replacement.
-4. [ ] Add a one-line summary at the very top: `> Read the **Cards** section first. The prose below is reference detail.`
+4. [ ] Cards sit above existing prose. Do NOT delete or modify any existing prose content below the `## Cards` section.
+5. [ ] Add a one-line summary at the very top: `> Read the **Cards** section first. The prose below is reference detail.`
 
 **Test Type:** NoTest
 
@@ -957,7 +961,7 @@ See `.claude/docs/quick-start.md` for the full tour.
 
 ---
 
-## Task T11 — GitHub Actions PR Review Workflow **[BLOCKED-EXTERNAL]**
+## Task T11 — GitHub Actions PR Review Workflow
 
 **Files:**
 - `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo/.github/workflows/claude-pr-review.yml`
@@ -966,7 +970,7 @@ See `.claude/docs/quick-start.md` for the full tour.
 **parallel_group:** P5
 
 **Steps:**
-1. [ ] **[BLOCKED-EXTERNAL]** Verify that `mode: review` is a supported parameter of `anthropics/claude-code-action@v1` by checking the action's README at `https://github.com/anthropics/claude-code-action`. If not supported, replace with `direct_prompt:` approach.
+1. [ ] Confirmed: `anthropics/claude-code-action@v1` does NOT support `mode: review` or `extra_args` parameters. The correct approach is `prompt:` input only, which the skeleton already uses. This step is now documentation-only.
 2. [ ] Create `.github/workflows/`.
 3. [ ] Author `claude-pr-review.yml` using the official `anthropics/claude-code-action@v1` action. Trigger on `pull_request` (opened, synchronize, reopened).
 4. [ ] Use `-p` non-interactive mode so the action runs once per PR event without hanging.
@@ -1009,7 +1013,6 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          mode: review
           prompt: |
             You are reviewing a pull request on a Unity 6 + VContainer + UniTask project.
             Read .claude/CLAUDE.md first. Then invoke the code-review:code-review skill.
@@ -1020,7 +1023,6 @@ jobs:
               - IEventBus vs Action vs C# event decision
               - Test type correctness per .claude/rules/testing.md
             Post a single consolidated review comment.
-          extra_args: "-p --output-format json"
 ```
 
 **Code Skeleton — `.github/workflows/README.md`:**
@@ -1218,9 +1220,10 @@ teardown() { rm -rf "$UNITY_HOOK_STATE_DIR"; }
 
 - **Phase 1 tasks (T1–T5)** are fully independent and share `parallel_group: P1`. They can be picked up by a single coder in any order, or by five concurrent agents.
 - **T2 and T3 are dependencies of T12** (the bats tests for session-save and graph-auto-update assert the new behaviour). Run T2/T3 before T12.
-- **T7 (rule cards)** must run after T6 (CLAUDE.md trim) only if the implementer prefers to look at the freshly compact CLAUDE.md while writing cards. They can also run in parallel — independent files.
+- **T6 is CANCELLED** — @-includes do not reduce token cost. Skip this task entirely; it is retained in the plan for historical context only.
+- **T7 (rule cards)** is independent of T6 (which is cancelled). T7 can run in parallel with any other task — independent files.
 - **T9 (profile rollout)** depends on T4 and T5 existing first (the new hooks must also declare their level). Order: T4, T5 → T9.
-- **T11 (GitHub Actions)** depends on T10 only at the doc level (README cross-reference). Otherwise independent. **[BLOCKED-EXTERNAL]** on verification of `mode: review` support in `anthropics/claude-code-action@v1`.
+- **T11 (GitHub Actions)** is unblocked. Verification of `anthropics/claude-code-action@v1` parameters is complete: the action does NOT support `mode: review` or `extra_args` — the correct interface is `prompt:` only, which the skeleton in T11 already uses. T11 depends on T10 only at the doc level (README cross-reference). Otherwise independent.
 - **[MANUAL: settings.json]** tasks (T4, T5) require the user to add hook registrations after the script files are created. Implementer should print the JSON snippet at end of task and explicitly ask the user to paste it into `.claude/settings.json`.
 - **Today's date 2026-06-03** — every newly created file's header date stamp should use that date.
 
