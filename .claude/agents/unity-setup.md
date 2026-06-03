@@ -91,6 +91,9 @@ BaseEnemy.prefab          ← base: shared components, default values
 - [ ] Canvas prefabs are Prefab Variants of BaseCanvas (not standalone)
 - [ ] If 2+ prefabs share the same component set → Base + Variant used
 - [ ] Default values match ScriptableObject configs
+- [ ] **UI prefabs only:** GO, Canvas veya Canvas child `parentPath` ile oluşturuldu (scene root'ta oluşturup reparent edilmedi)
+- [ ] **UI prefabs only:** `manage_components` RectTransform özelliği hatasız set edildi
+- [ ] **UI prefabs only:** `execute_code` RectTransform guard geçti — `Debug.LogError` yok
 
 ### 3. ScriptableObject Asset Creation
 - Create ScriptableObject assets for all configurations
