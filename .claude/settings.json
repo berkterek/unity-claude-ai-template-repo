@@ -74,7 +74,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-pure-csharp.sh",
+            "command": ".claude/hooks/check-no-monobehaviour-in-services.sh",
             "timeout": 5000,
             "statusMessage": "Checking pure C# constraint..."
           }
