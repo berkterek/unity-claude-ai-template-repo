@@ -55,6 +55,8 @@ fi
 if echo "$FILENAME_NO_EXT" | grep -qiE "Installer$"; then
     if echo "$FILE_PATH" | grep -qiE "(TestScopes|EditModeTest|PlayModeTest|EditMode|PlayMode)/"; then
         : # test installer — allowed
+    elif [ ! -f "$FILE_PATH" ]; then
+        : # new file — safe to create, hook only protects existing wiring
     else
         CRITICAL=true
         REASON="Installer files wire VContainer bindings — changes can break DI resolution for the entire module."

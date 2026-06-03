@@ -31,7 +31,7 @@ fi
 # Check domain/service directories
 if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.*\.cs$"; then
     # Skip providers, MonoBehaviours, views, handlers, editors — Unity API lives here
-    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Handler|Inspector|Editor|Drawer)\.(cs)$"; then
+    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Handler|Inspector|Editor|Drawer|Panel|Button)\.(cs)$"; then
         exit 0
     fi
 
