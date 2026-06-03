@@ -43,6 +43,28 @@ except Exception:
 
 [[ "$GRAPH_ENABLED" == "true" ]] || exit 0
 
+# --- Graph empty-state warning (once per session) ---
+GRAPH_JSON=".claude/graph/graph.json"
+WARN_SENTINEL=".claude/state/graph-empty-warned"
+if [[ -f "$GRAPH_JSON" && ! -f "$WARN_SENTINEL" ]]; then
+    SCANNED=$(python3 -c "
+import json
+try:
+    d = json.load(open('$GRAPH_JSON'))
+    print(d.get('codebase', {}).get('scanned_files', 0))
+except Exception:
+    print(0)
+" 2>/dev/null || echo "0")
+
+    if [[ "$SCANNED" = "0" ]]; then
+        mkdir -p .claude/state
+        touch "$WARN_SENTINEL"
+        echo "WARNING (graph-auto-update): graph.json reports scanned_files=0 — graph is empty." >&2
+        echo "  Run: /build-knowledge-graph to populate it, or disable the 'graph' feature in .claude/project-features.json." >&2
+        echo "graph-auto-update: empty graph (scanned_files=0)" >> .claude/state/session-warnings.txt
+    fi
+fi
+
 # ── Builder existence check ────────────────────────────────────────────────────
 BUILDER=".claude/graph/graph-builder.sh"
 if [[ ! -x "$BUILDER" ]]; then

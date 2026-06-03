@@ -108,4 +108,15 @@ if [ -n "$SESSION_DURATION" ]; then
     echo "  Duration: $SESSION_DURATION | Tool calls: $TOOL_CALLS | Files modified: $(echo "$MODIFIED_FILES" | jq 'length')" >&2
 fi
 
+# --- Auto-expire ephemeral pipeline gate state ---
+# These files are written by pipeline commands during a single session and
+# MUST NOT persist across sessions. Stop hook is the canonical cleanup point.
+for _gate in gate-cleared graph-empty-warned sparc-approved codex-reviewed plan-state.json verify-state.json agent-context.json; do
+    _path="${UNITY_HOOK_STATE_DIR}/${_gate}"
+    if [ -e "$_path" ]; then
+        rm -f "$_path"
+        echo "  Expired: ${_gate}" >&2
+    fi
+done
+
 exit 0

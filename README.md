@@ -297,6 +297,16 @@ Tests cover: builder flags (`--full`, `--incremental`, `--skip-mcp`, `--output`,
 
 You do **not** need to start from scratch. The `.claude/` folder is self-contained and can be dropped into any existing Unity project.
 
+### `.claudeignore`
+
+Copy `.claudeignore` from this repo to your project root alongside `.gitignore`. It tells Claude Code to skip Unity build artifacts, IDE temp files, and large binary assets — preventing them from being read into context and wasting tokens.
+
+```bash
+cp .claudeignore /path/to/your/project/.claudeignore
+```
+
+Key exclusions: `Library/`, `Temp/`, `Logs/`, `Build/`, `*.fbx`, `*.psd`, `*.wav`, `*.mp4`, `.claude/state/*.jsonl`.
+
 ### What works immediately (zero migration needed)
 
 - All slash commands (`/debug-session`, `/review-code`, `/performance-audit`, etc.)
@@ -478,9 +488,12 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `hook-logger` | Central audit logger — appends newline-delimited JSON to `~/.claude/hook-audit.log` |
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
 | `session-restore` (SessionStart) | Restores session state from `.claude/state/` on session start |
-| `session-save` (Stop) | Saves current session state to `.claude/state/` on stop |
+| `session-save` (Stop) | Saves current session state to `.claude/state/` on stop. Also **auto-expires ephemeral gate files** (`gate-cleared`, `sparc-approved`, `codex-reviewed`, etc.) so they never leak into the next session |
 | `stop-verify` (Stop) | Drains the edit accumulator at session end — runs batch verifiers (shell syntax, JSON validity, one `dotnet build` for all `.cs` files written this session). ECC pattern: catches subagent writes whose PostToolUse hooks never fired in the main session. Must be listed after `session-save` in the Stop array. |
-| `graph-auto-update` (PostToolUse Write\|Edit) | Incremental graph rebuild in background on file change — never blocks |
+| `notify` (Notification) | OS-level notification when Claude finishes a task — macOS via `osascript`, Linux via `notify-send`. Persists last notification to `.claude/state/last-notify.json` for `/catch-up` |
+| `pre-compact` (PreCompact) | Snapshots branch, recent commits, and edited files to `.claude/state/precompact-state.md` before `/compact` discards conversation history — consumed by `session-restore.sh` and `/catch-up` |
+| `block-projectsettings` (PreToolUse Edit\|Write) | Blocks direct edits to `ProjectSettings/*.asset`, `Packages/manifest.json`, and `packages-lock.json` — these files must be changed through the Unity Editor or Package Manager, not raw text edits **[MANUAL: add to settings.json]** |
+| `graph-auto-update` (PostToolUse Write\|Edit) | Incremental graph rebuild in background on file change — never blocks. Warns once per session when `scanned_files == 0` (empty graph) |
 | `verify-after-write` (PostToolUse Write\|Edit) | Runs `dotnet build` after each `.cs` write — prints WARNING to stderr if compile errors found; never blocks (exit 0). Reads `unity_project_folder` from `project-features.json` to locate `.sln`. MCP unavailable in bash hooks — dotnet CLI only. |
 
 ---
@@ -752,7 +765,7 @@ State file: `.claude/state/sparc-approved` (independent of `gate-cleared`). Writ
 | `instincts/` | Project-specific and global instinct library (confidence-scored patterns) |
 
 - `session-restore.sh` (SessionStart hook) loads state at the start of every session
-- `session-save.sh` (Stop hook) persists state when the session ends
+- `session-save.sh` (Stop hook) persists state when the session ends and **auto-expires** ephemeral gate files (`gate-cleared`, `sparc-approved`, `codex-reviewed`, `graph-empty-warned`, etc.) — these must never persist across sessions
 - Use `/instincts` to view, evolve, promote, or export instincts
 
 ### Human-Readable Checkpoint
