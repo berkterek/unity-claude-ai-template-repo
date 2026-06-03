@@ -28,6 +28,8 @@ A personal Claude Code configuration template for Unity 6 projects. Drop the `.c
 - [Hook Audit Log](#hook-audit-log)
 - [Manual Setup](#manual-setup-required-after-setup-project)
 - [Architecture in a Nutshell](#architecture-in-a-nutshell)
+- [Distribution as a Claude Code Plugin](#distribution-as-a-claude-code-plugin)
+- [CI Integration — GitHub Actions PR Review](#ci-integration--github-actions-pr-review)
 - [Project-Specific Files](#project-specific-files-not-in-this-template)
 - [License](#license)
 
@@ -58,7 +60,24 @@ Install these packages in Unity Package Manager before running `/setup-project`:
 
 Optional packages are installed separately — see [Manual Setup](#manual-setup-required-after-setup-project).
 
-### 1. Copy into your project
+### 1. Install into your project
+
+**Option A — bootstrap script (recommended):**
+
+```bash
+# From within your Unity project root (must have a .git directory)
+bash /path/to/unity-claude-ai-template-repo/install.sh
+
+# Force overwrite an existing .claude/ folder
+bash /path/to/unity-claude-ai-template-repo/install.sh --force
+
+# Or install into a specific target
+bash /path/to/unity-claude-ai-template-repo/install.sh /path/to/your-project
+```
+
+The script copies `.claude/`, `.claudeignore`, and `.claude-plugin/`; makes all hook scripts executable; clears ephemeral session state; and prints a NEXT STEPS block.
+
+**Option B — manual copy:**
 
 ```
 your-unity-project/
@@ -135,6 +154,8 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `graph-watch.sh` | Optional fswatch/inotifywait watch loop |
 
 ### `.claude/rules/` — Auto-loaded rule files
+
+Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTCHA cards — quick-scan summaries of the most important rules. The prose reference follows below the cards. Read the cards first; consult the prose for full context.
 
 | File | Covers |
 |------|--------|
@@ -444,6 +465,47 @@ Skip `/qa` if you're inside an active `/orchestrate` run — the phase gate alre
 ## Hooks — Auto-Enforced on Every Write
 
 Hooks run silently in the background every time Claude writes or edits a C# file.
+
+### Hook Profiles
+
+Control which hooks are active via `UNITY_HOOK_PROFILE`:
+
+| Profile | What runs | When to use |
+|---------|-----------|-------------|
+| `minimal` | Only 5 critical safety hooks (`block-git-push`, `block-scene-edit`, `block-projectsettings`, `check-config-protection`, `guard-critical-files`) | Prototypes, game jams, legacy migration |
+| `standard` | All hooks except strict-only enforcement hooks (default) | Regular development |
+| `strict` | All hooks, including heavy enforcement (gate guards, skill enforcer, codex review order) | Team projects, CI, shared repos |
+
+```bash
+# Set for one session
+UNITY_HOOK_PROFILE=minimal claude
+
+# Disable all hooks entirely (kill switch)
+DISABLE_UNITY_HOOKS=1 claude
+
+# Downgrade a single blocking hook to warn mode
+UNITY_HOOK_MODE=warn claude
+
+# Disable one specific hook
+DISABLE_HOOK_CHECK_PURE_CSHARP=1 claude
+```
+
+Full profile documentation: `.claude/docs/hook-profiles.md`
+
+### Hook Self-Tests
+
+The hook suite has automated bats-core tests at `.claude/hooks/tests/`:
+
+```bash
+# Run all hook tests (requires bats-core)
+./.claude/hooks/tests/run-tests.sh
+
+# Install bats-core
+brew install bats-core   # macOS
+npm install -g bats      # Linux
+```
+
+12 test files cover every blocking hook with happy path, blocking trigger, profile skip, and warn-mode scenarios.
 
 ### Blocking (exit 2 — stops the write)
 
@@ -1054,6 +1116,33 @@ Arts/
 - UniTask everywhere — no coroutines, no `async void`, always pass `CancellationToken`
 - Addressables for all runtime asset loading — no `Resources.Load`
 - NSubstitute + AAA pattern for tests — only interfaces mocked
+
+---
+
+## Distribution as a Claude Code Plugin
+
+This template ships a `.claude-plugin/plugin.json` manifest, making it installable as a Claude Code plugin:
+
+```bash
+claude plugin install github:berkterek/unity-claude-ai-template-repo
+```
+
+The manifest declares all skills, commands, hooks, and agents so Claude Code discovers them automatically on install. See `.claude-plugin/README.md` for full installation details.
+
+---
+
+## CI Integration — GitHub Actions PR Review
+
+`.github/workflows/claude-pr-review.yml` runs automatic Claude code review on every pull request that touches Unity source files (`Assets/**`, `.claude/**`, `_GameFolders/**`, `_Framework/**`).
+
+### Setup
+
+1. Add your Anthropic API key as a repository secret named `ANTHROPIC_API_KEY`
+2. The workflow triggers automatically on PRs — no other configuration required
+
+The reviewer checks architecture rules (VContainer DI, no singletons, IEventBus cross-module communication), Unity-specific patterns (UniTask, New Input System, null safety), and naming conventions.
+
+See `.github/workflows/README.md` for details on the secret setup.
 
 ---
 
