@@ -98,6 +98,28 @@ Scale Mode: Scale With Screen Size
 
 ---
 
+## Pre-Prefab Checklist (NON-NEGOTIABLE)
+
+Herhangi bir UI GO'yu prefab olarak kaydetmeden önce üç koşulun tamamı sağlanmış olmalı:
+
+- [ ] GO, Canvas veya Canvas child'ına `parentPath` ile oluşturuldu
+- [ ] `manage_components` ile RectTransform özelliği set edildi (hatasız tamamlandı)
+- [ ] `execute_code` ile `GetComponent<RectTransform>()` doğrulandı (LogError yok)
+
+### UI GO Discriminator
+
+| Sinyal | Tür | UI GO mu? |
+|--------|-----|-----------|
+| `parentPath` → Canvas veya Canvas child | PRIMARY | Evet — RectTransform zorunlu |
+| Component: `Image`, `RawImage`, `Button`, `Toggle`, `Slider` | SECONDARY | Evet — RectTransform zorunlu |
+| Component: `TextMeshProUGUI`, `ScrollRect`, `InputField`, `CanvasGroup` | SECONDARY | Evet — RectTransform zorunlu |
+| Component: `TextMeshPro` (3D, UGUI suffix'siz) | — | **Hayır** — UI sinyali değil |
+| `parentPath` → `[Services]`, `[Setup]`, `[Characters]`, `[VFX]` container | — | **Hayır** — normal GO |
+
+> PRIMARY sinyal her zaman önce kontrol edilir. SECONDARY yalnızca parentPath belirsizse kullanılır.
+
+---
+
 ## 3. Canvas Split Strategy
 
 Split by update frequency — a single changing element rebuilds the entire Canvas mesh:
