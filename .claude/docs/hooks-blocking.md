@@ -5,7 +5,7 @@
 | `block-git-push.sh` | `git push` — Claude cannot push; user always pushes manually |
 | `block-scene-edit.sh` | Direct editing of `.unity`, `.prefab`, `.asset` files |
 | `guard-editor-runtime.sh` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
-| `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` or `Games/Abstracts/` / `Games/Concretes/` (non-provider) |
+| `check-no-monobehaviour-in-services.sh` | `class FooService : MonoBehaviour` or `: ScriptableObject` in `_Framework/` / `Games/Abstracts/` / `Games/Concretes/` — `using UnityEngine` is allowed (math types); only inheritance is blocked |
 | `check-input-system.sh` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-vcontainer-singleton.sh` | Static singleton patterns outside of `EventBusAccessor` |
 | `check-unity-event.sh` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |

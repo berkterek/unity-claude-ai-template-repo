@@ -313,7 +313,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 | `check-input-system` | `Input.GetKey` / `Input.GetAxis` | Replace with New Input System + `InputView` |
 | `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` | Use `IEventBus`, `Action`/`Func`, or C# `event` keyword |
 | `check-time-scale` | `Time.timeScale =` assignment | Use IEventBus + PauseService pattern |
-| `check-pure-csharp` | `using UnityEngine` in `_Framework/` | Move Unity calls to provider classes |
+| `check-no-monobehaviour-in-services` | `class FooService : MonoBehaviour/ScriptableObject` in `_Framework/` / `Games/Abstracts/` / `Games/Concretes/` | Make it a Provider or View instead — `using UnityEngine` for math types is allowed |
 | `guard-editor-runtime` | Unguarded `UnityEditor` in runtime code | Wrap with `#if UNITY_EDITOR` |
 
 ### Recommended migration approach
@@ -442,7 +442,7 @@ Hooks run silently in the background every time Claude writes or edits a C# file
 | `block-git-push` | `git push` — Claude cannot push; user always pushes manually |
 | `block-scene-edit` | Direct editing of `.unity`, `.prefab`, `.asset` YAML |
 | `guard-editor-runtime` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
-| `check-pure-csharp` | `_Framework/` referencing `_GameFolders` or other project folders |
+| `check-no-monobehaviour-in-services` | `class FooService : MonoBehaviour` or `: ScriptableObject` in service/domain files — inheritance blocked, `using UnityEngine` allowed |
 | `check-input-system` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |
 | `check-time-scale` | `Time.timeScale =` assignment |
