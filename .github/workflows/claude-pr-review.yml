@@ -1,0 +1,41 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'Assets/**'
+      - 'Packages/**'
+      - '.claude/**'
+      - 'Docs/**'
+      - '**/*.cs'
+      - '**/*.md'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are reviewing a pull request on a Unity 6 + VContainer + UniTask project.
+            Read .claude/CLAUDE.md first. Then invoke the code-review:code-review skill.
+            Focus on:
+              - VContainer / no-singleton compliance
+              - UniTask / no-coroutine compliance
+              - New Input System usage
+              - IEventBus vs Action vs C# event decision
+              - Test type correctness per .claude/rules/testing.md
+            Post a single consolidated review comment.
