@@ -68,6 +68,46 @@ batch_execute:
 
 Place the Canvas prefab under `[UI]` container per scene-hierarchy rules.
 
+## RectTransform Guard (NON-NEGOTIABLE)
+
+### UI GO Discriminator
+
+Bir GO'nun UI GO olduğunu iki sinyalle belirle:
+
+**PRIMARY (deterministik) — `parentPath`:**
+`parentPath` bir Canvas'ı veya Canvas child'ını işaret ediyorsa → UI GO → RectTransform zorunlu.
+
+**SECONDARY (destekleyici, parentPath belirsizse) — component adı:**
+Şu component'lerden biri ekleniyorsa → UI GO → RectTransform zorunlu:
+`Image`, `RawImage`, `Button`, `Toggle`, `Slider`, `TextMeshProUGUI`, `ScrollRect`, `InputField`, `CanvasGroup`
+
+> `TextMeshPro` (3D, UGUI suffix'i olmayan) UI sinyali DEĞİLDİR.
+
+### Zorunlu 3 Adım — Her UI GO İçin
+
+**Adım A — Canvas parentPath ile oluştur (ZORUNLU)**
+
+Hiçbir zaman GO'yu scene root'ta oluşturup sonra reparent etme. Her zaman Canvas veya Canvas child'ını parentPath olarak belirt.
+
+Unity, parentPath bir Canvas'a işaret ettiğinde otomatik olarak RectTransform atar.
+
+**Adım B — `manage_components` ile RectTransform özelliklerini set et**
+
+Bu adım RectTransform'un varlığını onaylar. Eğer Unity hata dönerse GO'da plain Transform var demektir — prefab kaydetme, önce düzelt.
+
+**Adım C — Prefab kaydetmeden önce `execute_code` ile doğrula**
+
+Console'da `LogError` görünürse → `manage_prefabs` çağrısını durdur, GO'yu düzelt.
+
+```csharp
+var go = GameObject.Find("YourGoPathHere");
+var rt = go != null ? go.GetComponent<RectTransform>() : null;
+if (rt == null)
+    Debug.LogError("[RectTransformGuard] RectTransform bulunamadı — prefab kaydetme!");
+else
+    Debug.Log("[RectTransformGuard] OK — RectTransform onaylandı.");
+```
+
 ### Step 3: Configure Layout
 
 - **CanvasScaler:** Scale With Screen Size, reference resolution 1920×1080
