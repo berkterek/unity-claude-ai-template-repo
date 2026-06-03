@@ -114,6 +114,20 @@ Detailed coding standards in `.claude/rules/`:
 
 @.claude/docs/hooks-warning.md
 
+### Subagent Lifecycle Hooks (SubagentStart / SubagentStop / TaskCompleted)
+
+Three hooks produce persistent JSONL audit files in `.claude/state/` — they fire automatically when multi-agent pipelines run (`/implement`, `/fix`, `/orchestrate`):
+
+| Hook | Event | Output |
+|------|-------|--------|
+| `agent-start-log.sh` | SubagentStart | `.claude/state/subagent-log.jsonl` — spawn record |
+| `agent-stop-log.sh` | SubagentStop | `.claude/state/subagent-log.jsonl` — stop record + `duration_approx_s` |
+| `task-completed-log.sh` | TaskCompleted | `.claude/state/task-log.jsonl` — success record |
+
+`session-save.sh` embeds all-time totals on every Stop: `session.json → subagent_summary.{spawned, stopped, tasks_completed}`.
+Payload note: SubagentStop carries **no `exit_code`**; TaskCompleted carries **no `status`** field — all three hooks are pure audit trail (exit 0 always).
+Full field reference and jq queries: `.claude/docs/hooks-warning.md → ## Subagent Audit Trail`.
+
 ## Commands (slash commands)
 
 @.claude/docs/commands.md

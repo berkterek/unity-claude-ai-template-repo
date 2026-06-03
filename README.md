@@ -557,6 +557,31 @@ npm install -g bats      # Linux
 | `block-projectsettings` (PreToolUse Edit\|Write) | Blocks direct edits to `ProjectSettings/*.asset`, `Packages/manifest.json`, and `packages-lock.json` — these files must be changed through the Unity Editor or Package Manager, not raw text edits **[MANUAL: add to settings.json]** |
 | `graph-auto-update` (PostToolUse Write\|Edit) | Incremental graph rebuild in background on file change — never blocks. Warns once per session when `scanned_files == 0` (empty graph) |
 | `verify-after-write` (PostToolUse Write\|Edit) | Runs `dotnet build` after each `.cs` write — prints WARNING to stderr if compile errors found; never blocks (exit 0). Reads `unity_project_folder` from `project-features.json` to locate `.sln`. MCP unavailable in bash hooks — dotnet CLI only. |
+| `agent-start-log` (SubagentStart) | Appends spawn record to `.claude/state/subagent-log.jsonl` — `agent_type`, `agent_id`, `session_id`, `started_at`. Advisory only (exit 2 not honoured on SubagentStart). |
+| `agent-stop-log` (SubagentStop) | Appends stop record with approximate duration to `.claude/state/subagent-log.jsonl`. Duration computed from matching SubagentStart timestamp; `-1` when no match. No `exit_code` in payload — pure audit trail. |
+| `task-completed-log` (TaskCompleted) | Appends success record to `.claude/state/task-log.jsonl` — `task_id`, `task_title`, `task_subject`, `team_name`. Fires on success only (no `status` field). |
+
+### Subagent Audit Trail
+
+`agent-start-log`, `agent-stop-log`, and `task-completed-log` together give visibility into multi-agent pipeline runs (`/implement`, `/fix`, `/orchestrate`):
+
+```bash
+# Which agents ran this session
+jq -rs '[.[] | select(.event=="SubagentStart") | .agent_type] | unique[]' .claude/state/subagent-log.jsonl
+
+# Slow agents (> 120 s)
+jq -s '[.[] | select(.event=="SubagentStop" and .duration_approx_s > 120)]' .claude/state/subagent-log.jsonl
+
+# Completed tasks
+jq -rs '[.[] | "\(.task_title) [\(.task_subject)]"] | .[]' .claude/state/task-log.jsonl
+```
+
+`session-save.sh` embeds totals into `session.json` on every Stop:
+```json
+"subagent_summary": { "spawned": 12, "stopped": 11, "tasks_completed": 5 }
+```
+
+Both JSONL files are persistent (not auto-expired) and gitignored. See `.claude/docs/hooks-warning.md → Subagent Audit Trail` for full field reference.
 
 ---
 
