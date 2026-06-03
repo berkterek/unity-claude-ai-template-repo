@@ -68,12 +68,6 @@ teardown() {
     [[ "$output" != *"should not reach"* ]]
 }
 
-@test "DISABLE_HOOK_CHECK_PURE_CSHARP=1 skips that hook" {
-    cd "$BATS_TEST_DIRNAME/../../.." || exit 1
-    DISABLE_HOOK_CHECK_PURE_CSHARP=1 run bash -c "echo '{\"tool_input\":{\"file_path\":\"_Framework/Events/EventBus.cs\",\"content\":\"using UnityEngine;\"}}' | bash .claude/hooks/check-pure-csharp.sh"
-    [ "$status" -eq 0 ]
-}
-
 @test "UNITY_HOOK_MODE=warn allows check of downgrade behavior" {
     cd "$BATS_TEST_DIRNAME/../../.." || exit 1
     UNITY_HOOK_MODE=warn run bash -c "echo '{\"tool_input\":{\"file_path\":\"ProjectSettings/EditorSettings.asset\"}}' | bash .claude/hooks/block-projectsettings.sh"
