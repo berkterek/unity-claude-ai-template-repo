@@ -45,17 +45,10 @@ fi
 # Check if the file has a Unity binary/YAML extension
 case "$FILE_PATH" in
     *.unity|*.prefab)
-        echo "BLOCKED: Direct editing of scene/prefab files corrupts serialized references." >&2
-        echo "" >&2
-        echo "  File: $FILE_PATH" >&2
-        echo "" >&2
-        echo "  Instead, use unity-mcp tools:" >&2
-        echo "    - manage_scene      → create/load/modify scenes" >&2
-        echo "    - manage_gameobject  → create/modify GameObjects" >&2
-        echo "    - manage_components  → add/configure components" >&2
-        echo "    - manage_prefabs     → create/edit prefabs" >&2
-        echo "    - batch_execute      → bundle multiple operations" >&2
-        exit 2
+        MSG="BLOCKED: Direct editing of scene/prefab files corrupts serialized references."$'\n'
+        MSG+="  File: $FILE_PATH"$'\n'
+        MSG+="  Instead, use unity-mcp tools: manage_scene, manage_gameobject, manage_prefabs"
+        unity_hook_block "$MSG"
         ;;
     *.asset)
         # Allow .asset files in Scripts/ or code-generated paths, block others
@@ -64,15 +57,10 @@ case "$FILE_PATH" in
                 exit 0
                 ;;
             *)
-                echo "BLOCKED: Direct editing of .asset files can corrupt serialized data." >&2
-                echo "" >&2
-                echo "  File: $FILE_PATH" >&2
-                echo "" >&2
-                echo "  Instead, use unity-mcp tools:" >&2
-                echo "    - manage_asset              → manage assets" >&2
-                echo "    - manage_scriptable_object   → edit ScriptableObjects" >&2
-                echo "    - manage_material            → edit materials" >&2
-                exit 2
+                MSG="BLOCKED: Direct editing of .asset files can corrupt serialized data."$'\n'
+                MSG+="  File: $FILE_PATH"$'\n'
+                MSG+="  Instead, use unity-mcp tools: manage_asset, manage_scriptable_object"
+                unity_hook_block "$MSG"
                 ;;
         esac
         ;;

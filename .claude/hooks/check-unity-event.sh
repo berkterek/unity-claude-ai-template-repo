@@ -84,9 +84,7 @@ if [ -n "$USING_UNITY_EVENTS" ]; then
 fi
 
 if [ -n "$ISSUES" ]; then
-    echo "UNITY EVENT ERROR in: $FILE_PATH"
-    echo -e "$ISSUES"
-    exit 2
+    unity_hook_block "UNITY EVENT ERROR in: $FILE_PATH"$'\n'"$(echo -e "$ISSUES")"
 fi
 
 exit 0
