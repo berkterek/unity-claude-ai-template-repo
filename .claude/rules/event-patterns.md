@@ -1,5 +1,89 @@
 # Event & Callback Patterns
 
+> Read the **Cards** section first. The prose below is reference detail.
+
+## Cards
+
+### Card 1: UnityEvent is Forbidden
+
+**WHEN:** Any time you need to notify another object of something.
+
+**WRONG:**
+```csharp
+[SerializeField] private UnityEvent _onScored;
+using UnityEngine.Events;
+_onScored.Invoke();
+```
+
+**RIGHT:** Use one of the three approved patterns (Cards 2–4 below). Never declare your own `UnityEvent` field.
+
+**GOTCHA:** `Button.onClick.AddListener(...)` in code is the only approved UnityEvent usage — it's a built-in Unity component. Wiring it in the Inspector (drag-drop) is still forbidden.
+
+---
+
+### Card 2: IEventBus for Cross-Module Communication
+
+**WHEN:** Two different modules (Audio ↔ Score, Player ↔ UI) need to communicate.
+
+**WRONG:**
+```csharp
+_scoreService.OnScoreChanged += _audioService.PlayCoinSound; // direct cross-module coupling
+```
+
+**RIGHT:**
+```csharp
+// Define: public struct CoinsChangedEvent : IEvent { public readonly int NewAmount; }
+_eventBus.Publish(new CoinsChangedEvent(amount));         // publisher
+_eventBus.Subscribe<CoinsChangedEvent>(OnCoinsChanged);   // subscriber in Initialize()
+_eventBus.Unsubscribe<CoinsChangedEvent>(OnCoinsChanged); // in Dispose()
+```
+
+**GOTCHA:** Always unsubscribe — `check-unitask-cancellation.sh` won't catch a missing Unsubscribe, but it will cause phantom callbacks and memory leaks after the subscriber is disposed.
+
+---
+
+### Card 3: System.Action for One-Time Callbacks
+
+**WHEN:** Passing a callback into a method or storing it briefly for one use.
+
+**WRONG:**
+```csharp
+[SerializeField] private UnityEvent _onComplete; // serialized callback = hidden dependency
+```
+
+**RIGHT:**
+```csharp
+public async UniTask LoadAsync(Action onComplete, CancellationToken ct)
+{
+    await _loader.LoadAsync(ct);
+    onComplete?.Invoke();
+}
+```
+
+**GOTCHA:** Don't store `Action` callbacks long-term across scenes — they hold a reference to the subscriber and prevent GC. Use IEventBus for persistent subscriptions.
+
+---
+
+### Card 4: C# event for Internal Module Notifications
+
+**WHEN:** A service notifies its own module's views/controllers (no cross-module boundary).
+
+**WRONG:**
+```csharp
+public static event Action<int> OnHealthChanged; // static = memory leak, breaks VContainer lifecycle
+```
+
+**RIGHT:**
+```csharp
+public sealed class HealthService : IHealthService
+{
+    public event Action<int> OnHealthChanged;
+    private void ApplyDamage(int dmg) { _hp -= dmg; OnHealthChanged?.Invoke(_hp); }
+}
+```
+
+**GOTCHA:** If the event is consumed by a class in a different module, it should be an IEventBus event instead.
+
 ## UnityEvent is FORBIDDEN (NON-NEGOTIABLE)
 
 `UnityEvent`, `UnityEvent<T>`, and `using UnityEngine.Events` are **blocked** by hook.

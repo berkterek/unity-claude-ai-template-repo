@@ -1,5 +1,119 @@
 # C# Style — Unity Conventions
 
+> Read the **Cards** section first. The prose below is reference detail.
+
+## Cards
+
+### Card 1: Naming — Game.Concretes.<Domain> Pattern
+
+**WHEN:** Creating any new class in the project.
+
+**WRONG:**
+```csharp
+namespace Scripts.Audio { public class AudioService { } }
+namespace GameAudio { public sealed class AudioSvc { } }
+```
+
+**RIGHT:**
+```csharp
+namespace Game.Concretes.Audio { public sealed class AudioService : IAudioService { } }
+namespace Game.Abstracts.Audio  { public interface IAudioService { } }
+```
+
+**GOTCHA:** The namespace follows the folder path — `_GameFolders/Scripts/Games/Concretes/Audio/` → `Game.Concretes.Audio`. Drop the underscore prefix, drop `Scripts/` and `Games/`.
+
+---
+
+### Card 2: Null Check — Never `?.` on UnityEngine.Object
+
+**WHEN:** Null-checking any MonoBehaviour, Component, or other Unity object.
+
+**WRONG:**
+```csharp
+_target?.TakeDamage(10);   // calls method on destroyed objects!
+if (_target is null) return; // misses destroyed objects
+```
+
+**RIGHT:**
+```csharp
+if (_target == null) return;  // Unity overrides == for destroyed objects
+_target.TakeDamage(10);
+```
+
+**GOTCHA:** `?.` uses C# reference equality — it does NOT return null for destroyed Unity objects. This is the #1 most subtle Unity bug.
+
+---
+
+### Card 3: UniTask Only — Never `Task` or `async void`
+
+**WHEN:** Writing any asynchronous method.
+
+**WRONG:**
+```csharp
+async Task LoadAsync() { }       // no Unity lifecycle integration
+async void Initialize() { }     // swallows exceptions silently
+IEnumerator Load() { yield return ...; } // coroutine — forbidden
+```
+
+**RIGHT:**
+```csharp
+async UniTask LoadAsync(CancellationToken ct) { }
+// fire-and-forget:
+LoadAsync(ct).Forget(ex => { if (ex is not OperationCanceledException) Debug.LogException(ex); });
+```
+
+**GOTCHA:** `async void` cannot be awaited or cancelled, and any exception thrown inside it is unhandled — the game crashes silently in production.
+
+---
+
+### Card 4: #region Discipline — Required in _GameFolders/Scripts/
+
+**WHEN:** Writing any class under `_GameFolders/Scripts/`.
+
+**WRONG:** No regions, or regions named after types instead of roles.
+
+**RIGHT:**
+```csharp
+#region Fields
+#region Constructor
+#region Lifecycle      // Awake, OnEnable, Start, OnDisable, OnDestroy
+#region Public Methods
+#region Private Methods
+```
+
+**GOTCHA:** Interface files, single-member structs/enums, and helper classes with < 3 methods are exempt.
+
+---
+
+### Card 5: Namespace Collision — UnityEngine Type Aliases
+
+**WHEN:** Creating a domain folder whose name matches a UnityEngine type (Camera, Random, Object, Input, Physics, Collider, Transform…).
+
+**WRONG:**
+```csharp
+namespace Game.Concretes.Camera
+{
+    public sealed class CameraService : ICameraService
+    {
+        private Camera _cam; // ambiguous — compiler can't distinguish Game.Concretes.Camera.Camera from UnityEngine.Camera
+    }
+}
+```
+
+**RIGHT:**
+```csharp
+using UCamera = UnityEngine.Camera;
+namespace Game.Concretes.Camera
+{
+    public sealed class CameraService : ICameraService
+    {
+        private UCamera _cam;
+    }
+}
+```
+
+**GOTCHA:** Check domain name against UnityEngine types before creating the folder. Add the alias to every `.cs` file in that domain.
+
 ## Naming Summary
 
 | Construct | Style | Example |
