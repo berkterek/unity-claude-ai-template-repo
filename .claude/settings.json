@@ -178,6 +178,17 @@
             "statusMessage": "Checking SPARC Gate..."
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-projectsettings.sh",
+            "timeout": 3000,
+            "statusMessage": "Checking ProjectSettings protection..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -438,6 +449,28 @@
             "command": ".claude/hooks/enforce-skill-for-keywords.sh",
             "timeout": 5000,
             "statusMessage": "Checking required skills for keywords..."
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/notify.sh",
+            "timeout": 3000
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-compact.sh",
+            "timeout": 5000
           }
         ]
       }
