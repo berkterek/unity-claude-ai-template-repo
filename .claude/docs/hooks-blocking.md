@@ -16,3 +16,6 @@
 | `gateguard.sh` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 | `guard-gate-cleared.sh` (PreToolUse) | Agent spawn blocked if `.claude/state/gate-cleared` is missing — Director Gate must be shown and `go` received before spawning any coder/fixer/committer agent |
 | `guard-reviewer-order.sh` | Codex installed and no `.claude/state/codex-reviewed` marker → blocks `unity-reviewer` agent spawn; Codex review required first. |
+| `block-projectsettings.sh` (PreToolUse Edit\|Write) | Direct edits to `ProjectSettings/*.asset`, `Packages/manifest.json`, `Packages/packages-lock.json` — use the Unity Editor or Package Manager instead. **[MANUAL: add to settings.json]** |
+
+@.claude/docs/hook-profiles.md

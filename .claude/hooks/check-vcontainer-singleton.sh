@@ -1,4 +1,7 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
+source "${SCRIPT_DIR}/_lib.sh"
 
 # --- Hook Audit Logging ---
 _hook_log() {
@@ -77,18 +80,10 @@ if [ -n "$DONT_DESTROY" ]; then
 fi
 
 if [ -n "$ISSUES" ]; then
-    echo "BLOCKED: Singleton pattern detected in: $FILE_PATH"
-    echo ""
-    echo "Violations:"
-    echo -e "$ISSUES"
-    echo ""
-    echo "Use VContainer instead:"
-    echo "  App-wide services → register in AppScope (Lifetime.Singleton)"
-    echo "  Scene-local       → register in MenuScope / GameScope"
-    echo ""
-    echo "Exception: ECS<->Mono static bridges must extend EventBusAccessor pattern."
-    echo "See .claude/rules/architecture.md for EventBusAccessor usage."
-    exit 2
+    MSG="Singleton pattern detected in: $FILE_PATH"$'\n'
+    MSG+="Violations:"$'\n'"$(echo -e "$ISSUES")"$'\n'
+    MSG+="Use VContainer instead (AppScope for app-wide, GameScope for scene-local)."
+    unity_hook_block "$MSG"
 fi
 
 exit 0

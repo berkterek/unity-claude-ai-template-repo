@@ -30,3 +30,6 @@
 .claude/state/stop-verify-batch.txt
 .claude/state/graph-updates.log
 .claude/state/pending-verify.txt
+.claude/state/last-notify.json
+.claude/state/precompact-state.md
+.claude/state/graph-empty-warned

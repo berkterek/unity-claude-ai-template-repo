@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
+source "${SCRIPT_DIR}/_lib.sh"
 # ============================================================================
 # guard-gate-cleared.sh — BLOCKING HOOK
 #
@@ -33,7 +36,8 @@ if ! echo "$SUBAGENT_TYPE" | grep -qE "$PIPELINE_AGENTS"; then
     exit 0  # Not a pipeline agent — allow through
 fi
 
-GATE_FILE=".claude/state/gate-cleared"
+STATE_DIR="${UNITY_HOOK_STATE_DIR:-.claude/state}"
+GATE_FILE="$STATE_DIR/gate-cleared"
 
 if [ ! -f "$GATE_FILE" ]; then
     echo "" >&2

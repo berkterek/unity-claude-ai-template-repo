@@ -6,11 +6,13 @@ This is a personal Unity development template for Claude Code. It enforces archi
 
 - `settings.json` cannot be edited by Claude — `check-config-protection.sh` blocks it. User must add hook entries manually after any new hook is created.
 - Hook exit 0 = warning only (pipeline continues). Exit 2 = blocking. A hook that only warns has minimal enforcement value.
+- **Hook profiles:** `UNITY_HOOK_PROFILE=minimal|standard|strict` (default: `standard`). `minimal` runs only 5 critical hooks; `standard` runs all standard-level hooks; `strict` adds heavy enforcement hooks. `DISABLE_UNITY_HOOKS=1` disables all hooks. `UNITY_HOOK_MODE=warn` downgrades blocking to warnings. Full profile docs: `.claude/docs/hook-profiles.md`.
 - `skills/genre/` and `skills/gameplay/` were removed. Use `/skill-creator` to generate project-specific genre/gameplay skills when needed.
 - `.claude/agents/*.md` files define agent roles and provide prompt overlays for built-in FleetView agent types. The `subagent_type` value is always the agent's filename without `.md` (e.g. `unity-coder`, `lean-planner`). See `.claude/docs/agents-index.md` for the full mapping table.
 - Command `/create-test-scene` was renamed to `/create-test`. Agent `unity-test-scene-builder` was renamed to `unity-test-builder`.
 - Claude's file tools (`Write`/`Edit`) cannot write `.unity` scene files — `block-scene-edit.sh` blocks this. **However, MCP tools (`manage_scene`, `manage_gameobject`, `manage_components`, `manage_build`) can create and wire scenes through the Unity Editor directly.** Always prefer MCP over listing manual Editor steps when MCP is connected.
 - `.claude/graph/graph.json` is generated — never edit by hand. Use `/build-knowledge-graph` to refresh.
+- Rule files under `.claude/rules/` start with a `## Cards` section (WHEN/WRONG/RIGHT/GOTCHA format). Read the cards first — the prose below each cards section is full reference detail.
 
 ## Knowledge Graph
 

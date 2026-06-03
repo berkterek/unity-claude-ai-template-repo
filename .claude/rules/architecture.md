@@ -1,5 +1,136 @@
 # Architecture Rules
 
+> Read the **Cards** section first. The prose below is reference detail.
+
+## Cards
+
+### Card 1: No Singletons
+
+**WHEN:** Writing or refactoring any service that needs to be accessed from multiple call sites.
+
+**WRONG:**
+```csharp
+public class AudioService : MonoBehaviour
+{
+    public static AudioService Instance { get; private set; }
+    private void Awake() => Instance = this;
+}
+```
+
+**RIGHT:**
+```csharp
+public interface IAudioService { void PlaySound(string id); }
+public sealed class AudioService : IAudioService { /* ... */ }
+// AudioInstaller.cs
+builder.Register<AudioService>(Lifetime.Singleton).AsImplementedInterfaces();
+```
+
+**GOTCHA:** `FindObjectOfType<AudioService>()` is a singleton in disguise — equally forbidden. Always resolve through constructor injection.
+
+---
+
+### Card 2: Provider Pattern for Unity API
+
+**WHEN:** A service needs to call Unity API (Physics, AudioSource, Transform, Screen, etc.).
+
+**WRONG:**
+```csharp
+public sealed class AudioService : IAudioService
+{
+    public void Play(string id) => AudioSource.PlayClipAtPoint(clip, Vector3.zero); // Unity API in service
+}
+```
+
+**RIGHT:**
+```csharp
+public sealed class AudioService : IAudioService
+{
+    private readonly IAudioProvider _provider;
+    public void Play(string id) => _provider.Play(id);
+}
+public sealed class BasicAudioProvider : MonoBehaviour, IAudioProvider
+{
+    [SerializeField] private AudioSource _source;
+    public void Play(AudioClip clip) => _source.PlayOneShot(clip);
+}
+```
+
+**GOTCHA:** If your service has `using UnityEngine`, you're leaking Unity API through the service layer. Move it to a Provider.
+
+---
+
+### Card 3: Module → Service → Installer → Scope Chain
+
+**WHEN:** Adding a new feature module (Audio, Score, Shop, etc.).
+
+**WRONG:** Registering directly in `AppScope.Configure()` or scattering registrations across multiple places.
+
+**RIGHT:**
+```
+[Module]Installer (sealed SO) → AppInstaller._modules list → AppScope calls AppInstaller
+```
+
+**GOTCHA:** `AppScope.cs` never changes — add modules exclusively via `AppInstaller.asset`. Touching AppScope for every new module breaks the open/closed pattern.
+
+---
+
+### Card 4: EventBus Crosses Modules; Action Stays Local
+
+**WHEN:** Deciding how two systems should communicate.
+
+**WRONG:**
+```csharp
+// direct reference across modules
+_scoreService.OnScoreChanged += UpdateUI; // tight coupling
+```
+
+**RIGHT:**
+```csharp
+// cross-module → IEventBus
+_eventBus.Subscribe<ScoreChangedEvent>(OnScoreChanged);
+// one-time callback → System.Action parameter
+// internal module notification → C# event keyword
+```
+
+**GOTCHA:** `UnityEvent` is forbidden entirely — not a valid choice in this decision tree.
+
+---
+
+### Card 5: One-Caller Rule — Don't Abstract Too Early
+
+**WHEN:** Tempted to create a new interface/module for a single caller.
+
+**WRONG:**
+```csharp
+public interface IScoreDisplayService { void Display(int score); }
+// Only ScoreView ever calls this — premature abstraction
+```
+
+**RIGHT:** Inject the concrete `ScoreModel` directly into `ScoreView` until a second caller exists.
+
+**GOTCHA:** Interface with ≤1 method AND ≤1 caller AND no real lifecycle = over-engineering. Add the interface only when a second caller arrives.
+
+---
+
+### Card 6: GameScope vs ModuleInstaller Boundary
+
+**WHEN:** Deciding where to put a registration in the scene-specific scope.
+
+**WRONG:**
+```csharp
+// GameScope doing service wiring (belongs in ModuleInstaller)
+builder.Register<PlayerService>(Lifetime.Singleton);
+```
+
+**RIGHT:**
+```csharp
+// GameScope registers scene components only
+builder.RegisterComponent(_playerView);    // scene MonoBehaviour
+// Service wiring → PlayerInstaller via AppInstaller.asset
+```
+
+**GOTCHA:** If the registration doesn't reference a scene object (`RegisterComponent`), it belongs in a `ModuleInstaller`, not `GameScope`.
+
 ## Core Principle: Dependency Direction
 
 ```

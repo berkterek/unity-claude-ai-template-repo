@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
+source "${SCRIPT_DIR}/_lib.sh"
 
 # --- Hook Audit Logging ---
 _hook_log() {

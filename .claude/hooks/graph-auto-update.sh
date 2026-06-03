@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
+source "${SCRIPT_DIR}/_lib.sh"
 # graph-auto-update.sh — PostToolUse hook: incremental graph rebuild on Write/Edit.
 # Non-blocking: launches graph-builder.sh in background, always exits 0.
 # Execution context: Claude Code host process — Unity Editor NOT required.
@@ -42,6 +45,29 @@ except Exception:
 " 2>/dev/null || echo "false")
 
 [[ "$GRAPH_ENABLED" == "true" ]] || exit 0
+
+# --- Graph empty-state warning (once per session) ---
+GRAPH_JSON=".claude/graph/graph.json"
+_STATE_DIR="${UNITY_HOOK_STATE_DIR:-.claude/state}"
+WARN_SENTINEL="$_STATE_DIR/graph-empty-warned"
+if [[ -f "$GRAPH_JSON" && ! -f "$WARN_SENTINEL" ]]; then
+    SCANNED=$(python3 -c "
+import json
+try:
+    d = json.load(open('$GRAPH_JSON'))
+    print(d.get('codebase', {}).get('scanned_files', 0))
+except Exception:
+    print(0)
+" 2>/dev/null || echo "0")
+
+    if [[ "$SCANNED" = "0" ]]; then
+        mkdir -p "$_STATE_DIR"
+        touch "$WARN_SENTINEL"
+        echo "WARNING (graph-auto-update): graph.json reports scanned_files=0 — graph is empty." >&2
+        echo "  Run: /build-knowledge-graph to populate it, or disable the 'graph' feature in .claude/project-features.json." >&2
+        echo "graph-auto-update: empty graph (scanned_files=0)" >> "$_STATE_DIR/session-warnings.txt"
+    fi
+fi
 
 # ── Builder existence check ────────────────────────────────────────────────────
 BUILDER=".claude/graph/graph-builder.sh"

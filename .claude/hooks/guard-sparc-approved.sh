@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
+source "${SCRIPT_DIR}/_lib.sh"
 # PreToolUse hook — SPARC gate guard for coder agent spawns
 # Trigger tool: Agent | Gated: coder, unity-coder, unity-coder-lite
 # State file: .claude/state/sparc-approved (independent of gate-cleared)

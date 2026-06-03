@@ -1,0 +1,55 @@
+# .claudeignore — files Claude Code should never read or include in context.
+# Mirrors .gitignore for Unity-generated trees that waste tokens.
+
+# Unity generated
+Library/
+Temp/
+Logs/
+obj/
+Build/
+Builds/
+MemoryCaptures/
+UserSettings/
+
+# IDE
+.vs/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userosscache
+*.unityproj
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude state (large, ephemeral)
+.claude/state/session-cost.jsonl
+.claude/state/instincts/observations.jsonl
+.claude/state/gateguard-reads.txt
+.claude/state/gateguard-facts-passed.txt
+.claude/state/gateguard-facts-denied.txt
+.claude/state/skills-invoked.txt
+.claude/state/session-edits.txt
+.claude/state/session-warnings.txt
+.claude/state/stop-verify-batch.txt
+.claude/state/graph-updates.log
+
+# Knowledge graph raw outputs (use slash commands to query instead)
+.claude/graph/*.tmp
+.claude/graph/build/
+
+# Large assets
+*.fbx
+*.psd
+*.tif
+*.tga
+*.wav
+*.mp3
+*.ogg
+*.mov
+*.mp4
+*.exr
+*.hdr

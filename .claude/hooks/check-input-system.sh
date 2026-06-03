@@ -1,4 +1,7 @@
 #!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
+source "${SCRIPT_DIR}/_lib.sh"
 
 # --- Hook Audit Logging ---
 _hook_log() {
@@ -129,14 +132,11 @@ if [ -n "$BARE_ASSET" ]; then
 fi
 
 if [ -n "$ISSUES" ]; then
-    # Check if any issue is BLOCKING
     if echo "$ISSUES" | grep -q "BLOCKING"; then
-        echo "INPUT SYSTEM ERROR in: $FILE_PATH"
-        echo -e "$ISSUES"
-        exit 2
+        unity_hook_block "INPUT SYSTEM ERROR in: $FILE_PATH"$'\n'"$(echo -e "$ISSUES")"
     else
-        echo "Input System issues in: $FILE_PATH"
-        echo -e "$ISSUES"
+        echo "Input System issues in: $FILE_PATH" >&2
+        echo -e "$ISSUES" >&2
         exit 0
     fi
 fi

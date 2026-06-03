@@ -1,5 +1,83 @@
 # Prefab Rules (NON-NEGOTIABLE)
 
+> Read the **Cards** section first. The prose below is reference detail.
+
+## Cards
+
+### Card 1: new GameObject() is Forbidden
+
+**WHEN:** Creating any GameObject at runtime.
+
+**WRONG:**
+```csharp
+var go = new GameObject("Enemy");
+var go = new GameObject("Bullet", typeof(Rigidbody));
+```
+
+**RIGHT:**
+```csharp
+var instance = Instantiate(_prefab, position, rotation);
+// Addressables:
+var instance = await Addressables.InstantiateAsync(address).ToUniTask(ct);
+```
+
+**GOTCHA:** Even Pool, Factory, and Spawner classes cannot use `new GameObject()`. Every object must originate from a prefab. `check-no-runtime-instantiate.sh` blocks this with exit 2.
+
+---
+
+### Card 2: Destroy() Rules — Prefer Pool Return
+
+**WHEN:** Removing a GameObject from the scene.
+
+**WRONG:**
+```csharp
+Destroy(pooledEnemy); // outside pool class — leaks the pool slot
+```
+
+**RIGHT:**
+```csharp
+_pool.Return(enemy);        // return to pool
+enemy.SetActive(false);     // alternative pool return pattern
+// only in Pool/Manager shutdown:
+Destroy(gameObject);
+```
+
+**GOTCHA:** `Destroy()` on Addressables instances must use `Addressables.ReleaseInstance()` instead, or you'll leak the handle and get a memory leak.
+
+---
+
+### Card 3: BaseCanvas Pattern — Never Duplicate Canvas Setup
+
+**WHEN:** Creating any Canvas prefab (HUD, popup, overlay, joystick).
+
+**WRONG:** Creating separate Canvas prefabs that each have their own `Canvas + CanvasScaler + GraphicRaycaster` setup with potentially different CanvasScaler reference resolutions.
+
+**RIGHT:**
+```
+BaseCanvas.prefab  ← Canvas + CanvasScaler (reference 1080×1920) + GraphicRaycaster
+├── CanvasHUD.prefab      ← variant, sortingOrder 0
+├── CanvasPopup.prefab    ← variant, sortingOrder 100
+└── CanvasOverlay.prefab  ← variant, sortingOrder 10
+```
+
+**GOTCHA:** If one Canvas drifts to a different reference resolution, layouts break on certain screen sizes with no error message. Enforce once in `BaseCanvas`, inherit everywhere.
+
+---
+
+### Card 4: Prefab Variants — Base vs Separate Decision
+
+**WHEN:** Two GameObjects share most of their component structure.
+
+**WRONG:** Copy-pasting a prefab and tweaking it — the two copies diverge silently over time.
+
+**RIGHT:**
+| Situation | Decision |
+|-----------|----------|
+| Same component set, 1–2 fields differ | Base + Variant |
+| Completely different component structure | Separate prefab |
+
+**GOTCHA:** Prefab Variants only make sense when the base is stable. If you find yourself overriding every property on every variant, make separate prefabs instead.
+
 Every GameObject placed in a scene must be an instance of a prefab. Bare (non-prefab) GameObjects are forbidden — except scene separators/organizers (empty GameObjects used purely as hierarchy dividers with no components).
 
 **Why:** Bare GameObjects cannot be reused, are hard to maintain across scenes, and break Addressables-based spawning.
