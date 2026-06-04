@@ -189,6 +189,17 @@
             "statusMessage": "Checking ProjectSettings protection..."
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/agent-start-log.sh",
+            "timeout": 2000,
+            "statusMessage": "Logging agent spawn..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -386,6 +397,17 @@
             "statusMessage": "Tracking skill invocation..."
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/agent-stop-log.sh",
+            "timeout": 3000,
+            "statusMessage": "Logging agent stop..."
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -437,7 +459,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"UserPromptSubmit\", \"additionalContext\": \"REMINDER: Before responding or taking any action, check if any skill in the available-skills list might apply — even 1% chance means invoke it. This is NON-NEGOTIABLE per using-superpowers skill.\"}}'",
+            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"UserPromptSubmit\", \"additionalContext\": \"REMINDER: Before responding or taking any action, check if any skill in the available-skills list might apply \u2014 even 1% chance means invoke it. This is NON-NEGOTIABLE per using-superpowers skill.\"}}'",
             "timeout": 5
           }
         ]
@@ -471,30 +493,6 @@
             "type": "command",
             "command": ".claude/hooks/pre-compact.sh",
             "timeout": 5000
-          }
-        ]
-      }
-    ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/agent-start-log.sh",
-            "timeout": 2000,
-            "statusMessage": "Logging agent spawn..."
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/agent-stop-log.sh",
-            "timeout": 3000,
-            "statusMessage": "Logging agent stop..."
           }
         ]
       }

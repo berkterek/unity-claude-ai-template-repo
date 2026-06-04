@@ -1,15 +1,26 @@
 #!/usr/bin/env bash
-# agent-stop-log.sh — SubagentStop hook
-# Trigger: SubagentStop | Exit: 0 always (no exit_code in payload — pure audit trail) | Profile: standard
+# agent-stop-log.sh — PostToolUse/Agent hook
+# Trigger: PostToolUse | Matcher: Agent | Exit: 0 always (audit trail only) | Profile: standard
+#
+# SubagentStop native event is unreliable in Claude Code — it does not fire consistently.
+# Using PostToolUse/Agent instead, which is guaranteed to trigger after every Agent call.
+# Duration is calculated by matching description against the SubagentStart entry written
+# by agent-start-log.sh (PreToolUse/Agent). description is unique per Agent invocation.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK_PROFILE_LEVEL="standard"
 source "${SCRIPT_DIR}/_lib.sh"
 
 INPUT=$(cat)
-AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // "unknown"')
-AGENT_ID=$(echo "$INPUT"   | jq -r '.agent_id   // "unknown"')
-SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
+
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+if [ "$TOOL_NAME" != "Agent" ]; then
+    exit 0
+fi
+
+AGENT_TYPE=$(echo "$INPUT"   | jq -r '.tool_input.subagent_type // "unknown"')
+DESCRIPTION=$(echo "$INPUT"  | jq -r '.tool_input.description   // "unknown"')
+SESSION_ID=$(echo "$INPUT"   | jq -r '.session_id               // "unknown"')
 
 STOPPED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 STOPPED_EPOCH=$(date +%s)
@@ -17,8 +28,8 @@ SUBAGENT_LOG="${UNITY_HOOK_STATE_DIR}/subagent-log.jsonl"
 
 DURATION_APPROX_S=-1
 if [ -f "$SUBAGENT_LOG" ]; then
-    START_TS=$(jq -rs --arg id "$AGENT_ID" \
-        '[.[] | select(.event=="SubagentStart" and .agent_id==$id)] | last | .started_at // empty' \
+    START_TS=$(jq -rs --arg desc "$DESCRIPTION" \
+        '[.[] | select(.event=="SubagentStart" and .description==$desc)] | last | .started_at // empty' \
         "$SUBAGENT_LOG" 2>/dev/null || true)
     if [ -n "$START_TS" ]; then
         START_EPOCH=$(date -u -d "$START_TS" +%s 2>/dev/null \
@@ -33,12 +44,12 @@ fi
 jq -nc \
     --arg  event         "SubagentStop" \
     --arg  agent_type    "$AGENT_TYPE" \
-    --arg  agent_id      "$AGENT_ID" \
+    --arg  description   "$DESCRIPTION" \
     --arg  session_id    "$SESSION_ID" \
     --argjson duration   "$DURATION_APPROX_S" \
     --arg  stopped_at    "$STOPPED_AT" \
     --arg  logged_at     "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-    '{event:$event, agent_type:$agent_type, agent_id:$agent_id, session_id:$session_id, duration_approx_s:$duration, stopped_at:$stopped_at, logged_at:$logged_at}' \
+    '{event:$event, agent_type:$agent_type, description:$description, session_id:$session_id, duration_approx_s:$duration, stopped_at:$stopped_at, logged_at:$logged_at}' \
     >> "$SUBAGENT_LOG"
 
 exit 0
