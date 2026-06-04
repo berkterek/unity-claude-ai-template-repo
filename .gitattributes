@@ -1,0 +1,64 @@
+# Normalize all text files to LF on commit
+* text=auto eol=lf
+
+# C# and Unity source files
+*.cs text eol=lf
+*.shader text eol=lf
+*.hlsl text eol=lf
+*.cginc text eol=lf
+*.glsl text eol=lf
+*.compute text eol=lf
+
+# Unity YAML files — use UnityYAMLMerge for smart scene/prefab merging
+*.unity merge=unityyamlmerge eol=lf
+*.prefab merge=unityyamlmerge eol=lf
+*.asset merge=unityyamlmerge eol=lf
+*.mat merge=unityyamlmerge eol=lf
+*.physicsMaterial merge=unityyamlmerge eol=lf
+*.physicsMaterial2D merge=unityyamlmerge eol=lf
+*.overrideController merge=unityyamlmerge eol=lf
+*.controller merge=unityyamlmerge eol=lf
+*.anim merge=unityyamlmerge eol=lf
+
+# Meta files — always text, always LF
+*.meta text eol=lf
+
+# Config / data files
+*.json text eol=lf
+*.xml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.txt text eol=lf
+*.md text eol=lf
+*.asmdef text eol=lf
+*.asmref text eol=lf
+*.inputactions text eol=lf
+
+# Binary files — never convert, never merge
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.tga binary
+*.tiff binary
+*.psd binary
+*.pdf binary
+*.fbx binary
+*.obj binary
+*.3ds binary
+*.mp3 binary
+*.ogg binary
+*.wav binary
+*.mp4 binary
+*.mov binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.a binary
+*.lib binary
+*.unitypackage binary
+*.bytes binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.7z binary

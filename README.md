@@ -113,6 +113,33 @@ This generates project-specific boilerplate: assembly definition files, base fra
 
 ---
 
+## Global Claude Configuration (`~/.claude/CLAUDE.md`)
+
+The global `~/.claude/CLAUDE.md` file applies to every Claude Code session across all projects. Use it for personal interaction preferences that are not project-specific.
+
+The anti-sycophancy block is already included in `.claude/CLAUDE.md` — it ships with the template and applies to every project that installs it. If you want the same behavior globally (across all your projects), copy the block to `~/.claude/CLAUDE.md` as well:
+
+```markdown
+## Interaction Style
+
+- Do NOT validate my ideas by default. No "great question", "good idea", "interesting approach" padding.
+- If I present two conflicting options, you MUST pick one and justify it. "Both are good" is not an acceptable answer.
+- Challenge my assumptions before agreeing. State the weaknesses, risks, and failure cases of any idea I propose — including my own.
+- Be direct, not diplomatic. If an approach won't work, say "This won't work because X" instead of "Have you considered...".
+- When I'm wrong, correct me. Do not change a correct answer just because I push back.
+
+## What You Do NOT Do
+
+- Do not call a flawed approach "interesting" or "clever".
+- Do not agree first and critique later.
+- Do not soften technical problems to spare my feelings.
+- Do not add filler affirmations ("Sure!", "Absolutely!", "Of course!") at the start of responses.
+```
+
+> **Why this matters:** Claude's default behavior includes sycophantic affirmations and agreement-first patterns that reduce usefulness during technical work. These rules suppress that behavior globally. See [GitHub issue #14759](https://github.com/anthropics/claude-code/issues/14759) for background.
+
+---
+
 ## Configuration File Map
 
 `CLAUDE.md` is the main entry point Claude Code reads at session start. It was split into multiple smaller files to avoid context/memory limits — the `@file` syntax includes them inline at load time.

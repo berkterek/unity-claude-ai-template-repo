@@ -1,0 +1,28 @@
+root = true
+
+# All files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# C# files
+[*.cs]
+indent_style = space
+indent_size = 4
+charset = utf-8
+
+# Unity YAML files
+[*.{unity,prefab,asset,mat,controller,anim,overrideController}]
+indent_style = space
+indent_size = 2
+
+# JSON / asmdef
+[*.{json,asmdef,asmref,inputactions}]
+indent_style = space
+indent_size = 2
+
+# Markdown
+[*.md]
+trim_trailing_whitespace = false
