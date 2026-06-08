@@ -346,7 +346,7 @@ fi
 # ── Path Drift Detector — validate retained prefab paths against disk ────────
 STALE_PATH_WARNINGS="[]"
 if [[ "$MCP_PREFABS" != "[]" && "$MCP_PREFABS" != "null" ]]; then
-  STALE_PATH_WARNINGS=$(MCP_PREFABS_JSON="$MCP_PREFABS" UNITY_FOLDER="$UNITY_FOLDER" python3 <<'PYEOF'
+  STALE_PATH_WARNINGS=$(MCP_PREFABS_JSON="$MCP_PREFABS" UNITY_FOLDER="$UNITY_FOLDER" QUIET="${QUIET:-0}" python3 <<'PYEOF'
 import json, os, sys
 prefabs = json.loads(os.environ['MCP_PREFABS_JSON'])
 unity_folder = os.environ.get('UNITY_FOLDER', '.')
@@ -361,7 +361,7 @@ for p in prefabs:
             "message": "Prefab path no longer exists on disk: " + path,
             "entity": p.get("name", "?")
         })
-if warnings:
+if warnings and os.environ.get('QUIET', '0') != '1':
     print("graph-builder: STALE_PREFAB_PATH — " + str(len(warnings)) + " stale prefab(s) detected. Run /build-knowledge-graph with MCP to refresh.", file=sys.stderr)
 print(json.dumps(warnings))
 PYEOF
@@ -491,8 +491,13 @@ mv "$CACHE_TMP" "$CACHE_FILE"
 # ── Call-graph finalization ───────────────────────────────────────────────────
 TRAVERSAL_PY="$(dirname "$0")/graph-traversal.py"
 if command -v python3 >/dev/null 2>&1 && [[ -f "$TRAVERSAL_PY" ]]; then
-  python3 "$TRAVERSAL_PY" --finalize-calls --graph "$OUTPUT" \
-    || echo "graph-builder: call-graph finalization failed (non-fatal)" >&2
+  if [[ $QUIET -eq 1 ]]; then
+    python3 "$TRAVERSAL_PY" --finalize-calls --graph "$OUTPUT" 2>/dev/null \
+      || true
+  else
+    python3 "$TRAVERSAL_PY" --finalize-calls --graph "$OUTPUT" \
+      || echo "graph-builder: call-graph finalization failed (non-fatal)" >&2
+  fi
 else
   echo "graph-builder: python3 or graph-traversal.py not found — skipping call-graph finalization (impact/path/god-nodes queries will be unavailable)" >&2
 fi
