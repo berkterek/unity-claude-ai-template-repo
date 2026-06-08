@@ -35,3 +35,8 @@
 .claude/state/last-notify.json
 .claude/state/precompact-state.md
 .claude/state/graph-empty-warned
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
