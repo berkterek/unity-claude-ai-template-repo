@@ -1,6 +1,6 @@
 # Knowledge Graph
 
-The template ships with a Graphify-inspired knowledge graph at `.claude/graph/graph.json` (schema v1.1.0).
+The template ships with a Graphify-inspired knowledge graph at `.claude/graph/graph.json` (schema v1.2.0).
 Opt-in via `project-features.json` (`"graph": true`). When enabled, it is the single source of truth
 for `/catch-up`, `/orchestrate` pre-scan, and `/context-prime`.
 
@@ -82,3 +82,42 @@ These MCP tool behaviors were discovered during live Editor testing — they dif
 | `VContainer.Unity.ParentReference` | Is a **struct** — `!= null` won't compile in CodeDom. Use `.TypeName` (string) field; empty string = no parent. |
 
 Full working code snippets for all patterns: see `.claude/graph/extractors/mcp-extractor.md`.
+
+
+## v1.2.0 Fields (new in Graph Module v2)
+
+| Field | jq path | Description |
+|-------|---------|-------------|
+| Communities | `.codebase.communities` | Class community groups from `graph_cluster.py` |
+| Surprising connections | `.analysis.surprising_connections` | Cross-scope/assembly/community call edges |
+| Enhanced god-nodes | `.analysis.enhanced_god_nodes` | God-nodes enriched with `community_id` and `severity` |
+| Accuracy report | `.validation.accuracy` | Extraction accuracy spot-check vs source files |
+
+### graph_cluster.py
+
+New in v1.2.0. Detects class communities from call edges using greedy modularity (stdlib) or Louvain (via optional `networkx`). Writes `codebase.communities[]`.
+
+- `algorithm: "greedy-modularity-stdlib"` — default, no pip install needed
+- `algorithm: "louvain-networkx"` — higher quality; requires `pip install networkx`
+
+### graph_analyze.py
+
+New in v1.2.0. Classifies surprising cross-boundary edges and enriches god-nodes with community data.
+
+- `CROSS_SCOPE` → severity `warning` (two classes in different VContainer scopes calling each other directly)
+- `CROSS_ASSEMBLY` → severity `info`
+- `CROSS_COMMUNITY` → severity `info`
+
+### graph_validate.py
+
+New in v1.2.0. Spot-checks graph accuracy against source files. Default: sample 20 classes, seed 42.
+
+- `validation.accuracy.agreement_pct` — percentage of checks that matched source
+- If `< 90%`, `low_accuracy_warning: true` and a `warning_message` recommend `--full` rebuild
+- **Never touches `validation.warnings[]`** — that array is owned by `graph-validator.sh`
+
+### Query cheatsheet additions (v1.2.0)
+
+- "Which classes form a module?" → `/knowledge-graph communities`
+- "Architecture drifting where?" → `/knowledge-graph surprising`
+- "God-nodes with community context?" → `/knowledge-graph god-nodes` (now uses `analysis.enhanced_god_nodes[]` when present)

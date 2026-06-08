@@ -220,7 +220,24 @@ def cmd_god_nodes(args, ctx):
     g, fwd, rev, edges = ctx
     require_edges(fwd, rev, "god-nodes")
 
-    # Build file lookup from classes[]
+    # Prefer pre-computed enriched data from graph_analyze.py when available
+    enhanced = g.get("analysis", {}).get("enhanced_god_nodes", [])
+    if enhanced:
+        ranked = sorted(enhanced, key=lambda n: -n.get("total", 0))[: args.top]
+        if args.json:
+            print(json.dumps(ranked, indent=2))
+        else:
+            print(f"Top {len(ranked)} nodes by degree (in+out):")
+            header = f"  {'NODE':<50}  {'IN':>5}  {'OUT':>5}  {'TOTAL':>7}  {'COMM':>6}  SEV"
+            print(header)
+            print("  " + "-" * (len(header) - 2))
+            for r in ranked:
+                comm = str(r.get("community_id", "?"))
+                sev = r.get("severity", "info")
+                print(f"  {r['node']:<50}  {r['in']:>5}  {r['out']:>5}  {r['total']:>7}  {comm:>6}  {sev}")
+        return
+
+    # Legacy fallback: degree-only computation (unchanged behaviour)
     file_map = {}
     for cls in g.get("codebase", {}).get("classes", []):
         name = cls.get("name")

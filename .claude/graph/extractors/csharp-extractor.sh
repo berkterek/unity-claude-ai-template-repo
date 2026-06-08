@@ -57,6 +57,21 @@ else
   done < <(find "${FIND_OPTS[@]}" -name '*.cs' -print0 2>/dev/null)
 fi
 
+# ── Python/tree-sitter preflight ────────────────────────────────────────────
+# If csharp_extractor.py succeeds (tree-sitter available), use its EXTRACTED output and exit.
+# On exit 2 (tree-sitter unavailable) or any other non-zero, fall through to regex pipeline.
+_EXTRACTOR_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if command -v python3 >/dev/null 2>&1 && [[ -f "$_EXTRACTOR_DIR/csharp_extractor.py" ]]; then
+  TS_OUT=""
+  TS_EXIT=0
+  TS_OUT=$(python3 "$_EXTRACTOR_DIR/csharp_extractor.py" \
+    --changed-files "$CHANGED_FILES" 2>/dev/null) || TS_EXIT=$?
+  if [[ $TS_EXIT -eq 0 && -n "$TS_OUT" ]]; then
+    echo "$TS_OUT"; exit 0
+  fi
+  # TS_EXIT=2 means tree-sitter unavailable → fall through to regex (INFERRED)
+fi
+
 # ── Regex extraction helpers ────────────────────────────────────────────────
 
 extract_classes() {

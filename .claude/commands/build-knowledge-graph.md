@@ -118,18 +118,22 @@ If `--validate-with-codex` set:
 Print:
 ```
 graph.json updated
-  Classes:    <n>
-  Interfaces: <n>
-  Events:     <n>
-  Installers: <n>
-  Assemblies: <n>
-  Scenes:     <n>
-  Prefabs:    <n>
-  Cache hits: <n> / <total>
-  Build time: <ms>ms
-  MCP status: ok | skipped (<reason>)
-  Validation: <n errors>, <n warnings>
+  Classes:      <n>  (Methods: <n>)
+  Interfaces:   <n>
+  Events:       <n>
+  Installers:   <n>
+  Assemblies:   <n>
+  Scenes:       <n>
+  Prefabs:      <n>
+  Cache hits:   <n> / <total>
+  Build time:   <ms>ms
+  MCP status:   ok | skipped (<reason>)
+  Validation:   <n errors>, <n warnings>
+  Communities:  <n>
+  Accuracy:     <pct>%   ← if < 90%, run --full
 ```
+
+If `Accuracy < 90%`, recommend re-running with `--full` to force a complete re-extraction.
 
 If `graph.json.bak` exists, show a one-line diff:
 ```bash

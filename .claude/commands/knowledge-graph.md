@@ -254,6 +254,49 @@ jq '[.codebase.calls[] | .caller, .callee]
     | sort_by(-.count) | .[0:10]' .claude/graph/graph.json
 ```
 
+### communities [--scope \<ScopeName\>]
+
+List all detected community groups (class clusters identified by `graph_cluster.py`).
+Each community shows its top 5 members; full member list available via jq.
+
+**Requires:** `codebase.communities[]` — absent on graphs built without call edges or before a v1.2.0 build.
+
+```bash
+# All communities
+jq '(.codebase.communities // []) | map({id, label, size, scope, algorithm, members: .members[0:5]})' .claude/graph/graph.json
+```
+
+```bash
+# Filter by VContainer scope
+jq '(.codebase.communities // []) | map(select(.scope == "<ScopeName>"))
+    | map({id, label, size, members})' .claude/graph/graph.json
+```
+
+Empty-state message: if `codebase.communities` is missing or `[]`, communities have not yet been computed — run `/build-knowledge-graph` to trigger `graph_cluster.py`.
+
+---
+
+### surprising [--severity warning|info] [--limit N]
+
+List cross-boundary call edges that indicate architectural drift.
+Default: warnings first, limit 20. Reasons: `CROSS_SCOPE` (warning), `CROSS_ASSEMBLY` (info), `CROSS_COMMUNITY` (info).
+
+**Requires:** `analysis.surprising_connections[]` — computed by `graph_analyze.py` after clustering.
+
+```bash
+# All surprising connections (warnings first, limit 20)
+jq '(.analysis.surprising_connections // [])
+    | sort_by(.severity != "warning") | .[0:20]' .claude/graph/graph.json
+```
+
+```bash
+# Filter by severity
+jq '(.analysis.surprising_connections // [])
+    | map(select(.severity == "warning"))' .claude/graph/graph.json
+```
+
+Empty-state message: if `analysis` is missing or `surprising_connections` is `[]`, either no cross-boundary edges exist (healthy codebase) or `graph_analyze.py` has not run yet — rebuild with `/build-knowledge-graph`.
+
 ---
 
 ## When to use which
@@ -267,3 +310,5 @@ jq '[.codebase.calls[] | .caller, .callee]
 | "Who implements this interface?" | `implementers` |
 | "Which installer registers this type?" | `registrations` |
 | "Who publishes/subscribes to this event?" | `publishers` / `subscribers` |
+| "Which classes form a module?" | `communities` |
+| "Architecture drifting where?" | `surprising` |

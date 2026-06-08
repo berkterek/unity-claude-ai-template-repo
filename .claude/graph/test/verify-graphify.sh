@@ -513,7 +513,73 @@ run_known_fail_bugs() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
-# T9 — Report
+# T9 — V2 Module Tests
+# ──────────────────────────────────────────────────────────────────────────────
+run_v2_module_tests() {
+  section "T9 — V2 Modules (graph_cluster / graph_analyze / graph_validate / csharp_extractor)"
+
+  local WORK_GRAPH="$SCRIPT_DIR/.work/graph_v2_test.json"
+
+  # Build a fresh graph into the work file
+  bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+
+  # 9.1 — schema version
+  local sv; sv=$(jq -r '.schema_version // "missing"' "$WORK_GRAPH" 2>/dev/null || echo "missing")
+  [[ "$sv" == "1.2.0" ]] && pass "schema_version = 1.2.0" \
+                           || fail "schema_version is $sv (expected 1.2.0)"
+
+  # 9.2 — communities present (only required when call edges exist)
+  local call_count; call_count=$(jq '.codebase.calls | length' "$WORK_GRAPH" 2>/dev/null || echo 0)
+  if [[ "$call_count" -gt 0 ]]; then
+    local comm_count; comm_count=$(jq '(.codebase.communities // []) | length' "$WORK_GRAPH" 2>/dev/null || echo 0)
+    [[ "$comm_count" -ge 1 ]] && pass "communities[] has $comm_count entries" \
+                               || fail "expected ≥1 community, got $comm_count"
+  else
+    pass "no call edges — communities[] skip expected (graceful)"
+  fi
+
+  # 9.3 — analysis block present (graceful on empty repo)
+  if jq -e '.analysis' "$WORK_GRAPH" >/dev/null 2>&1; then
+    pass "analysis{} block present"
+  else
+    known_fail "analysis{} missing" "no call edges in repo — graph_analyze writes empty block only when communities exist"
+  fi
+
+  # 9.4 — graph_validate.py is deterministic with --seed 42
+  python3 "$GRAPH_DIR/graph_validate.py" --graph "$WORK_GRAPH" --sample 5 --seed 42 2>/dev/null || true
+  local p1; p1=$(jq -r '.validation.accuracy.agreement_pct // "missing"' "$WORK_GRAPH" 2>/dev/null || echo "missing")
+  python3 "$GRAPH_DIR/graph_validate.py" --graph "$WORK_GRAPH" --sample 5 --seed 42 2>/dev/null || true
+  local p2; p2=$(jq -r '.validation.accuracy.agreement_pct // "missing"' "$WORK_GRAPH" 2>/dev/null || echo "missing")
+  [[ "$p1" == "$p2" ]] && pass "graph_validate.py deterministic ($p1%)" \
+                        || fail "non-deterministic: $p1 vs $p2"
+
+  # 9.5 — csharp_extractor.py exits 2 when tree-sitter unavailable
+  local ts_exit=0
+  PYTHONPATH=/nonexistent python3 "$GRAPH_DIR/extractors/csharp_extractor.py" \
+    --changed-files "x.cs" 2>/dev/null || ts_exit=$?
+  if [[ "$ts_exit" -eq 2 ]]; then
+    pass "csharp_extractor.py exits 2 when tree-sitter absent"
+  else
+    known_fail "csharp_extractor.py exit $ts_exit (expected 2)" \
+      "tree-sitter may already be installed in this environment"
+  fi
+
+  # 9.6 — builder exits 0 even when graph_cluster.py is missing (graceful degradation)
+  local SANDBOX_DIR; SANDBOX_DIR=$(mktemp -d)
+  local work2="$SCRIPT_DIR/.work/graph_v2_missing_cluster.json"
+  cp "$GRAPH_DIR/graph-builder.sh"  "$SANDBOX_DIR/"
+  cp "$GRAPH_DIR/graph-traversal.py" "$SANDBOX_DIR/" 2>/dev/null || true
+  # Intentionally omit graph_cluster.py — graph_analyze and graph_validate still present
+  cp "$GRAPH_DIR/graph_analyze.py"   "$SANDBOX_DIR/" 2>/dev/null || true
+  cp "$GRAPH_DIR/graph_validate.py"  "$SANDBOX_DIR/" 2>/dev/null || true
+  local rc=0
+  bash "$SANDBOX_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$work2" 2>/dev/null || rc=$?
+  rm -rf "$SANDBOX_DIR"
+  [[ "$rc" -eq 0 ]] && pass "builder exits 0 when graph_cluster.py absent (graceful degradation)" \
+                      || fail "builder must exit 0 even without v2 modules (got rc=$rc)"
+}
+
+# T10 — Report
 # ──────────────────────────────────────────────────────────────────────────────
 emit_report() {
   if [[ "$JSON_OUTPUT" -eq 1 ]]; then
@@ -542,4 +608,5 @@ run_pivot_tests
 run_knowledge_graph_tests
 run_trigger_tests
 run_known_fail_bugs
+run_v2_module_tests
 emit_report

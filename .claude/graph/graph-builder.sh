@@ -428,7 +428,7 @@ else
 fi
 
 FINAL_GRAPH=$(jq -n \
-  --arg sv "1.1.0" \
+  --arg sv "1.2.0" \
   --arg now "$NOW" \
   --arg gen "graph-builder.sh@${GIT_SHA}" \
   --argjson classes "$ALL_CLASSES" \
@@ -497,6 +497,23 @@ else
   echo "graph-builder: python3 or graph-traversal.py not found — skipping call-graph finalization (impact/path/god-nodes queries will be unavailable)" >&2
 fi
 
+# ── Analysis stage — v1.2.0 modules ──────────────────────────────────────────
+_GRAPH_DIR="$(dirname "$0")"
+if command -v python3 >/dev/null 2>&1; then
+  _run_module() {
+    local script="$1"; shift
+    [[ -f "$script" ]] || { log "$(basename "$script") not found (non-fatal)"; return; }
+    if [[ -n "${QUIET:-}" ]]; then
+      python3 "$script" "$@" 2>/dev/null || log "$(basename "$script") failed (non-fatal)"
+    else
+      python3 "$script" "$@" || log "$(basename "$script") failed (non-fatal)"
+    fi
+  }
+  _run_module "$_GRAPH_DIR/graph_cluster.py"  --graph "$OUTPUT"
+  _run_module "$_GRAPH_DIR/graph_analyze.py"  --graph "$OUTPUT"
+  _run_module "$_GRAPH_DIR/graph_validate.py" --graph "$OUTPUT" --sample 20
+fi
+
 # ── Touch .last-build ─────────────────────────────────────────────────────────
 echo "$NOW" > "$LAST_BUILD"
 
@@ -506,4 +523,6 @@ METHOD_COUNT=$(echo "$ALL_CLASSES" | jq '[.[].methods // [] | length] | add // 0
 EVENT_COUNT=$(echo "$ALL_EVENTS" | jq 'length')
 INST_COUNT=$(echo "$ALL_INSTALLERS" | jq 'length')
 CALL_COUNT=$(jq '.codebase.calls | length' "$OUTPUT" 2>/dev/null || echo 0)
-log "graph: ${CLASS_COUNT} classes (${METHOD_COUNT} methods), ${EVENT_COUNT} events, ${INST_COUNT} installers, ${CALL_COUNT} call edges (${CACHE_HITS} cached, $((SCANNED - CACHE_HITS)) reparsed) in ${BUILD_MS}ms"
+COMM_COUNT=$(jq '(.codebase.communities // []) | length' "$OUTPUT" 2>/dev/null || echo 0)
+ACC_PCT=$(jq '.validation.accuracy.agreement_pct // "n/a"' "$OUTPUT" 2>/dev/null || echo "n/a")
+log "graph: ${CLASS_COUNT} classes (${METHOD_COUNT} methods), ${EVENT_COUNT} events, ${INST_COUNT} installers, ${CALL_COUNT} call edges, ${COMM_COUNT} communities, ${ACC_PCT}% accuracy (${CACHE_HITS} cached, $((SCANNED - CACHE_HITS)) reparsed) in ${BUILD_MS}ms"
