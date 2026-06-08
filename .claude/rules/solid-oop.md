@@ -2,12 +2,13 @@
 
 ## MonoBehaviour — Rol Sınırları
 
-MonoBehaviour yalnızca **View** veya **Provider** rolü üstlenebilir.
+MonoBehaviour yalnızca **View**, **Provider** veya **Controller** rolü üstlenebilir.
 
 | Rol | Ne yapar | Ne yapmaz |
 |---|---|---|
 | **View** | UI günceller, input okur, animasyon tetikler | Business logic, hesaplama, state yönetimi |
 | **Provider** | Unity API'yi (Physics, Transform, AudioSource) soyutlar | Servis koordinasyonu, event publishing |
+| **Controller** | Sahne veya karakter davranışını koordine eder; servislere yönlendirir | Business logic barındırır, Unity API'ye doğrudan erişir |
 
 ### Sınırlar
 

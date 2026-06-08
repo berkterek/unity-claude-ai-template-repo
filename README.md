@@ -204,7 +204,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]` → `[Services]` → `[UI]` → `[Environment]` → `[Characters]` → `[VFX]`), classification table, prefab/container rules |
 | `bootstrap-pattern.md` | IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope layer chain, EventBusInstaller requirement, GameScope scene-based wiring (SerializeField + RegisterComponent), new module workflow |
-| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider only, ~100 satır max); SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
+| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller only, ~100 satır max); SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
 
 ### `.claude/docs/` — Key reference docs (not loaded at startup)
 
@@ -389,7 +389,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 | `check-input-system` | `Input.GetKey` / `Input.GetAxis` | Replace with New Input System + `InputView` |
 | `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` | Use `IEventBus`, `Action`/`Func`, or C# `event` keyword |
 | `check-time-scale` | `Time.timeScale =` assignment | Use IEventBus + PauseService pattern |
-| `check-no-monobehaviour-in-services` | `class FooService : MonoBehaviour/ScriptableObject` in `_Framework/` / `Games/Abstracts/` / `Games/Concretes/` | Make it a Provider or View instead — `using UnityEngine` for math types is allowed |
+| `check-no-monobehaviour-in-services` | `class FooService : MonoBehaviour/ScriptableObject` in `_Framework/` / `Games/Abstracts/` / `Games/Concretes/` | Make it a Provider, View, or Controller instead — `using UnityEngine` for math types is allowed |
 | `guard-editor-runtime` | Unguarded `UnityEditor` in runtime code | Wrap with `#if UNITY_EDITOR` |
 
 ### Recommended migration approach
@@ -559,7 +559,7 @@ npm install -g bats      # Linux
 | `block-git-push` | `git push` — Claude cannot push; user always pushes manually |
 | `block-scene-edit` | Direct editing of `.unity`, `.prefab`, `.asset` YAML |
 | `guard-editor-runtime` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
-| `check-no-monobehaviour-in-services` | `class FooService : MonoBehaviour` or `: ScriptableObject` in service/domain files — inheritance blocked, `using UnityEngine` allowed |
+| `check-no-monobehaviour-in-services` | `class FooService : MonoBehaviour` or `: ScriptableObject` in service/domain files — inheritance blocked, `using UnityEngine` allowed; exempts `*Provider`, `*View`, `*Controller`, `*Root`, `*Panel`, `*Button` |
 | `check-input-system` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |
 | `check-time-scale` | `Time.timeScale =` assignment |
