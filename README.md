@@ -169,14 +169,18 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 
 | File | Purpose |
 |------|---------|
-| `schema.json` | JSON-Schema (draft-07) for `graph.json` |
+| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.2.0 |
 | `graph.json` (generated) | Living index of the codebase — do not edit by hand |
 | `extractors/asmdef-extractor.sh` | Parses every `*.asmdef` |
-| `extractors/csharp-extractor.sh` | tree-sitter primary, regex fallback — emits `methods[]` + `partial_calls[]` |
+| `extractors/csharp-extractor.sh` | Regex extractor — emits `methods[]` + `partial_calls[]` (confidence: INFERRED) |
+| `extractors/csharp_extractor.py` | tree-sitter AST extractor — higher accuracy (confidence: EXTRACTED). Optional — see [C# Extractor](#c-extractor-tree-sitter-optional) |
 | `extractors/mcp-extractor.md` | MCP scene/prefab extraction skill |
 | `graph-builder.sh` | Top-level orchestrator + SHA256 cache + call edge merge |
 | `graph-traversal.py` | BFS traversal — impact, callers, path, god-nodes, --finalize-calls |
 | `graph-validator.sh` | Architecture invariant checks (R1–R6) |
+| `graph_cluster.py` | Community detection — groups related classes into modules |
+| `graph_analyze.py` | Surprising connections + enhanced god-nodes (cross-boundary edge analysis) |
+| `graph_validate.py` | Accuracy spot-check — compares graph facts against source files |
 | `codex-validator.md` | Codex accuracy spot-check prompt |
 | `graph-watch.sh` | Optional fswatch/inotifywait watch loop |
 
@@ -234,7 +238,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 ## Knowledge Graph
 
-`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.1.0). When enabled (default in
+`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.2.0). When enabled (default in
 `/setup-project`), the graph indexes every class, interface, event, installer, scope, asmdef, scene,
 prefab, **method**, and **call edge** into a single `graph.json` artifact. `/catch-up`, `/orchestrate`, and `/context-prime`
 all read this graph instead of scanning files from scratch.
@@ -257,7 +261,9 @@ all read this graph instead of scanning files from scratch.
 | `/knowledge-graph callers <Class.Method>` | All direct callers of a method |
 | `/knowledge-graph impact <ClassName> [--hops N]` | Blast radius — upstream + downstream affected nodes |
 | `/knowledge-graph path <A> <B>` | Shortest call-graph path between two nodes |
-| `/knowledge-graph god-nodes [--top N]` | Most-connected classes (over-coupling candidates) |
+| `/knowledge-graph god-nodes [--top N]` | Most-connected classes (over-coupling candidates) — shows `community_id` + `severity` after v1.2.0 build |
+| `/knowledge-graph communities [--scope S]` | List class community groups detected from call edges |
+| `/knowledge-graph surprising [--severity warning\|info]` | Cross-scope/assembly edges that indicate architectural drift |
 
 ### Triggers (kept in sync automatically)
 
@@ -293,20 +299,32 @@ GRAPH_WATCH_ROOT=HoleSphere/Assets bash .claude/graph/graph-watch.sh
 
 Both extractors also auto-detect `HoleSphere/Assets/` if it exists in the CWD.
 
+### C# Extractor — tree-sitter (optional)
+
+By default the C# extractor uses **regex** (confidence: `INFERRED`). For higher-accuracy AST-based extraction (confidence: `EXTRACTED`), install the tree-sitter Python bindings:
+
+```bash
+pip install tree-sitter tree-sitter-c-sharp
+```
+
+Once installed, `graph-builder.sh` automatically uses `csharp_extractor.py` instead of the regex pipeline — no config change needed. Without it, the build falls back to regex silently.
+
+> **Recommended** if your project has 50+ classes or complex generics/multi-line declarations. Not required for the graph to function.
+
 ### Regression test harness
 
 `.claude/graph/test/verify-graphify.sh` runs a self-contained test suite against the graph pipeline — no Unity Editor required.
 
 ```bash
 bash .claude/graph/test/verify-graphify.sh
-# Expected: 23 PASS, 0 FAIL (template mode — C#-dependent tests skip until source files exist)
+# Expected: 29 PASS, 0 FAIL (template mode — C#-dependent tests skip until source files exist)
 ```
 
-Tests cover: builder flags (`--full`, `--incremental`, `--skip-mcp`, `--output`, `--quiet`), all six validator rules (R1–R6), MCP prefab merge, `/knowledge-graph` subcommands, PostToolUse and post-commit triggers. Sandbox backup/restore ensures the live `graph.json` is never corrupted by a test run.
+Tests cover: builder flags (`--full`, `--incremental`, `--skip-mcp`, `--output`, `--quiet`), all six validator rules (R1–R6), MCP prefab merge, `/knowledge-graph` subcommands, PostToolUse and post-commit triggers, v1.2.0 modules (cluster/analyze/validate/csharp_extractor). Sandbox backup/restore ensures the live `graph.json` is never corrupted by a test run.
 
 ### Confidence levels
 
-`EXTRACTED` (explicit code), `INFERRED` (regex-mode or call-graph guess), `AMBIGUOUS` (needs human review).
+`EXTRACTED` (tree-sitter AST), `INFERRED` (regex-mode or call-graph guess), `AMBIGUOUS` (needs human review).
 
 ---
 
