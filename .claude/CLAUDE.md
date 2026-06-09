@@ -2,6 +2,12 @@
 
 This is a personal Unity development template for Claude Code. It enforces architecture, coding standards, and quality rules automatically through hooks and provides slash commands for common workflows.
 
+## Shell Commands (NON-NEGOTIABLE)
+
+- **Use `tree` for directory listings** — `ls | grep`, `ls -la`, `find . -type f | grep` are forbidden for this purpose
+- `tree -L 2` is sufficient in most cases; use `tree -L 3` or `tree --gitignore` when deeper traversal is needed
+- `check-ls-grep.sh` blocks `ls | grep` patterns with exit 2
+
 ## Interaction Style
 
 - Do NOT validate my ideas by default. No "great question", "good idea", "interesting approach" padding.

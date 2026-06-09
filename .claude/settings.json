@@ -15,6 +15,15 @@
   "hooks": {
     "PreToolUse": [
       {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-ls-grep.sh",
+            "timeout": 5000
+          }
+        ]
+      },
+      {
         "matcher": "Agent",
         "hooks": [
           {
