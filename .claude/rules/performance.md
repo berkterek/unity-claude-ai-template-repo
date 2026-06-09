@@ -34,8 +34,8 @@ Drag-drop the reference in the Inspector (or assign in a Prefab). No Awake code 
 - The component is added dynamically at runtime (not present at edit time)
 - The reference comes from a spawned/instantiated object you don't own
 
-**Same-prefab scripts communicate via `[SerializeField]`, not VContainer:**
-Scripts on the same GameObject or within the same prefab hierarchy do **not** need VContainer injection to reference each other. Assign the reference via `[SerializeField]` and drag-drop in the Inspector. VContainer injection is only for cross-module or cross-prefab dependencies.
+**Same prefab hierarchy — always `[SerializeField]`, never VContainer:**
+Any component on the same GameObject, a child, or a grandchild within the same prefab does **not** need VContainer injection. Assign via `[SerializeField]` and drag-drop in the Inspector. VContainer is only for cross-prefab or cross-module dependencies.
 
 **`transform` — serialize like any other component:**
 

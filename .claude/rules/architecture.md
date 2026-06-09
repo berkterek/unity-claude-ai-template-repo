@@ -112,13 +112,13 @@ public interface IScoreDisplayService { void Display(int score); }
 
 ---
 
-### Card 6: Same-GameObject Scripts — No VContainer Needed
+### Card 6: Same Prefab Hierarchy — Use SerializeField, Not VContainer
 
-**WHEN:** Two scripts sit on the same GameObject (or parent-child within the same prefab).
+**WHEN:** A script needs a reference to a component on the same GameObject, a child, or any GameObject within the same prefab.
 
 **WRONG:**
 ```csharp
-// Injecting a co-located component through VContainer
+// Injecting a co-located component through VContainer — unnecessary overhead
 public sealed class PlayerController : MonoBehaviour
 {
     private IPlayerProvider _provider;
@@ -133,17 +133,21 @@ public sealed class PlayerController : MonoBehaviour
 ```csharp
 public sealed class PlayerController : MonoBehaviour
 {
-    [SerializeField] private PlayerProvider _provider; // drag-drop in Inspector
+    // Same GO, child GO, or anywhere within the same prefab — drag-drop in Inspector
+    [SerializeField] private PlayerProvider _provider;
+    [SerializeField] private Animator       _animator;   // child Body/
+    [SerializeField] private Transform      _firePoint;  // grandchild
 }
 ```
 
-**GOTCHA:** VContainer injection is for **cross-module boundaries** — different prefabs, different scenes, different lifetimes. Scripts on the same prefab know each other by design; using `[SerializeField]` is explicit, zero-cost, and Inspector-visible.
+**GOTCHA:** VContainer injection is for **cross-module boundaries** — different prefabs, different scenes, different lifetimes. Everything inside the same prefab (root, children, grandchildren) is already co-owned; `[SerializeField]` is explicit, zero-cost, and Inspector-visible. Do not register these in an Installer just to inject them back into the same prefab.
 
 **Boundary rule:**
 
 | Relationship | Wire with |
 |---|---|
-| Same GameObject or same prefab hierarchy | `[SerializeField]` drag-drop |
+| Same GameObject | `[SerializeField]` drag-drop |
+| Child or grandchild within the same prefab | `[SerializeField]` drag-drop |
 | Different prefab / different module | VContainer injection (interface) |
 | Cross-scene / global service | VContainer injection (AppScope) |
 
