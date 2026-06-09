@@ -175,7 +175,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `extractors/csharp-extractor.sh` | Regex extractor — emits `methods[]` + `partial_calls[]` (confidence: INFERRED) |
 | `extractors/csharp_extractor.py` | tree-sitter AST extractor — higher accuracy (confidence: EXTRACTED). Optional — see [C# Extractor](#c-extractor-tree-sitter-optional) |
 | `extractors/mcp-extractor.md` | MCP scene/prefab extraction skill |
-| `graph-builder.sh` | Top-level orchestrator + SHA256 cache + call edge merge |
+| `graph-builder.py` | Top-level orchestrator + SHA256 cache + call edge merge (Python stdlib, no jq) |
 | `graph-traversal.py` | BFS traversal — impact, callers, path, god-nodes, --finalize-calls |
 | `graph-validator.sh` | Architecture invariant checks (R1–R6) |
 | `graph_cluster.py` | Community detection — groups related classes into modules |
@@ -307,7 +307,7 @@ By default the C# extractor uses **regex** (confidence: `INFERRED`). For higher-
 pip install tree-sitter tree-sitter-c-sharp
 ```
 
-Once installed, `graph-builder.sh` automatically uses `csharp_extractor.py` instead of the regex pipeline — no config change needed. Without it, the build falls back to regex silently.
+Once installed, `graph-builder.py` automatically uses `csharp_extractor.py` instead of the regex pipeline — no config change needed. Without it, the build falls back to regex silently.
 
 > **Recommended** if your project has 50+ classes or complex generics/multi-line declarations. Not required for the graph to function.
 

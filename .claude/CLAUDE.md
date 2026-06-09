@@ -51,7 +51,7 @@ Selected during `/setup-project`. Choices are saved to `.claude/project-features
 | **NSubstitute** | Manual DLL install | `testing` | Test folders, asmdefs, test hooks skipped |
 | **Unity ECS DOTS** | Package Manager (optional) | `ecs` | ECS folder, asmdef, ECS hooks skipped |
 | **Unity Knowledge Graph** | Built-in (`.claude/graph/`) | `graph` | Skip extractors and hooks. `/catch-up`, `/orchestrate`, `/context-prime`, `/architect` fall back to direct file-scan. |
-| **Unity project subfolder** | — | `unity_project_folder` | Set to `"."` (default) when `Assets/` is at repo root. Set to e.g. `"HoleSphere"` when the Unity project lives in a subfolder. `graph-builder.sh` reads this and prefixes all `Assets/` paths accordingly. Set once in `project-features.json` — never hardcode paths in scripts. |
+| **Unity project subfolder** | — | `unity_project_folder` | Set to `"."` (default) when `Assets/` is at repo root. Set to e.g. `"HoleSphere"` when the Unity project lives in a subfolder. `graph-builder.py` reads this and prefixes all `Assets/` paths accordingly. Set once in `project-features.json` — never hardcode paths in scripts. |
 
 ## Optional Plugins
 
