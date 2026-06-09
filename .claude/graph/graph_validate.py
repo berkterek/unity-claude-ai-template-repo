@@ -33,7 +33,7 @@ def check_class(cls):
         checks.append({
             "class": cls["name"],
             "field": f"method:{m['name']}",
-            "match": bool(re.search(rf'\b{re.escape(m["name"])}\s*\(', text)),
+            "match": bool(re.search(rf'\b{re.escape(m["name"])}\s*[(<]', text)),
         })
 
     # Event publish checks
