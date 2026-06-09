@@ -43,14 +43,14 @@ Lessons from live testing — read before debugging graph output.
 - **Multi-line class declarations** (`class Foo\n  : IBar`) are handled by a python3 parser that joins up to 6 lines. Single-line and multi-line declarations both produce correct `base_types[]` and `implements[]`.
 - **Fully qualified interface names** (`Game.Abstracts.IFoo`) are reduced to their last segment (`IFoo`) before being stored. Both short and qualified names produce correct `implements[]`.
 - **methods[] extraction** — every public/private/protected method is captured per class (name, signature, line, is_async, is_static, return_type). Confidence: `INFERRED` (regex mode).
-- **partial_calls[] extraction** — call sites are extracted per file and merged into `codebase.calls[]` by `graph-builder.sh`. BCL types (`Debug`, `Mathf`, `Vector3`…) and C# keywords are filtered out. Confidence: `INFERRED`.
-- **Stale MCP cache** — when `mcp-extract.json` is older than 60 minutes, `graph-builder.sh` retains prefabs and scenes from the existing `graph.json` instead of dropping them. Run `/build-knowledge-graph` with Unity Editor open to refresh MCP data. `--full` always invalidates the MCP cache regardless of age — retained prefabs are cross-checked against disk and stale paths emit `STALE_PREFAB_PATH` warnings in `validation.warnings[]`.
-- **Missing scripts** — null component entries (`"null"` in `comps=(...)`) during MCP extraction set `has_missing_scripts: true` on the GO/prefab. `graph-builder.sh` collects these into `MISSING_SCRIPT` warnings in `validation.warnings[]`. Surface with `/knowledge-graph violations`.
+- **partial_calls[] extraction** — call sites are extracted per file and merged into `codebase.calls[]` by `graph-builder.py`. BCL types (`Debug`, `Mathf`, `Vector3`…) and C# keywords are filtered out. Confidence: `INFERRED`.
+- **Stale MCP cache** — when `mcp-extract.json` is older than 60 minutes, `graph-builder.py` retains prefabs and scenes from the existing `graph.json` instead of dropping them. Run `/build-knowledge-graph` with Unity Editor open to refresh MCP data. `--full` always invalidates the MCP cache regardless of age — retained prefabs are cross-checked against disk and stale paths emit `STALE_PREFAB_PATH` warnings in `validation.warnings[]`.
+- **Missing scripts** — null component entries (`"null"` in `comps=(...)`) during MCP extraction set `has_missing_scripts: true` on the GO/prefab. `graph-builder.py` collects these into `MISSING_SCRIPT` warnings in `validation.warnings[]`. Surface with `/knowledge-graph violations`.
 - **Python JSON passing** — both `STALE_PATH_WARNINGS` and `MISSING_SCRIPT_WARNINGS` blocks pass data via env vars (`MCP_PREFABS_JSON`, `MISSING_INPUT_JSON`) + `json.loads(os.environ[...])`, not `echo | python3 -`. Bash heredoc overrides stdin so the pipe pattern silently delivers empty input to Python.
 - **Subfolder layout (UNITY_FOLDER)** — `STALE_PATH_WARNINGS` passes `UNITY_FOLDER` to Python and prepends it to the `Assets/...` path before `os.path.exists()`. Without this, every prefab appears stale on projects where `Assets/` is not at repo root.
 - **gameObjects key casing** — MISSING_SCRIPT detection reads `scene.get("gameObjects", scene.get("gameobjects", []))` to handle both camelCase (MCP cache output) and lowercase (older extractions).
 
-### graph-builder.sh call edge merge
+### graph-builder.py call edge merge
 
 - **Full build (`--full`):** discards retained call edges, uses only freshly extracted `partial_calls[]`.
 - **Incremental with changed files:** retains edges from unchanged files, replaces edges for changed files only.
