@@ -112,7 +112,44 @@ public interface IScoreDisplayService { void Display(int score); }
 
 ---
 
-### Card 6: GameScope vs ModuleInstaller Boundary
+### Card 6: Same-GameObject Scripts — No VContainer Needed
+
+**WHEN:** Two scripts sit on the same GameObject (or parent-child within the same prefab).
+
+**WRONG:**
+```csharp
+// Injecting a co-located component through VContainer
+public sealed class PlayerController : MonoBehaviour
+{
+    private IPlayerProvider _provider;
+
+    [Inject]
+    public void Construct(IPlayerProvider provider) => _provider = provider;
+}
+// PlayerInstaller: builder.RegisterComponent(_playerProvider).As<IPlayerProvider>();
+```
+
+**RIGHT:**
+```csharp
+public sealed class PlayerController : MonoBehaviour
+{
+    [SerializeField] private PlayerProvider _provider; // drag-drop in Inspector
+}
+```
+
+**GOTCHA:** VContainer injection is for **cross-module boundaries** — different prefabs, different scenes, different lifetimes. Scripts on the same prefab know each other by design; using `[SerializeField]` is explicit, zero-cost, and Inspector-visible.
+
+**Boundary rule:**
+
+| Relationship | Wire with |
+|---|---|
+| Same GameObject or same prefab hierarchy | `[SerializeField]` drag-drop |
+| Different prefab / different module | VContainer injection (interface) |
+| Cross-scene / global service | VContainer injection (AppScope) |
+
+---
+
+### Card 7: GameScope vs ModuleInstaller Boundary
 
 **WHEN:** Deciding where to put a registration in the scene-specific scope.
 

@@ -84,7 +84,7 @@ Optional Claude Code plugins. Each pipeline command checks for these at Step 0/0
 
 When starting a new conversation on this project, read these files first:
 - `.claude/CLAUDE.md` (this file — already loaded)
-- `.claude/rules/architecture.md` — module structure, VContainer, IEventBus patterns
+- `.claude/rules/architecture.md` — module structure, VContainer, IEventBus patterns; same-GO scripts use SerializeField not VContainer
 - `.claude/rules/solid-oop.md` — SOLID & OOP kuralları (MonoBehaviour rol sınırları, SRP, OCP, DIP)
 - `docs/CATCH_UP.md` if it exists — human-readable codebase guide
 - If `.claude/graph/graph.json` exists and `graph` feature is enabled: run `/knowledge-graph summary` — **this is the primary source of truth** for classes, interfaces, events, installers, scopes, prefabs, methods, and call edges. Do NOT manually scan source folders if the graph is available and fresh (< 24h).
@@ -111,7 +111,7 @@ Detailed coding standards in `.claude/rules/`:
 
 | File | Covers |
 |------|--------|
-| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope; one-caller overfitting rule; GameScope vs ModuleInstaller wiring boundary |
+| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope; one-caller overfitting rule; GameScope vs ModuleInstaller wiring boundary; same-prefab scripts wire via `[SerializeField]` not VContainer |
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; interface contract documentation (precondition/postcondition/side-effect); namespace collision rule (`Game.Concretes.<Domain>` vs UnityEngine type aliases) |
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; **material folder structure** (`Arts/Materials/<Domain>/`); **shader file structure** (`.shader`/`.shadergraph` → `_GameFolders/Arts/Shaders/`); shader authoring → `unity-shader-dev` agent (HLSL or ShaderGraph complexity router); particle VFX → `unity-particle-designer` agent |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
