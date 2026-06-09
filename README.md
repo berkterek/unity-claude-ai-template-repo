@@ -268,7 +268,7 @@ all read this graph instead of scanning files from scratch.
 ### Triggers (kept in sync automatically)
 
 - Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background, ~1–2s)
-- Every `git commit` → post-commit hook (full rebuild)
+- Every `git commit` → post-commit hook (incremental rebuild, preserves MCP cache)
 - Manual: `/build-knowledge-graph`
 
 ### What the extractor captures

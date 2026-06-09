@@ -12,7 +12,7 @@ for `/catch-up`, `/orchestrate` pre-scan, and `/context-prime`.
 
 **Triggers (kept in sync automatically):**
 - Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background, non-blocking)
-- Every `git commit` → `.git/hooks/post-commit` (full rebuild, background)
+- Every `git commit` → `.git/hooks/post-commit` (incremental rebuild, background — preserves MCP cache)
 - Manual → `/build-knowledge-graph`
 
 **Manual settings.json entry** (Claude cannot edit settings.json — add this yourself):
