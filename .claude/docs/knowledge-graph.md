@@ -110,11 +110,22 @@ New in v1.2.0. Classifies surprising cross-boundary edges and enriches god-nodes
 
 ### graph_validate.py
 
-New in v1.2.0. Spot-checks graph accuracy against source files. Default: sample 20 classes, seed 42.
+Two-mode validator — always runs during graph-builder.
 
-- `validation.accuracy.agreement_pct` — percentage of checks that matched source
-- If `< 90%`, `low_accuracy_warning: true` and a `warning_message` recommend `--full` rebuild
-- **Never touches `validation.warnings[]`** — that array is owned by `graph-validator.sh`
+**Mode 1 — Consistency (default, fast):** Checks `graph.json` internal integrity. No source files read.
+- Orphan events: published/subscribed but not declared in graph
+- Dangling call edges: callee class not in graph
+- Installer registrations referencing missing classes
+- Results → `validation.consistency.{issues[], issue_count, passed}`
+
+**Mode 2 — Accuracy (`--accuracy` flag, slow):** Re-extracts a sample of source files via `csharp_extractor.py` (tree-sitter) and compares against graph facts. Single parse source — no duplicate regex logic.
+- `--sample N` (default 20), `--seed N` (default 42)
+- Results → `validation.accuracy.{agreement_pct, matches, mismatches, checks[]}`
+- If `< 90%`, `low_accuracy_warning: true` recommends `--full` rebuild
+- Skipped automatically if tree-sitter is unavailable (exit 2)
+- Run manually: `python3 .claude/graph/graph_validate.py --graph .claude/graph/graph.json --accuracy`
+
+**Never touches `validation.warnings[]`** — that array is owned by `graph-validator.sh`
 
 ### Query cheatsheet additions (v1.2.0)
 

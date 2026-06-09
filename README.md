@@ -180,7 +180,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `graph-validator.sh` | Architecture invariant checks (R1–R6) |
 | `graph_cluster.py` | Community detection — groups related classes into modules |
 | `graph_analyze.py` | Surprising connections + enhanced god-nodes (cross-boundary edge analysis) |
-| `graph_validate.py` | Accuracy spot-check — compares graph facts against source files |
+| `graph_validate.py` | Two-mode validator. **Default (consistency):** internal graph integrity — orphan events, dangling call edges, missing installer classes. No source files read. **`--accuracy` flag:** re-extracts a sample via `csharp_extractor.py` (tree-sitter) and compares against graph — run manually or in CI |
 | `codex-validator.md` | Codex accuracy spot-check prompt |
 | `graph-watch.sh` | Optional fswatch/inotifywait watch loop |
 
