@@ -3,7 +3,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
 source "${SCRIPT_DIR}/_lib.sh"
 # graph-auto-update.sh — PostToolUse hook: incremental graph rebuild on Write/Edit.
-# Non-blocking: launches graph-builder.sh in background, always exits 0.
+# Non-blocking: launches graph-builder.py in background, always exits 0.
 # Execution context: Claude Code host process — Unity Editor NOT required.
 set -euo pipefail
 
@@ -70,9 +70,9 @@ except Exception:
 fi
 
 # ── Builder existence check ────────────────────────────────────────────────────
-BUILDER=".claude/graph/graph-builder.sh"
-if [[ ! -x "$BUILDER" ]]; then
-  echo "graph-auto-update: $BUILDER not found or not executable — skipping" >&2
+BUILDER=".claude/graph/graph-builder.py"
+if [[ ! -f "$BUILDER" ]]; then
+  echo "graph-auto-update: $BUILDER not found — skipping" >&2
   exit 0
 fi
 
@@ -81,7 +81,7 @@ mkdir -p .claude/state
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $FILE_PATH" >> .claude/state/graph-updates.log
 
 # ── Non-blocking incremental rebuild ─────────────────────────────────────────
-nohup bash "$BUILDER" \
+nohup python3 "$BUILDER" \
   --incremental \
   --changed-files "$FILE_PATH" \
   --skip-mcp \

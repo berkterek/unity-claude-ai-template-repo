@@ -6,10 +6,10 @@
 # Most users should rely on the PostToolUse hook + git post-commit hook instead.
 set -euo pipefail
 
-BUILDER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/graph-builder.sh"
+BUILDER_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/graph-builder.py"
 
-if [[ ! -x "$BUILDER" ]]; then
-  echo "error: $BUILDER not found or not executable" >&2
+if [[ ! -f "$BUILDER_PY" ]]; then
+  echo "error: $BUILDER_PY not found" >&2
   exit 1
 fi
 
@@ -54,7 +54,7 @@ trigger_build() {
   LAST_FILE="$f"
   LAST_RUN=$now
   echo "graph-watch: change detected: $f → rebuilding…"
-  bash "$BUILDER" --incremental --changed-files "$f" --skip-mcp --quiet &
+  python3 "$BUILDER_PY" --incremental --changed-files "$f" --skip-mcp --quiet &
 }
 
 # ── Watch loop ────────────────────────────────────────────────────────────────

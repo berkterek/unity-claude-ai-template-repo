@@ -1,3 +1,4 @@
+# DEPRECATED: use graph-builder.py — this file is retained for rollback only
 #!/usr/bin/env bash
 # graph-builder.sh — Aggregates extractor output + SHA256 cache → graph.json
 # Usage:
