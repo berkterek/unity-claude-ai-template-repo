@@ -55,7 +55,7 @@ if [[ -f "$GRAPH_JSON" && ! -f "$WARN_SENTINEL" ]]; then
 import json
 try:
     d = json.load(open('$GRAPH_JSON'))
-    print(d.get('codebase', {}).get('scanned_files', 0))
+    print(d.get('stats', d.get('codebase', {})).get('scanned_files', 0))
 except Exception:
     print(0)
 " 2>/dev/null || echo "0")
