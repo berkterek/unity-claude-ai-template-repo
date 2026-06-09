@@ -71,9 +71,16 @@ fi
 SUBAGENT_LOG="${UNITY_HOOK_STATE_DIR}/subagent-log.jsonl"
 TASK_LOG="${UNITY_HOOK_STATE_DIR}/task-log.jsonl"
 
-SUBAGENT_SPAWNED=$(jq -s '[.[] | select(.event=="SubagentStart")] | length' "$SUBAGENT_LOG" 2>/dev/null || echo 0)
-SUBAGENT_STOPPED=$(jq -s '[.[] | select(.event=="SubagentStop")]  | length' "$SUBAGENT_LOG" 2>/dev/null || echo 0)
-TASKS_COMPLETED=$(jq -s  '[.[] | select(.event=="TaskCompleted")] | length' "$TASK_LOG"     2>/dev/null || echo 0)
+SUBAGENT_SPAWNED=0
+SUBAGENT_STOPPED=0
+if [ -f "$SUBAGENT_LOG" ]; then
+    SUBAGENT_SPAWNED=$(jq -s '[.[] | select(.event=="SubagentStart")] | length' "$SUBAGENT_LOG" 2>/dev/null || echo 0)
+    SUBAGENT_STOPPED=$(jq -s '[.[] | select(.event=="SubagentStop")]  | length' "$SUBAGENT_LOG" 2>/dev/null || echo 0)
+fi
+TASKS_COMPLETED=0
+if [ -f "$TASK_LOG" ]; then
+    TASKS_COMPLETED=$(jq -s '[.[] | select(.event=="TaskCompleted")] | length' "$TASK_LOG" 2>/dev/null || echo 0)
+fi
 
 # Gather warnings summary
 WARNINGS_COUNT=0
