@@ -29,23 +29,25 @@ if [[ -e "$POST_COMMIT" ]]; then
   echo ""
   echo "Add this to your existing post-commit hook:"
   echo ""
-  echo "  # Unity Knowledge Graph — full rebuild on commit"
+  echo "  # Unity Knowledge Graph — incremental rebuild on commit (preserves MCP cache)"
   echo "  [[ -f .claude/graph/graph-builder.py ]] || exit 0"
-  echo "  nohup python3 .claude/graph/graph-builder.py --full --skip-mcp >/dev/null 2>&1 &"
+  echo "  nohup python3 .claude/graph/graph-builder.py --incremental >/dev/null 2>&1 &"
   echo ""
   exit 1
 fi
 
 cat > "$POST_COMMIT" <<'EOF'
 #!/usr/bin/env bash
-# Auto-installed by Unity Claude AI Template — full graph rebuild on commit.
+# Auto-installed by Unity Claude AI Template — incremental graph rebuild on commit.
+# Preserves MCP cache (prefabs, scenes). Use /build-knowledge-graph --full to force
+# a full rebuild with live MCP extraction when Unity Editor is open.
 # This hook runs in the background and never blocks git commit.
 [[ -f .claude/graph/graph-builder.py ]] || exit 0
-nohup python3 .claude/graph/graph-builder.py --full --skip-mcp >/dev/null 2>&1 &
+nohup python3 .claude/graph/graph-builder.py --incremental >/dev/null 2>&1 &
 exit 0
 EOF
 chmod +x "$POST_COMMIT"
-echo "✓ Installed .git/hooks/post-commit (full graph rebuild on every commit)"
+echo "✓ Installed .git/hooks/post-commit (incremental graph rebuild on every commit)"
 
 # ── pre-commit hook (--strict only) ──────────────────────────────────────────
 if [[ $STRICT -eq 1 ]]; then
