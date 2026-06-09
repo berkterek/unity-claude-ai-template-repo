@@ -217,22 +217,28 @@ def run_csharp_extractor(changed_cs, script_dir, quiet):
     py_ex = script_dir / "extractors" / "csharp_extractor.py"
     sh_ex = script_dir / "extractors" / "csharp-extractor.sh"
     csv = ",".join(changed_cs)
+    # Try Python (tree-sitter) extractor first; fall back to shell on exit 2 (unavailable)
+    cmds = []
     if py_ex.exists():
-        cmd = ["python3", str(py_ex), "--changed-files", csv]
-    elif sh_ex.exists():
-        cmd = ["bash", str(sh_ex), "--changed-files", csv]
-    else:
+        cmds.append(("python3", ["python3", str(py_ex), "--changed-files", csv]))
+    if sh_ex.exists():
+        cmds.append(("bash", ["bash", str(sh_ex), "--changed-files", csv]))
+    if not cmds:
         log("csharp extractor not found — using empty result", quiet)
         return dict(EMPTY_CS, vcontainer={"installers": [], "scopes": []})
 
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        if r.returncode != 0:
-            log(f"csharp extractor exited {r.returncode}: {r.stderr.strip()}", quiet)
-        if r.stdout and r.stdout.strip():
-            return json.loads(r.stdout)
-    except Exception as e:
-        log(f"csharp extractor failed: {e}", quiet)
+    for label, cmd in cmds:
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            if r.returncode == 2 and label == "python3":
+                log("csharp_extractor.py: tree-sitter unavailable — falling back to shell extractor", quiet)
+                continue
+            if r.returncode != 0:
+                log(f"csharp extractor ({label}) exited {r.returncode}: {r.stderr.strip()}", quiet)
+            if r.stdout and r.stdout.strip():
+                return json.loads(r.stdout)
+        except Exception as e:
+            log(f"csharp extractor ({label}) failed: {e}", quiet)
     return dict(EMPTY_CS, vcontainer={"installers": [], "scopes": []})
 
 
