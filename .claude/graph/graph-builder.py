@@ -295,6 +295,7 @@ def retain_entries(existing_graph, reextracted_files, mode):
         "interfaces": keep(cb.get("interfaces", [])),
         "assemblies": keep(cb.get("assemblies", [])),
         "installers": keep(vc.get("installers", [])),
+        "scopes": keep(vc.get("scopes", [])),
     }
 
 

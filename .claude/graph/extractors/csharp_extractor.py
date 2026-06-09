@@ -225,6 +225,8 @@ def main():
         out["interfaces"].extend(r["interfaces"])
         out["events"].extend(r["events"])
         out["partial_calls"].extend(r["partial_calls"])
+        out["vcontainer"]["installers"].extend(r.get("vcontainer", {}).get("installers", []))
+        out["vcontainer"]["scopes"].extend(r.get("vcontainer", {}).get("scopes", []))
 
     print(json.dumps(out))
 
