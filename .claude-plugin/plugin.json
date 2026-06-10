@@ -1,7 +1,7 @@
 {
   "name": "unity-claude-ai-template",
   "version": "1.0.0",
-  "description": "Opinionated Unity 6 + VContainer + UniTask Claude Code configuration. Hook-enforced architecture, 72 skills, 38 agents, 59 slash commands, Unity Knowledge Graph.",
+  "description": "Opinionated Unity 6 + VContainer + UniTask Claude Code configuration. Hook-enforced architecture, 65 skills, 36 agents, 57 slash commands, Unity Knowledge Graph.",
   "author": {
     "name": "Berk Terek",
     "email": "berkterek@hotmail.com"
