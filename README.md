@@ -587,7 +587,7 @@ npm install -g bats      # Linux
 | `check-test-scene-exists` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test` |
 | `track-read` (PostToolUse Read) | Records every `Read` tool call into `gateguard-reads.txt` — required for `gateguard.sh` Stage 1 (`unity_was_read()`) to pass. Without this, every edit is blocked even after reading the file. |
 | `track-codex-review` (PostToolUse) | Creates `.claude/state/codex-reviewed` when `codex:codex-rescue` completes |
-| `track-skill-invocations` (PostToolUse Skill) | Records every `Skill` tool invocation to `skills-invoked.txt` — required by `enforce-skill-for-keywords.sh` to know which skills are already loaded this session |
+| `track-skill-invocations` (PostToolUse Skill) | Records every `Skill` tool invocation to `skills-invoked.txt` — required by `enforce-skill-for-keywords.sh` to know which skills are already loaded this session. Also injects `additionalContext` after every invocation to force Claude to read and follow the skill content before proceeding. |
 | `auto-load-skills` (PostToolUse) | Adds `@`-reference to `.claude/docs/auto-loaded-skills.md` whenever a skill is written to `third-party/`, `plugins/`, `learned/`, or `platform/` |
 | `enforce-skill-for-keywords` (UserPromptSubmit) | Detects third-party package keywords in every prompt. If the relevant skill hasn't been invoked this session, injects a blocking context message — Claude must call the `Skill` tool before proceeding |
 | `instinct-capture` (PostToolUse) | Captures tool-use observations for later distillation into instincts |

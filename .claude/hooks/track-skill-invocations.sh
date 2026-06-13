@@ -31,4 +31,8 @@ if ! grep -qxF "$SKILL_NAME" "$INVOKED_FILE" 2>/dev/null; then
     echo "$SKILL_NAME" >> "$INVOKED_FILE"
 fi
 
+# Inject additionalContext so Claude is forced to acknowledge and follow the skill
+MSG="MANDATORY: You just invoked the skill \"${SKILL_NAME}\". You MUST read its full content above and follow every instruction in it exactly before proceeding. Do NOT skip steps. Do NOT summarize and move on. The skill instructions are NON-NEGOTIABLE."
+jq -n --arg msg "$MSG" '{"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": $msg}}'
+
 exit 0
