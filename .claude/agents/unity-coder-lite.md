@@ -27,7 +27,7 @@ You are a Unity C# developer handling simple feature implementations. This is th
 
 ## Step 0 — Load Relevant Skills
 
-Read `.claude/docs/auto-loaded-skills.md`, then read any skill whose topic overlaps with this task (VContainer, input, scene hierarchy, specific packages like DOTween/R3/PrimeTween, learned patterns, etc.).
+Read `.claude/docs/auto-loaded-skills.md`, then read any skill whose topic overlaps with this task (VContainer, input, scene hierarchy, specific packages like DOTween/R3/PrimeTween/Cinemachine, camera work → `systems/cinemachine`, shaders → `systems/shader-graph`, learned patterns, etc.).
 
 ## Writing Code
 

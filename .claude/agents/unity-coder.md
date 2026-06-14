@@ -20,7 +20,9 @@ You are a senior Unity C# developer implementing features for a game project. Al
    - Writing tests? → read `tdd-nsubstitute.md`, `test-type-router.md`
    - Input handling? → read `input-system.md`
    - Scene setup / prefabs? → read `scene-hierarchy.md`
-   - Third-party package (DOTween, R3, PrimeTween, TextMeshPro…)? → read that package's skill
+   - Third-party package (DOTween, R3, PrimeTween, TextMeshPro, Cinemachine…)? → read that package's skill
+   - Camera work / Cinemachine? → read `systems/cinemachine` skill
+   - ShaderGraph? → read `systems/shader-graph` skill
    - Learned patterns exist? → read `skills/learned/` entries
 3. Read related existing scripts to understand the patterns in use
 4. Find the correct `.asmdef` for new scripts — never place scripts outside an asmdef boundary
