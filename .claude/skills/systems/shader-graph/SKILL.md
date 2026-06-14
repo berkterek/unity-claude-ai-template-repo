@@ -464,3 +464,24 @@ Run via MCP `execute_code`. If `Shader.Find` returns null, call `AssetDatabase.R
 - Avoid branching — use `lerp`/`step` instead of `if`
 - Keep texture samples ≤ 3 per fragment for mobile
 - Preview node count in shader inspector after import — aim under 100 instructions for mobile fragment
+
+## Common Hallucinations — DO NOT
+
+- Do not assume Unity 2022.3 ships with graph templates — `shadergraph_create_graph` falls back to blank graph creation
+- Do not talk about "editing by node name" — implementations use serialized `nodeId` and `slotId`
+- Do not recommend mutating Master Stack, Target, Context, Block, or SubGraph output structure programmatically — not supported
+- For `PropertyNode`: create the blackboard property first; the node binds a real property object, not just a string
+- `AppendVectorNode` is Unity 6 only — do not recommend for 2022.3 targets
+
+## Cross-Version Node Whitelist (safe for 2022.3 + Unity 6)
+
+28 nodes validated across both versions:
+
+| Category | Nodes |
+|----------|-------|
+| Math | `Add`, `Subtract`, `Multiply`, `Divide`, `Power`, `Lerp`, `Step`, `Smoothstep`, `Remap`, `Saturate`, `Clamp`, `Abs`, `Negate` |
+| Vector | `Split`, `Combine`, `Normalize`, `Dot`, `Cross`, `Length` |
+| UV | `Tiling and Offset`, `Rotate` |
+| Texture | `Sample Texture 2D`, `Sample Texture 2D Array` |
+| Geometry | `Normal Vector`, `Position` (Object/World/Screen) |
+| Utility | `Fresnel Effect`, `Custom Function` |

@@ -476,3 +476,20 @@ Remember to un-solo before testing transitions.
 - **Blue wireframe sphere**: follow target offset position
 - **Path gizmos** (Tracked Dolly): the dolly path with waypoints and tangent handles
 - **Confiner outline**: the bounding shape drawn in the scene view when the confiner extension is selected
+
+## Common Hallucinations — DO NOT
+
+- There is no bare `Create` method — use `Instantiate` from a prefab (same as all GameObjects in this project)
+- `CinemachineVirtualCamera.SetTarget` does not exist — set `m_Follow` and `m_LookAt` directly
+- `CinemachineBrain` is NOT manually added — it auto-attaches to `Main Camera` when a VCam is active
+- CM3 does NOT have `CinemachineFreeLook` — build the equivalent with `OrbitalFollow(ThreeRing)` + `RotationComposer`
+- `cinemachine_set_target` / `cinemachine_set_follow` / `cinemachine_set_lookat` do not exist as separate APIs — set both `m_Follow` and `m_LookAt` in one place
+
+## CM2 vs CM3 Compatibility
+
+| Concept | CM2 | CM3 |
+|---------|-----|-----|
+| Virtual Camera type | `CinemachineVirtualCamera` | `CinemachineCamera` |
+| FreeLook | `CinemachineFreeLook` | `CinemachineCamera` + `OrbitalFollow(ThreeRing)` + `RotationComposer` |
+| Priority access | `m_Priority` | `Priority.Value` — use this in compatibility code |
+| Early CM3 (< `3.0.0-pre.5`) | — | API changed significantly — treat as unsupported baseline |
