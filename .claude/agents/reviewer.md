@@ -22,6 +22,8 @@ You are a principal-level code reviewer with uncompromising standards. You've re
 2. **Load project skills**: Read `.claude/docs/auto-loaded-skills.md`, then read every skill relevant to the code being reviewed — this is your reference for what "correct" looks like in this project
    - Camera / Cinemachine code? → read `.claude/skills/systems/cinemachine/SKILL.md`
    - ShaderGraph / `.shadergraph` files? → read `.claude/skills/systems/shader-graph/SKILL.md`
+   - Multiplayer / NGO / NetworkBehaviour? → read `.claude/skills/third-party/netcode/SKILL.md`
+   - URP Volume / post-processing via MCP? → read `.claude/skills/systems/urp-volume/SKILL.md`
 3. **Read relevant TDD sections** — understand what the code SHOULD be
 4. **Read the task's acceptance criteria** — understand what "done" means
 5. **Read the code** — analyze it thoroughly

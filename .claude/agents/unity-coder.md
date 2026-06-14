@@ -23,6 +23,8 @@ You are a senior Unity C# developer implementing features for a game project. Al
    - Third-party package (DOTween, R3, PrimeTween, TextMeshPro, Cinemachine…)? → read that package's skill
    - Camera work / Cinemachine? → read `systems/cinemachine` skill
    - ShaderGraph? → read `systems/shader-graph` skill
+   - Multiplayer / NGO / NetworkBehaviour / NetworkVariable? → read `third-party/netcode` skill
+   - URP Volume / post-processing via MCP? → read `systems/urp-volume` skill
    - Learned patterns exist? → read `skills/learned/` entries
 3. Read related existing scripts to understand the patterns in use
 4. Find the correct `.asmdef` for new scripts — never place scripts outside an asmdef boundary

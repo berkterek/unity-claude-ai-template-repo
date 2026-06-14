@@ -16,6 +16,8 @@ Read `.claude/docs/auto-loaded-skills.md`, then read every skill relevant to the
 
 - Camera / Cinemachine code? → read `.claude/skills/systems/cinemachine/SKILL.md`
 - ShaderGraph / `.shadergraph` files? → read `.claude/skills/systems/shader-graph/SKILL.md`
+- Multiplayer / NGO / NetworkBehaviour? → read `.claude/skills/third-party/netcode/SKILL.md`
+- URP Volume / post-processing via MCP? → read `.claude/skills/systems/urp-volume/SKILL.md`
 
 ## Diagnosis Flow
 
