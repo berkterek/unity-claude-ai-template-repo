@@ -1002,6 +1002,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `audio-mixer-mcp` | AudioMixer exposed parameters, AudioSource routing — configuration via MCP execute_code |
 | `srp-batcher-mcp` | SRP Batcher enable/verify, UI Raycast Target audit, post-processing Volume cleanup via MCP |
 | `particle-vfx` | ParticleSystem module config, URP particle shaders, VFX pool, VContainer wiring, event-driven playback |
+| `urp-volume` | URP Volume MCP skill — `manage_graphics` volume_* actions, global/local Volume setup, VolumeProfile, effect overrides |
 
 ### Third-Party (`skills/third-party/` and `skills/plugins/`)
 
@@ -1021,6 +1022,7 @@ All skills under `skills/third-party/`, `skills/plugins/`, `skills/learned/`, an
 | `unity-asmdef` | Assembly definition authoring, references, define constraints |
 | `unity-editor-tools` | Custom Editor windows, PropertyDrawers, EditorUtility patterns |
 | `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
+| `netcode` | NGO 2.x — NetworkBehaviour, RPC, NetworkVariable, Spawn/Despawn, Scene management, VContainer + UniTask integration — 7 sub-docs |
 | `vcontainer` | Scope hierarchy, registration patterns, `IInitializable`/`IDisposable` lifecycle, DI failure diagnosis |
 
 **`skills/plugins/`** (flat `.md` skills + `/discover` output)
