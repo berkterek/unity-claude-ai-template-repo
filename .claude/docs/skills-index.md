@@ -79,11 +79,11 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 
 | Skill | Covers |
 |-------|--------|
-| `dotween` | Tween creation, sequences, callbacks, memory management |
+| `dotween` | Tween creation, sequences, callbacks, memory management — + PITFALLS.md, LIFETIME.md sub-docs |
 | `nsubstitute` | NSubstitute setup, configuration, and usage patterns for Unity test assemblies |
 | `odin-inspector` | Custom attributes, validators, group drawers |
 | `textmeshpro` | Font assets, rich text, SDF materials, localization |
-| `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid |
+| `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid — + PITFALLS.md, CANCELLATION.md sub-docs |
 | `unity-editor-tools` | AssetDatabase, AssetPostprocessor, InitializeOnLoad, EditorPrefs, PrefabUtility, build pipeline hooks |
 | `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
 | `vcontainer` | Scope hierarchy, registration, lifecycle interfaces, DI failure diagnosis |

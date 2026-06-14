@@ -1013,11 +1013,11 @@ All skills under `skills/third-party/`, `skills/plugins/`, `skills/learned/`, an
 
 | Skill | Covers |
 |-------|--------|
-| `dotween` | Tween creation, sequences, callbacks, memory management |
+| `dotween` | Tween creation, sequences, callbacks, memory management — includes PITFALLS (30+ traps) and LIFETIME (kill strategies) |
 | `nsubstitute` | NSubstitute mock setup, argument matchers, received verification |
 | `odin-inspector` | Custom attributes, validators, group drawers |
 | `textmeshpro` | Font assets, rich text, SDF materials, localization |
-| `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid |
+| `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid — includes PITFALLS (30 traps with source anchors) and CANCELLATION patterns |
 | `unity-asmdef` | Assembly definition authoring, references, define constraints |
 | `unity-editor-tools` | Custom Editor windows, PropertyDrawers, EditorUtility patterns |
 | `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |

@@ -54,6 +54,18 @@ KEYWORD_MAP=(
     "confiner2d:cinemachine"
     "cinemachineconfiner:cinemachine"
     "cinemachineimpulse:cinemachine"
+    # UniTask
+    "unitask:unitask"
+    "unitaskvoid:unitask"
+    "getcancellationtokenondestroy:unitask"
+    "cancellationtokenondestroy:unitask"
+    "playerlooptiming:unitask"
+    # ShaderGraph
+    "shadergraph:shader-graph"
+    "shader graph:shader-graph"
+    "shadersubgraph:shader-graph"
+    "master stack:shader-graph"
+    "blackboard property:shader-graph"
     # DOTween
     "dotween:dotween"
     "dotransform:dotween"
