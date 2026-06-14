@@ -99,6 +99,26 @@ KEYWORD_MAP=(
     # Layer Lab GUI
     "layer lab:layer-lab-gui-pro-casual-game"
     "casualgui:layer-lab-gui-pro-casual-game"
+    # Netcode for GameObjects
+    "netcode:netcode"
+    "networkbehaviour:netcode"
+    "networkmanager:netcode"
+    "networkobject:netcode"
+    "networkvariable:netcode"
+    "networklist:netcode"
+    "serverrpc:netcode"
+    "clientrpc:netcode"
+    "onnetworkspawn:netcode"
+    "onnetworkdespawn:netcode"
+    "isowner:netcode"
+    "isserver:netcode"
+    "ishost:netcode"
+    "multiplayer:netcode"
+    "ngo:netcode"
+    # URP Volume (MCP)
+    "volume_create:urp-volume"
+    "volume_add_effect:urp-volume"
+    "volumeprofile:urp-volume"
 )
 
 INVOKED_FILE="${UNITY_HOOK_STATE_DIR}/skills-invoked.txt"

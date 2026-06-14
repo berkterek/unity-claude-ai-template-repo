@@ -19,3 +19,5 @@
 @.claude/skills/third-party/unity-asmdef.md
 @.claude/skills/third-party/unity-editor-tools.md
 @.claude/skills/third-party/unity-uitoolkit.md
+@.claude/skills/third-party/netcode/SKILL.md
+@.claude/skills/systems/urp-volume/SKILL.md

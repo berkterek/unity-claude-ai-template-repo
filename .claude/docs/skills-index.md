@@ -71,6 +71,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `urp-quality-settings` | URP quality tiers (Low/Medium/High/Ultra), runtime asset swap, auto-detect, adaptive performance |
 | `urp-lighting-shadows` | Directional/point/spot lights, shadow cascades, bias tuning, light layers, light cookies, reflection probes |
 | `urp-post-processing` | Bloom, DOF, Motion Blur, SSAO, Tonemapping, Color Grading, Vignette — setup, values, runtime control |
+| `urp-volume` | URP Volume MCP skill — manage_graphics volume_* actions, global/local Volume, VolumeProfile, effect overrides |
 | `audio-mixer-mcp` | AudioMixer exposed parameters, AudioSource routing — configuration via MCP execute_code |
 | `srp-batcher-mcp` | SRP Batcher enable/verify, UI Raycast Target audit, post-processing Volume cleanup via MCP |
 | `particle-vfx` | ParticleSystem module config, URP particle shaders, VFX pool, VContainer wiring, event-driven playback |
@@ -87,6 +88,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `unity-editor-tools` | AssetDatabase, AssetPostprocessor, InitializeOnLoad, EditorPrefs, PrefabUtility, build pipeline hooks |
 | `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
 | `vcontainer` | Scope hierarchy, registration, lifecycle interfaces, DI failure diagnosis |
+| `netcode` | NGO 2.x mimari kuralları — NetworkBehaviour, RPC, NetworkVariable, Spawn/Despawn, VContainer entegrasyonu — + 7 sub-doc |
 
 ## Plugins (`skills/plugins/`)
 
