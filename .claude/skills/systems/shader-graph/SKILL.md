@@ -8,7 +8,9 @@ globs: ["**/*.shadergraph", "**/*.shadersubgraph"]
 
 ## When to Use This Skill
 
-Load this skill when `unity-shader-dev` routes to the ShaderGraph path (complexity score > 0.6 or user explicitly requests visual editing).
+Load this skill when working with ShaderGraph (complexity score > 0.6 or user explicitly requests visual node editing).
+
+> `unity-shader-dev` is an **agent** name — NOT a skill. Do not invoke `Skill("unity-shader-dev")`. The correct skill names are `shader-graph` and `urp-pipeline`.
 
 ---
 
