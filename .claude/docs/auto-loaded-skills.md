@@ -21,3 +21,6 @@
 @.claude/skills/third-party/unity-uitoolkit.md
 @.claude/skills/third-party/netcode/SKILL.md
 @.claude/skills/systems/urp-volume/SKILL.md
+@.claude/skills/third-party/probuilder/SKILL.md
+@.claude/skills/third-party/probuilder/api.md
+@.claude/skills/third-party/probuilder/integration.md

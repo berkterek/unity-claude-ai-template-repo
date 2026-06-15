@@ -89,6 +89,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
 | `vcontainer` | Scope hierarchy, registration, lifecycle interfaces, DI failure diagnosis |
 | `netcode` | NGO 2.x mimari kuralları — NetworkBehaviour, RPC, NetworkVariable, Spawn/Despawn, VContainer entegrasyonu — + 7 sub-doc |
+| `probuilder` | ProBuilder in-editor mesh modeling — shape generation, face/edge/vertex ops, UV unwrapping, Boolean ops, bake-to-asset workflow — + api.md, integration.md |
 
 ## Plugins (`skills/plugins/`)
 

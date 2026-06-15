@@ -119,6 +119,16 @@ KEYWORD_MAP=(
     "volume_create:urp-volume"
     "volume_add_effect:urp-volume"
     "volumeprofile:urp-volume"
+    # ProBuilder
+    "probuilder:probuilder"
+    "shapegenerator:probuilder"
+    "probuildermesh:probuilder"
+    "polyshape:probuilder"
+    "extrudemethod:probuilder"
+    "combinemeshes:probuilder"
+    "subdividefaces:probuilder"
+    "greybox:probuilder"
+    "whitebox:probuilder"
 )
 
 INVOKED_FILE="${UNITY_HOOK_STATE_DIR}/skills-invoked.txt"

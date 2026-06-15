@@ -1023,6 +1023,7 @@ All skills under `skills/third-party/`, `skills/plugins/`, `skills/learned/`, an
 | `unity-editor-tools` | Custom Editor windows, PropertyDrawers, EditorUtility patterns |
 | `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
 | `netcode` | NGO 2.x — NetworkBehaviour, RPC, NetworkVariable, Spawn/Despawn, Scene management, VContainer + UniTask integration — 7 sub-docs |
+| `probuilder` | In-editor mesh modeling — shape generation, face/edge/vertex ops, UV unwrapping, Boolean ops, bake-to-asset workflow — api.md + integration.md |
 | `vcontainer` | Scope hierarchy, registration patterns, `IInitializable`/`IDisposable` lifecycle, DI failure diagnosis |
 
 **`skills/plugins/`** (flat `.md` skills + `/discover` output)
