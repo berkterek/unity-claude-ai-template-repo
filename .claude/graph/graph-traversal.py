@@ -37,6 +37,30 @@ def load_graph(path):
     return g, forward, reverse, edges
 
 
+# Called by future query subcommands that need scenes/prefab data.
+def resolve_partition(graph, key, graph_dir):
+    """Return the full array for a partitioned or inline codebase key.
+
+    Handles both legacy inline arrays and v1.3.0+ $partition references.
+    Missing key returns []. Missing partition file raises FileNotFoundError.
+    """
+    value = graph.get("codebase", {}).get(key)
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict) and "$partition" in value:
+        fpath = os.path.join(graph_dir, value["$partition"])
+        if not os.path.exists(fpath):
+            raise FileNotFoundError(f"Partition file missing: {fpath}")
+        with open(fpath, encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, list):
+            raise ValueError(f"Partition {fpath} expected a JSON array, got {type(data).__name__}")
+        return data
+    return []
+
+
 def require_edges(forward, reverse, label):
     """Exit 0 with suggestion message if call graph is empty."""
     if not forward and not reverse:
@@ -331,7 +355,10 @@ def cmd_finalize_calls(args):
             json.dump(g, f, indent=2, ensure_ascii=False)
         os.replace(tmp_path, path)
     except Exception:
-        os.unlink(tmp_path)
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
         raise
 
     removed = original_count - deduped_count
