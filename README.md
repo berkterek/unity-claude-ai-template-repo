@@ -169,8 +169,10 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 
 | File | Purpose |
 |------|---------|
-| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.2.0 |
-| `graph.json` (generated) | Living index of the codebase — do not edit by hand |
+| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.3.0 |
+| `graph.json` (generated) | Living index of the codebase — do not edit by hand. Stores `{"$partition": "..."}` refs for scenes/prefabs |
+| `scenes.json` (generated) | Partition file — full `scenes[]` array, written atomically alongside `graph.json` |
+| `prefabs.json` (generated) | Partition file — full `prefabs[]` array, written atomically alongside `graph.json` |
 | `extractors/asmdef-extractor.sh` | Parses every `*.asmdef` |
 | `extractors/csharp-extractor.sh` | Regex extractor — emits `methods[]` + `partial_calls[]` (confidence: INFERRED) |
 | `extractors/csharp_extractor.py` | tree-sitter AST extractor — higher accuracy (confidence: EXTRACTED). Optional — see [C# Extractor](#c-extractor-tree-sitter-optional) |
@@ -238,10 +240,12 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 ## Knowledge Graph
 
-`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.2.0). When enabled (default in
+`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.3.0). When enabled (default in
 `/setup-project`), the graph indexes every class, interface, event, installer, scope, asmdef, scene,
-prefab, **method**, and **call edge** into a single `graph.json` artifact. `/catch-up`, `/orchestrate`, and `/context-prime`
+prefab, **method**, and **call edge**. `/catch-up`, `/orchestrate`, and `/context-prime`
 all read this graph instead of scanning files from scratch.
+
+**v1.3.0 partition architecture:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
 
 ### Quick commands
 

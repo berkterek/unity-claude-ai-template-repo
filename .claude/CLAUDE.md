@@ -32,7 +32,7 @@ This is a personal Unity development template for Claude Code. It enforces archi
 - `.claude/agents/*.md` files define agent roles and provide prompt overlays for built-in FleetView agent types. The `subagent_type` value is always the agent's filename without `.md` (e.g. `unity-coder`, `lean-planner`). See `.claude/docs/agents-index.md` for the full mapping table.
 - Command `/create-test-scene` was renamed to `/create-test`. Agent `unity-test-scene-builder` was renamed to `unity-test-builder`.
 - Claude's file tools (`Write`/`Edit`) cannot write `.unity` scene files — `block-scene-edit.sh` blocks this. **However, MCP tools (`manage_scene`, `manage_gameobject`, `manage_components`, `manage_build`) can create and wire scenes through the Unity Editor directly.** Always prefer MCP over listing manual Editor steps when MCP is connected.
-- `.claude/graph/graph.json` is generated — never edit by hand. Use `/build-knowledge-graph` to refresh.
+- `.claude/graph/graph.json` is generated — never edit by hand. Use `/build-knowledge-graph` to refresh. **v1.3.0 partition architecture:** `scenes[]` and `prefabs[]` are stored in sibling files `scenes.json` and `prefabs.json` (same dir). `graph.json` holds `{"$partition": "scenes.json"}` refs. All three files are generated and committed together.
 - Rule files under `.claude/rules/` start with a `## Cards` section (WHEN/WRONG/RIGHT/GOTCHA format). Read the cards first — the prose below each cards section is full reference detail.
 
 ## Knowledge Graph
