@@ -420,6 +420,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 |---------|------------|-------------|
 | `/plan-workflow` | Manual — single step | Breaks the TDD into phases and tasks with agent types, inputs/outputs, and acceptance criteria → **WORKFLOW.md**. Includes: cycle detection gate (blocks circular dependencies), task atomicity gate (blocks XL tasks), and testing-capability preflight |
 | `/dry-run` | Manual — single step | *(optional)* Preview the orchestration plan without executing — shows agent assignments, phase count, risk points |
+| `/plan-summary <file>` | Manual — single step | *(optional)* Reads a plan file and produces a 3-section human-readable summary — what we're doing, how, and what you'll see at the end. Run before `/orchestrate` or `/implement` to verify the plan matches your intent. |
 
 ### Phase 2b — Game Completion Planning (post-skeleton)
 
