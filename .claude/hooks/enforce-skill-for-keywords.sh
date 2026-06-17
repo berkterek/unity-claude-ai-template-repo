@@ -134,6 +134,14 @@ KEYWORD_MAP=(
 INVOKED_FILE="${UNITY_HOOK_STATE_DIR}/skills-invoked.txt"
 touch "$INVOKED_FILE" 2>/dev/null || true
 
+# Auto-loaded skills are already in context — no Skill tool invocation needed.
+# Check auto-loaded-skills.md once and cache the content for fast grep below.
+AUTO_LOADED_FILE="${SCRIPT_DIR}/../docs/auto-loaded-skills.md"
+AUTO_LOADED_CONTENT=""
+if [ -f "$AUTO_LOADED_FILE" ]; then
+    AUTO_LOADED_CONTENT=$(cat "$AUTO_LOADED_FILE")
+fi
+
 MISSING_SKILLS=()
 
 for entry in "${KEYWORD_MAP[@]}"; do
@@ -141,14 +149,20 @@ for entry in "${KEYWORD_MAP[@]}"; do
     skill="${entry##*:}"
 
     if echo "$PROMPT" | grep -qF "$keyword"; then
-        if ! grep -qxF "$skill" "$INVOKED_FILE" 2>/dev/null; then
-            # Deduplicate
-            already_added=false
-            for s in "${MISSING_SKILLS[@]:-}"; do
-                [ "$s" = "$skill" ] && already_added=true && break
-            done
-            $already_added || MISSING_SKILLS+=("$skill")
+        # Skip if already invoked via Skill tool this session
+        if grep -qxF "$skill" "$INVOKED_FILE" 2>/dev/null; then
+            continue
         fi
+        # Skip if the skill is auto-loaded into context (any path containing the skill name)
+        if echo "$AUTO_LOADED_CONTENT" | grep -qF "$skill"; then
+            continue
+        fi
+        # Deduplicate
+        already_added=false
+        for s in "${MISSING_SKILLS[@]:-}"; do
+            [ "$s" = "$skill" ] && already_added=true && break
+        done
+        $already_added || MISSING_SKILLS+=("$skill")
     fi
 done
 

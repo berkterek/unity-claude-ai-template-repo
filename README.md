@@ -590,7 +590,7 @@ npm install -g bats      # Linux
 | `track-codex-review` (PostToolUse) | Creates `.claude/state/codex-reviewed` when `codex:codex-rescue` completes |
 | `track-skill-invocations` (PostToolUse Skill) | Records every `Skill` tool invocation to `skills-invoked.txt` — required by `enforce-skill-for-keywords.sh` to know which skills are already loaded this session. Also injects `additionalContext` after every invocation to force Claude to read and follow the skill content before proceeding. |
 | `auto-load-skills` (PostToolUse) | Adds `@`-reference to `.claude/docs/auto-loaded-skills.md` whenever a skill is written to `third-party/`, `plugins/`, `learned/`, or `platform/` |
-| `enforce-skill-for-keywords` (UserPromptSubmit) | Detects third-party package keywords in every prompt. If the relevant skill hasn't been invoked this session, injects a blocking context message — Claude must call the `Skill` tool before proceeding |
+| `enforce-skill-for-keywords` (UserPromptSubmit) | Detects third-party package keywords in every prompt. Skips enforcement if the skill is auto-loaded via `auto-loaded-skills.md` (already in context) or already invoked via `Skill` tool this session — otherwise injects a blocking context message |
 | `instinct-capture` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `hook-logger` | Central audit logger — appends newline-delimited JSON to `~/.claude/hook-audit.log` |
