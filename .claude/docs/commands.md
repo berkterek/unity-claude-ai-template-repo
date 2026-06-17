@@ -70,6 +70,7 @@
 - `/continue` — Resume an interrupted orchestration run from the event journal (picks up where it left off)
 - `/status` — Report current pipeline stage: GDD → TDD → WORKFLOW progress summary
 - `/dry-run` — Preview the orchestration plan for a WORKFLOW.md without executing any tasks
+- `/plan-summary <file>` — Plan dosyasını okur ve 3 bölümlü özet üretir: ne yapıyoruz, nasıl yapıyoruz, sonunda ne göreceğiz. `/orchestrate` veya `/implement` öncesinde planın beklentinizle örtüştüğünü doğrulamak için kullanın.
 - `/instincts` — Manage instinct library: status, list, evolve, promote, export, import
 
 ### Changelog
