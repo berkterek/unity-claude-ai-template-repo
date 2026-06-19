@@ -209,6 +209,7 @@ Configured by `/setup-project`. Source of truth: `.claude/project-features.json`
 | `testing` | **ENABLED** | Enforce `rules/testing.md`, NSubstitute rules, test-folder/asmdef requirements, and test hooks |
 | `ecs` | **DISABLED** | Skip `rules/ecs-dots.md`, ECS structural-change hook (`check-ecs-structural-changes.sh`), and enum-byte-base hook (`check-enum-byte-base.sh`) |
 | `graph` | **ENABLED** | `graph.json` is the primary source of truth. `/orchestrate` pre-scan reads graph instead of scanning folders. `/catch-up`, `/context-prime`, `/architect` query graph first; fall back to file-scan only if graph is stale (> 24h) or disabled. |
+| `hybrid_graph` | **DISABLED** | Route call-graph queries (`callers`, `impact`, `path`, `god-nodes`) via `graph-mcp-server.py` MCP tools (backed by `graph_bfs_core.py`) with Bash-emitted stderr warning and lazy pip probe on fallback. When disabled: all queries use `graph-traversal.py`/`jq` (current behaviour), zero stderr output, no pip probe. |
 
 > When a feature is DISABLED, Claude must not enforce its rules or suggest its patterns.
 

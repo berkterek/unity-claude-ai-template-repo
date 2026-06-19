@@ -3,5 +3,6 @@
   "testing": true,
   "ecs": false,
   "graph": true,
-  "unity_project_folder": "."
+  "unity_project_folder": ".",
+  "hybrid_graph": false
 }
