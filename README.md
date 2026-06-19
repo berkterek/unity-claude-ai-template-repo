@@ -315,6 +315,41 @@ Once installed, `graph-builder.py` automatically uses `csharp_extractor.py` inst
 
 > **Recommended** if your project has 50+ classes or complex generics/multi-line declarations. Not required for the graph to function.
 
+### Hybrid MCP backend (optional, off by default)
+
+`hybrid_graph` in `project-features.json` (default `false`) routes the four call-graph queries (`callers`, `impact`, `path`, `god-nodes`) through a custom in-process MCP server (`graph-mcp-server.py`) backed by a shared BFS core (`graph_bfs_core.py`). The eleven Unity-semantic queries (`summary`, `implementers`, `publishers`, etc.) are unaffected — they stay on `jq`.
+
+When `hybrid_graph` is `false` (default), behaviour is **byte-for-byte identical to today** — no stderr output, no pip probe, no MCP dependency.
+
+**To enable:**
+
+1. Install the `mcp` Python package (once, in the same environment that runs `python3`):
+   ```bash
+   pip install mcp
+   ```
+
+2. Open `.claude/settings.json` in a non-Claude editor and add the `mcpServers` block (Claude cannot edit this file):
+   ```json
+   "mcpServers": {
+     "graph-mcp": {
+       "command": "python3",
+       "args": [".claude/graph/graph-mcp-server.py"]
+     }
+   }
+   ```
+   If `mcpServers` already exists, add the `graph-mcp` key inside the existing object.
+
+3. Set the flag in `.claude/project-features.json`:
+   ```json
+   "hybrid_graph": true
+   ```
+
+4. Restart Claude Code. If `mcp__graph_mcp__*` tools appear in the session, the server is running.
+
+**Fallback:** If the MCP server is unavailable while `hybrid_graph` is `true`, call-graph queries automatically fall back to `graph-traversal.py` and emit a warning on stderr.
+
+> **Recommendation:** Leave this off until you have verified that the graph works correctly in your project with the default backend. The hybrid backend produces identical results — the benefit is reduced subprocess overhead on large projects.
+
 ### Regression test harness
 
 `.claude/graph/test/verify-graphify.sh` runs a self-contained test suite against the graph pipeline — no Unity Editor required.
