@@ -178,7 +178,9 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `extractors/csharp_extractor.py` | tree-sitter AST extractor — higher accuracy (confidence: EXTRACTED). Optional — see [C# Extractor](#c-extractor-tree-sitter-optional) |
 | `extractors/mcp-extractor.md` | MCP scene/prefab extraction skill |
 | `graph-builder.py` | Top-level orchestrator + SHA256 cache + call edge merge (Python stdlib, no jq) |
-| `graph-traversal.py` | BFS traversal — impact, callers, path, god-nodes, --finalize-calls |
+| `graph-traversal.py` | BFS traversal — impact, callers, path, god-nodes, --finalize-calls. Imports `graph_bfs_core` for shared logic |
+| `graph_bfs_core.py` | Shared pure BFS module — no file I/O, no CLI. Imported by both `graph-traversal.py` and `graph-mcp-server.py` |
+| `graph-mcp-server.py` | stdio MCP server — loads graph partitions into RAM, exposes callers/impact/path/god-nodes as `mcp__graph_mcp__*` tools. Used when `hybrid_graph: true` |
 | `graph-validator.sh` | Architecture invariant checks (R1–R6) |
 | `graph_cluster.py` | Community detection — groups related classes into modules |
 | `graph_analyze.py` | Surprising connections + enhanced god-nodes (cross-boundary edge analysis) |
@@ -609,6 +611,7 @@ npm install -g bats      # Linux
 | `guard-reviewer-order` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass |
 | `check-no-runtime-instantiate` | `new GameObject()` — blocked everywhere in runtime code; use `Instantiate(prefab)` or `Addressables.InstantiateAsync()` |
 | `check-enum-byte-base` | `enum` without `: byte` base inside `IComponentData` or `IEvent` structs — use `: ushort` if 255+ values needed |
+| `block-graph-direct-read` (PreToolUse Read) | Direct `Read` of `graph.json`, `scenes.json`, or `prefabs.json` when `hybrid_graph: true` — use `/knowledge-graph` subcommands or `mcp__graph_mcp__*` tools instead |
 
 ### Warnings (exit 0 — logged to stderr, does not block)
 

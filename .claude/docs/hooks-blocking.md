@@ -19,5 +19,6 @@
 | `guard-sparc-approved.sh` (PreToolUse) | Coder agent spawn blocked if `.claude/state/sparc-approved` is missing — SPARC gate must fire and `go` received before spawning `coder`, `unity-coder`, or `unity-coder-lite` |
 | `block-projectsettings.sh` (PreToolUse Edit\|Write) | Direct edits to `ProjectSettings/*.asset`, `Packages/manifest.json`, `Packages/packages-lock.json` — use the Unity Editor or Package Manager instead. **[MANUAL: add to settings.json]** |
 | `check-ls-grep.sh` (PreToolUse Bash) | `ls \| grep` / `ls \| awk` / `ls \| sed` patterns — use `tree` for directory listings instead |
+| `block-graph-direct-read.sh` (PreToolUse Read) | Direct `Read` of `.claude/graph/graph.json`, `scenes.json`, or `prefabs.json` when `hybrid_graph: true` — use `/knowledge-graph` subcommands or `mcp__graph_mcp__*` tools instead |
 
 @.claude/docs/hook-profiles.md
