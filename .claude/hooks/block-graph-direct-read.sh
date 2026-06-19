@@ -30,6 +30,9 @@ trap '_hook_log $?' EXIT
 # Direct reads dump thousands of lines into context, wasting tokens and
 # defeating the purpose of the hybrid backend.
 #
+# Portable: uses git rev-parse for project root — works in any repo layout,
+# including nested Unity project folders (unity_project_folder setting).
+#
 # Trigger: PreToolUse on Read
 # Exit: 2 = block, 0 = allow
 # ============================================================================
@@ -49,19 +52,34 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-# Only block graph partition files
-case "$FILE_PATH" in
-    */\.claude/graph/graph.json|\
-    */\.claude/graph/scenes.json|\
-    */\.claude/graph/prefabs.json)
+# Resolve project root (portable across any repo layout)
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$PROJECT_ROOT" ]; then
+    exit 0
+fi
+
+FEATURES_FILE="${PROJECT_ROOT}/.claude/project-features.json"
+GRAPH_DIR="${PROJECT_ROOT}/.claude/graph"
+
+# Only block files inside the graph directory
+REAL_FILE="$(realpath "$FILE_PATH" 2>/dev/null || echo "$FILE_PATH")"
+REAL_GRAPH_DIR="$(realpath "$GRAPH_DIR" 2>/dev/null || echo "$GRAPH_DIR")"
+
+BASENAME=$(basename "$REAL_FILE")
+case "$BASENAME" in
+    graph.json|scenes.json|prefabs.json)
         ;;
     *)
         exit 0
         ;;
 esac
 
+# Confirm the file is actually inside .claude/graph/ (not some other graph.json)
+if [[ "$REAL_FILE" != "$REAL_GRAPH_DIR"/* ]]; then
+    exit 0
+fi
+
 # Check hybrid_graph flag — only block when explicitly true
-FEATURES_FILE="$(git rev-parse --show-toplevel 2>/dev/null)/.claude/project-features.json"
 if [ ! -f "$FEATURES_FILE" ]; then
     exit 0
 fi
@@ -71,7 +89,6 @@ if [ "$HYBRID" != "true" ]; then
     exit 0
 fi
 
-BASENAME=$(basename "$FILE_PATH")
 MSG="BLOCKED: Direct read of $BASENAME is forbidden when hybrid_graph is enabled."$'\n'
 MSG+="  Reading this file dumps the entire graph into context, wasting tokens."$'\n'
 MSG+="  Use /knowledge-graph <subcommand> to query only what you need:"$'\n'

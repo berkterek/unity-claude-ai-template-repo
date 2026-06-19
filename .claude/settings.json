@@ -209,6 +209,16 @@
             "statusMessage": "Logging agent spawn..."
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-graph-direct-read.sh",
+            "timeout": 5000
+          }
+        ]
       }
     ],
     "PostToolUse": [
