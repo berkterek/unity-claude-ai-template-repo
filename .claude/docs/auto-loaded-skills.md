@@ -2,6 +2,7 @@
 
 <!-- managed by auto-load-skills.sh — do not edit manually -->
 
+@.claude/skills/core/knowledge-graph-hybrid.md
 @.claude/skills/core/solid-oop.md
 @.claude/skills/core/unity-git.md
 @.claude/skills/core/bootstrap-pattern.md

@@ -132,3 +132,70 @@ Two-mode validator — always runs during graph-builder.
 - "Which classes form a module?" → `/knowledge-graph communities`
 - "Architecture drifting where?" → `/knowledge-graph surprising`
 - "God-nodes with community context?" → `/knowledge-graph god-nodes` (now uses `analysis.enhanced_god_nodes[]` when present)
+
+---
+
+## Hybrid Architecture
+
+The knowledge graph uses a two-backend split when `hybrid_graph` is enabled in `project-features.json` (default `false`):
+
+| Query group | Backend | Queries |
+|---|---|---|
+| Call-graph (4) | `graph-mcp-server.py` via `graph_bfs_core.py` | `callers`, `impact`, `path`, `god-nodes` |
+| Unity-semantic (11) | `jq` / `graph.json` (unchanged) | `summary`, `implementers`, `publishers`, `subscribers`, `registrations`, `scope-tree`, `prefab`, `violations`, `diff`, `communities`, `surprising` |
+
+**`hybrid_graph` flag** in `project-features.json` gates all routing. Default is `false`.
+
+- **Off (default):** behaviour identical to today — all 15 subcommands resolved via `jq`/`graph-traversal.py`, zero stderr output, no pip probe.
+- **On + MCP connected (State A):** call-graph queries dispatched via `mcp__graph_mcp__*` tools backed by `graph_bfs_core.py`. Unity-semantic queries unchanged.
+- **On + MCP absent (State B):** Bash-emitted warning on stderr + automatic fallback to `graph-traversal.py` (same result, slower startup due to lazy `pip` probe).
+
+**Routing skill:** `.claude/skills/core/knowledge-graph-hybrid.md` — read before dispatching any call-graph query when `hybrid_graph` is enabled.
+
+---
+
+## Hybrid MCP Registration (User-applied)
+
+The graph MCP server (`graph-mcp-server.py`) exposes the knowledge graph as MCP tools (`mcp__graph_mcp__*`) so Claude can query it directly during a session. Claude cannot edit `settings.json` — paste this block yourself.
+
+### Prerequisites
+
+Run this once in the same environment whose `python3` Claude Code invokes:
+
+```bash
+pip install mcp
+```
+
+### settings.json entry
+
+Open `.claude/settings.json` and add the `mcpServers` block. If `mcpServers` already exists, add the `graph-mcp` key inside it — do not overwrite the existing object.
+
+```json
+"mcpServers": {
+  "graph-mcp": {
+    "command": "python3",
+    "args": [".claude/graph/graph-mcp-server.py"]
+  }
+}
+```
+
+**Merge example** — if your `settings.json` already has another MCP server:
+
+```json
+"mcpServers": {
+  "existing-server": { "command": "..." },
+  "graph-mcp": {
+    "command": "python3",
+    "args": [".claude/graph/graph-mcp-server.py"]
+  }
+}
+```
+
+### Notes
+
+- No `--watch` argument is needed — the server checks file mtime on each handler call and reloads automatically.
+- The server reads `graph.json`, `scenes.json`, and `prefabs.json` from `.claude/graph/`.
+
+### Verification
+
+After editing `settings.json`, restart Claude Code. In the new session, `mcp__graph_mcp__*` tools should appear in the tool list. If they do not appear, confirm `pip install mcp` succeeded for the correct `python3` binary and that the JSON is valid.

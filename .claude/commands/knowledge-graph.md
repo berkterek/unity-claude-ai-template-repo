@@ -46,6 +46,12 @@ If the user says `n` → stop. If `y` → continue.
 
 ---
 
+## Routing (hybrid mode)
+
+When `hybrid_graph` is enabled in `project-features.json`, the four call-graph queries (`callers`, `impact`, `path`, `god-nodes`) are dispatched via `mcp__graph_mcp__*` tools per `.claude/skills/core/knowledge-graph-hybrid.md`. All other subcommands and all output formats are unchanged.
+
+---
+
 ## Subcommands
 
 ### summary
