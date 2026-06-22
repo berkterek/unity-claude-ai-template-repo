@@ -7,7 +7,7 @@
 .claude/state/session-cost.jsonl
 .claude/state/subagent-log.jsonl
 .claude/state/task-log.jsonl
-.claude/state/instincts/observations.jsonl
+.claude/state/instincts/
 .claude/state/session-start-time
 .claude/state/checkpoint.md
 .claude/state/codex-reviewed
