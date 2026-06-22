@@ -21,7 +21,7 @@ def stdlib_greedy(nodes, adj):
                 counts[community[m]] += 1
             if counts:
                 best = max(counts.items(), key=lambda kv: kv[1])
-                if best[0] != community[n] and best[1] > 1:
+                if best[0] != community[n] and best[1] >= 1:
                     community[n] = best[0]
                     changed = True
         if not changed:

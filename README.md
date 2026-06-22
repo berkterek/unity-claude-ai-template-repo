@@ -182,7 +182,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `graph_bfs_core.py` | Shared pure BFS module — no file I/O, no CLI. Imported by both `graph-traversal.py` and `graph-mcp-server.py` |
 | `graph-mcp-server.py` | stdio MCP server — loads graph partitions into RAM, exposes callers/impact/path/god-nodes as `mcp__graph_mcp__*` tools. Used when `hybrid_graph: true` |
 | `graph-validator.sh` | Architecture invariant checks (R1–R6) |
-| `graph_cluster.py` | Community detection — groups related classes into modules |
+| `graph_cluster.py` | Community detection — groups related classes into modules. Uses Louvain (`networkx`) when available; falls back to stdlib greedy. Install `pip install networkx` for better results on sparse codebases. |
 | `graph_analyze.py` | Surprising connections + enhanced god-nodes (cross-boundary edge analysis) |
 | `graph_validate.py` | Two-mode validator. **Default (consistency):** internal graph integrity — orphan events, dangling call edges, missing installer classes. No source files read. **`--accuracy` flag:** re-extracts a sample via `csharp_extractor.py` (tree-sitter) and compares against graph — run manually or in CI |
 | `codex-validator.md` | Codex accuracy spot-check prompt |
@@ -314,6 +314,13 @@ pip install tree-sitter tree-sitter-c-sharp
 ```
 
 Once installed, `graph-builder.py` automatically uses `csharp_extractor.py` instead of the regex pipeline — no config change needed. Without it, the build falls back to regex silently.
+
+The AST extractor correctly handles:
+- `base_list` named child lookup (tree-sitter-c-sharp grammar quirk — field-based lookup returns nothing)
+- `RegisterInstance<T>`, `RegisterComponent<T>`, `RegisterEntryPoint<T>` VContainer registration variants
+- `struct_declaration` — `IEvent` structs are added to `events[]`
+- Event bus calls with any field name (`_bus`, `_eventBus`, `bus`, etc.)
+- VContainer `Installer` / `LifetimeScope` detection for `vcontainer.installers` and `vcontainer.scopes`
 
 > **Recommended** if your project has 50+ classes or complex generics/multi-line declarations. Not required for the graph to function.
 

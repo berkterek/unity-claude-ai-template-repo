@@ -97,8 +97,10 @@ Full working code snippets for all patterns: see `.claude/graph/extractors/mcp-e
 
 New in v1.2.0. Detects class communities from call edges using greedy modularity (stdlib) or Louvain (via optional `networkx`). Writes `codebase.communities[]`.
 
-- `algorithm: "greedy-modularity-stdlib"` — default, no pip install needed
-- `algorithm: "louvain-networkx"` — higher quality; requires `pip install networkx`
+- `algorithm: "greedy-modularity-stdlib"` — default, no pip install needed. Works on all graphs but produces coarser clusters on sparse codebases.
+- `algorithm: "louvain-networkx"` — higher quality, recommended for projects with > 30 classes; requires `pip install networkx`
+
+> **Recommendation:** Run `pip install networkx` once after setup. On sparse graphs (few call edges, early-stage projects) the stdlib algorithm may group everything into one large community or produce no merges at all. Louvain handles this correctly.
 
 ### graph_analyze.py
 

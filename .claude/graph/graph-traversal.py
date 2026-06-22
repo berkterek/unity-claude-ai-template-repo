@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# GENERATED-FROM-TEMPLATE — do not edit directly in project repos.
+# Changes must be made in unity-claude-ai-template-repo and synced forward.
 """Knowledge graph traversal — impact, callers, path, god-nodes, finalize-calls."""
 import argparse
 import json
