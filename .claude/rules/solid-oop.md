@@ -4,17 +4,31 @@
 
 MonoBehaviour yalnızca **View**, **Provider** veya **Controller** rolü üstlenebilir.
 
-| Rol | Ne yapar | Ne yapmaz |
+| Rol | Suffix | Nerede kullanılır | Ne yapar | Ne yapmaz |
+|---|---|---|---|---|
+| **View** | `*View` | **Yalnızca UI/Canvas scriptleri** (HUDView, PopupView, SliderView) | UI günceller, input okur, animasyon tetikler | Business logic, hesaplama, state yönetimi |
+| **Provider** | `*Provider` | Unity API soyutlaması (AudioProvider, PhysicsProvider) | Tek bir Unity API grubunu (AudioSource, Rigidbody, Transform) wrap eder | Servis koordinasyonu, event publishing, oyun mantığı |
+| **Controller** | `*Controller` | Gameplay, karakter, fizik koordinasyonu (BlackholeController, ItemController) | Sahne veya karakter davranışını koordine eder; servislere yönlendirir | Business logic barındırır, Unity API'ye doğrudan erişir |
+
+### Suffix Seçim Kuralı (NON-NEGOTIABLE)
+
+`*View` suffix sadece Canvas/UI layer'a aittir. Gameplay veya fizik nesnesi için `*View` kullanmak yasaktır.
+
+| Nesne türü | Doğru suffix | Yanlış suffix |
 |---|---|---|
-| **View** | UI günceller, input okur, animasyon tetikler | Business logic, hesaplama, state yönetimi |
-| **Provider** | Unity API'yi (Physics, Transform, AudioSource) soyutlar | Servis koordinasyonu, event publishing |
-| **Controller** | Sahne veya karakter davranışını koordine eder; servislere yönlendirir | Business logic barındırır, Unity API'ye doğrudan erişir |
+| HUD, Panel, Popup, Slider (Canvas child) | `*View` | — |
+| Karakter, fizik nesnesi, gameplay object | `*Controller` | `*View` ❌ |
+| Unity API wrap (AudioSource, Rigidbody) | `*Provider` | `*View` ❌ |
+
+**Karar testi:** Script bir Canvas'ın altında mı çalışıyor?
+- Evet → `*View`
+- Hayır → `*Controller` veya `*Provider`
 
 ### Sınırlar
 
 - Max ~100 satır — aşılırsa sınıf iki role ayrılıyor demektir
 - `Update()`/`FixedUpdate()` içinde business logic yok — sadece `ReadValue()`, `SetMoveInput()` gibi ince çağrılar
-- `Awake()`/`Start()` içinde initialization logic yok — VContainer `Initialize()` bunu üstlenir
+- `Awake()`/`Start()` içinde injection-dependent initialization logic yok — VContainer `Initialize()` bunu üstlenir. İnjection gerektirmeyen generated class'lar (örn. `new PlayerControls()`) `Awake()` içinde instantiate edilebilir.
 - Hiç `new Service()` yok — her dependency `[Inject]` ile gelir
 
 ### Forbidden
