@@ -33,20 +33,20 @@ These rule files are loaded into every Claude Code session and drive all code ge
 
 | Phase | Task | Status | parallel_group |
 |-------|------|--------|----------------|
-| 1 — Language | Task 1: Translate Turkish block in csharp-unity.md | ⏳ Pending | A |
-| 1 — Language | Task 2: Clarify `?.` null-guard in event-patterns.md | ⏳ Pending | A |
-| 2 — Code Examples | Task 3: Fix StoreService missing `sealed` | ⏳ Pending | B |
-| 2 — Code Examples | Task 4: Add `#region` tags to InputView in unity-input.md | ⏳ Pending | B |
-| 2 — Code Examples | Task 5: Add `#region` tags to ScoreView in architecture.md | ⏳ Pending | B |
-| 3 — Clarifications | Task 6: Clarify `#region` exemption threshold | ⏳ Pending | C |
-| 3 — Clarifications | Task 7: Clarify `.Forget()` handler requirement | ⏳ Pending | C |
-| 3 — Clarifications | Task 8a: Clarify Awake() vs Initialize() in architecture.md | ⏳ Pending | C |
-| 3 — Clarifications | Task 8b: Clarify Awake() exemption in solid-oop.md | ⏳ Pending | C |
-| 3 — Clarifications | Task 9: Add CancellationTokenSource ownership rule | ⏳ Pending | C |
-| 4 — Additions | Task 10: Expand namespace collision table | ⏳ Pending | D |
-| 4 — Additions | Task 11: Add `[field: SerializeField]` guidance | ⏳ Pending | D |
-| 4 — Additions | Task 12: Add dynamic MonoBehaviour row to Subscribe table | ⏳ Pending | D |
-| 5 — Cross-References | Task 13: Add cross-references between all files | ⏳ Pending | E |
+| 1 — Language | Task 1: Translate Turkish block in csharp-unity.md | ✅ Done | A |
+| 1 — Language | Task 2: Clarify `?.` null-guard in event-patterns.md | ✅ Done | A |
+| 2 — Code Examples | Task 3: Fix StoreService missing `sealed` | ✅ Done | B |
+| 2 — Code Examples | Task 4: Add `#region` tags to InputView in unity-input.md | ✅ Done | B |
+| 2 — Code Examples | Task 5: Add `#region` tags to ScoreView in architecture.md | ✅ Done | B |
+| 3 — Clarifications | Task 6: Clarify `#region` exemption threshold | ✅ Done | C |
+| 3 — Clarifications | Task 7: Clarify `.Forget()` handler requirement | ✅ Done | C |
+| 3 — Clarifications | Task 8a: Clarify Awake() vs Initialize() in architecture.md | ✅ Done | C |
+| 3 — Clarifications | Task 8b: Clarify Awake() exemption in solid-oop.md | ✅ Done | C |
+| 3 — Clarifications | Task 9: Add CancellationTokenSource ownership rule | ✅ Done | C |
+| 4 — Additions | Task 10: Expand namespace collision table | ✅ Done | D |
+| 4 — Additions | Task 11: Add `[field: SerializeField]` guidance | ✅ Done | D |
+| 4 — Additions | Task 12: Add dynamic MonoBehaviour row to Subscribe table | ✅ Done | D |
+| 5 — Cross-References | Task 13: Add cross-references between all files | ✅ Done | E |
 
 > **Dependency note:** Group E (Task 13) must run after all other groups complete — cross-references point to sections added or modified in Tasks 1–12.
 

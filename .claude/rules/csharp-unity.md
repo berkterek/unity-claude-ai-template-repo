@@ -42,6 +42,8 @@ _target.TakeDamage(10);
 
 **GOTCHA:** `?.` uses C# reference equality — it does NOT return null for destroyed Unity objects. This is the #1 most subtle Unity bug.
 
+> See also: `rules/event-patterns.md` → Pattern 4 note (field-assignment null-guard vs destroyed-object check)
+
 ---
 
 ### Card 3: UniTask Only — Never `Task` or `async void`
@@ -81,7 +83,7 @@ LoadAsync(ct).Forget(ex => { if (ex is not OperationCanceledException) Debug.Log
 #region Private Methods
 ```
 
-**GOTCHA:** Interface files, single-member structs/enums, and helper classes with < 3 methods are exempt.
+**GOTCHA:** Interface files, single-member structs/enums, and helper classes with fewer than 3 methods total (all access levels combined) are exempt. At 3 or more methods, `#region` is required regardless of visibility.
 
 ---
 
@@ -112,7 +114,7 @@ namespace Game.Concretes.Camera
 }
 ```
 
-**GOTCHA:** Check domain name against UnityEngine types before creating the folder. Add the alias to every `.cs` file in that domain.
+**GOTCHA:** Check domain name against UnityEngine types before creating the folder. Consult the full collision table in `### Namespace Collision Rule`. Add the alias to every `.cs` file in that domain.
 
 ## Naming Summary
 
@@ -127,6 +129,9 @@ namespace Game.Concretes.Camera
 | Constant | `SCREAMING_SNAKE_CASE` | `MAX_RETRY_COUNT` |
 | `static readonly` | PascalCase | `JumpHash`, `DefaultColor` |
 | IEvent implementation | PascalCase + past tense + `Event` suffix | `LevelStartedEvent`, `CoinsChangedEvent` |
+| MonoBehaviour — UI/Canvas only | PascalCase + `View` suffix | `HUDView`, `PopupView`, `SliderView` |
+| MonoBehaviour — gameplay/character/physics | PascalCase + `Controller` suffix | `BlackholeController`, `ItemController` |
+| MonoBehaviour — Unity API abstraction | PascalCase + `Provider` suffix | `AudioProvider`, `PhysicsProvider` |
 | ScriptableObject | PascalCase + descriptive suffix | `AudioConfiguration`, `ProductCatalog` |
 | Installer | PascalCase + `Installer` suffix | `AudioInstaller`, `StoreInstaller` |
 | Namespace | `<Layer>.<Module>` | `Framework.Events`, `Game.Concretes` |
@@ -160,24 +165,25 @@ Namespace follows folder depth. Third-party libraries keep their own namespaces 
 
 ### Namespace Collision Rule (NON-NEGOTIABLE)
 
-`Game.Concretes.<Domain>` namespace adı `UnityEngine` tip adlarıyla çakışabilir. Çakışma olduğunda C# derleyicisi hangi tipi kastettiğini bilemez ve ambiguous reference hatası verir.
+The `Game.Concretes.<Domain>` namespace can collide with `UnityEngine` type names. When a collision exists the C# compiler cannot resolve which type is intended and raises an ambiguous reference error.
 
-**Bilinen çakışmalar:**
+**Known collisions:**
 
-| Domain namespace | Çakışan UnityEngine tipi | Çözüm |
-|-----------------|--------------------------|-------|
-| `Game.Concretes.Camera` | `Camera` | `using UCamera = UnityEngine.Camera;` |
-| `Game.Concretes.Random` | `Random` | `using URandom = UnityEngine.Random;` |
+| Domain namespace | Colliding UnityEngine type | Alias |
+|-----------------|---------------------------|-------|
+| `Game.Concretes.Camera` | `UnityEngine.Camera` | `using UCamera = UnityEngine.Camera;` |
+| `Game.Concretes.Random` | `UnityEngine.Random` | `using URandom = UnityEngine.Random;` |
+| `Game.Concretes.Object` | `UnityEngine.Object` | `using UObject = UnityEngine.Object;` |
+| `Game.Concretes.Input` | `UnityEngine.Input` | `using UInput = UnityEngine.Input;` |
+| `Game.Concretes.Physics` | `UnityEngine.Physics` | `using UPhysics = UnityEngine.Physics;` |
+| `Game.Concretes.Collider` | `UnityEngine.Collider` | `using UCollider = UnityEngine.Collider;` |
+| `Game.Concretes.Transform` | `UnityEngine.Transform` | `using UTransform = UnityEngine.Transform;` |
+| `Game.Concretes.Time` | `UnityEngine.Time` | `using UTime = UnityEngine.Time;` |
+| `Game.Concretes.Component` | `UnityEngine.Component` | `using UComponent = UnityEngine.Component;` |
 
-**Kural:** `Game.Concretes.<Domain>` namespace'i `UnityEngine` içinde aynı adlı bir tip barındırıyorsa, o domain'in **tüm** `.cs` dosyalarının en üstüne alias ekle:
+**Rule:** When `Game.Concretes.<Domain>` contains a type whose name matches a `UnityEngine` type, add the alias at the top of **every** `.cs` file in that domain.
 
-```csharp
-using UCamera = UnityEngine.Camera;
-// using System.Random yerine:
-using URandom = UnityEngine.Random;
-```
-
-**Plan aşamasında kontrol:** Yeni bir domain klasörü oluşturulmadan önce Researcher, domain adının (`Camera`, `Random`, `Object`, `Input`, `Physics`, `Collider`, `Transform`…) `UnityEngine` namespace'inde bir tiple eşleşip eşleşmediğini kontrol etmeli ve varsa alias'ı plana görev olarak eklemelidir.
+**Pre-plan check:** Before creating a new domain folder, the Researcher must verify that the domain name does not match a `UnityEngine` type. If a match exists, add an alias task to the plan.
 
 ---
 
@@ -208,7 +214,19 @@ private const string DEFAULT_SOUND_ID  = "tap";
 // Public fields — only in [Serializable] data classes and ScriptableObject configs
 public float SfxVolume = 1f;
 public bool HapticOn = true;
+
+// [field: SerializeField] — auto-property with Inspector serialization.
+// Use when a public getter with Inspector visibility is needed on a data class or ScriptableObject.
+[field: SerializeField] public float MoveSpeed { get; private set; } = 5f;
+
+// Equivalent explicit form (preferred in most cases):
+[SerializeField] private float _moveSpeed = 5f;
+public float MoveSpeed => _moveSpeed;
 ```
+
+**Rule:** Prefer the explicit backing-field form (`_moveSpeed` + read-only property) in `MonoBehaviour` and service classes — it keeps the underscore naming convention, is easier to debug in the Inspector, and works on all Unity versions. Use `[field: SerializeField]` only in `[Serializable]` data classes or `ScriptableObject` configs where a clean public getter is the primary API.
+
+> See also: `rules/architecture.md` → Card 6 (Same Prefab SerializeField rule); `rules/performance.md` → Component References section
 
 ---
 
@@ -245,7 +263,7 @@ public sealed class EnemyService
 
 Every `.cs` file under `_GameFolders/Scripts/` must use `#region` tags in this order.
 
-**Exception:** Interface files, single-member structs/enums, and helper classes with fewer than 3 methods do not require `#region`.
+**Exception:** Interface files, single-member structs/enums, and helper classes with fewer than 3 methods total (all access levels combined) do not require `#region`. At 3 or more methods, regions are mandatory.
 
 ```csharp
 public class ExampleService : IExampleService, IInitializable, IDisposable
@@ -349,19 +367,28 @@ InitializeAsync(ct).Forget();
 async void Initialize() { }
 ```
 
+**Handler rule:**
+- **Full handler (default):** Use when the async method can propagate non-cancellation exceptions.
+  ```csharp
+  LoadAsync(ct).Forget(ex => { if (ex is not OperationCanceledException) Debug.LogException(ex); });
+  ```
+- **Bare `.Forget()` (exception only):** Acceptable only when exceptions are caught internally by the method. Add a comment: `// safe: exceptions handled internally`.
+
+When in doubt, use the full handler. Bare `.Forget()` that silently drops exceptions is equivalent to an empty catch block.
+
 ### CancellationToken
 
 Every async method takes a `CancellationToken`. Bind to lifecycle:
 
 ```csharp
-public class StoreService : IInitializable, IDisposable
+public sealed class StoreService : IInitializable, IDisposable
 {
     private CancellationTokenSource _cts;
 
     public void Initialize()
     {
         _cts = new CancellationTokenSource();
-        SetupAsync(_cts.Token).Forget();
+        SetupAsync(_cts.Token).Forget(ex => { if (ex is not OperationCanceledException) Debug.LogException(ex); });
     }
 
     public void Dispose()
@@ -371,6 +398,16 @@ public class StoreService : IInitializable, IDisposable
     }
 }
 ```
+
+**CancellationTokenSource ownership rules:**
+
+| Rule | Detail |
+|------|--------|
+| Creator owns it | The class that calls `new CancellationTokenSource()` is responsible for `.Cancel()` and `.Dispose()` |
+| Cancel before Dispose | Always call `_cts.Cancel()` before `_cts.Dispose()` — cancels in-flight tasks first |
+| Dispose in `Dispose()` | For `IDisposable` classes: `Dispose()`. For MonoBehaviour: `OnDestroy()` |
+| Never pass the CTS | Pass only `_cts.Token` to callees — never the `CancellationTokenSource` itself |
+| Null-guard before use | `_cts?.Cancel(); _cts?.Dispose();` — CTS may be null if `Initialize()` was never called |
 
 ---
 
@@ -458,3 +495,5 @@ public interface IAudioService
 ```
 
 **Rule: Document contracts where silence would cause caller surprise. Skip fields that state the obvious.**
+
+> See also: `rules/event-patterns.md` → Pattern 4 note (field-assignment null-guard vs destroyed-object check)

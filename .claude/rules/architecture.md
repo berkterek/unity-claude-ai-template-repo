@@ -339,14 +339,27 @@ public sealed class ScoreDisplayService : IScoreDisplayService
 // shared across modules, IAudioService-style interface-first registration would apply.
 public sealed class ScoreView : MonoBehaviour
 {
+    #region Fields
+
     private ScoreModel _model;
+
+    #endregion
+
+    #region Lifecycle
 
     [Inject]
     public void Construct(ScoreModel model) => _model = model;
 
     private void OnEnable()  => _model.OnScoreChanged += Display;
     private void OnDisable() => _model.OnScoreChanged -= Display;
+
+    #endregion
+
+    #region Private Methods
+
     private void Display(int score) => _scoreLabel.text = score.ToString();
+
+    #endregion
 }
 ```
 
@@ -455,8 +468,13 @@ public void Dispose()
 | Plain C# (`IInitializable`, `IDisposable`) | `Initialize()` | `Dispose()` |
 | MonoBehaviour — registered via `RegisterComponent` | `Initialize()` | `Dispose()` |
 | MonoBehaviour — can be enabled/disabled | `OnEnable()` | `OnDisable()` |
+| MonoBehaviour — runtime instantiated (Instantiate, not VContainer-registered) | `OnEnable()` | `OnDisable()` |
 
 Never unsubscribe in `OnDestroy()` for VContainer-managed types — conflicts with VContainer lifecycle.
+
+> **Dynamic instances:** MonoBehaviours created via `Instantiate()` are not registered with VContainer and have no `Initialize()`/`Dispose()` lifecycle. Use `OnEnable()`/`OnDisable()` — `OnDisable` is called before `OnDestroy`, so unsubscribing there is safe. Do NOT rely solely on `OnDestroy()` for IEventBus unsubscription.
+
+> See also: `rules/event-patterns.md` → Decision Tree, Pattern 1 (IEventBus), Pattern 4 (UGUI Button)
 
 ---
 
@@ -480,6 +498,8 @@ public sealed class BasicAudioProvider : IAudioProvider
     public void Play(string id) => _source.PlayOneShot(GetClip(id));
 }
 ```
+
+> See also: `rules/solid-oop.md` → MonoBehaviour Rol Sınırları (View/Provider/Controller roles)
 
 ---
 
@@ -526,6 +546,10 @@ public sealed class InputView : MonoBehaviour
 - Discrete input (button press) via `performed` callbacks
 - Services are input-agnostic — they expose `SetMoveInput(Vector2)`, `Jump()`, etc.
 - Legacy `Input.GetKey` / `Input.GetAxis` is BLOCKED
+
+> **Why `Awake()` here is correct:** `new PlayerControls()` is a Unity Input System generated class with no injected dependencies. The `solid-oop.md` rule forbids *injection-dependent initialization* in `Awake()` — service dependencies must arrive via `[Inject] Construct()`. Constructing a dependency-free generated class does not violate this rule.
+
+> See also: `rules/unity-input.md` → InputView Pattern; `rules/solid-oop.md` → MonoBehaviour Sınırlar (Awake clarification); `rules/csharp-unity.md` → Card 4 (#region for 3+ methods)
 
 ---
 
