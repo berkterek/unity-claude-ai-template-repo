@@ -497,6 +497,43 @@ def check_missing_scripts(scenes, prefabs, quiet):
     return warnings
 
 
+def write_partition_files(graph_dir, scenes, prefabs):
+    """Write scenes.json and prefabs.json atomically to graph_dir.
+
+    Both files contain a plain JSON array at root level.
+    Raises on any write failure — caller must abort before writing main graph.
+    """
+    for filename, data in [("scenes.json", scenes), ("prefabs.json", prefabs)]:
+        dest = os.path.join(graph_dir, filename)
+        fd, tmp = tempfile.mkstemp(dir=graph_dir, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(data, f, indent=2)
+            with open(tmp) as f:
+                json.load(f)
+            os.replace(tmp, dest)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
+
+
+def _resolve_inline_or_partition(value, graph_dir):
+    """Return the array from an inline list or a $partition reference.
+
+    Returns [] on missing partition file (graceful degradation).
+    """
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict) and "$partition" in value:
+        fname = value["$partition"]
+        result = read_json_safe(os.path.join(graph_dir, fname), [])
+        return result if isinstance(result, list) else []
+    return []
+
+
 # ── MCP cache ────────────────────────────────────────────────────────────────
 
 
@@ -510,8 +547,9 @@ def mcp_age_minutes(path):
 def load_mcp_cache(mcp_cache_path, output_path, mode, skip_mcp, quiet):
     existing = read_json_safe(output_path, {})
     cb = existing.get("codebase", {}) if isinstance(existing, dict) else {}
-    fallback_scenes = cb.get("scenes", []) if isinstance(cb, dict) else []
-    fallback_prefabs = cb.get("prefabs", []) if isinstance(cb, dict) else []
+    _graph_dir = os.path.dirname(os.path.abspath(output_path))
+    fallback_scenes  = _resolve_inline_or_partition(cb.get("scenes",  []) if isinstance(cb, dict) else [], _graph_dir)
+    fallback_prefabs = _resolve_inline_or_partition(cb.get("prefabs", []) if isinstance(cb, dict) else [], _graph_dir)
 
     if skip_mcp:
         return {
@@ -604,7 +642,7 @@ def assemble_graph(
 ):
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
-        "schema_version": "1.2.0",
+        "schema_version": "1.3.0",
         "generated_at": now,
         "generator": f"graph-builder.py@{git_sha}",
         "confidence_legend": {
@@ -618,8 +656,8 @@ def assemble_graph(
             "events": events,
             "vcontainer": {"installers": installers, "scopes": scopes},
             "assemblies": assemblies,
-            "scenes": scenes,
-            "prefabs": prefabs,
+            "scenes": {"$partition": "scenes.json"},
+            "prefabs": {"$partition": "prefabs.json"},
             "mcp_extraction": mcp_meta,
             "calls": calls,
         },
@@ -850,6 +888,10 @@ def main():
         build_ms=build_ms,
         git_sha=git_sha,
     )
+
+    # ── Write partition files (must precede main graph write)
+    graph_dir = os.path.dirname(os.path.abspath(output_path))
+    write_partition_files(graph_dir, mcp_scenes, mcp_prefabs)
 
     atomic_write_json(graph, output_path)
 

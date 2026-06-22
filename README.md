@@ -169,14 +169,18 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 
 | File | Purpose |
 |------|---------|
-| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.2.0 |
-| `graph.json` (generated) | Living index of the codebase — do not edit by hand |
+| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.3.0 |
+| `graph.json` (generated) | Living index of the codebase — do not edit by hand. Stores `{"$partition": "..."}` refs for scenes/prefabs |
+| `scenes.json` (generated) | Partition file — full `scenes[]` array, written atomically alongside `graph.json` |
+| `prefabs.json` (generated) | Partition file — full `prefabs[]` array, written atomically alongside `graph.json` |
 | `extractors/asmdef-extractor.sh` | Parses every `*.asmdef` |
 | `extractors/csharp-extractor.sh` | Regex extractor — emits `methods[]` + `partial_calls[]` (confidence: INFERRED) |
 | `extractors/csharp_extractor.py` | tree-sitter AST extractor — higher accuracy (confidence: EXTRACTED). Optional — see [C# Extractor](#c-extractor-tree-sitter-optional) |
 | `extractors/mcp-extractor.md` | MCP scene/prefab extraction skill |
 | `graph-builder.py` | Top-level orchestrator + SHA256 cache + call edge merge (Python stdlib, no jq) |
-| `graph-traversal.py` | BFS traversal — impact, callers, path, god-nodes, --finalize-calls |
+| `graph-traversal.py` | BFS traversal — impact, callers, path, god-nodes, --finalize-calls. Imports `graph_bfs_core` for shared logic |
+| `graph_bfs_core.py` | Shared pure BFS module — no file I/O, no CLI. Imported by both `graph-traversal.py` and `graph-mcp-server.py` |
+| `graph-mcp-server.py` | stdio MCP server — loads graph partitions into RAM, exposes callers/impact/path/god-nodes as `mcp__graph_mcp__*` tools. Used when `hybrid_graph: true` |
 | `graph-validator.sh` | Architecture invariant checks (R1–R6) |
 | `graph_cluster.py` | Community detection — groups related classes into modules |
 | `graph_analyze.py` | Surprising connections + enhanced god-nodes (cross-boundary edge analysis) |
@@ -204,7 +208,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]` → `[Services]` → `[UI]` → `[Environment]` → `[Characters]` → `[VFX]`), classification table, prefab/container rules |
 | `bootstrap-pattern.md` | IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope layer chain, EventBusInstaller requirement, GameScope scene-based wiring (SerializeField + RegisterComponent), new module workflow |
-| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller only, ~100 satır max); SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
+| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller only, ~100 satır max); **suffix kuralı: `*View` yalnızca Canvas/UI, `*Controller` gameplay/karakter, `*Provider` Unity API soyutlaması**; SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
 
 ### `.claude/docs/` — Key reference docs (not loaded at startup)
 
@@ -238,10 +242,12 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 ## Knowledge Graph
 
-`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.2.0). When enabled (default in
+`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.3.0). When enabled (default in
 `/setup-project`), the graph indexes every class, interface, event, installer, scope, asmdef, scene,
-prefab, **method**, and **call edge** into a single `graph.json` artifact. `/catch-up`, `/orchestrate`, and `/context-prime`
+prefab, **method**, and **call edge**. `/catch-up`, `/orchestrate`, and `/context-prime`
 all read this graph instead of scanning files from scratch.
+
+**v1.3.0 partition architecture:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
 
 ### Quick commands
 
@@ -310,6 +316,30 @@ pip install tree-sitter tree-sitter-c-sharp
 Once installed, `graph-builder.py` automatically uses `csharp_extractor.py` instead of the regex pipeline — no config change needed. Without it, the build falls back to regex silently.
 
 > **Recommended** if your project has 50+ classes or complex generics/multi-line declarations. Not required for the graph to function.
+
+### Hybrid MCP backend (optional, off by default)
+
+`hybrid_graph` in `project-features.json` (default `false`) routes the four call-graph queries (`callers`, `impact`, `path`, `god-nodes`) through a custom in-process MCP server (`graph-mcp-server.py`) backed by a shared BFS core (`graph_bfs_core.py`). The eleven Unity-semantic queries (`summary`, `implementers`, `publishers`, etc.) are unaffected — they stay on `jq`.
+
+When `hybrid_graph` is `false` (default), behaviour is **byte-for-byte identical to today** — no stderr output, no pip probe, no MCP dependency.
+
+**To enable:** Run `/setup-project` with `graph=true` — Step 5.6 handles everything automatically:
+
+1. Checks if the `mcp` Python package is importable; installs it if not.
+2. Registers `graph-mcp-server.py` as a project-scoped MCP server (`claude mcp add --scope project`), creating `.mcp.json` in the repo root (gitignored — machine-specific).
+3. Writes `hybrid_graph: true` to `.claude/project-features.json`.
+4. Restart Claude Code. If `mcp__graph_mcp__*` tools appear in the session, the server is running.
+
+**Manual enable (if not using `/setup-project`):**
+```bash
+pip install mcp                   # or: pipx install mcp
+claude mcp add --scope project graph-mcp python3 "$(pwd)/.claude/graph/graph-mcp-server.py"
+# then set "hybrid_graph": true in .claude/project-features.json
+```
+
+**Fallback:** If the MCP server is unavailable while `hybrid_graph` is `true`, call-graph queries automatically fall back to `graph-traversal.py` and emit a warning on stderr.
+
+> **Recommendation:** Leave this off until you have verified that the graph works correctly in your project with the default backend. The hybrid backend produces identical results — the benefit is reduced subprocess overhead on large projects.
 
 ### Regression test harness
 
@@ -569,6 +599,7 @@ npm install -g bats      # Linux
 | `guard-reviewer-order` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass |
 | `check-no-runtime-instantiate` | `new GameObject()` — blocked everywhere in runtime code; use `Instantiate(prefab)` or `Addressables.InstantiateAsync()` |
 | `check-enum-byte-base` | `enum` without `: byte` base inside `IComponentData` or `IEvent` structs — use `: ushort` if 255+ values needed |
+| `block-graph-direct-read` (PreToolUse Read) | Direct `Read` of `graph.json`, `scenes.json`, or `prefabs.json` when `hybrid_graph: true` — use `/knowledge-graph` subcommands or `mcp__graph_mcp__*` tools instead |
 
 ### Warnings (exit 0 — logged to stderr, does not block)
 

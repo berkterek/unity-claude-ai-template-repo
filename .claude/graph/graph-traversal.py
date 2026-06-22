@@ -5,8 +5,11 @@ import json
 import os
 import sys
 import tempfile
-import difflib
-from collections import defaultdict, deque, Counter
+from collections import defaultdict
+
+# Resolve shared BFS core from the same directory as this script
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import graph_bfs_core
 
 DEFAULT_GRAPH = os.path.join(os.path.dirname(__file__), "graph.json")
 
@@ -37,93 +40,54 @@ def load_graph(path):
     return g, forward, reverse, edges
 
 
-def require_edges(forward, reverse, label):
-    """Exit 0 with suggestion message if call graph is empty."""
-    if not forward and not reverse:
-        print(
-            f"Graph has no call edges yet. Rebuild with: /build-knowledge-graph --full",
-            file=sys.stderr,
-        )
-        sys.exit(0)
+# Called by future query subcommands that need scenes/prefab data.
+def resolve_partition(graph, key, graph_dir):
+    """Return the full array for a partitioned or inline codebase key.
 
-
-def all_nodes(g, forward, reverse):
-    """Collect all node identifiers from calls + classes."""
-    nodes = set(forward.keys()) | set(reverse.keys())
-    for cls in g.get("codebase", {}).get("classes", []):
-        name = cls.get("name")
-        if name:
-            nodes.add(name)
-    return nodes
-
-
-def suggest_node(node, known_nodes):
-    """Return difflib suggestions for a missing node."""
-    suggestions = difflib.get_close_matches(node, known_nodes, n=3, cutoff=0.5)
-    if suggestions:
-        return "Did you mean: " + ", ".join(suggestions) + "?"
-    return ""
-
-
-def check_node(node, known_nodes):
-    """If node not in known_nodes, print suggestion and exit 0."""
-    if node not in known_nodes:
-        hint = suggest_node(node, known_nodes)
-        msg = f"Node '{node}' not found in graph."
-        if hint:
-            msg += f" {hint}"
-        print(msg, file=sys.stderr)
-        sys.exit(0)
+    Handles both legacy inline arrays and v1.3.0+ $partition references.
+    Missing key returns []. Missing partition file raises FileNotFoundError.
+    """
+    value = graph.get("codebase", {}).get(key)
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict) and "$partition" in value:
+        fpath = os.path.join(graph_dir, value["$partition"])
+        if not os.path.exists(fpath):
+            raise FileNotFoundError(f"Partition file missing: {fpath}")
+        with open(fpath, encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, list):
+            raise ValueError(f"Partition {fpath} expected a JSON array, got {type(data).__name__}")
+        return data
+    return []
 
 
 # ---------------------------------------------------------------------------
-# BFS
-# ---------------------------------------------------------------------------
-
-def bfs(adj, start, max_hops):
-    """BFS up to max_hops from start. Returns list of (node, depth)."""
-    seen = {start}
-    frontier = deque([(start, 0)])
-    out = []
-    while frontier:
-        node, d = frontier.popleft()
-        if d >= max_hops:
-            continue
-        for nxt in adj.get(node, ()):
-            if nxt in seen:
-                continue
-            seen.add(nxt)
-            out.append((nxt, d + 1))
-            frontier.append((nxt, d + 1))
-    return out
-
-
-# ---------------------------------------------------------------------------
-# Subcommands
+# Subcommands — delegate traversal logic to graph_bfs_core
 # ---------------------------------------------------------------------------
 
 def cmd_impact(args, ctx):
     g, fwd, rev, edges = ctx
-    require_edges(fwd, rev, "impact")
-    known = all_nodes(g, fwd, rev)
-    check_node(args.node, known)
+    hops = args.hops  # None → core uses its default of 3
+    result = graph_bfs_core.impact_core(args.node, g, fwd, rev, edges, hops=hops)
 
-    down = [n for n, _ in bfs(fwd, args.node, args.hops)]
-    up   = [n for n, _ in bfs(rev, args.node, args.hops)]
-
-    result = {
-        "root": args.node,
-        "hops": args.hops,
-        "downstream": sorted(set(down)),
-        "upstream": sorted(set(up)),
-        "total_affected": len(set(down) | set(up)),
-    }
+    if not result["ok"]:
+        if result.get("no_edges"):
+            print(result["message"], file=sys.stderr)
+            sys.exit(0)
+        if result.get("not_found"):
+            print(result["message"], file=sys.stderr)
+            sys.exit(0)
+        return
 
     if args.json:
-        print(json.dumps(result, indent=2))
+        out = {k: v for k, v in result.items() if k != "ok"}
+        print(json.dumps(out, indent=2))
     else:
         # Pretty two-column table
-        print(f"Impact analysis for: {args.node}  (hops={args.hops})")
+        print(f"Impact analysis for: {result['root']}  (hops={result['hops']})")
         print(f"  Total affected: {result['total_affected']}")
         print()
         max_len = max(
@@ -142,25 +106,21 @@ def cmd_impact(args, ctx):
 
 def cmd_callers(args, ctx):
     g, fwd, rev, edges = ctx
-    require_edges(fwd, rev, "callers")
-    known = all_nodes(g, fwd, rev)
-    check_node(args.node, known)
+    result = graph_bfs_core.callers_core(args.node, g, fwd, rev, edges)
 
-    hits = [
-        {
-            "caller": e.get("caller", ""),
-            "file": e.get("file", None),
-            "line": e.get("line", None),
-            "confidence": e.get("confidence", None),
-        }
-        for e in edges
-        if e.get("callee") == args.node
-    ]
+    if not result["ok"]:
+        if result.get("no_edges"):
+            print(result["message"], file=sys.stderr)
+            sys.exit(0)
+        if result.get("not_found"):
+            print(result["message"], file=sys.stderr)
+            sys.exit(0)
+        if result.get("no_callers"):
+            print(f"No direct callers found for {result['node']}.")
+            sys.exit(0)
+        return
 
-    if not hits:
-        print(f"No direct callers found for {args.node}.")
-        sys.exit(0)
-
+    hits = result["hits"]
     if args.json:
         print(json.dumps(hits, indent=2))
     else:
@@ -173,57 +133,47 @@ def cmd_callers(args, ctx):
 
 def cmd_path(args, ctx):
     g, fwd, rev, edges = ctx
-    require_edges(fwd, rev, "path")
-    known = all_nodes(g, fwd, rev)
-    check_node(args.a, known)
-    check_node(args.b, known)
+    result = graph_bfs_core.path_core(args.a, args.b, g, fwd, rev, edges)
 
-    if args.a == args.b:
-        result = {"from": args.a, "to": args.b, "length": 0, "path": [args.a]}
-        print(json.dumps(result, indent=2) if args.json else f"Same node: {args.a}")
+    if result.get("same_node"):
+        out = {"from": result["from"], "to": result["to"], "length": 0, "path": result["path"]}
+        print(json.dumps(out, indent=2) if args.json else f"Same node: {result['from']}")
         return
 
-    prev = {}
-    frontier = deque([args.a])
-    seen = {args.a}
-
-    while frontier:
-        n = frontier.popleft()
-        if n == args.b:
-            break
-        for nxt in fwd.get(n, ()):
-            if nxt in seen:
-                continue
-            seen.add(nxt)
-            prev[nxt] = n
-            frontier.append(nxt)
-
-    if args.b not in prev:
-        print(f"No path from {args.a} to {args.b} in the call graph.", file=sys.stderr)
-        sys.exit(1)
-
-    path = [args.b]
-    while path[-1] != args.a:
-        path.append(prev[path[-1]])
-    path.reverse()
-
-    result = {"from": args.a, "to": args.b, "length": len(path) - 1, "path": path}
+    if not result["ok"]:
+        if result.get("no_edges"):
+            print(result["message"], file=sys.stderr)
+            sys.exit(0)
+        if result.get("not_found"):
+            print(result["message"], file=sys.stderr)
+            sys.exit(0)
+        if result.get("no_path"):
+            print(f"No path from {result['from']} to {result['to']} in the call graph.", file=sys.stderr)
+            sys.exit(1)
+        return
 
     if args.json:
-        print(json.dumps(result, indent=2))
+        out = {k: v for k, v in result.items() if k != "ok"}
+        print(json.dumps(out, indent=2))
     else:
-        print(f"Shortest path: {args.a} → {args.b}  (length={result['length']})")
-        print("  " + " → ".join(path))
+        print(f"Shortest path: {result['from']} → {result['to']}  (length={result['length']})")
+        print("  " + " → ".join(result["path"]))
 
 
 def cmd_god_nodes(args, ctx):
     g, fwd, rev, edges = ctx
-    require_edges(fwd, rev, "god-nodes")
+    top = args.top  # None → core uses its default of 10
+    result = graph_bfs_core.god_nodes_core(g, fwd, rev, edges, top=top)
 
-    # Prefer pre-computed enriched data from graph_analyze.py when available
-    enhanced = g.get("analysis", {}).get("enhanced_god_nodes", [])
-    if enhanced:
-        ranked = sorted(enhanced, key=lambda n: -n.get("total", 0))[: args.top]
+    if not result["ok"]:
+        if result.get("no_edges"):
+            print(result["message"], file=sys.stderr)
+            sys.exit(0)
+        return
+
+    ranked = result["ranked"]
+
+    if result["enhanced"]:
         if args.json:
             print(json.dumps(ranked, indent=2))
         else:
@@ -235,43 +185,17 @@ def cmd_god_nodes(args, ctx):
                 comm = str(r.get("community_id", "?"))
                 sev = r.get("severity", "info")
                 print(f"  {r['node']:<50}  {r['in']:>5}  {r['out']:>5}  {r['total']:>7}  {comm:>6}  {sev}")
-        return
-
-    # Legacy fallback: degree-only computation (unchanged behaviour)
-    file_map = {}
-    for cls in g.get("codebase", {}).get("classes", []):
-        name = cls.get("name")
-        if name:
-            file_map[name] = cls.get("file")
-
-    nodes = set(fwd.keys()) | set(rev.keys())
-    ranked = sorted(
-        (
-            {
-                "node": n,
-                "in": len(rev[n]),
-                "out": len(fwd[n]),
-                "total": len(rev[n]) + len(fwd[n]),
-                "file": file_map.get(n),
-            }
-            for n in nodes
-        ),
-        key=lambda x: -x["total"],
-    )[: args.top]
-
-    for r in ranked:
-        r["is_god_node"] = r["total"] > 20
-
-    if args.json:
-        print(json.dumps(ranked, indent=2))
     else:
-        print(f"Top {len(ranked)} nodes by degree (in+out):")
-        header = f"  {'NODE':<50}  {'IN':>5}  {'OUT':>5}  {'TOTAL':>7}  GOD?"
-        print(header)
-        print("  " + "-" * (len(header) - 2))
-        for r in ranked:
-            god = "*** GOD NODE ***" if r["is_god_node"] else ""
-            print(f"  {r['node']:<50}  {r['in']:>5}  {r['out']:>5}  {r['total']:>7}  {god}")
+        if args.json:
+            print(json.dumps(ranked, indent=2))
+        else:
+            print(f"Top {len(ranked)} nodes by degree (in+out):")
+            header = f"  {'NODE':<50}  {'IN':>5}  {'OUT':>5}  {'TOTAL':>7}  GOD?"
+            print(header)
+            print("  " + "-" * (len(header) - 2))
+            for r in ranked:
+                god = "*** GOD NODE ***" if r["is_god_node"] else ""
+                print(f"  {r['node']:<50}  {r['in']:>5}  {r['out']:>5}  {r['total']:>7}  {god}")
 
 
 def cmd_finalize_calls(args):
@@ -331,7 +255,10 @@ def cmd_finalize_calls(args):
             json.dump(g, f, indent=2, ensure_ascii=False)
         os.replace(tmp_path, path)
     except Exception:
-        os.unlink(tmp_path)
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
         raise
 
     removed = original_count - deduped_count
@@ -368,7 +295,7 @@ def build_parser():
     # impact
     p_impact = sub.add_parser("impact", help="BFS forward+reverse from a node.")
     p_impact.add_argument("node", help="Class or Class.Method to analyse.")
-    p_impact.add_argument("--hops", type=int, default=3, help="BFS depth (default 3).")
+    p_impact.add_argument("--hops", type=int, default=None, help="BFS depth (default 3).")
     p_impact.add_argument("--json", action="store_true", help="Output JSON.")
 
     # callers
@@ -384,7 +311,7 @@ def build_parser():
 
     # god-nodes
     p_god = sub.add_parser("god-nodes", help="Rank nodes by in+out degree.")
-    p_god.add_argument("--top", type=int, default=10, help="How many to show (default 10).")
+    p_god.add_argument("--top", type=int, default=None, help="How many to show (default 10).")
     p_god.add_argument("--json", action="store_true", help="Output JSON.")
 
     return parser

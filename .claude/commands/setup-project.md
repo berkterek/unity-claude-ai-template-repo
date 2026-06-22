@@ -177,6 +177,91 @@ If the user enabled the Knowledge Graph:
 
 ---
 
+### Step 5.6 — Hybrid Graph Activation (runs immediately after Step 5.5, only when graph=true)
+
+Activate `hybrid_graph` automatically — no user prompt. Runs five sub-steps in sequence; any failure aborts the chain and leaves `hybrid_graph=false` in `project-features.json`.
+
+**Re-run guard (check first):**
+```bash
+claude mcp list | grep -q "graph-mcp" && \
+  jq -e '.hybrid_graph == true' .claude/project-features.json > /dev/null 2>&1 && \
+  echo "ALREADY_REGISTERED"
+```
+If output is `ALREADY_REGISTERED` → print "hybrid_graph already active — skipping Step 5.6." and stop.
+
+#### 5.6a — pip Probe
+
+```bash
+# Check importability first — handles pipx, homebrew, venv installs without triggering PEP 668
+python3 -c "import mcp" 2>/dev/null || \
+  python3 -m pip install mcp --quiet --break-system-packages 2>&1
+```
+
+- `python3 -c "import mcp"` — succeeds silently if mcp is already installed by any method (pipx, homebrew, venv). Skips pip entirely.
+- `--break-system-packages` — required on macOS Homebrew Python (PEP 668); safe for a single targeted package install.
+- On non-zero exit from both commands: print the failure message below, skip 5.6b–5.6e.
+
+**Failure output:**
+```
+[hybrid_graph] mcp package not available and install failed.
+Manual fix: pip install mcp OR pipx install mcp, then re-run /setup-project.
+hybrid_graph left as false.
+```
+
+#### 5.6b — MCP Registration
+
+```bash
+claude mcp add --scope project graph-mcp \
+  python3 "$(pwd)/.claude/graph/graph-mcp-server.py"
+```
+
+- `--scope project` — registration scoped to this repository only
+- `$(pwd)` — absolute path; prevents working-directory ambiguity when MCP daemon starts
+- On non-zero exit: print the failure message below, skip 5.6c–5.6e.
+
+**Failure output:**
+```
+[hybrid_graph] MCP registration failed.
+Manual fix:
+  claude mcp add --scope project graph-mcp python3 "$(pwd)/.claude/graph/graph-mcp-server.py"
+Then re-run /setup-project to write hybrid_graph=true.
+```
+
+#### 5.6c — Write hybrid_graph=true to project-features.json
+
+```bash
+tmp=$(mktemp)
+jq '.hybrid_graph = true' .claude/project-features.json > "$tmp" && mv "$tmp" .claude/project-features.json
+```
+
+- Uses `jq` for correct JSON handling — `sed` on JSON is fragile
+- Atomic write via temp file — partial writes cannot corrupt the file
+- Only runs after 5.6a and 5.6b both succeeded
+
+#### 5.6d — Update CLAUDE.md Feature Table
+
+```bash
+sed -i '' 's/| `hybrid_graph` | \*\*DISABLED\*\*/| `hybrid_graph` | **ENABLED**/' .claude/CLAUDE.md
+```
+
+- Non-critical: on failure, print a warning and continue — does not block activation
+- The CLAUDE.md template has a fixed-format table row; this sed target is stable
+
+#### 5.6e — Confirmation
+
+Print:
+```
+✓ hybrid_graph activated
+  • MCP server: graph-mcp (project-scoped)
+  • Call-graph queries via MCP: callers, impact, path, god-nodes
+  • Unity-semantic queries unchanged: summary, violations, scope-tree, etc.
+
+⚠  Restart Claude Code to activate MCP in the current session.
+   New sessions start the server automatically.
+```
+
+---
+
 ### Step 2 — Generate Folder Structure
 
 > **NOTE:** Claude's file system tools cannot write `.unity` scene files (`block-scene-edit.sh` blocks this). However, if MCP is connected, scenes and prefab wiring are handled automatically in Step 5d via MCP tools (`manage_scene`, `manage_gameobject`, `manage_components`). Only fall back to manual Editor steps when MCP is unavailable.

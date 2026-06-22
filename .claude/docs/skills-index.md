@@ -8,6 +8,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 
 | Skill | Covers |
 |-------|--------|
+| `knowledge-graph-hybrid` | Routes 4 call-graph queries to `graph-mcp-server.py` (via `graph_bfs_core.py`) with `graph-traversal.py` fallback; 11 Unity-semantic queries stay on graph.json |
 | `model-routing` | Automatic model selection heuristics — file count, complexity, risk factors |
 | `deep-interview` | 5-dimension ambiguity gating before implementation starts |
 | `grill-me` | One-question-at-a-time design stress-test — challenges an existing plan, resolves branches, produces a Decision Record |

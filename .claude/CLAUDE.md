@@ -32,7 +32,7 @@ This is a personal Unity development template for Claude Code. It enforces archi
 - `.claude/agents/*.md` files define agent roles and provide prompt overlays for built-in FleetView agent types. The `subagent_type` value is always the agent's filename without `.md` (e.g. `unity-coder`, `lean-planner`). See `.claude/docs/agents-index.md` for the full mapping table.
 - Command `/create-test-scene` was renamed to `/create-test`. Agent `unity-test-scene-builder` was renamed to `unity-test-builder`.
 - Claude's file tools (`Write`/`Edit`) cannot write `.unity` scene files — `block-scene-edit.sh` blocks this. **However, MCP tools (`manage_scene`, `manage_gameobject`, `manage_components`, `manage_build`) can create and wire scenes through the Unity Editor directly.** Always prefer MCP over listing manual Editor steps when MCP is connected.
-- `.claude/graph/graph.json` is generated — never edit by hand. Use `/build-knowledge-graph` to refresh.
+- `.claude/graph/graph.json` is generated — never edit by hand. Use `/build-knowledge-graph` to refresh. **v1.3.0 partition architecture:** `scenes[]` and `prefabs[]` are stored in sibling files `scenes.json` and `prefabs.json` (same dir). `graph.json` holds `{"$partition": "scenes.json"}` refs. All three files are generated and committed together.
 - Rule files under `.claude/rules/` start with a `## Cards` section (WHEN/WRONG/RIGHT/GOTCHA format). Read the cards first — the prose below each cards section is full reference detail.
 
 ## Knowledge Graph
@@ -125,7 +125,7 @@ Detailed coding standards in `.claude/rules/`:
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]`→`[VFX]`), classification table, prefab/container rules, enforcement |
 | `bootstrap-pattern.md` | IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope layer structure, EventBusInstaller requirement, GameScope scene-based wiring (SerializeField + RegisterComponent), new module addition flow |
-| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller only, ~100 satır max); SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
+| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller only, ~100 satır max); **suffix kuralı: `*View` yalnızca Canvas/UI, `*Controller` gameplay/karakter, `*Provider` Unity API soyutlaması**; SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
 
 ## Hooks (auto-enforced on every Write/Edit)
 
@@ -209,6 +209,7 @@ Configured by `/setup-project`. Source of truth: `.claude/project-features.json`
 | `testing` | **ENABLED** | Enforce `rules/testing.md`, NSubstitute rules, test-folder/asmdef requirements, and test hooks |
 | `ecs` | **DISABLED** | Skip `rules/ecs-dots.md`, ECS structural-change hook (`check-ecs-structural-changes.sh`), and enum-byte-base hook (`check-enum-byte-base.sh`) |
 | `graph` | **ENABLED** | `graph.json` is the primary source of truth. `/orchestrate` pre-scan reads graph instead of scanning folders. `/catch-up`, `/context-prime`, `/architect` query graph first; fall back to file-scan only if graph is stale (> 24h) or disabled. |
+| `hybrid_graph` | **DISABLED** | Route call-graph queries (`callers`, `impact`, `path`, `god-nodes`) via `graph-mcp-server.py` MCP tools (backed by `graph_bfs_core.py`) with Bash-emitted stderr warning and lazy pip probe on fallback. When disabled: all queries use `graph-traversal.py`/`jq` (current behaviour), zero stderr output, no pip probe. |
 
 > When a feature is DISABLED, Claude must not enforce its rules or suggest its patterns.
 

@@ -242,6 +242,8 @@ public sealed class MainMenuView : MonoBehaviour
 }
 ```
 
+> **Why `?.` is acceptable here:** `_playButton` is a `[SerializeField]` — it can be `null` if the designer left the field unassigned in the Inspector. This `?.` is a field-assignment null-guard, not a destroyed-object check. Using `?.` to check whether a Unity object has been **destroyed at runtime** is still forbidden (use `if (_target != null)` for that). See also: `rules/csharp-unity.md` → Card 2: Null Check.
+
 **Rules:**
 - `AddListener` in `OnEnable()`, `RemoveListener` in `OnDisable()` — mandatory pair
 - The onClick list in the Inspector must remain **empty** — all wiring is done in code
@@ -264,6 +266,8 @@ _slider.onValueChanged.RemoveListener(OnVolumeChanged);
 - `[SerializeField] UnityEvent myEvent` — declaring your own UnityEvent field
 - Dragging methods onto onClick in the Inspector
 - Using `UnityEvent` anywhere outside of `onClick.AddListener`
+
+> See also: `rules/csharp-unity.md` → Card 2 (null-check: field-assignment `?.` vs destroyed-object `== null`)
 
 ---
 

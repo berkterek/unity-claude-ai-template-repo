@@ -14,8 +14,14 @@ The New Input System package is **mandatory**. Legacy `Input.GetKey`/`Input.GetA
 // InputView — the ONLY place that touches PlayerControls
 public sealed class InputView : MonoBehaviour
 {
+    #region Fields
+
     private PlayerControls _controls;
-    private PlayerSystem _playerSystem;
+    private PlayerSystem   _playerSystem;
+
+    #endregion
+
+    #region Lifecycle
 
     private void Awake()
     {
@@ -51,10 +57,18 @@ public sealed class InputView : MonoBehaviour
         _playerSystem.SetMoveInput(moveInput);
     }
 
-    private void OnJump(InputAction.CallbackContext ctx) => _playerSystem.Jump();
+    #endregion
+
+    #region Private Methods
+
+    private void OnJump(InputAction.CallbackContext ctx)   => _playerSystem.Jump();
     private void OnAttack(InputAction.CallbackContext ctx) => _playerSystem.Attack();
+
+    #endregion
 }
 ```
+
+> See also: `rules/architecture.md` → Card 6 (SerializeField for same-prefab refs); `rules/csharp-unity.md` → Card 4 (#region for 3+ methods)
 
 ## Rules
 
