@@ -323,30 +323,19 @@ Once installed, `graph-builder.py` automatically uses `csharp_extractor.py` inst
 
 When `hybrid_graph` is `false` (default), behaviour is **byte-for-byte identical to today** — no stderr output, no pip probe, no MCP dependency.
 
-**To enable:**
+**To enable:** Run `/setup-project` with `graph=true` — Step 5.6 handles everything automatically:
 
-1. Install the `mcp` Python package (once, in the same environment that runs `python3`):
-   ```bash
-   pip install mcp
-   ```
-
-2. Open `.claude/settings.json` in a non-Claude editor and add the `mcpServers` block (Claude cannot edit this file):
-   ```json
-   "mcpServers": {
-     "graph-mcp": {
-       "command": "python3",
-       "args": [".claude/graph/graph-mcp-server.py"]
-     }
-   }
-   ```
-   If `mcpServers` already exists, add the `graph-mcp` key inside the existing object.
-
-3. Set the flag in `.claude/project-features.json`:
-   ```json
-   "hybrid_graph": true
-   ```
-
+1. Checks if the `mcp` Python package is importable; installs it if not.
+2. Registers `graph-mcp-server.py` as a project-scoped MCP server (`claude mcp add --scope project`), creating `.mcp.json` in the repo root (gitignored — machine-specific).
+3. Writes `hybrid_graph: true` to `.claude/project-features.json`.
 4. Restart Claude Code. If `mcp__graph_mcp__*` tools appear in the session, the server is running.
+
+**Manual enable (if not using `/setup-project`):**
+```bash
+pip install mcp                   # or: pipx install mcp
+claude mcp add --scope project graph-mcp python3 "$(pwd)/.claude/graph/graph-mcp-server.py"
+# then set "hybrid_graph": true in .claude/project-features.json
+```
 
 **Fallback:** If the MCP server is unavailable while `hybrid_graph` is `true`, call-graph queries automatically fall back to `graph-traversal.py` and emit a warning on stderr.
 
