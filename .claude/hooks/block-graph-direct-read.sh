@@ -41,11 +41,7 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-# Only applies to the Read tool
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
-if [ "$TOOL_NAME" != "Read" ]; then
-    exit 0
-fi
+# matcher: "Read" in settings.json already filters this hook to Read tool only.
 
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 if [ -z "$FILE_PATH" ]; then
