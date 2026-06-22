@@ -1,7 +1,7 @@
 ---
 name: coder
 description: "Pure C# implementation specialist. Implements TDD specs — game logic, services, interfaces. No Unity API except in explicit view/adapter tasks."
-model: opus
+model: sonnet
 color: green
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---

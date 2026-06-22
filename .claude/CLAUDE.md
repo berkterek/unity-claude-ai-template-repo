@@ -189,7 +189,7 @@ Named prompts that pause the pipeline and wait for human approval before continu
 
 ## NON-NEGOTIABLE: Director Gate Rules
 
-NEVER spawn a `tester`, `coder`, `unity-coder`, `unity-coder-lite`, `unity-fixer`, `unity-fixer-lite`, `committer`, `unity-migrator`, `migrator`, or `unity-setup` agent without first:
+NEVER spawn a `tester`, `coder`, `unity-coder`, `unity-fixer`, `committer`, `unity-migrator`, `migrator`, or `unity-setup` agent without first:
 
 1. Showing the required Director Gate (SCOPE_GATE or ARCHITECTURE_GATE) to the user
 2. Receiving explicit `go` from the user

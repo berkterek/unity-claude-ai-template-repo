@@ -2,7 +2,11 @@
 
 You are an orchestration agent. Your job is to read `docs/WORKFLOW.md` and execute every task automatically, one phase at a time. Each task runs a three-step pipeline: **coder → reviewer → committer**. After each phase you pause and ask the developer before moving on.
 
-## Step 0 — Plugin Preflight
+## Step 0 — Plugin Preflight & Argument Parsing
+
+**Parse $ARGUMENTS first:**
+- Check $ARGUMENTS for `--heavy` flag → if present, set `FORCE_OPUS_TIER=true`
+- Print: `Mode: heavy (all implementation agents → opus tier)` if flag found, else nothing extra.
 
 Check which of these plugins are available in the skill list:
 
@@ -35,7 +39,7 @@ Before executing any task, score the overall workflow complexity on a 0.0–1.0 
 
 | Score | Label | Signals | Coder Agent |
 |-------|-------|---------|-------------|
-| 0.0–0.3 | **Simple** | Single class, no new interfaces, no DI wiring, no events | Pure C# target → **coder** / Unity target → **unity-coder-lite** |
+| 0.0–0.3 | **Simple** | Single class, no new interfaces, no DI wiring, no events | Pure C# target → **coder** / Unity target → **unity-coder** |
 | 0.4–0.6 | **Medium** | 2–4 classes, new interface, or touches existing event bus | Pure C# target → **coder** / Unity target → **unity-coder** |
 | 0.7–1.0 | **Complex** | New module, cross-system events, ECS integration, or Addressables | Pure C# target → **coder** / Unity target → **unity-coder** + unity-developer review after each task |
 
@@ -44,8 +48,8 @@ Before executing any task, score the overall workflow complexity on a 0.0–1.0 
 | Target location | Simple | Medium/Complex |
 |-----------------|--------|----------------|
 | `_Framework/`, `Games/Abstracts/`, `Games/Concretes/` pure C# (no Unity API) | **coder** | **coder** |
-| MonoBehaviour, Provider, Installer, scene wiring | **unity-coder-lite** | **unity-coder** |
-| Mixed (both pure C# and Unity glue) | **unity-coder-lite** | **unity-coder** |
+| MonoBehaviour, Provider, Installer, scene wiring | **unity-coder** | **unity-coder** |
+| Mixed (both pure C# and Unity glue) | **unity-coder** | **unity-coder** |
 
 **Scoring signals:**
 - Creates a new module folder? +0.3
@@ -58,7 +62,7 @@ Before executing any task, score the overall workflow complexity on a 0.0–1.0 
 ```
 Complexity: [score] — [Label]
 Rationale: [one sentence]
-Coder Agent: [coder | unity-coder-lite | unity-coder] (per task)
+Coder Agent: [coder | unity-coder] (per task)
 Review Mode: [solo | lean | full]
 ```
 
@@ -244,7 +248,11 @@ If `Agent: unity-setup` → spawn a **unity-setup** subagent.
 
 **Coder agent — use routing table from Step 0:**
 - Pure C# target (`_Framework/`, `Games/Abstracts/`, `Games/Concretes/` no Unity API) → **coder**
-- Unity/Mixed target (MonoBehaviour, Provider, Installer, scene wiring) → **unity-coder-lite** (Simple) or **unity-coder** (Medium/Complex)
+- Unity/Mixed target (MonoBehaviour, Provider, Installer, scene wiring) → **unity-coder**
+
+**Model tier override:**
+- If `FORCE_OPUS_TIER == true` → all spawned implementation agents (`coder`, `unity-coder`, `unity-setup`) use `model: opus` for this run
+- Else → use default tier routing
 
 **Coder prompt:**
 ```

@@ -19,6 +19,17 @@ If no argument is given, ask: "Describe the bug."
 
 ---
 
+## Step 0 — Flag Detection
+
+Parse `$ARGUMENTS` for flags before any other step:
+
+- If `$ARGUMENTS` contains `--heavy` → set `FORCE_OPUS_TIER=true`
+- If `$ARGUMENTS` contains `--lite` → set `FORCE_HAIKU_TIER=true`
+
+Strip flag tokens from the bug description passed to agents (do not include `--heavy` / `--lite` in agent prompts).
+
+---
+
 ## Step 0 — Plugin Preflight
 
 **Plugin availability check:**
@@ -108,13 +119,7 @@ Rationale: [one sentence]
 Pipeline: [which variant]
 ```
 
-**Trivial routing (score < 0.2):** Stop the /fix pipeline and show:
-```
-Complexity: [score] — Trivial (single file, clear stack trace)
-→ This fix is /fix-lite scope. Route to fix-lite? (go / full-fix)
-```
-- `go` → run /fix-lite pipeline (fix-lite opens its own SCOPE_GATE in Step 0)
-- `full-fix` → continue normal /fix pipeline with SCOPE_GATE below
+**Trivial (score < 0.2):** Continue with the standard pipeline. No routing to fix-lite. Proceed to SCOPE_GATE below.
 
 ### SCOPE_GATE
 
@@ -284,6 +289,11 @@ If test writer reports **BLOCKED** → stop and show the blocker to the user.
 | `_Framework/`, `Games/Abstracts/`, `Games/Concretes/` (no Unity API) | **coder** |
 | MonoBehaviour, Provider, Installer, scene wiring, Unity lifecycle | **unity-coder** |
 | Mixed (both pure C# and Unity glue) | **unity-coder** |
+
+**Model tier override (apply when spawning unity-fixer or unity-coder in this step):**
+- If `FORCE_HAIKU_TIER == true` → spawn with `model: haiku`
+- Else if `FORCE_OPUS_TIER == true` → spawn with `model: opus`
+- Else → spawn at default sonnet tier
 
 Spawn the appropriate subagent with this prompt:
 

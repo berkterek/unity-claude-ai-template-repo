@@ -488,7 +488,7 @@ ISSUES:
 OR: ISSUES: none
 ```
 
-**Fix loop (NEEDS_FIX only):** Spawn `unity-coder-lite` with the issues list — surgical edits only, no scene recreation. Max 2 iterations. After 2 failures → proceed with issues listed in report.
+**Fix loop (NEEDS_FIX only):** Spawn `unity-coder` with the issues list — surgical edits only, no scene recreation. Max 2 iterations. After 2 failures → proceed with issues listed in report.
 
 ---
 

@@ -28,9 +28,7 @@
 | `unity-security-reviewer` | `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
 | `unity-build-runner` | `unity-build-runner` | CI/build pipeline — platform flags, build profiles, addressables baking |
 | `unity-coder` | `unity-coder` | **Primary Unity coder for Medium/Complex tasks.** Full Unity C# — MonoBehaviours, providers, installers, scene wiring. Used in `/implement`, `/fix`, `/scene-setup`, `/orchestrate`, `/migrate` when complexity ≥ 0.4. |
-| `unity-coder-lite` | `unity-coder-lite` | Lightweight Unity coder for small isolated changes |
 | `unity-fixer` | `unity-fixer` | Bug fixer with full context — reads surrounding code before patching |
-| `unity-fixer-lite` | `unity-fixer-lite` | Quick targeted fix for a single well-scoped defect |
 | `unity-git-master` | `unity-git-master` | Git workflow — branching strategy, conflict resolution, history rewrite |
 | `unity-migrator` | `unity-migrator` | Pattern migration specialist — coroutine→UniTask, singleton→VContainer, legacy input |
 | `unity-network-dev` | `unity-network-dev` | Netcode for GameObjects / Unity Transport — lobby, relay, RPCs |

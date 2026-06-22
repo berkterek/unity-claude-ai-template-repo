@@ -8,6 +8,10 @@ alwaysApply: true
 
 When delegating work to agents, use these signals to select the right model tier. These are heuristics, not hard rules — the user can always override with `--quick` or `--thorough`.
 
+## Flag Overrides
+
+When `--heavy` is passed to a command, the implementation agent is forced to opus tier regardless of this table. When `--lite` is passed to `/fix` or `/implement`, the implementation agent is forced to haiku tier.
+
 ## Complexity Signals
 
 | Signal | Simple (haiku/sonnet) | Moderate (sonnet) | Complex (opus) |
@@ -30,9 +34,10 @@ When delegating work to agents, use these signals to select the right model tier
 
 **Never use for:** Writing code, modifying files, complex reasoning
 
-### Sonnet Tier — Balanced Speed/Quality
-**Agents:** `unity-coder-lite`, `unity-fixer-lite`, `unity-reviewer`, `unity-test-runner`, `unity-build-runner`, `unity-migrator`, `unity-security-reviewer`, `unity-git-master`
+### Sonnet Tier — Implementors
+**Agents:** `unity-coder`, `coder`, `unity-fixer`, `unity-verifier`, `unity-setup`, `unity-scene-builder`, `unity-optimizer`, `unity-shader-dev`, `unity-network-dev`, `unity-prototyper`, `unity-reviewer`, `unity-test-runner`, `unity-build-runner`, `unity-migrator`, `unity-security-reviewer`, `unity-git-master`
 **Use when:**
+- Agents that receive a spec and produce code or scene changes
 - Single-file changes with clear requirements
 - Code review against a known checklist
 - Writing tests for existing code
@@ -41,14 +46,13 @@ When delegating work to agents, use these signals to select the right model tier
 - Structured tasks with documented procedures (migrations, LFS setup)
 
 ### Opus Tier — Deep Reasoning
-**Agents:** `unity-coder`, `unity-fixer`, `unity-verifier`, `unity-optimizer`, `unity-prototyper`, `unity-shader-dev`, `unity-scene-builder`, `unity-ui-builder`, `unity-network-dev`, `unity-critic`
+**Agents:** `lean-planner`, `debugger`, `reviewer`, `unity-developer`, `unity-critic`
+**Description:** Planners + analyzers/reviewers. Plan authors (Plan built-in, lean-planner), root-cause analysts (debugger), code reviewers (reviewer, unity-developer, unity-critic).
 **Use when:**
-- Multi-system feature implementation
 - Bug investigation requiring deep analysis
-- Performance optimization (trade-off reasoning)
-- Architecture decisions
-- Shader math and visual programming
-- Spatial reasoning (scene building)
+- Architecture decisions and trade-off reasoning
+- Plan authoring
+- Code review requiring deep judgment
 - Challenging plans (critic role)
 
 ## Integration with Commands

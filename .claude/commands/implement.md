@@ -19,7 +19,16 @@ If no argument is given, ask: "What needs to be implemented?"
 
 ---
 
-## Step 0 — Plugin Preflight
+## Step 0 — Flag Detection & Plugin Preflight
+
+**Read `$ARGUMENTS` and detect flags:**
+
+```
+Check $ARGUMENTS for --heavy flag → if present, set FORCE_OPUS_TIER=true
+Check $ARGUMENTS for --lite flag  → if present, set FORCE_HAIKU_TIER=true
+```
+
+Strip the flags from `$ARGUMENTS` before passing the task description to any agent prompt.
 
 **Plugin availability check:**
 Check which of these plugins are available in the skill list:
@@ -107,7 +116,7 @@ Before spawning any agents, score the task complexity on a 0.0–1.0 scale and d
 
 | Score | Label | Signals | Pipeline |
 |-------|-------|---------|----------|
-| 0.0–0.3 | **Simple** | Single class, no new interfaces, no DI wiring, no events | → **route to implement-lite** |
+| 0.0–0.3 | **Simple** | Single class, no new interfaces, no DI wiring, no events | → ask user (see Simple routing block below) |
 | 0.4–0.6 | **Medium** | 2–4 classes, new interface, or touches existing event bus | Full pipeline: Test Writer → Coder → Reviewer → Committer |
 | 0.7–1.0 | **Complex** | New module, cross-system events, ECS integration, or Addressables | Full pipeline + unity-developer reviewer (always active in `full` mode, or when score ≥ 0.7 in `lean` mode) |
 
@@ -122,11 +131,14 @@ Before spawning any agents, score the task complexity on a 0.0–1.0 scale and d
 
 ```
 Complexity: [score] — Simple
-→ This task is /implement-lite scope. Route to implement-lite? (go / full-implement)
+This task is small enough for a lighter run.
+  continue   — proceed with full /implement pipeline (or re-run with --lite flag for a lighter coder)
+  stop       — cancel
 ```
 
-- `go` → run /implement-lite pipeline (implement-lite opens its own SCOPE_GATE in Step 0)
-- `full-implement` → continue with full /implement pipeline below
+- `continue` → proceed with full /implement pipeline below
+- `stop` → abort
+- User may also re-invoke with `--lite` flag to use the haiku-tier coder
 
 **Print before proceeding (Medium/Complex):**
 ```
@@ -218,6 +230,14 @@ If test writer reports **BLOCKED** → stop, show the blocker to the user, do no
 | Mixed (both pure C# and Unity glue) | **unity-coder** |
 
 If the task targets `_Framework/` or pure C# service/interface code with no Unity API, spawn a **coder** subagent. Otherwise spawn a **unity-coder** subagent.
+
+**Tier override (apply after agent type is decided):**
+
+```
+If FORCE_HAIKU_TIER == true  → spawn the chosen agent with model: haiku
+Else if FORCE_OPUS_TIER == true → spawn the chosen agent with model: opus
+Else                         → spawn the chosen agent (default sonnet tier)
+```
 
 ```
 You are a senior C# Unity developer. Implement the following task.

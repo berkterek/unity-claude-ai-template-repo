@@ -1,7 +1,7 @@
 ---
 name: lean-planner
 description: Produces a compact 3-5 task plan from researcher findings. Used by /create-plan --lean. No code skeletons, no acceptance criteria, no parallel groups. Never triggers implementer auto-spawn.
-model: claude-sonnet-4-6
+model: opus
 tools: Read, Glob, Grep, Bash
 ---
 

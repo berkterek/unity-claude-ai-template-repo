@@ -54,7 +54,7 @@ EVIDENCE: [specific lines or patterns that confirm it]
 ### For Automated Fix
 
 Once root cause is identified:
-- **Simple/obvious bug** (null ref, missing using, typo) → spawn **unity-fixer-lite** subagent for a quick targeted fix
+- **Simple/obvious bug** (null ref, missing using, typo) → spawn **unity-fixer** subagent for a quick targeted fix
 - **Complex bug** (lifecycle issue, async race, ECS structural) → spawn **unity-fixer** subagent (reads surrounding context before patching)
 
 Both agents report: DONE or BLOCKED with reason.

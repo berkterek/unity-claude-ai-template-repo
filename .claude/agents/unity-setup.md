@@ -1,7 +1,7 @@
 ---
 name: unity-setup
 description: "Scene and prefab configuration specialist. Uses MCP tools to set up scenes with 6-container hierarchy, create prefabs with logic/visual separation, configure ScriptableObjects, wire Input System, and run smoke tests."
-model: opus
+model: sonnet
 color: blue
 tools: Read, Write, Edit, Glob, Grep, Bash, mcp__unityMCP__*
 ---

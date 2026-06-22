@@ -21,7 +21,16 @@ If no argument is given, ask: "Describe the bug. Paste any logs or error text if
 
 ---
 
-## Step 0 — Plugin Preflight
+## Step 0 — Argument Parsing
+
+Parse `$ARGUMENTS` before any other step:
+
+- If `$ARGUMENTS` contains `--heavy` → set `FORCE_OPUS_TIER=true`
+- Otherwise → `FORCE_OPUS_TIER=false`
+
+---
+
+## Step 0.5 — Plugin Preflight
 
 Check which of these plugins are available in the skill list:
 
@@ -357,6 +366,9 @@ Debug logs have been left in place for your review — remove them manually or r
 | `_Framework/`, `Games/Abstracts/`, `Games/Concretes/` (no Unity API) | **coder** |
 | MonoBehaviour, Provider, Installer, scene wiring, Unity lifecycle | **unity-coder** |
 | Mixed (both pure C# and Unity glue) | **unity-coder** |
+
+If `FORCE_OPUS_TIER == true` → spawn the implementation agent with `model: opus`.
+Else → use the default tier.
 
 Spawn the appropriate subagent with this prompt:
 

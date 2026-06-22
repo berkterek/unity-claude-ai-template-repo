@@ -44,7 +44,7 @@ Read `production/review-mode.txt` (default: `lean` if file missing). This contro
 
 | Mode | Effect |
 |------|--------|
-| `solo` | Reviewer and unity-developer skipped — unity-coder/unity-coder-lite → unity-setup → committer only. |
+| `solo` | Reviewer and unity-developer skipped — unity-coder → unity-setup → committer only. |
 | `lean` | Standard pipeline. For regular solo development. |
 | `full` | Standard pipeline + unity-developer second reviewer always active (regardless of complexity score). For team review or learning sessions. |
 
@@ -54,7 +54,7 @@ Before spawning any agents, score the task complexity on a 0.0–1.0 scale:
 
 | Score | Label | Signals | Coder Agent |
 |-------|-------|---------|-------------|
-| 0.0–0.3 | **Simple** | Single MonoBehaviour, no new interfaces, no DI wiring | **unity-coder-lite** |
+| 0.0–0.3 | **Simple** | Single MonoBehaviour, no new interfaces, no DI wiring | **unity-coder** |
 | 0.4–0.6 | **Medium** | 2–4 scripts, new interface, or LifetimeScope installer | **unity-coder** |
 | 0.7–1.0 | **Complex** | New module, cross-system events, ECS, or Addressables | **unity-coder** + unity-developer review |
 
@@ -71,7 +71,7 @@ Scene setup always targets Unity/Mixed code — `coder` agent is never used here
 ```
 Complexity: [score] — [Label]
 Rationale: [one sentence]
-Coder Agent: [unity-coder-lite | unity-coder]
+Coder Agent: unity-coder
 Review Mode: [solo | lean | full]
 ```
 
@@ -110,7 +110,7 @@ For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after reviewer A
 
 ## Step 1a — Coder
 
-Spawn the coder agent determined in Step 0 (**unity-coder-lite** for Simple, **unity-coder** for Medium/Complex) with this prompt:
+Spawn the coder agent determined in Step 0 (**unity-coder** for all complexity levels) with this prompt:
 
 ```
 You are a senior C# Unity developer. Write the C# scripts needed for the following Unity scene setup.
