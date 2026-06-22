@@ -3,7 +3,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
 source "${SCRIPT_DIR}/_lib.sh"
 # PreToolUse hook — SPARC gate guard for coder agent spawns
-# Trigger tool: Agent | Gated: coder, unity-coder, unity-coder-lite
+# Trigger tool: Agent | Gated: coder, unity-coder
 # State file: .claude/state/sparc-approved (independent of gate-cleared)
 # Lifecycle: written by pipeline after 'go'; deleted after gated agent completes
 # Exit 0 = allow, Exit 2 = block
@@ -19,7 +19,7 @@ fi
 
 SUBAGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty')
 
-if ! echo "$SUBAGENT_TYPE" | grep -qE '^(coder|unity-coder|unity-coder-lite)$'; then
+if ! echo "$SUBAGENT_TYPE" | grep -qE '^(coder|unity-coder)$'; then
   exit 0
 fi
 

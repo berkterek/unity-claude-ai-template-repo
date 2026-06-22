@@ -63,9 +63,9 @@ During the Plan phase, evaluate the requirements against the complexity signals 
 2. Check for complexity keywords in the task description
 3. Identify risk factors (serialization, networking, platform-specific)
 4. Choose the agent tier accordingly:
-   - Simple requirements → route to `unity-coder-lite` (sonnet)
-   - Moderate requirements → route to `unity-coder` (opus)
-   - Complex multi-system → route to multiple agents via `/unity-team`
+   - Simple requirements → route to `unity-coder` (sonnet); add `--lite` for haiku tier
+   - Moderate requirements → route to `unity-coder` (sonnet)
+   - Complex multi-system → route to multiple agents via `/unity-team`; add `--heavy` for opus tier
 
 ### /unity-team — Agent Selection
 When building a team, consider mixing tiers for efficiency:

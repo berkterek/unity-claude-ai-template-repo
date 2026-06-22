@@ -228,7 +228,7 @@ These gates are enforced automatically by PreToolUse hooks — the hook exits 2 
 
 | Property | Value |
 |----------|-------|
-| **Fires** | Before `coder` / `unity-coder` / `unity-coder-lite` spawn, after SCOPE_GATE |
+| **Fires** | Before `coder` / `unity-coder` spawn, after SCOPE_GATE |
 | **Commands** | Any pipeline command spawning a coder-class agent (`/implement`, `/orchestrate`, `/fix` when complexity ≥ 0.4) |
 | **State file** | `.claude/state/sparc-approved` (independent of `gate-cleared`) |
 | **Shows user** | Specification (what will be built) + Architecture (which files, interfaces, data flow) |

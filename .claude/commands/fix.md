@@ -100,7 +100,7 @@ Before spawning any agents, score the task complexity on a 0.0–1.0 scale and d
 
 | Score | Label | Signals | Pipeline |
 |-------|-------|---------|----------|
-| 0.0–0.19 | **Trivial** | Single file, stack trace points to exact line, NullRef/missing ref/typo | → **route to fix-lite** |
+| 0.0–0.19 | **Trivial** | Single file, stack trace points to exact line, NullRef/missing ref/typo | Standard pipeline (use `--lite` flag for haiku tier) |
 | 0.2–0.3 | **Simple** | Single class, no new interfaces, no DI wiring, no events | Spawn Coder directly — skip Debugger and Test Writer |
 | 0.4–0.6 | **Medium** | 2–4 classes, new interface, or touches existing event bus | Full pipeline: Test Writer → Coder → Reviewer → Committer |
 | 0.7–1.0 | **Complex** | New module, cross-system events, ECS integration, or Addressables | Full pipeline + unity-developer reviewer (always active in `full` mode, or when score ≥ 0.7 in `lean` mode) |
@@ -119,7 +119,7 @@ Rationale: [one sentence]
 Pipeline: [which variant]
 ```
 
-**Trivial (score < 0.2):** Continue with the standard pipeline. No routing to fix-lite. Proceed to SCOPE_GATE below.
+**Trivial (score < 0.2):** Continue with the standard pipeline (use `--lite` flag for haiku tier). Proceed to SCOPE_GATE below.
 
 ### SCOPE_GATE
 
