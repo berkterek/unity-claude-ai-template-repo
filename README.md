@@ -494,17 +494,15 @@ Skip `/qa` if you're inside an active `/orchestrate` run — the phase gate alre
 
 | Command | How it runs | When to use |
 |---------|------------|-------------|
-| `/implement` | Manual to start. Inside: complexity score → [routes to `/implement-lite` if < 0.3] → test-type-router → [tester if not NoTest] → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Implement a feature or task with full TDD pipeline |
-| `/implement-lite` | Manual to start (or auto-routed from `/implement` when complexity < 0.3). Inside: read file(s) → unity-coder-lite → compile check → committer | Single-class addition or change — no test writer, no reviewer, fastest path |
-| `/fix` | Manual to start. Inside: unity-fixer + unity-scout → test-type-router → [tester (regression) if not NoTest] → coder → verifier → reviewer → silent failure audit → committer run **automatically** | Bug fix when stack trace clearly points to root cause |
+| `/implement` | Manual to start. Inside: flag detection (`--heavy`/`--lite`) → complexity score → test-type-router → [tester if not NoTest] → coder (sonnet; opus if `--heavy`, haiku if `--lite`) → verifier → reviewer → silent failure audit → committer run **automatically** | Implement a feature or task with full TDD pipeline |
+| `/fix` | Manual to start. Inside: flag detection (`--heavy`/`--lite`) → unity-fixer + unity-scout → test-type-router → [tester (regression) if not NoTest] → coder (sonnet; opus if `--heavy`, haiku if `--lite`) → verifier → reviewer → silent failure audit → committer run **automatically** | Bug fix when stack trace clearly points to root cause |
 | `/fix-deep` | Manual to start. Inside: log intake → hypothesis → debug injection → evidence gate → fix (only if proven) → committer run **automatically**. **Refuses to fix if root cause is unproven** | Logic bugs, intermittent issues, or any uncertain root cause |
-| `/fix-lite` | Manual to start (or auto-routed from `/fix` when complexity < 0.2). Inside: pin file+line → read file → unity-fixer-lite → compile check → committer | NullRef, missing ref, typo, obvious one-liner — fastest path |
 | `/fix-codex` | Manual to start. Inside: **Codex Analysis** (fresh eyes) → **Human Gate** → **Codex Implementation** → **Claude Review** → loop back to Codex if NEEDS REVISION (max 2x) → committer | Legacy/large codebase (2000+ line files) or stuck 30+ min — Codex analyzes and implements, Claude reviews |
 | `/new-module` | Manual — single step | Scaffold a 5-file module (Interface, Service, Config, Installer, Events) |
 
-> **`/implement-lite` vs `/implement`:** Use `/implement-lite` for single-class additions (add a field, method, property, or a new simple class) with no new interfaces, no DI wiring, no events — also auto-routed from `/implement` when complexity < 0.3. Use `/implement` for anything that touches 2+ files, introduces interfaces, or wires into VContainer.
+> **`/implement` flags:** Use `--lite` (haiku tier) for trivial single-file changes where speed matters. Use `--heavy` (opus tier) for unusually complex tasks. Default is sonnet tier.
 
-> **`/fix-lite` vs `/fix` vs `/fix-deep` vs `/fix-codex`:** Use `/fix-lite` for NullRef/missing ref/typo (single file, clear line — also auto-routed from `/fix`). Use `/fix` when the stack trace points to root cause but 2+ files. Use `/fix-deep` for logic bugs or intermittent issues. Use `/fix-codex` for legacy/large codebases or when stuck 30+ minutes — Codex analyzes and implements with fresh eyes, Claude reviews the result.
+> **`/fix` vs `/fix-deep` vs `/fix-codex`:** Use `/fix` when the stack trace points to root cause (add `--lite` for obvious one-liners). Use `/fix-deep` for logic bugs or intermittent issues. Use `/fix-codex` for legacy/large codebases or when stuck 30+ minutes — Codex analyzes and implements with fresh eyes, Claude reviews the result.
 
 ---
 
@@ -666,11 +664,9 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 
 | Command | How it runs | Description |
 |---------|------------|-------------|
-| `/implement <task>` | Manual to start → complexity score → [routes to `/implement-lite` if < 0.3] → test-type-router → [tester if not NoTest] → coder → verifier → reviewer → silent failure audit → committer | TDD implementation pipeline for a single well-defined task |
-| `/implement-lite <task>` | Manual to start (or auto-routed from `/implement` when complexity < 0.3) → read file(s) → unity-coder-lite → compile check → committer | Single-class addition or change — no test writer, no reviewer |
-| `/fix <bug>` | Manual to start → unity-fixer + unity-scout → test-type-router → [tester (regression) if not NoTest] → coder → verifier → reviewer → committer | Bug fix pipeline — use when stack trace points to root cause |
+| `/implement <task>` | Manual to start → flag detection (`--heavy`/`--lite`) → complexity score → test-type-router → [tester if not NoTest] → coder (sonnet by default) → verifier → reviewer → silent failure audit → committer | TDD implementation pipeline. `--lite` forces haiku, `--heavy` forces opus. |
+| `/fix <bug>` | Manual to start → flag detection (`--heavy`/`--lite`) → unity-fixer + unity-scout → test-type-router → [tester (regression) if not NoTest] → coder (sonnet by default) → verifier → reviewer → committer | Bug fix pipeline. `--lite` for trivial one-liners, `--heavy` for complex root causes. |
 | `/fix-deep <bug>` | Manual to start → log intake → hypothesis → debug injection → evidence gate → fix (only if proven) → committer. **Refuses to fix if root cause is unproven** | Evidence-first bug fix — use for logic bugs or intermittent issues |
-| `/fix-lite <bug>` | Manual to start → pin file+line from stack trace → unity-fixer-lite → compile check → committer | NullRef, missing ref, typo, obvious one-liner — also auto-routed from `/fix` when complexity < 0.2 |
 | `/fix-codex [--files f1,f2] <bug>` | Manual to start → **Codex Analysis** (fresh eyes, no hypotheses) → Human Gate → **Codex Implementation** → **Claude Review** → loop back to Codex if NEEDS REVISION (max 2x) → committer | Legacy/large codebase or when stuck 30+ min — Codex analyzes and implements, Claude reviews |
 | `/migrate <pattern> in <scope>` | Manual to start → test guard → migrator → reviewer → committer | Legacy pattern migration (coroutine→UniTask, singleton→VContainer, etc.) |
 | `/scene-setup <description>` | Manual to start → coder + unity-setup → verifier → reviewer → committer | Scene and prefab wiring pipeline |
@@ -702,7 +698,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/review-code` | Manual — single step | Deep code review on specific files via unity-reviewer |
 | `/silent-failure-hunt` | Manual — single step | Audit files for swallowed exceptions and silent error patterns |
 | `/performance-audit` | Manual — single step | Hot path allocation and draw call audit |
-| `/debug-session` | Manual to start → root cause analysis → unity-fixer or unity-fixer-lite → learner skill | Structured root cause analysis session |
+| `/debug-session` | Manual to start → root cause analysis → unity-fixer → learner skill | Structured root cause analysis session |
 | `/clean-slop` | Manual — single step | Remove AI-generated bloat (dead code, useless abstractions) |
 | `/check-portability` | Manual — single step | Audit a module for copy-paste portability to another project |
 | `/learn` | Manual — single step | Extract project-specific patterns into `.claude/skills/learned/` and update `skills-index.md` |
@@ -769,10 +765,8 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-linter` | Static analysis pass — naming, regions, hook-rule compliance |
 | `unity-security-reviewer` | Security audit — data exposure, serialization risks, network surface |
 | `unity-build-runner` | CI/build pipeline — platform flags, build profiles, Addressables baking |
-| `unity-coder` | **Primary Unity coder for medium/complex tasks.** Full Unity C# — MonoBehaviours, providers, installers, scene wiring. Used when complexity ≥ 0.4. |
-| `unity-coder-lite` | Lightweight Unity coder for small isolated changes |
-| `unity-fixer` | Bug fixer with full context — reads surrounding code before patching |
-| `unity-fixer-lite` | Quick targeted fix for a single well-scoped defect |
+| `unity-coder` | Unity coder for all complexity levels (sonnet tier by default; use `--heavy` for opus, `--lite` for haiku). Full Unity C# — MonoBehaviours, providers, installers, scene wiring. |
+| `unity-fixer` | Bug fixer with full context — reads surrounding code before patching (sonnet tier by default; use `--heavy`/`--lite` flags on `/fix`) |
 | `unity-git-master` | Git workflow — branching strategy, conflict resolution, history rewrite |
 | `unity-migrator` | Pattern migration specialist — coroutine→UniTask, singleton→VContainer, legacy input |
 | `unity-network-dev` | Netcode for GameObjects / Unity Transport — lobby, relay, RPCs. VContainer DI integration for NetworkBehaviour via `[Inject]` method injection and `container.Inject(go)` for runtime-spawned network objects |
@@ -872,7 +866,7 @@ Automatically blocked by a PreToolUse hook — no mid-run pause, the hook exits 
 
 | Gate | Commands | When it fires | What you decide |
 |------|----------|--------------|-----------------|
-| `SPARC_GATE` | `/implement`, `/orchestrate`, `/fix` (complexity ≥ 0.4) | Before `coder` / `unity-coder` / `unity-coder-lite` spawn, after SCOPE_GATE | Approve Specification + Architecture (how it will be built — files, interfaces, data flow) |
+| `SPARC_GATE` | `/implement`, `/orchestrate`, `/fix` (complexity ≥ 0.4) | Before `coder` / `unity-coder` spawn, after SCOPE_GATE | Approve Specification + Architecture (how it will be built — files, interfaces, data flow) |
 
 State file: `.claude/state/sparc-approved` (independent of `gate-cleared`). Written after "go", deleted after the gated agent completes. Guard hook: `guard-sparc-approved.sh`.
 
