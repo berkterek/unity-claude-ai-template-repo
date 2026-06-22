@@ -179,7 +179,7 @@ If the user enabled the Knowledge Graph:
 
 ### Step 5.6 — Hybrid Graph Activation (runs immediately after Step 5.5, only when graph=true)
 
-Activate `hybrid_graph` automatically — no user prompt. Runs four sub-steps in sequence; any failure aborts the chain and leaves `hybrid_graph=false` in `project-features.json`.
+Activate `hybrid_graph` automatically — no user prompt. Runs five sub-steps in sequence; any failure aborts the chain and leaves `hybrid_graph=false` in `project-features.json`.
 
 **Re-run guard (check first):**
 ```bash
