@@ -1,3 +1,5 @@
+# GENERATED-FROM-TEMPLATE — do not edit directly in project repos.
+# Changes must be made in unity-claude-ai-template-repo and synced forward.
 """graph_bfs_core — pure shared BFS module for knowledge graph traversal.
 
 NO file I/O. NO argparse. NO print / sys.stdout. NO sys.exit.
