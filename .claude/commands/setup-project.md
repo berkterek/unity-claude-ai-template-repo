@@ -183,7 +183,9 @@ Activate `hybrid_graph` automatically — no user prompt. Runs five sub-steps in
 
 **Re-run guard (check first):**
 ```bash
-claude mcp list | grep -q "graph-mcp" && echo "ALREADY_REGISTERED"
+claude mcp list | grep -q "graph-mcp" && \
+  jq -e '.hybrid_graph == true' .claude/project-features.json > /dev/null 2>&1 && \
+  echo "ALREADY_REGISTERED"
 ```
 If output is `ALREADY_REGISTERED` → print "hybrid_graph already active — skipping Step 5.6." and stop.
 
@@ -194,7 +196,7 @@ python3 -m pip install mcp --quiet --exists-action i 2>&1
 ```
 
 - `--exists-action i` = skip silently if already installed
-- On non-zero exit: print the failure message below, set `HYBRID_FAILED=true`, skip 5.6b–5.6e.
+- On non-zero exit: print the failure message below, skip 5.6b–5.6e.
 
 **Failure output:**
 ```
