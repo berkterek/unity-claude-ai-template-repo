@@ -88,13 +88,16 @@ def _extract_invocations(class_body, src):
 
 
 def _detect_vcontainer(class_body, src):
-    """Detect builder.Register<T> and eventBus.Subscribe/Publish patterns."""
+    """Detect builder.Register* and eventBus.Subscribe/Publish patterns."""
     registrations = []
     pub_sub = []
     text = _node_text(class_body, src)
-    for m in re.finditer(r'builder\.Register<([A-Za-z0-9_]+)>', text):
+    # Register<T>, RegisterInstance<T>, RegisterComponent<T>, RegisterEntryPoint<T>
+    for m in re.finditer(r'builder\.Register(?:Instance|Component|EntryPoint)?<([A-Za-z0-9_]+)>', text):
         registrations.append({"type": m.group(1), "as": "", "lifetime": ""})
-    for m in re.finditer(r'_eventBus\.(Publish|Subscribe|Unsubscribe)<([A-Za-z0-9_]+)>', text):
+    # RegisterInstance(obj) — type from variable name not available, skip
+    # Any field name ending with eventBus / _eventBus / bus etc.
+    for m in re.finditer(r'\w+\.(Publish|Subscribe|Unsubscribe)<([A-Za-z0-9_]+)>', text):
         pub_sub.append({"action": m.group(1), "event": m.group(2)})
     return registrations, pub_sub
 
@@ -115,6 +118,8 @@ def extract_file(parser, path, src=None):
     interfaces = []
     events = []
     partial_calls = []
+    installers = []
+    scopes = []
 
     for cls_node in _walk(root, "class_declaration"):
         name_node = cls_node.child_by_field_name("name")
@@ -123,9 +128,14 @@ def extract_file(parser, path, src=None):
         name = _node_text(name_node, src)
         line = cls_node.start_point[0] + 1
 
-        # Base types
+        # Base types — tree-sitter-c-sharp uses base_list named child, not "bases" field
         base_types = []
         bases_node = cls_node.child_by_field_name("bases")
+        if not bases_node:
+            for child in cls_node.named_children:
+                if child.type == "base_list":
+                    bases_node = child
+                    break
         if bases_node:
             for bt in _walk(bases_node, "identifier"):
                 base_types.append(_node_text(bt, src))
@@ -150,6 +160,14 @@ def extract_file(parser, path, src=None):
                 "confidence": "EXTRACTED",
             })
 
+        is_installer = name.endswith("Installer")
+        is_scope = "LifetimeScope" in base_types
+        entry = {"name": name, "file": path, "source_file": path, "registrations": registrations}
+        if is_scope:
+            scopes.append(entry)
+        elif is_installer:
+            installers.append(entry)
+
         classes.append({
             "name": name,
             "namespace": namespace,
@@ -166,6 +184,32 @@ def extract_file(parser, path, src=None):
             "methods": methods,
             "confidence": "EXTRACTED",
         })
+
+    for struct_node in _walk(root, "struct_declaration"):
+        name_node = struct_node.child_by_field_name("name")
+        if not name_node:
+            continue
+        name = _node_text(name_node, src)
+        # Collect base types using same base_list fallback
+        struct_bases = []
+        sb_node = struct_node.child_by_field_name("bases")
+        if not sb_node:
+            for child in struct_node.named_children:
+                if child.type == "base_list":
+                    sb_node = child
+                    break
+        if sb_node:
+            for bt in _walk(sb_node, "identifier"):
+                struct_bases.append(_node_text(bt, src))
+        if "IEvent" in struct_bases:
+            events.append({
+                "name": name,
+                "namespace": namespace,
+                "file": path,
+                "source_file": path,
+                "line": struct_node.start_point[0] + 1,
+                "confidence": "EXTRACTED",
+            })
 
     for iface_node in _walk(root, "interface_declaration"):
         name_node = iface_node.child_by_field_name("name")
@@ -187,6 +231,7 @@ def extract_file(parser, path, src=None):
         "interfaces": interfaces,
         "events": events,
         "partial_calls": partial_calls,
+        "vcontainer": {"installers": installers, "scopes": scopes},
     }
 
 
