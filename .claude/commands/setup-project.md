@@ -192,16 +192,19 @@ If output is `ALREADY_REGISTERED` → print "hybrid_graph already active — ski
 #### 5.6a — pip Probe
 
 ```bash
-python3 -m pip install mcp --quiet --exists-action i 2>&1
+# Check importability first — handles pipx, homebrew, venv installs without triggering PEP 668
+python3 -c "import mcp" 2>/dev/null || \
+  python3 -m pip install mcp --quiet --break-system-packages 2>&1
 ```
 
-- `--exists-action i` = skip silently if already installed
-- On non-zero exit: print the failure message below, skip 5.6b–5.6e.
+- `python3 -c "import mcp"` — succeeds silently if mcp is already installed by any method (pipx, homebrew, venv). Skips pip entirely.
+- `--break-system-packages` — required on macOS Homebrew Python (PEP 668); safe for a single targeted package install.
+- On non-zero exit from both commands: print the failure message below, skip 5.6b–5.6e.
 
 **Failure output:**
 ```
-[hybrid_graph] pip install mcp failed.
-Manual fix: run `pip install mcp`, then re-run /setup-project.
+[hybrid_graph] mcp package not available and install failed.
+Manual fix: pip install mcp OR pipx install mcp, then re-run /setup-project.
 hybrid_graph left as false.
 ```
 
