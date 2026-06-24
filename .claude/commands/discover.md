@@ -17,7 +17,7 @@ argument-hint: "[--dry-run] [--write] [--only <pkg>] [--include-assets-plugins]"
 
 1. Resolve the project root from the current working directory. Fail fast with `ERR_NO_PROJECT_ROOT` if `Packages/manifest.json` is missing.
 
-2. Read `.claude/agents/package-analyzer.md` to load the package-analyzer instructions. Then invoke a `general-purpose` subagent with those instructions as the system prompt, passing the parsed flags (`--only`, `--include-assets-plugins`, `--include-unity-builtins`) and the current working directory as context. Capture its JSON array output.
+2. Read `.claude/agents/package-analyzer.md` to load the package-analyzer instructions. Then invoke a `general-purpose` subagent (`model: sonnet` — matches package-analyzer worker tier) with those instructions as the system prompt, passing the parsed flags (`--only`, `--include-assets-plugins`, `--include-unity-builtins`) and the current working directory as context. Capture its JSON array output.
 
    > **Important:** Do NOT use `subagent_type: "package-analyzer"` in the Agent tool — that type is not registered as a built-in FleetView agent. Instead use `subagent_type: "general-purpose"` and embed the package-analyzer instructions in the prompt.
 

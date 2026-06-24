@@ -56,7 +56,7 @@ If graph is disabled or missing → set `GRAPH_CONTEXT` to empty, proceed.
 
 ## Step 1 — Researcher
 
-Spawn an **Explore** subagent with this prompt:
+Spawn an **Explore** subagent (`model: haiku`) with this prompt:
 
 ```
 You are a codebase analyst for this Unity project.
@@ -351,7 +351,7 @@ REVISION_TYPE: INCREMENTAL   ← small fixes, no structural changes
 REVISION_TYPE: BREAKING      ← removes/renames existing tasks, changes module structure, or contradicts a previous plan decision
 ```
 
-If Codex is unavailable → fall back to a **general-purpose** subagent with the same prompt.
+If Codex is unavailable → fall back to a **general-purpose** subagent (`model: opus` — plan review is lead-tier) with the same prompt.
 
 If reviewer reports **CHANGES NEEDED**:
 
@@ -411,12 +411,12 @@ If **yes** → read the plan file. Extract the complexity score printed at the t
    ⚠ PARALLEL CONFLICT: [Task A] and [Task B] both write to [file]
    [Task B] demoted to sequential.
    ```
-3. Spawn one **general-purpose** subagent per task in the same group simultaneously.
+3. Spawn one **general-purpose** subagent (`model: sonnet` — implementer is worker-tier) per task in the same group simultaneously.
 4. Wait for all tasks in the group to complete before starting the next group or sequential task.
 5. If any task in a group fails → stop. Report all failures. Do not proceed until user resolves.
 6. After all groups and sequential tasks complete → run reviewer + committer as normal.
 
-**If no `parallel_group` annotations OR complexity < 0.4:** spawn a single **general-purpose** subagent with this prompt:
+**If no `parallel_group` annotations OR complexity < 0.4:** spawn a single **general-purpose** subagent (`model: sonnet`) with this prompt:
 
 ```
 You are a senior C# Unity developer implementing a plan.

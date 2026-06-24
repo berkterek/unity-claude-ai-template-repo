@@ -100,7 +100,7 @@ If the migration scope touches more than 5 files (scoring signal "+0.3 Touches m
 
 > **Skip this step if complexity score is Simple (0.0–0.3) and review mode is not `full`.**
 
-Spawn Agent with `subagent_type: "claude"` with this prompt:
+Spawn Agent with `subagent_type: "claude"` (`model: sonnet` — isolated tester is worker-tier) with this prompt:
 
 ```
 Read .claude/agents/tester.md for your role and testing philosophy.
