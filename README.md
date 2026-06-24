@@ -29,7 +29,7 @@ A personal Claude Code configuration template for Unity 6 projects. Drop the `.c
 - [Manual Setup](#manual-setup-required-after-setup-project)
 - [Architecture in a Nutshell](#architecture-in-a-nutshell)
 - [Distribution as a Claude Code Plugin](#distribution-as-a-claude-code-plugin)
-- [CI Integration — GitHub Actions PR Review](#ci-integration--github-actions-pr-review)
+- [CI Integration — GitHub Actions](#ci-integration--github-actions)
 - [Project-Specific Files](#project-specific-files-not-in-this-template)
 - [License](#license)
 
@@ -1236,18 +1236,28 @@ The manifest declares all skills, commands, hooks, and agents so Claude Code dis
 
 ---
 
-## CI Integration — GitHub Actions PR Review
+## CI Integration — GitHub Actions
 
-`.github/workflows/claude-pr-review.yml` runs automatic Claude code review on every pull request that touches Unity source files (`Assets/**`, `.claude/**`, `_GameFolders/**`, `_Framework/**`).
+Three workflows live under `.github/workflows/` (all on `actions/checkout@v5` / `actions/setup-python@v6`, Node 24). See `.github/workflows/README.md` for full details.
 
-### Setup
+### claude-pr-review.yml — automatic PR review
+
+Runs automatic Claude code review on every pull request that touches Unity source files (`Assets/**`, `.claude/**`, `_GameFolders/**`, `_Framework/**`).
+
+**Setup:**
 
 1. Add your Anthropic API key as a repository secret named `ANTHROPIC_API_KEY`
 2. The workflow triggers automatically on PRs — no other configuration required
 
 The reviewer checks architecture rules (VContainer DI, no singletons, IEventBus cross-module communication), Unity-specific patterns (UniTask, New Input System, null safety), and naming conventions.
 
-See `.github/workflows/README.md` for details on the secret setup.
+### hook-tests.yml — hook regression gate
+
+Runs the bats-core suite (`.claude/hooks/tests/`) plus `shellcheck` on every change under `.claude/hooks/` (and on changes to its own YAML; `workflow_dispatch` for manual runs). Installs bats with `sudo npm install -g bats` — the runner's `/usr/local` global prefix is not writable by the unprivileged `runner` user, so a plain `npm install -g` fails with `EACCES` (exit 243). A broken or over-broad hook turns the check red instead of silently shipping.
+
+### graph-tests.yml — knowledge-graph harness
+
+Runs `.claude/graph/test/verify-graphify.sh` (jq + Python 3.12) on every change under `.claude/graph/` (and its own YAML; `workflow_dispatch`). The harness hard-requires a committed `graph.json` — it does not build one, and `actions/checkout` only delivers tracked files. `.claude/graph/graph.json` is therefore committed alongside `scenes.json` / `prefabs.json`, **not** gitignored.
 
 ---
 
