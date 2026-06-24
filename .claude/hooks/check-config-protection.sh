@@ -7,6 +7,7 @@ source "${SCRIPT_DIR}/_lib.sh"
 _hook_log() {
     local code=$1
     local log="${HOME}/.claude/hook-audit.log"
+    mkdir -p "$(dirname "$log")"
     local ts; ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     local proj; proj=$(git rev-parse --show-toplevel 2>/dev/null | xargs basename 2>/dev/null || echo "unknown")
     local file="${FILE_PATH:-}"
