@@ -135,7 +135,9 @@ check_counterpart() {
 
     for search_dir in "$DIR" "$(dirname "$DIR")"; do
         local candidate
-        candidate=$(find "$search_dir" -name "${counterpart_name}.cs" -maxdepth 3 2>/dev/null | head -1)
+        # `|| true` keeps `set -euo pipefail` from aborting the hook when `find`
+        # exits non-zero (e.g. permission-denied entries while traversing a parent dir).
+        candidate=$(find "$search_dir" -name "${counterpart_name}.cs" -maxdepth 3 2>/dev/null | head -1 || true)
         if [ -n "$candidate" ] && [ -f "$candidate" ]; then
             if ! unity_was_read "$candidate"; then
                 echo "  SUGGESTION: Consider reading the ${role} first: ${candidate}" >&2

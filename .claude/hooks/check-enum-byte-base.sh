@@ -3,10 +3,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
 source "${SCRIPT_DIR}/_lib.sh"
 
+# Feature gate — only run when ECS is enabled. Redirectable via UNITY_FEATURES_FILE
+# (tests point this at a temp file). enum-byte-base is an ECS/IEvent-only rule.
+UNITY_FEATURES_FILE="${UNITY_FEATURES_FILE:-$(git rev-parse --show-toplevel 2>/dev/null)/.claude/project-features.json}"
+[ "$(jq -r '.ecs // false' "$UNITY_FEATURES_FILE" 2>/dev/null)" = "true" ] || exit 0
+
 # --- Hook Audit Logging ---
 _hook_log() {
     local code=$1
     local log="${HOME}/.claude/hook-audit.log"
+    mkdir -p "$(dirname "$log")"
     local ts; ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     local proj; proj=$(git rev-parse --show-toplevel 2>/dev/null | xargs basename 2>/dev/null || echo "unknown")
     local file="${FILE_PATH:-}"
@@ -39,7 +45,12 @@ if [ ! -f "$FILE_PATH" ]; then
     exit 0
 fi
 
-# Only check ECS component files or files that contain IEvent / IComponentData
+# Skip Editor / third-party / test paths
+should_skip_path "$FILE_PATH" && exit 0
+
+# Only check ECS component files or files that contain a real IEvent / IComponentData
+# struct declaration. A struct-declaration match (tolerating multi-interface lists)
+# with a word boundary avoids matching IEventBus, IEventBusListener, etc.
 IS_ECS_PATH=false
 IS_EVENT_OR_COMPONENT=false
 
@@ -47,7 +58,7 @@ if echo "$FILE_PATH" | grep -qE "/Ecs/"; then
     IS_ECS_PATH=true
 fi
 
-if grep -qE "(IEvent|IComponentData)" "$FILE_PATH" 2>/dev/null; then
+if grep -qE 'struct[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:[^{]*\b(IEvent|IComponentData)\b' "$FILE_PATH" 2>/dev/null; then
     IS_EVENT_OR_COMPONENT=true
 fi
 
@@ -67,24 +78,21 @@ while IFS= read -r line; do
     LINE_CONTENT=$(echo "$line" | cut -d: -f2-)
 
     # Skip if already has byte base
-    if echo "$LINE_CONTENT" | grep -qE "enum\s+\w+\s*:\s*byte"; then
+    if echo "$LINE_CONTENT" | grep -qE "enum[[:space:]]+[[:alnum:]_]+[[:space:]]*:[[:space:]]*byte"; then
         continue
     fi
 
-    ENUM_NAME=$(echo "$LINE_CONTENT" | grep -oE "enum\s+\w+" | grep -oE "\w+$")
+    ENUM_NAME=$(echo "$LINE_CONTENT" | grep -oE "enum[[:space:]]+[[:alnum:]_]+" | grep -oE "[[:alnum:]_]+$")
     ISSUES="${ISSUES}\n  Line ${LINE_NUM}: enum ${ENUM_NAME} — missing ': byte'"
-done < <(grep -n "enum\s\+\w\+" "$FILE_PATH" 2>/dev/null | grep -v "//" | grep "enum\s")
+done < <(grep -nE "enum[[:space:]]+[[:alnum:]_]+" "$FILE_PATH" 2>/dev/null | grep -v "//")
 
 if [ -n "$ISSUES" ]; then
-    echo "BLOCKED — enum without byte base in ECS/IEvent context: $FILE_PATH"
-    echo ""
-    echo "Enums inside IComponentData or IEvent structs must inherit from byte"
-    echo "to minimize struct size and improve ECS chunk density."
-    echo -e "$ISSUES"
-    echo ""
-    echo "Fix: enum MyState : byte { Idle, Moving, Attacking }"
-    echo "Note: Use ushort if more than 255 values are needed."
-    exit 2
+    unity_hook_block "enum without byte base in ECS/IEvent context: $FILE_PATH
+$(echo -e "$ISSUES")
+
+Enums inside IComponentData or IEvent structs must inherit from byte to minimize
+struct size and improve ECS chunk density.
+Fix: enum MyState : byte { Idle, Moving, Attacking }   (use ushort if > 255 values)"
 fi
 
 exit 0

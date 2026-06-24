@@ -23,7 +23,7 @@ if ! echo "$SUBAGENT_TYPE" | grep -qE '^(coder|unity-coder)$'; then
   exit 0
 fi
 
-SPARC_STATE=".claude/state/sparc-approved"
+SPARC_STATE="${UNITY_HOOK_STATE_DIR}/sparc-approved"
 if [[ -f "$SPARC_STATE" ]]; then
   exit 0
 fi

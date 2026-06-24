@@ -7,6 +7,7 @@ source "${SCRIPT_DIR}/_lib.sh"
 _hook_log() {
     local code=$1
     local log="${HOME}/.claude/hook-audit.log"
+    mkdir -p "$(dirname "$log")"
     local ts; ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     local proj; proj=$(git rev-parse --show-toplevel 2>/dev/null | xargs basename 2>/dev/null || echo "unknown")
     local file="${FILE_PATH:-}"
@@ -39,15 +40,8 @@ if [ ! -f "$FILE_PATH" ]; then
     exit 0
 fi
 
-# Skip test files
-if echo "$FILE_PATH" | grep -qiE "(Tests?|Spec)/"; then
-    exit 0
-fi
-
-# Skip Editor-only files
-if echo "$FILE_PATH" | grep -qE "/Editor/"; then
-    exit 0
-fi
+# Skip Editor / third-party / test paths
+should_skip_path "$FILE_PATH" && exit 0
 
 ISSUES=""
 
@@ -83,7 +77,7 @@ if [ "$HAS_INPUT_REF" -gt 0 ]; then
     fi
 
     # Check that callbacks are unsubscribed (if subscribed with +=, must have -=)
-    SUBSCRIBES=$(echo "$STRIPPED" | grep -oE "\+= On[A-Z]\w+" | sed 's/+= //' | sort -u)
+    SUBSCRIBES=$(echo "$STRIPPED" | grep -oE "\+= On[A-Z][[:alnum:]_]+" | sed 's/+= //' | sort -u)
     if [ -n "$SUBSCRIBES" ]; then
         for CALLBACK in $SUBSCRIBES; do
             UNSUB_COUNT=$(echo "$STRIPPED" | grep -cE "-= ${CALLBACK}\b" 2>/dev/null)
@@ -100,18 +94,18 @@ fi
 IN_FIXED_UPDATE=false
 INPUT_IN_FIXED=""
 while IFS= read -r line; do
-    if echo "$line" | grep -qE "void\s+FixedUpdate\s*\("; then
+    if echo "$line" | grep -qE "void[[:space:]]+FixedUpdate[[:space:]]*\("; then
         IN_FIXED_UPDATE=true
         continue
     fi
     if [ "$IN_FIXED_UPDATE" = true ]; then
         # Detect next method declaration = end of FixedUpdate
-        if echo "$line" | grep -qE "^\s*(private|public|protected|internal|void|static|async|override|virtual)\s+\w+.*\("; then
+        if echo "$line" | grep -qE "^[[:space:]]*(private|public|protected|internal|void|static|async|override|virtual)[[:space:]]+[[:alnum:]_]+.*\("; then
             IN_FIXED_UPDATE=false
             continue
         fi
         # Check for input reads inside FixedUpdate
-        INPUT_READ=$(echo "$line" | grep -E "(ReadValue|WasPressedThisFrame|WasReleasedThisFrame|IsPressed|_moveInput|_controls\.\w+\.\w+\.Read)")
+        INPUT_READ=$(echo "$line" | grep -E "(ReadValue|WasPressedThisFrame|WasReleasedThisFrame|IsPressed|_moveInput|_controls\.[[:alnum:]_]+\.[[:alnum:]_]+\.Read)")
         if [ -n "$INPUT_READ" ]; then
             INPUT_IN_FIXED="${INPUT_IN_FIXED}\n${INPUT_READ}"
         fi
@@ -125,7 +119,7 @@ if [ -n "$INPUT_IN_FIXED" ]; then
 fi
 
 # --- Check 4: InputActionAsset field without [SerializeField] ---
-BARE_ASSET=$(echo "$STRIPPED" | grep -nE "^\s*(private|protected)\s+InputActionAsset\s+\w+\s*;" | grep -v "SerializeField")
+BARE_ASSET=$(echo "$STRIPPED" | grep -nE "^[[:space:]]*(private|protected)[[:space:]]+InputActionAsset[[:space:]]+[[:alnum:]_]+[[:space:]]*;" | grep -v "SerializeField")
 if [ -n "$BARE_ASSET" ]; then
     ISSUES="${ISSUES}\nWARNING — InputActionAsset field without [SerializeField]:\n${BARE_ASSET}\n"
     ISSUES="${ISSUES}The asset reference must be serialized to be assigned in the Inspector.\n"

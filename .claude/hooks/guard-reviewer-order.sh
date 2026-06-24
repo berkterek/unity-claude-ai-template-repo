@@ -45,9 +45,9 @@ if ! command -v codex &>/dev/null; then
 fi
 
 # Check if Codex already reviewed this pipeline pass
-REVIEWED_FILE=".claude/state/codex-reviewed"
+REVIEWED_FILE="${UNITY_HOOK_STATE_DIR}/codex-reviewed"
 
-GATE_FILE=".claude/state/gate-cleared"
+GATE_FILE="${UNITY_HOOK_STATE_DIR}/gate-cleared"
 
 if [ -f "$REVIEWED_FILE" ]; then
     # Stale check: gate-cleared is written at pipeline start; codex-reviewed is written mid-pipeline.

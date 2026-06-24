@@ -110,6 +110,26 @@ unity_hook_block() {
     fi
 }
 
+# unity_hook_warn — use for warn-only hooks. Prints to stderr (the channel the
+# model sees), then exits 0 (non-blocking). Mirrors unity_hook_block.
+unity_hook_warn() {
+    echo "WARNING: $1" >&2
+    exit 0
+}
+
+# should_skip_path — returns 0 (skip the hook) when the path is non-runtime
+# project code: Editor tooling, third-party packages, or test code. This is the
+# single source of truth for path exclusion — hooks call it instead of
+# duplicating ad-hoc `grep -qE "/Editor/"` guards.
+should_skip_path() {
+    case "$1" in
+        */Editor/*|*/editor/*|*/Editors/*|*/editors/*) return 0 ;;
+        */Plugins/*|*/ThirdParty/*|*_AssetFolders/*|*PackageCache/*) return 0 ;;
+        *EditModeTest/*|*PlayModeTest/*|*Tests/*|*Test/*|*Spec/*) return 0 ;;
+    esac
+    return 1
+}
+
 # unity_track_edit — record a file edit for session tracking
 unity_track_edit() {
     local file_path="$1"

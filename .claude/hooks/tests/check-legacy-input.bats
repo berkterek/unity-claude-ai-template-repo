@@ -45,3 +45,11 @@ teardown() {
     UNITY_HOOK_MODE=warn run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
     [ "$status" -eq 0 ]
 }
+
+@test "skips third-party Plugins code with legacy Input" {
+    mkdir -p "$TMPDIR_TEST/Assets/Plugins/UniRx/Examples"
+    local f="$TMPDIR_TEST/Assets/Plugins/UniRx/Examples/Sample.cs"
+    echo "if (Input.GetKey(KeyCode.Space)) Jump();" > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}

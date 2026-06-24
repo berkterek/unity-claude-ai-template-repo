@@ -7,6 +7,7 @@ source "${SCRIPT_DIR}/_lib.sh"
 _hook_log() {
     local code=$1
     local log="${HOME}/.claude/hook-audit.log"
+    mkdir -p "$(dirname "$log")"
     local ts; ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     local proj; proj=$(git rev-parse --show-toplevel 2>/dev/null | xargs basename 2>/dev/null || echo "unknown")
     local file="${FILE_PATH:-}"
@@ -31,10 +32,14 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
+# Skip Editor / third-party / test paths
+should_skip_path "$FILE_PATH" && exit 0
+
 # Check domain/service directories
 if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.*\.cs$"; then
-    # Skip providers, MonoBehaviours, views, handlers, editors — Unity API lives here
-    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Inspector|Editor|Drawer|Panel|Button|Controller)\.(cs)$"; then
+    # Skip providers, MonoBehaviours, views, handlers, editors, installers — Unity API lives here.
+    # Installer: VContainer ModuleInstaller subclasses are ScriptableObject/MonoBehaviour and need UnityEngine.
+    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Inspector|Editor|Drawer|Panel|Button|Controller|Installer|Scope)\.(cs)$"; then
         exit 0
     fi
 
@@ -46,15 +51,14 @@ if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.
     if [ -f "$FILE_PATH" ]; then
         UNITY_IMPORTS=$(grep -n "using UnityEngine" "$FILE_PATH" 2>/dev/null)
         if [ -n "$UNITY_IMPORTS" ]; then
-            echo "BLOCKED: Domain/service file contains UnityEngine imports!"
-            echo "File: $FILE_PATH"
-            echo ""
-            echo "Violations:"
-            echo "$UNITY_IMPORTS"
-            echo ""
-            echo "Services and abstractions must be pure C#."
-            echo "Move Unity-specific code to a Provider class in Games/Concretes/<Module>/."
-            exit 2
+            unity_hook_block "Domain/service file contains UnityEngine imports!
+File: $FILE_PATH
+
+Violations:
+$UNITY_IMPORTS
+
+Services and abstractions must be pure C#.
+Move Unity-specific code to a Provider class in Games/Concretes/<Module>/."
         fi
     fi
 fi

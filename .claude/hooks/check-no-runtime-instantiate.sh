@@ -7,6 +7,7 @@ source "${SCRIPT_DIR}/_lib.sh"
 _hook_log() {
     local code=$1
     local log="${HOME}/.claude/hook-audit.log"
+    mkdir -p "$(dirname "$log")"
     local ts; ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     local proj; proj=$(git rev-parse --show-toplevel 2>/dev/null | xargs basename 2>/dev/null || echo "unknown")
     local file="${FILE_PATH:-}"
@@ -38,10 +39,8 @@ if [ ! -f "$FILE_PATH" ]; then
     exit 0
 fi
 
-# Skip test files
-if echo "$FILE_PATH" | grep -qiE "(EditModeTest|PlayModeTest)/"; then
-    exit 0
-fi
+# Skip Editor / third-party / test paths
+should_skip_path "$FILE_PATH" && exit 0
 
 # Strip comments and string literals to avoid false positives
 STRIPPED=$(sed 's|//.*||g; s/"[^"]*"/""/g' "$FILE_PATH" 2>/dev/null | sed ':a;N;$!ba;s|/\*[^*]*\*\+\([^/*][^*]*\*\+\)*/||g')
@@ -49,20 +48,18 @@ STRIPPED=$(sed 's|//.*||g; s/"[^"]*"/""/g' "$FILE_PATH" 2>/dev/null | sed ':a;N;
 # --- BLOCKING: new GameObject() ---
 # No exceptions — new GameObject() is forbidden everywhere in runtime code.
 # Pools, factories, and spawners must also instantiate from prefabs.
-NEW_GO=$(echo "$STRIPPED" | grep -nE "\bnew\s+GameObject\s*\(")
+NEW_GO=$(echo "$STRIPPED" | grep -nE "\bnew[[:space:]]+GameObject[[:space:]]*\(")
 
 if [ -n "$NEW_GO" ]; then
-    echo "BLOCKED: new GameObject() is forbidden in runtime code."
-    echo ""
-    echo "File: $FILE_PATH"
-    echo "Lines:"
-    echo "$NEW_GO"
-    echo ""
-    echo "Rule: GameObjects must always come from prefabs."
-    echo "  GOOD: Instantiate(prefab, parent, false)"
-    echo "  GOOD: Addressables.InstantiateAsync(address)"
-    echo "  BAD:  new GameObject(\"name\")"
-    exit 2
+    unity_hook_block "new GameObject() is forbidden in runtime code.
+File: $FILE_PATH
+Lines:
+$NEW_GO
+
+Rule: GameObjects must always come from prefabs.
+  GOOD: Instantiate(prefab, parent, false)
+  GOOD: Addressables.InstantiateAsync(address)
+  BAD:  new GameObject(\"name\")"
 fi
 
 WARNINGS=""
@@ -70,16 +67,16 @@ WARNINGS=""
 # Check for Destroy (warning only — Addressables.ReleaseInstance or pool.Return preferred)
 # Check for Destroy — allowed in Pool/Manager/Spawner files, warning elsewhere
 if ! echo "$FILE_PATH" | grep -qiE "(Pool|Manager|Spawner)\.cs$"; then
-    DESTROY=$(echo "$STRIPPED" | grep -nE "\bDestroy\s*\(" | grep -v "OnDestroy")
+    DESTROY=$(echo "$STRIPPED" | grep -nE "\bDestroy[[:space:]]*\(" | grep -v "OnDestroy")
     if [ -n "$DESTROY" ]; then
         WARNINGS="${WARNINGS}\nDestroy() found — if this object is pool-managed, call pool.Return() instead:\n${DESTROY}\n"
     fi
 fi
 
 if [ -n "$WARNINGS" ]; then
-    echo "WARNING: Potentially unsafe GameObject destruction detected."
-    echo "File: $FILE_PATH"
-    echo -e "$WARNINGS"
+    echo "WARNING: Potentially unsafe GameObject destruction detected." >&2
+    echo "File: $FILE_PATH" >&2
+    echo -e "$WARNINGS" >&2
     exit 0
 fi
 
