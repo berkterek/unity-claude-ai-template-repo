@@ -1,0 +1,40 @@
+name: Hook Tests
+
+# Runs the bash hook test suite (bats) + shellcheck on every change to the hooks.
+# This is the regression gate that the false-positive hooks lacked: a broken or
+# over-broad hook turns this check red instead of silently shipping.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.claude/hooks/**'
+  pull_request:
+    paths:
+      - '.claude/hooks/**'
+
+permissions:
+  contents: read
+
+jobs:
+  hook-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install bats-core and shellcheck
+        run: |
+          # bats-core (NOT the obsolete apt `bats` 0.4 fork — the suite uses
+          # bats-core conventions: run / $status / setup / teardown).
+          npm install -g bats
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          bats --version
+          shellcheck --version
+
+      - name: Run hook bats suite
+        run: bash .claude/hooks/tests/run-tests.sh
+
+      - name: Shellcheck hooks (fail on new errors)
+        run: shellcheck --severity=error .claude/hooks/*.sh
