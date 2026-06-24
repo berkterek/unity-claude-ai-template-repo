@@ -67,7 +67,7 @@ If the graph is missing or stale, skip Step B.
 
 ---
 
-Now spawn an **Explore** subagent. Write the prompt yourself as prose, incorporating what you read from graph.json in Step B. The prompt must include:
+Now spawn an **Explore** subagent (`model: haiku`). Write the prompt yourself as prose, incorporating what you read from graph.json in Step B. The prompt must include:
 
 ```
 You are a codebase analyst for a Unity project.

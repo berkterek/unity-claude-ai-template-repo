@@ -121,6 +121,8 @@ Pipeline: [which variant]
 
 **Trivial (score < 0.2):** Continue with the standard pipeline (use `--lite` flag for haiku tier). Proceed to SCOPE_GATE below.
 
+**Complex (score ≥ 0.7):** Consider re-running with the `--heavy` flag for an opus-tier coder, or use `/fix-deep` if the root cause is uncertain. (At this tier the pipeline already adds the `unity-developer` Opus second reviewer automatically.)
+
 ### SCOPE_GATE
 
 Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
@@ -247,7 +249,7 @@ find . -name "[ClassName]Tests.cs" -path "*/Tests/*"
 
 ## Step 3 — Test Writer
 
-Spawn Agent with `subagent_type: "claude"` with this prompt:
+Spawn Agent with `subagent_type: "claude"` (`model: sonnet` — isolated tester is worker-tier) with this prompt:
 
 ```
 Read .claude/agents/tester.md for your role and testing philosophy.

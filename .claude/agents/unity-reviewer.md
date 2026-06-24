@@ -1,7 +1,7 @@
 ---
 name: unity-reviewer
 description: "Reviews Unity C# code for correctness, performance, serialization safety, architecture patterns, and Unity-specific pitfalls. Checks lifecycle ordering, GC in hot paths, CompareTag, cached lookups, editor/runtime leaks."
-model: sonnet
+model: opus
 color: yellow
 tools: Read, Glob, Grep
 ---

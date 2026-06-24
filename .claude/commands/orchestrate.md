@@ -200,7 +200,7 @@ Each task runs four steps in sequence (TDD: tests first, then implementation). A
 
 If `Agent: unity-setup` → skip this step, go directly to Step 2.
 
-Spawn Agent with `subagent_type: "claude"` with this prompt:
+Spawn Agent with `subagent_type: "claude"` (`model: sonnet` — isolated tester is worker-tier) with this prompt:
 
 ```
 Read .claude/agents/tester.md for your role and testing philosophy.
@@ -607,7 +607,7 @@ Print findings or `✓ Silent failure hunt — CLEAN.`
 
 #### Step 3 — Validate
 
-Spawn a **general-purpose** subagent with the validate prompt:
+Spawn a **general-purpose** subagent (`model: sonnet`) with the validate prompt:
 
 ```
 You are a strict QA gate. Validate phase [N] of this orchestration.

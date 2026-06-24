@@ -147,6 +147,8 @@ Rationale: [one sentence]
 Pipeline: [which variant]
 ```
 
+**Complex (score ≥ 0.7):** This task is large — consider re-running with the `--heavy` flag for an opus-tier coder. (At this tier the pipeline already adds the `unity-developer` Opus second reviewer automatically.)
+
 If the task creates a new module folder (complexity score includes the +0.3 new-module signal): fire **ARCHITECTURE_GATE** immediately after printing the complexity block (see `.claude/docs/director-gates.md`). Show the proposed module structure (interface, service, config, installer, events) and wait for `go` before continuing.
 
 ---
@@ -189,7 +191,7 @@ For **Complex** tasks: after the standard Reviewer step passes, spawn a **unity-
 
 ## Step 1 — Test Writer
 
-Spawn Agent with `subagent_type: "claude"` with this prompt:
+Spawn Agent with `subagent_type: "claude"` (`model: sonnet` — isolated tester is worker-tier) with this prompt:
 
 ```
 Read .claude/agents/tester.md for your role and testing philosophy.

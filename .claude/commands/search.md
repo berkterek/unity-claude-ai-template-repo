@@ -57,9 +57,9 @@ Rationale: [one sentence]
 
 ## Phase 1 — Research
 
-**If complexity ≥ 0.4 (Medium/Complex):** Spawn **Explore** and **unity-scout** simultaneously. Wait for both to complete, then merge.
+**If complexity ≥ 0.4 (Medium/Complex):** Spawn **Explore** (`model: haiku`) and **unity-scout** simultaneously. Wait for both to complete, then merge.
 
-**If complexity < 0.4 (Simple):** Spawn Explore only.
+**If complexity < 0.4 (Simple):** Spawn Explore (`model: haiku`) only.
 
 ### Explore Agent Prompt
 
@@ -236,7 +236,7 @@ PROPOSED ANSWER (unverified)
 
 ## Phase 4 — Action Router
 
-After presenting findings, spawn an **action router** agent to recommend the appropriate next command. Do not execute it — only recommend.
+After presenting findings, spawn an **action router** agent (`subagent_type: "general-purpose"`, `model: haiku`) to recommend the appropriate next command. Do not execute it — only recommend.
 
 ```
 You are an action router. You have just seen a codebase investigation result.
