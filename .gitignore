@@ -21,8 +21,9 @@
 .claude/state/skills-invoked.txt
 .claude/state/compact-suggest-state.json
 
-# Knowledge graph (generated)
-.claude/graph/graph.json
+# Knowledge graph (generated, but graph.json IS committed — see CLAUDE.md
+# "scenes/prefabs/graph generated and committed together"; graph-tests CI
+# hard-requires graph.json via verify-graphify.sh check_prerequisites, exit 2 if missing)
 .claude/graph/graph.json.bak
 .claude/graph/*.tmp
 .claude/graph/cache/*

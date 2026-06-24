@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.3.0",
+  "generated_at": "2026-06-24T18:29:21Z",
+  "generator": "graph-builder.py@422956e",
+  "confidence_legend": {
+    "EXTRACTED": "Explicit machine-readable data (asmdef JSON, tree-sitter AST)",
+    "INFERRED": "Derived from regex patterns \u2014 correct on common cases, may miss edge cases",
+    "AMBIGUOUS": "Conflicting signals \u2014 needs human review"
+  },
+  "codebase": {
+    "classes": [],
+    "interfaces": [],
+    "events": [],
+    "vcontainer": {
+      "installers": [],
+      "scopes": []
+    },
+    "assemblies": [],
+    "scenes": {
+      "$partition": "scenes.json"
+    },
+    "prefabs": {
+      "$partition": "prefabs.json"
+    },
+    "mcp_extraction": {
+      "status": "skipped",
+      "skipped_reason": "SKIP_MCP_FLAG"
+    },
+    "calls": []
+  },
+  "validation": {
+    "errors": [],
+    "warnings": []
+  },
+  "stats": {
+    "scanned_files": 1,
+    "cache_hits": 0,
+    "build_ms": 2,
+    "call_count": 0
+  },
+  "analysis": {
+    "generated_at": "2026-06-24T18:29:21.279609+00:00",
+    "surprising_connections": [],
+    "enhanced_god_nodes": []
+  }
+}
