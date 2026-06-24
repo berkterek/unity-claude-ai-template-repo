@@ -1,6 +1,6 @@
 ---
 name: unity-critic
-description: "Challenges implementation plans before execution — identifies risks, missed edge cases, over-engineering, and Unity-specific gotchas. Used by /unity-workflow Plan phase."
+description: "Challenges implementation plans before execution — identifies risks, missed edge cases, over-engineering, and Unity-specific gotchas. Used by /architect and plan-review pipelines."
 model: opus
 color: red
 tools: Read, Glob, Grep

@@ -47,6 +47,10 @@
 - `/plan-workflow` — Create a phased execution plan from a TDD — assigns integer `parallel_group` numbers (1, 2, `—`) compatible with `/orchestrate`; compile-time type dependencies force sequential even across different files
 - `/new-module` — Generate the 5-file module structure (Interface, Service, Config, Installer, Events)
 
+### Knowledge Graph
+- `/build-knowledge-graph` — (Re)generate the Unity knowledge graph (`.claude/graph/graph.json` + `scenes.json`/`prefabs.json` partitions) by scanning C#, scenes, and prefabs
+- `/knowledge-graph <subcommand>` — Query the graph without dumping the file: `summary`, `implementers`, `publishers`, `registrations`, `scope-tree`, `violations`, `prefab`, `callers`, `impact`, `path`, `god-nodes`
+
 ### Quality
 - `/review-code` — Code review on specific files via **unity-reviewer**
 - `/validate` — Validate a completed phase; **unity-verifier** via MCP tried first, dotnet CLI fallback
