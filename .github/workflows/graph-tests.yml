@@ -10,9 +10,12 @@ on:
     branches: [main]
     paths:
       - '.claude/graph/**'
+      - '.github/workflows/graph-tests.yml'
   pull_request:
     paths:
       - '.claude/graph/**'
+      - '.github/workflows/graph-tests.yml'
+  workflow_dispatch: {}
 
 permissions:
   contents: read

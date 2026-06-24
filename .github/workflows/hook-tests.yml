@@ -9,9 +9,12 @@ on:
     branches: [main]
     paths:
       - '.claude/hooks/**'
+      - '.github/workflows/hook-tests.yml'
   pull_request:
     paths:
       - '.claude/hooks/**'
+      - '.github/workflows/hook-tests.yml'
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -28,7 +31,9 @@ jobs:
         run: |
           # bats-core (NOT the obsolete apt `bats` 0.4 fork — the suite uses
           # bats-core conventions: run / $status / setup / teardown).
-          npm install -g bats
+          # sudo: the runner's /usr/local npm global prefix is not writable by
+          # the `runner` user (EACCES on /usr/local/share/man/man7 otherwise).
+          sudo npm install -g bats
           sudo apt-get update && sudo apt-get install -y shellcheck
           bats --version
           shellcheck --version
