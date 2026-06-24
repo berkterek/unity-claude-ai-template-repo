@@ -85,7 +85,7 @@ run_builder_flag_tests() {
   section "T3 — Builder Flags"
 
   # 1. --full + --skip-mcp + --quiet + --output
-  if bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null \
+  if python3 "$GRAPH_DIR/graph-builder.py" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null \
      && jq empty "$WORK_GRAPH" 2>/dev/null; then
     pass "--full --skip-mcp --quiet --output produces valid JSON"
   else
@@ -94,7 +94,7 @@ run_builder_flag_tests() {
 
   # 2. --incremental cache reuse — verify cache file is populated.
   # Skip on template/empty repos — no C# files means cache is trivially empty.
-  bash "$GRAPH_DIR/graph-builder.sh" --incremental --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+  python3 "$GRAPH_DIR/graph-builder.py" --incremental --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
   local cache_entries
   cache_entries=$(jq_count "$GRAPH_DIR/cache/file-hashes.json" 'length')
   if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
@@ -116,7 +116,7 @@ run_builder_flag_tests() {
     printf 'namespace Probe { public class GraphifyProbe {} }\n' > "$single_file"
     local _tmp_cs="$single_file"
   fi
-  if bash "$GRAPH_DIR/graph-builder.sh" --incremental --changed-files "$single_file" --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null \
+  if python3 "$GRAPH_DIR/graph-builder.py" --incremental --changed-files "$single_file" --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null \
      && jq empty "$WORK_GRAPH" 2>/dev/null; then
     pass "--changed-files single-file build (valid JSON)"
   else
@@ -145,7 +145,7 @@ run_builder_flag_tests() {
 
   # 6. --quiet suppresses stderr
   local stderr_out
-  stderr_out=$(bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>&1 1>/dev/null || true)
+  stderr_out=$(python3 "$GRAPH_DIR/graph-builder.py" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>&1 1>/dev/null || true)
   if [[ -z "$stderr_out" ]]; then
     pass "--quiet suppresses stderr"
   else
@@ -191,7 +191,7 @@ run_validator_tests() {
 run_pivot_tests() {
   section "T5 — Pivot Integrity"
 
-  bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+  python3 "$GRAPH_DIR/graph-builder.py" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
 
   local ev inst scopes
   ev=$(jq_count "$WORK_GRAPH" '.codebase.events | length')
@@ -250,7 +250,7 @@ run_pivot_tests() {
   # MCP prefab merge — BUG#2
   cp "$SCRIPT_DIR/fixtures/mcp-extract.fresh.json" "$GRAPH_DIR/cache/mcp-extract.json"
   touch "$GRAPH_DIR/cache/mcp-extract.json"
-  bash "$GRAPH_DIR/graph-builder.sh" --full --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+  python3 "$GRAPH_DIR/graph-builder.py" --full --quiet --output "$WORK_GRAPH" 2>/dev/null || true
   local prefabs
   prefabs=$(jq_count "$WORK_GRAPH" '.codebase.prefabs | length')
   if [[ "$prefabs" -gt 0 ]]; then
@@ -448,11 +448,11 @@ namespace Game.Concretes
     }
 }
 CS
-    bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+    python3 "$GRAPH_DIR/graph-builder.py" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
     local present_after_add
     present_after_add=$(jq_count "$WORK_GRAPH" '[.codebase.classes[] | select(.name == "__GhostProbe__")] | length')
     rm -f "$probe_abs"
-    bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+    python3 "$GRAPH_DIR/graph-builder.py" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
     local present_after_delete
     present_after_delete=$(jq_count "$WORK_GRAPH" '[.codebase.classes[] | select(.name == "__GhostProbe__")] | length')
     if [[ "$present_after_delete" -eq 0 ]]; then
@@ -488,7 +488,7 @@ run_known_fail_bugs() {
   local cache_p graph_p mcp_out
   cache_p=$(jq_count "$GRAPH_DIR/cache/mcp-extract.json" '.prefabs | length')
   mcp_out="$SCRIPT_DIR/.work/graph-mcp.json"
-  bash "$GRAPH_DIR/graph-builder.sh" --full --quiet --output "$mcp_out" 2>/dev/null || true
+  python3 "$GRAPH_DIR/graph-builder.py" --full --quiet --output "$mcp_out" 2>/dev/null || true
   graph_p=$(jq_count "$mcp_out" '.codebase.prefabs | length')
   if [[ "$cache_p" -gt 0 && "$graph_p" -gt 0 ]]; then
     echo "[REGRESSION_FIXED: BUG#2] MCP prefabs merged (cache=$cache_p graph=$graph_p)" >&2
@@ -521,12 +521,12 @@ run_v2_module_tests() {
   local WORK_GRAPH="$SCRIPT_DIR/.work/graph_v2_test.json"
 
   # Build a fresh graph into the work file
-  bash "$GRAPH_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
+  python3 "$GRAPH_DIR/graph-builder.py" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
 
   # 9.1 — schema version
   local sv; sv=$(jq -r '.schema_version // "missing"' "$WORK_GRAPH" 2>/dev/null || echo "missing")
-  [[ "$sv" == "1.2.0" ]] && pass "schema_version = 1.2.0" \
-                           || fail "schema_version is $sv (expected 1.2.0)"
+  [[ "$sv" == "1.3.0" ]] && pass "schema_version = 1.3.0" \
+                           || fail "schema_version is $sv (expected 1.3.0)"
 
   # 9.2 — communities present (only required when call edges exist)
   local call_count; call_count=$(jq '.codebase.calls | length' "$WORK_GRAPH" 2>/dev/null || echo 0)
@@ -567,13 +567,13 @@ run_v2_module_tests() {
   # 9.6 — builder exits 0 even when graph_cluster.py is missing (graceful degradation)
   local SANDBOX_DIR; SANDBOX_DIR=$(mktemp -d)
   local work2="$SCRIPT_DIR/.work/graph_v2_missing_cluster.json"
-  cp "$GRAPH_DIR/graph-builder.sh"  "$SANDBOX_DIR/"
-  cp "$GRAPH_DIR/graph-traversal.py" "$SANDBOX_DIR/" 2>/dev/null || true
+  cp "$GRAPH_DIR"/*.py "$SANDBOX_DIR/" 2>/dev/null || true
+  cp -R "$GRAPH_DIR/extractors" "$SANDBOX_DIR/" 2>/dev/null || true
+  cp "$GRAPH_DIR/schema.json" "$SANDBOX_DIR/" 2>/dev/null || true
   # Intentionally omit graph_cluster.py — graph_analyze and graph_validate still present
-  cp "$GRAPH_DIR/graph_analyze.py"   "$SANDBOX_DIR/" 2>/dev/null || true
-  cp "$GRAPH_DIR/graph_validate.py"  "$SANDBOX_DIR/" 2>/dev/null || true
+  rm -f "$SANDBOX_DIR/graph_cluster.py"
   local rc=0
-  bash "$SANDBOX_DIR/graph-builder.sh" --full --skip-mcp --quiet --output "$work2" 2>/dev/null || rc=$?
+  python3 "$SANDBOX_DIR/graph-builder.py" --full --skip-mcp --quiet --output "$work2" 2>/dev/null || rc=$?
   rm -rf "$SANDBOX_DIR"
   [[ "$rc" -eq 0 ]] && pass "builder exits 0 when graph_cluster.py absent (graceful degradation)" \
                       || fail "builder must exit 0 even without v2 modules (got rc=$rc)"
