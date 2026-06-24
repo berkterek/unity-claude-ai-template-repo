@@ -4,6 +4,16 @@
 > Use the **Invoke** column below as the exact `subagent_type` value when spawning an agent.
 > Every agent's `subagent_type` matches its filename (e.g. `unity-coder.md` → `subagent_type: unity-coder`).
 
+## Model Tier (Lead / Worker / Scanner)
+
+Each agent's `model:` frontmatter follows **role level**, not domain (full rule: `docs/model-tiers.md`):
+
+- **Lead (Opus)** — decides / reviews / critiques / plans: `unity-critic`, `debugger`, `unity-developer`, `reviewer`, `unity-reviewer`
+- **Scanner (Haiku)** — mechanical read-only scan: `unity-scout`, `unity-linter`
+- **Worker (Sonnet)** — everything else (writers, testers, setup, fixers, builders, including `lean-planner` and `coder`)
+
+This table is the source of truth — keep each `.md` frontmatter in sync with the list above.
+
 | Agent | Invoke (`subagent_type`) | Role |
 |-------|--------------------------|------|
 | `coder` | `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Games/Abstracts/`, and pure C# targets in `Games/Concretes/` in complexity-scored pipelines (`/orchestrate`, `/migrate`). |

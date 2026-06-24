@@ -500,7 +500,7 @@ Skip `/qa` if you're inside an active `/orchestrate` run — the phase gate alre
 | `/fix-codex` | Manual to start. Inside: **Codex Analysis** (fresh eyes) → **Human Gate** → **Codex Implementation** → **Claude Review** → loop back to Codex if NEEDS REVISION (max 2x) → committer | Legacy/large codebase (2000+ line files) or stuck 30+ min — Codex analyzes and implements, Claude reviews |
 | `/new-module` | Manual — single step | Scaffold a 5-file module (Interface, Service, Config, Installer, Events) |
 
-> **`/implement` flags:** Use `--lite` (haiku tier) for trivial single-file changes where speed matters. Use `--heavy` (opus tier) for unusually complex tasks. Default is sonnet tier.
+> **`/implement` flags:** Use `--lite` (haiku tier) for trivial single-file changes where speed matters. Use `--heavy` (opus tier) for unusually complex tasks. Default is sonnet tier. `/implement` and `/fix` auto-suggest the right flag from the complexity score — `--lite` on Simple (< 0.3), `--heavy` on Complex (≥ 0.7); the suggestion is non-blocking and you choose whether to re-run with it.
 
 > **`/fix` vs `/fix-deep` vs `/fix-codex`:** Use `/fix` when the stack trace points to root cause (add `--lite` for obvious one-liners). Use `/fix-deep` for logic bugs or intermittent issues. Use `/fix-codex` for legacy/large codebases or when stuck 30+ minutes — Codex analyzes and implements with fresh eyes, Claude reviews the result.
 
@@ -771,7 +771,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-migrator` | Pattern migration specialist — coroutine→UniTask, singleton→VContainer, legacy input |
 | `unity-network-dev` | Netcode for GameObjects / Unity Transport — lobby, relay, RPCs. VContainer DI integration for NetworkBehaviour via `[Inject]` method injection and `container.Inject(go)` for runtime-spawned network objects |
 | `unity-prototyper` | Rapid prototype scaffolding — speed over correctness, clearly marked TODOs |
-| `unity-reviewer` | Unity-specific code review — full checklist including ECS, Input, Addressables |
+| `unity-reviewer` | Unity-specific code review (Opus — lead-tier reviewer) — full checklist including ECS, Input, Addressables |
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
 | `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
 | `unity-test-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, wires TestBootstrap in scene via MCP, and adds the test scene to Build Settings automatically; used by `/create-test` |
@@ -781,12 +781,14 @@ Specialized AI roles invoked automatically by commands or directly by name.
 
 ## Model Tiers
 
+Model selection has **three independent layers**: (1) **session model** — the alias you launch with (table below); (2) **subagent model** — each agent's `model:` frontmatter, set by role level (Lead=Opus / Worker=Sonnet / Scanner=Haiku — see `.claude/docs/model-tiers.md`); (3) **skill model-tier** — skill frontmatter. The table below is layer 1 only.
+
 Different tasks need different models. Use the right tier to balance speed and cost:
 
 | Tier | Model | Alias | Commands |
 |------|-------|-------|----------|
 | **light** | Haiku | `claude-light` | `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
-| **normal** | Sonnet | `claude-normal` | `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/new-module`, `/performance-audit`, `/clean-slop`, `/catch-up` |
+| **normal** | Sonnet | `claude-normal` | `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/new-module`, `/performance-audit`, `/clean-slop`, `/catch-up`, `/search` |
 | **heavy** | Opus | `claude-heavy` | `/architect`, `/plan-workflow`, `/game-idea`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
 
 ### Setup

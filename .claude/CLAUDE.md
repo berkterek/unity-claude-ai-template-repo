@@ -78,6 +78,8 @@ Optional Claude Code plugins. Each pipeline command checks for these at Step 0/0
 
 ## Model Tiers
 
+Three layers: session model (launch alias), subagent model (agent `.md` frontmatter — Lead=Opus / Worker=Sonnet / Scanner=Haiku by role level), and skill `model-tier`. Every agent spawned inside a command must carry an explicit `model` (never inherit the session model). Full rule and agent list:
+
 @.claude/docs/model-tiers.md
 
 ## Session Start
