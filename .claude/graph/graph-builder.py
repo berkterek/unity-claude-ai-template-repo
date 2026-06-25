@@ -787,16 +787,23 @@ def main():
     unity_folder = read_unity_folder(repo_root)
     assets_root = "Assets" if unity_folder == "." else f"{unity_folder}/Assets"
 
-    # Guard: a full / incremental scan (no explicit --changed-files) requires the
-    # assets root to exist. A missing assets root means a wrong unity_project_folder
-    # — or, before the chdir above, a wrong cwd. Fail loudly with exit 1 instead of
-    # silently writing an empty graph. "exit 0 with 0 files" is the bug we are killing.
-    if not args.changed_files and not os.path.isdir(assets_root):
+    # Guard: when unity_project_folder names an explicit subfolder, that folder's
+    # Assets/ MUST exist — a missing one means a typo'd unity_project_folder, so we
+    # fail loudly (exit 1) instead of silently writing an empty graph.
+    # NOT triggered when unity_project_folder == "." : a repo with no Assets/ is a
+    # valid "template mode" state (the graph test harness runs in exactly this mode)
+    # and must still produce an empty graph and exit 0. The os.chdir above is what
+    # actually fixes the original wrong-cwd silent-0-files bug; this guard only
+    # catches the remaining explicit-subfolder misconfiguration.
+    if (
+        not args.changed_files
+        and unity_folder != "."
+        and not os.path.isdir(assets_root)
+    ):
         log(
             f"ERROR: assets root not found: {os.path.abspath(assets_root)} "
             f"(repo_root={repo_root}, unity_project_folder={unity_folder!r}). "
-            f"Fix unity_project_folder in .claude/project-features.json, or run "
-            f"against a repo that actually contains a Unity project.",
+            f"Fix unity_project_folder in .claude/project-features.json.",
             quiet=False,
         )
         return 1
