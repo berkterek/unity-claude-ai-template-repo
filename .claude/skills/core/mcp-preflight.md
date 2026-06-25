@@ -1,6 +1,6 @@
 ---
 name: mcp-preflight
-description: "3-state MCP availability check for all pipeline commands. Run before spawning any MCP agent. Determines: (1) MCP connected → full pipeline, (2) MCP disconnected → stop and warn, (3) MCP not installed → code-only fallback."
+description: "MCP availability + active-instance check for all pipeline commands. Run before spawning any MCP agent. States: (1) connected → full pipeline (verify the active instance targets this repo), (1.5) multiple/wrong Unity instance → pin & verify dataPath before any write, (2) disconnected → stop and warn, (3) not installed → code-only fallback."
 model-tier: light
 ---
 
@@ -16,12 +16,27 @@ Call `mcp__unityMCP__unity_get_project_info` with no arguments.
 
 ---
 
-## 3 States
+## States
 
 ### State 1 — MCP Connected ✅
 **Signal:** `unity_get_project_info` returns a valid project info response.
 
-**Action:** Proceed with full pipeline. All MCP agents can be spawned normally.
+**Action:** Proceed with full pipeline — but first clear State 1.5 below. All MCP agents can be spawned normally once the active instance is verified.
+
+---
+
+### State 1.5 — Connected, but Wrong / Ambiguous Instance ⚠️
+**Signal:** More than one Unity Editor is open, OR the project returned by `unity_get_project_info` does not match the current repo. With multiple instances the MCP bridge picks a default that may target the **wrong project** — `execute_code` and scene/prefab writes then "succeed" silently against another project. This is a silent wrong-result, not a visible error, so it must be ruled out **before** any MCP write or `execute_code`.
+
+**Action (mandatory before the first MCP write / execute whenever >1 instance may be open):**
+1. **List** connected instances — read the `mcpforunity://instances` resource (or the equivalent instance-list tool).
+2. **Match** the instance whose project path is under this repo's root.
+3. **Pin** it — call `set_active_instance` with that instance's id/port.
+4. **Verify** — read `Application.dataPath` (via `execute_code` or project info) and confirm it resolves **inside this repo**. Abort and re-pin if it does not.
+
+Only proceed once `dataPath` matches the repo. Never run an MCP write / `execute_code` against an unverified default instance — "the call succeeded" does not mean it hit the right project.
+
+> Simplest mitigation: close every Unity Editor except the one for this repo. With a single instance, steps 1–4 collapse to the verify in step 4.
 
 ---
 
@@ -104,6 +119,7 @@ At the start of each relevant command step, add:
 ### Step N — MCP Preflight
 Read and apply `.claude/skills/core/mcp-preflight.md`.
 - State 1 → continue with full pipeline
+- State 1.5 → if >1 Unity instance may be open, pin + verify the active instance (dataPath inside repo) before any MCP write
 - State 2 → stop, offer code-only alternative, wait for user
 - State 3 → switch to code-only mode silently, continue
 ```

@@ -36,7 +36,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `serialization-safety` | FormerlySerializedAs, SerializeReference, Unity null semantics |
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns |
-| `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed |
+| `mcp-preflight` | MCP availability + active-instance check — connected (verify instance targets repo) / wrong-or-multiple instance / disconnected / not installed |
 | `test-type-router` | Determines test type (EditMode / PlayMode-Programmatic / PlayMode-ECS / PlayMode-Scene / NoTest) from a class name, file path, or task description. Used by /implement, /orchestrate, /fix, /fix-deep, /generate-tests, /create-test, and /create-plan before any test writing begins. When result is NoTest (LifetimeScope, ScriptableObject, Baker, IComponentData, config-only changes), tester agent is skipped entirely |
 | `unity-ugui` | Runtime UGUI implementation — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area |
 | `fix-codex` | Full Codex-driven fix pipeline — Codex analyzes fresh (no prior hypotheses), implements, then Claude reviews (correct location? root cause understood? complete? architecture?); committer on APPROVED |
