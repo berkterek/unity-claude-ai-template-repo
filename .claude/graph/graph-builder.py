@@ -771,8 +771,35 @@ def main():
     quiet = args.quiet
 
     repo_root = get_repo_root()
+    # Resolve --output against the ORIGINAL cwd before we chdir, so an explicit
+    # relative --output keeps pointing where the caller expects. (Default is the
+    # absolute SCRIPT_DIR/graph.json, so this is a no-op for the common case.)
+    args.output = os.path.abspath(args.output)
+    # All scan / extractor / post-module paths are repo-relative and inherit our
+    # cwd. Pin cwd to repo_root so the builder produces identical results no matter
+    # where it is invoked from (a git hook, .claude/graph/, or the repo root).
+    # Previously a non-root cwd silently scanned 0 files and wrote an empty graph.
+    try:
+        os.chdir(repo_root)
+    except OSError as e:
+        log(f"could not chdir to repo_root ({repo_root}): {e}", quiet)
+
     unity_folder = read_unity_folder(repo_root)
     assets_root = "Assets" if unity_folder == "." else f"{unity_folder}/Assets"
+
+    # Guard: a full / incremental scan (no explicit --changed-files) requires the
+    # assets root to exist. A missing assets root means a wrong unity_project_folder
+    # — or, before the chdir above, a wrong cwd. Fail loudly with exit 1 instead of
+    # silently writing an empty graph. "exit 0 with 0 files" is the bug we are killing.
+    if not args.changed_files and not os.path.isdir(assets_root):
+        log(
+            f"ERROR: assets root not found: {os.path.abspath(assets_root)} "
+            f"(repo_root={repo_root}, unity_project_folder={unity_folder!r}). "
+            f"Fix unity_project_folder in .claude/project-features.json, or run "
+            f"against a repo that actually contains a Unity project.",
+            quiet=False,
+        )
+        return 1
 
     cache_dir = SCRIPT_DIR / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
