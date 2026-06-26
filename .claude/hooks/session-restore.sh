@@ -22,6 +22,32 @@ date +%s > "${UNITY_HOOK_STATE_DIR}/session-start-time"
 # Clear stale gateguard state from previous sessions
 rm -f "$UNITY_READS_FILE" "$UNITY_EDITS_FILE" "$UNITY_COST_FILE" "$UNITY_LEARNING_FILE"
 
+# Prune stale agent worktrees from interrupted sessions.
+# When a session is force-killed (Cmd+C, crash, OS kill), the Claude Code process
+# never runs worktree cleanup, leaving locked worktrees with dead PIDs permanently.
+# We detect these by checking if the locking PID is still alive.
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && git rev-parse --show-toplevel 2>/dev/null)" || true
+if [ -n "$REPO_ROOT" ]; then
+    WORKTREES_DIR="${REPO_ROOT}/.claude/worktrees"
+    GIT_WORKTREES_META="${REPO_ROOT}/.git/worktrees"
+    if [ -d "$WORKTREES_DIR" ]; then
+        for wt_path in "${WORKTREES_DIR}"/agent-*/; do
+            [ -d "$wt_path" ] || continue
+            wt_name=$(basename "$wt_path")
+            lock_file="${GIT_WORKTREES_META}/${wt_name}/locked"
+            if [ -f "$lock_file" ]; then
+                pid=$(grep -oE 'pid [0-9]+' "$lock_file" 2>/dev/null | grep -oE '[0-9]+' | head -1)
+                if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+                    git -C "$REPO_ROOT" worktree remove -f -f "$wt_path" 2>/dev/null || true
+                    git -C "$REPO_ROOT" branch -D "worktree-${wt_name}" 2>/dev/null || true
+                    echo "  Pruned stale worktree: ${wt_name} (pid ${pid} dead)" >&2
+                fi
+            fi
+        done
+        git -C "$REPO_ROOT" worktree prune 2>/dev/null || true
+    fi
+fi
+
 # Check if we have a saved session state
 if [ ! -f "$UNITY_SESSION_FILE" ]; then
     exit 0
