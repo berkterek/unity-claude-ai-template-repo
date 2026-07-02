@@ -46,26 +46,43 @@ except Exception:
 
 [[ "$GRAPH_ENABLED" == "true" ]] || exit 0
 
-# --- Graph empty-state warning (once per session) ---
+# --- Graph health warning (re-fires each session, not once-ever) ---
 GRAPH_JSON=".claude/graph/graph.json"
 _STATE_DIR="${UNITY_HOOK_STATE_DIR:-.claude/state}"
-WARN_SENTINEL="$_STATE_DIR/graph-empty-warned"
+# Sentinel is keyed by date so it re-fires each new calendar day / session.
+_TODAY=$(date +%Y-%m-%d 2>/dev/null || echo "unknown")
+WARN_SENTINEL="$_STATE_DIR/graph-health-warned-${_TODAY}"
 if [[ -f "$GRAPH_JSON" && ! -f "$WARN_SENTINEL" ]]; then
-    SCANNED=$(python3 -c "
-import json
+    _HEALTH=$(python3 -c "
+import json, pathlib, os
 try:
     d = json.load(open('$GRAPH_JSON'))
-    print(d.get('stats', d.get('codebase', {})).get('scanned_files', 0))
+    cb = d.get('codebase', {})
+    classes = len(cb.get('classes', []) or [])
+    # Count .cs files under Assets/ as a rough project-size probe.
+    cs_count = sum(1 for _ in pathlib.Path('.').rglob('*.cs')) if os.path.isdir('.') else 0
+    print(f'{classes} {cs_count}')
 except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
+    print('0 0')
+" 2>/dev/null || echo "0 0")
+    _CLASSES=$(echo "$_HEALTH" | awk '{print $1}')
+    _CS_COUNT=$(echo "$_HEALTH" | awk '{print $2}')
 
-    if [[ "$SCANNED" = "0" ]]; then
+    _WARN=0
+    if [[ "$_CLASSES" = "0" ]]; then
+        _WARN=1
+        _REASON="graph is empty (classes=0)"
+    elif [[ "$_CLASSES" -lt 5 && "$_CS_COUNT" -ge 20 ]]; then
+        _WARN=1
+        _REASON="graph has only $_CLASSES classes but project has $_CS_COUNT .cs files — likely collapsed"
+    fi
+
+    if [[ "$_WARN" = "1" ]]; then
         mkdir -p "$_STATE_DIR"
         touch "$WARN_SENTINEL"
-        echo "WARNING (graph-auto-update): graph.json reports scanned_files=0 — graph is empty." >&2
-        echo "  Run: /build-knowledge-graph to populate it, or disable the 'graph' feature in .claude/project-features.json." >&2
-        echo "graph-auto-update: empty graph (scanned_files=0)" >> "$_STATE_DIR/session-warnings.txt"
+        echo "WARNING (graph-auto-update): $_REASON." >&2
+        echo "  Run: /build-knowledge-graph to rebuild it from scratch." >&2
+        echo "graph-auto-update: health warning — $_REASON" >> "$_STATE_DIR/session-warnings.txt"
     fi
 fi
 

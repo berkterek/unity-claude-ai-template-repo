@@ -48,6 +48,11 @@ def parse_args():
     p.add_argument("--skip-mcp", action="store_true")
     p.add_argument("--output", default=str(SCRIPT_DIR / "graph.json"))
     p.add_argument("--quiet", action="store_true")
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Bypass collapse guard (use when genuinely deleting many files).",
+    )
     return p.parse_args()
 
 
@@ -154,20 +159,9 @@ def get_git_sha():
 
 
 def scan_files(assets_root, changed_files_str):
-    all_cs = []
-    all_asmdef = []
-
-    if changed_files_str:
-        for f in changed_files_str.split(","):
-            f = f.strip()
-            if not f:
-                continue
-            if f.endswith(".cs"):
-                all_cs.append(f)
-            elif f.endswith(".asmdef"):
-                all_asmdef.append(f)
-        return all_cs, all_asmdef
-
+    # Full directory walk — always performed for ghost-purge correctness.
+    full_cs = []
+    full_asmdef = []
     roots_cs = [
         os.path.join(assets_root, "_Framework"),
         os.path.join(assets_root, "_GameFolders", "Scripts"),
@@ -176,13 +170,30 @@ def scan_files(assets_root, changed_files_str):
         if not os.path.isdir(root):
             continue
         for p in pathlib.Path(root).rglob("*.cs"):
-            all_cs.append(str(p))
-
+            full_cs.append(str(p))
     if os.path.isdir(assets_root):
         for p in pathlib.Path(assets_root).rglob("*.asmdef"):
-            all_asmdef.append(str(p))
+            full_asmdef.append(str(p))
 
-    return all_cs, all_asmdef
+    if not changed_files_str:
+        return full_cs, full_asmdef
+
+    # Incremental mode: extraction targets only the changed files, but
+    # current_paths is derived from the full walk so ghost-purge is correct.
+    changed_cs = []
+    changed_asmdef = []
+    for f in changed_files_str.split(","):
+        f = f.strip()
+        if not f:
+            continue
+        if f.endswith(".cs"):
+            changed_cs.append(f)
+        elif f.endswith(".asmdef"):
+            changed_asmdef.append(f)
+
+    # Return changed files as the primary lists (extracted below) but attach the
+    # full-walk lists as a second pair so the caller can build current_paths from them.
+    return changed_cs, changed_asmdef, full_cs, full_asmdef
 
 
 def select_changed(all_files, cache, mode):
@@ -822,7 +833,14 @@ def main():
         atomic_write_json({}, output_path)
 
     # ── Scan files
-    all_cs, all_asmdef = scan_files(assets_root, args.changed_files)
+    scan_result = scan_files(assets_root, args.changed_files)
+    if len(scan_result) == 4:
+        # Incremental mode: extraction targets only changed files, but the full
+        # directory walk is returned separately for ghost-purge correctness.
+        all_cs, all_asmdef, full_cs, full_asmdef = scan_result
+    else:
+        all_cs, all_asmdef = scan_result
+        full_cs, full_asmdef = all_cs, all_asmdef
     cache = load_hash_cache(cache_file, quiet)
 
     changed_cs, cs_paths, scanned_cs, hits_cs = select_changed(
@@ -834,7 +852,10 @@ def main():
 
     scanned = scanned_cs + scanned_asm
     cache_hits = hits_cs + hits_asm
-    current_paths = cs_paths + asm_paths
+    # current_paths for ghost-purge always comes from the full directory walk so
+    # that a single-file --changed-files run does not incorrectly treat every
+    # other file in the project as deleted.
+    current_paths = [f for f in full_cs if f] + [f for f in full_asmdef if f]
 
     log(
         f"scan: {scanned} files, {cache_hits} cache hits, "
@@ -922,6 +943,26 @@ def main():
         build_ms=build_ms,
         git_sha=git_sha,
     )
+
+    # ── Collapse guard (incremental mode only)
+    # If the new class count is less than 50% of the existing count, the update
+    # almost certainly triggered the ghost-purge collapse bug (or a misconfigured
+    # --changed-files).  Abort the write and keep the old graph intact so that
+    # stale-but-complete data is always preferred over fresh-but-empty data.
+    # Use --force to bypass when you are genuinely deleting a large batch of files.
+    if not args.force and args.mode != "full":
+        existing_class_count = len(
+            (existing_graph.get("codebase", {}) or {}).get("classes", []) or []
+        )
+        if existing_class_count >= 10 and len(all_classes) < existing_class_count * 0.5:
+            print(
+                f"ERROR (graph-builder): collapse guard triggered — "
+                f"new class count ({len(all_classes)}) is less than 50% of existing "
+                f"({existing_class_count}). Graph NOT written. "
+                f"Run '/build-knowledge-graph' (full build) or re-run with --force.",
+                file=sys.stderr,
+            )
+            return 1
 
     # ── Write partition files (must precede main graph write)
     graph_dir = os.path.dirname(os.path.abspath(output_path))

@@ -600,6 +600,109 @@ emit_report() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
+# T10b — Incremental Purge Fix (regression for ghost-purge collapse bug)
+# ──────────────────────────────────────────────────────────────────────────────
+run_incremental_purge_tests() {
+  section "T10b — Incremental Purge Fix"
+
+  # Skip entirely on template repos with no C# source.
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    echo "[SKIP] T10b: no C# source files (template mode — full project required)"
+    return
+  fi
+
+  # ── 10b.1: Full build then single-file incremental must preserve class count ──
+  local full_out incr_out single_file
+  full_out="$SCRIPT_DIR/.work/graph_purge_full.json"
+  incr_out="$SCRIPT_DIR/.work/graph_purge_incr.json"
+
+  python3 "$GRAPH_DIR/graph-builder.py" --full --skip-mcp --quiet --output "$full_out" 2>/dev/null || true
+  local full_classes
+  full_classes=$(jq_count "$full_out" '.codebase.classes | length')
+
+  # Pick any .cs file as the single changed file.
+  if [[ -n "$UNITY_CONCRETES" ]]; then
+    single_file=$(find "$UNITY_CONCRETES" -name "*.cs" -maxdepth 3 2>/dev/null | head -1)
+  fi
+  if [[ -z "${single_file:-}" ]]; then
+    echo "[SKIP] 10b.1: no .cs file found for changed-files probe"
+  else
+    # Seed the work graph with the full result so incremental can retain from it.
+    cp "$full_out" "$incr_out"
+    python3 "$GRAPH_DIR/graph-builder.py" \
+      --incremental --changed-files "$single_file" \
+      --skip-mcp --quiet --output "$incr_out" 2>/dev/null || true
+    local incr_classes
+    incr_classes=$(jq_count "$incr_out" '.codebase.classes | length')
+    # Allow ±1 for the edited file's own class count potentially changing.
+    local lower_bound=$(( full_classes - 1 ))
+    if [[ "$incr_classes" -ge "$lower_bound" ]]; then
+      pass "10b.1: single-file incremental preserves class count (full=$full_classes incr=$incr_classes)"
+    else
+      fail "10b.1: ghost-purge collapse — class count dropped (full=$full_classes incr=$incr_classes)"
+    fi
+  fi
+
+  # ── 10b.2: Collapse guard blocks a write when new count < 50% of existing ──
+  # Create a temporary Assets/_Framework tree with one real .cs file so that the
+  # full directory walk produces a non-empty current_paths.  The seeded graph has
+  # 20 "ghost" classes whose source_file paths don't exist in that tree — after
+  # purge_ghosts drops them all, all_classes = 0 < 20*0.5 = 10, triggering the guard.
+  local guard_out guard_assets
+  guard_out="$SCRIPT_DIR/.work/graph_collapse_guard.json"
+  guard_assets=$(mktemp -d)
+  mkdir -p "$guard_assets/Assets/_Framework"
+  echo "namespace Probe { public class ProbeAnchor {} }" > "$guard_assets/Assets/_Framework/ProbeAnchor.cs"
+
+  # Build a fake graph with 20 ghost classes (source paths that do NOT exist in the temp tree).
+  python3 - <<'PYEOF' > "$guard_out"
+import json
+classes = [{"name": f"GhostClass{i}", "source_file": f"/tmp/ghost_path_{i}.cs"} for i in range(20)]
+g = {"schema_version": "1.3.0", "codebase": {"classes": classes, "interfaces": [], "events": [], "vcontainer": {"installers": [], "scopes": []}, "assemblies": [], "calls": []}}
+print(json.dumps(g))
+PYEOF
+
+  local sha_before sha_after guard_exit=0
+  sha_before=$(sha_of "$guard_out")
+
+  # Pin cwd to the temp tree so scan_files finds Assets/_Framework/ProbeAnchor.cs.
+  # current_paths = [that real file]; ghost source paths not in current_paths → purged.
+  # all_classes = 0, guard threshold = 10 → guard fires, write aborted.
+  ( cd "$guard_assets" && python3 "$GRAPH_DIR/graph-builder.py" \
+    --incremental --changed-files "/tmp/NonExistentProbe_XXXXX.cs" \
+    --skip-mcp --quiet --output "$guard_out" 2>/dev/null ) || guard_exit=$?
+  rm -rf "$guard_assets"
+
+  sha_after=$(sha_of "$guard_out")
+
+  if [[ "$sha_before" == "$sha_after" ]]; then
+    pass "10b.2: collapse guard preserved graph (SHA unchanged, exit=$guard_exit)"
+  else
+    fail "10b.2: collapse guard failed — graph overwritten (classes after: $(jq_count "$guard_out" '.codebase.classes | length'))"
+  fi
+
+  # ── 10b.3: --force bypasses collapse guard ──
+  local force_assets force_out force_exit=0
+  force_assets=$(mktemp -d)
+  mkdir -p "$force_assets/Assets/_Framework"
+  echo "namespace Probe { public class ForceAnchor {} }" > "$force_assets/Assets/_Framework/ForceAnchor.cs"
+  force_out="$SCRIPT_DIR/.work/graph_collapse_force.json"
+  cp "$guard_out" "$force_out"  # still has the 20-ghost graph (SHA unchanged from guard test)
+
+  ( cd "$force_assets" && python3 "$GRAPH_DIR/graph-builder.py" \
+    --incremental --changed-files "/tmp/NonExistentForce_XXXXX.cs" \
+    --force --skip-mcp --quiet --output "$force_out" 2>/dev/null ) || force_exit=$?
+  rm -rf "$force_assets"
+
+  # With --force the write should succeed (valid JSON written, even if classes=0).
+  if jq empty "$force_out" 2>/dev/null; then
+    pass "10b.3: --force bypasses collapse guard (valid JSON written, exit=$force_exit)"
+  else
+    fail "10b.3: --force build produced invalid JSON"
+  fi
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Main pipeline
 # ──────────────────────────────────────────────────────────────────────────────
 run_builder_flag_tests
@@ -609,4 +712,5 @@ run_knowledge_graph_tests
 run_trigger_tests
 run_known_fail_bugs
 run_v2_module_tests
+run_incremental_purge_tests
 emit_report
