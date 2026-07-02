@@ -611,8 +611,11 @@ run_incremental_purge_tests() {
     return
   fi
 
-  # ── 10b.1: Full build then single-file incremental must preserve class count ──
-  local full_out incr_out single_file
+  # ── 10b.1: Full build then single-file incremental (with ABSOLUTE path, as the
+  #    hook actually sends) must preserve class count without duplicates.
+  #    This tests the path-normalization fix: relative source_file entries from
+  #    the full build must round-trip through an absolute --changed-files input.
+  local full_out incr_out single_file single_file_abs
   full_out="$SCRIPT_DIR/.work/graph_purge_full.json"
   incr_out="$SCRIPT_DIR/.work/graph_purge_incr.json"
 
@@ -620,26 +623,35 @@ run_incremental_purge_tests() {
   local full_classes
   full_classes=$(jq_count "$full_out" '.codebase.classes | length')
 
-  # Pick any .cs file as the single changed file.
+  # Pick any .cs file — use an ABSOLUTE path to mirror the hook's behaviour.
   if [[ -n "$UNITY_CONCRETES" ]]; then
     single_file=$(find "$UNITY_CONCRETES" -name "*.cs" -maxdepth 3 2>/dev/null | head -1)
+    [[ -n "$single_file" ]] && single_file_abs="$(cd "$(dirname "$single_file")" && pwd)/$(basename "$single_file")"
   fi
-  if [[ -z "${single_file:-}" ]]; then
+  if [[ -z "${single_file_abs:-}" ]]; then
     echo "[SKIP] 10b.1: no .cs file found for changed-files probe"
   else
     # Seed the work graph with the full result so incremental can retain from it.
     cp "$full_out" "$incr_out"
     python3 "$GRAPH_DIR/graph-builder.py" \
-      --incremental --changed-files "$single_file" \
+      --incremental --changed-files "$single_file_abs" \
       --skip-mcp --quiet --output "$incr_out" 2>/dev/null || true
     local incr_classes
     incr_classes=$(jq_count "$incr_out" '.codebase.classes | length')
     # Allow ±1 for the edited file's own class count potentially changing.
     local lower_bound=$(( full_classes - 1 ))
     if [[ "$incr_classes" -ge "$lower_bound" ]]; then
-      pass "10b.1: single-file incremental preserves class count (full=$full_classes incr=$incr_classes)"
+      pass "10b.1: absolute-path incremental preserves class count (full=$full_classes incr=$incr_classes)"
     else
-      fail "10b.1: ghost-purge collapse — class count dropped (full=$full_classes incr=$incr_classes)"
+      fail "10b.1: path-norm regression — class count dropped with abs path (full=$full_classes incr=$incr_classes)"
+    fi
+    # Also verify no duplicates: each class name must appear exactly once.
+    local dup_count
+    dup_count=$(jq '[.codebase.classes[].name] | group_by(.) | map(select(length > 1)) | length' "$incr_out" 2>/dev/null || echo 0)
+    if [[ "$dup_count" -eq 0 ]]; then
+      pass "10b.1: no duplicate class entries after absolute-path incremental"
+    else
+      fail "10b.1: $dup_count duplicate class name(s) found — path normalization failed"
     fi
   fi
 

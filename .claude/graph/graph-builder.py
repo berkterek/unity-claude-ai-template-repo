@@ -180,12 +180,23 @@ def scan_files(assets_root, changed_files_str):
 
     # Incremental mode: extraction targets only the changed files, but
     # current_paths is derived from the full walk so ghost-purge is correct.
+    # Normalize paths to relative (cwd == repo_root at this point) so they
+    # match the relative source_file values written by the extractor.  The hook
+    # passes absolute paths; the full walk and extractor both use relative ones;
+    # mixing the two formats causes retain/purge set-lookups to miss, producing
+    # duplicate entries and silent data decay.
     changed_cs = []
     changed_asmdef = []
     for f in changed_files_str.split(","):
         f = f.strip()
         if not f:
             continue
+        try:
+            # realpath resolves symlinks on both sides before relpath so that
+            # macOS /private/var vs /var aliasing does not prevent relativization.
+            f = os.path.relpath(os.path.realpath(f), os.path.realpath("."))
+        except ValueError:
+            pass  # relpath fails across drives on Windows — keep as-is
         if f.endswith(".cs"):
             changed_cs.append(f)
         elif f.endswith(".asmdef"):
