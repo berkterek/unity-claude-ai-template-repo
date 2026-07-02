@@ -52,4 +52,11 @@ jq -nc \
     '{event:$event, agent_type:$agent_type, description:$description, session_id:$session_id, duration_approx_s:$duration, stopped_at:$stopped_at, logged_at:$logged_at}' \
     >> "$SUBAGENT_LOG"
 
+# Delete the Director Gate when the committer finishes — committer is always the
+# final pipeline step, so this is the deterministic hook-managed cleanup point.
+# session-restore.sh provides a SessionStart safety net for interrupted pipelines.
+if [ "$AGENT_TYPE" = "committer" ]; then
+    rm -f "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+fi
+
 exit 0

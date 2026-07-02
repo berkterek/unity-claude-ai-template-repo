@@ -9,8 +9,8 @@ source "${SCRIPT_DIR}/_lib.sh"
 # being spawned unless a Director Gate has been shown and cleared first.
 #
 # Gate is cleared by writing .claude/state/gate-cleared (done by Claude after
-# user types `go`). The file is valid until the pipeline completes and Claude
-# deletes it — no time-based expiry (pipelines can run for hours).
+# user types `go`). Lifecycle: written on approval → deleted by agent-stop-log.sh
+# when committer completes → force-expired by session-restore.sh on SessionStart.
 # ============================================================================
 # Trigger: PreToolUse on Agent
 # Exit:    2 = block, 0 = allow
@@ -36,8 +36,8 @@ if ! echo "$SUBAGENT_TYPE" | grep -qE "$PIPELINE_AGENTS"; then
     exit 0  # Not a pipeline agent — allow through
 fi
 
-STATE_DIR="${UNITY_HOOK_STATE_DIR:-.claude/state}"
-GATE_FILE="$STATE_DIR/gate-cleared"
+# UNITY_HOOK_STATE_DIR is set by _lib.sh using git rev-parse — always absolute path.
+GATE_FILE="${UNITY_HOOK_STATE_DIR}/gate-cleared"
 
 if [ ! -f "$GATE_FILE" ]; then
     echo "" >&2

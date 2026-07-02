@@ -13,10 +13,10 @@ teardown() {
     rm -rf "$UNITY_HOOK_STATE_DIR"
 }
 
-@test "session-save auto-expires gate-cleared" {
+@test "session-save preserves gate-cleared (lifecycle managed by agent-stop-log and session-restore)" {
     run bash .claude/hooks/session-save.sh < /dev/null
     [ "$status" -eq 0 ]
-    [ ! -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
+    [ -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
 }
 
 @test "session-save auto-expires sparc-approved" {

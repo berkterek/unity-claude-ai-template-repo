@@ -39,3 +39,14 @@ teardown() {
     run bash -c "echo '{\"tool_name\":\"Agent\",\"tool_input\":{\"subagent_type\":\"committer\"}}' | bash $HOOK"
     [ "$status" -eq 2 ]
 }
+
+@test "gate-cleared file path is absolute (UNITY_HOOK_STATE_DIR, not relative .claude/state)" {
+    # If guard uses a relative path, it fails when CWD != project root.
+    # Run from /tmp to prove the hook resolves state dir via absolute UNITY_HOOK_STATE_DIR.
+    touch "$UNITY_HOOK_STATE_DIR/gate-cleared"
+    local abs_hook
+    abs_hook="$(pwd)/${HOOK}"
+    local state_dir="$UNITY_HOOK_STATE_DIR"
+    run bash -c "cd /tmp && echo '{\"tool_name\":\"Agent\",\"tool_input\":{\"subagent_type\":\"unity-coder\"}}' | UNITY_HOOK_STATE_DIR=${state_dir} bash ${abs_hook}"
+    [ "$status" -eq 0 ]
+}

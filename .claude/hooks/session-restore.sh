@@ -22,6 +22,11 @@ date +%s > "${UNITY_HOOK_STATE_DIR}/session-start-time"
 # Clear stale gateguard state from previous sessions
 rm -f "$UNITY_READS_FILE" "$UNITY_EDITS_FILE" "$UNITY_COST_FILE" "$UNITY_LEARNING_FILE"
 
+# Expire the Director Gate from the previous session. Gate is scoped to exactly
+# one session: written on user approval, deleted by agent-stop-log.sh when the
+# committer finishes, and force-expired here at SessionStart as a safety net.
+rm -f "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+
 # Prune stale agent worktrees from interrupted sessions.
 # When a session is force-killed (Cmd+C, crash, OS kill), the Claude Code process
 # never runs worktree cleanup, leaving locked worktrees with dead PIDs permanently.

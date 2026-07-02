@@ -132,9 +132,12 @@ if [ -n "$SESSION_DURATION" ]; then
 fi
 
 # --- Auto-expire ephemeral pipeline gate state ---
-# These files are written by pipeline commands during a single session and
-# MUST NOT persist across sessions. Stop hook is the canonical cleanup point.
-for _gate in gate-cleared graph-empty-warned sparc-approved codex-reviewed plan-state.json verify-state.json agent-context.json; do
+# gate-cleared is intentionally excluded here: Stop fires after every Claude turn,
+# so expiring it here would delete the gate between pipeline agents in the same
+# session — causing re-approval on every turn. Gate lifecycle is hook-managed:
+# agent-stop-log.sh deletes it when committer finishes; session-restore.sh
+# force-expires it at SessionStart as a safety net for interrupted pipelines.
+for _gate in graph-empty-warned sparc-approved codex-reviewed plan-state.json verify-state.json agent-context.json; do
     _path="${UNITY_HOOK_STATE_DIR}/${_gate}"
     if [ -e "$_path" ]; then
         rm -f "$_path"
