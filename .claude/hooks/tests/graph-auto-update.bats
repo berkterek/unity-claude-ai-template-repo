@@ -33,7 +33,8 @@ teardown() {
 @test "does not warn twice in the same session" {
     mkdir -p .claude/graph
     echo '{"codebase":{"scanned_files":0}}' > .claude/graph/graph.json
-    touch "$UNITY_HOOK_STATE_DIR/graph-empty-warned"
+    # Sentinel is now date-keyed: graph-health-warned-YYYY-MM-DD
+    touch "$UNITY_HOOK_STATE_DIR/graph-health-warned-$(date +%Y-%m-%d)"
     run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"Assets/Test.cs\"}}' | UNITY_HOOK_STATE_DIR='$UNITY_HOOK_STATE_DIR' bash $HOOK 2>&1"
     [ "$status" -eq 0 ]
     [[ "$output" != *"WARNING (graph-auto-update)"* ]]
@@ -41,8 +42,9 @@ teardown() {
 
 @test "no warning when scanned_files > 0" {
     mkdir -p .claude/graph
-    echo '{"codebase":{"scanned_files":42}}' > .claude/graph/graph.json
-    rm -f "$UNITY_HOOK_STATE_DIR/graph-empty-warned"
+    # Fixture includes classes so the health check (which inspects classes count) sees a healthy graph.
+    echo '{"codebase":{"scanned_files":42,"classes":[{"name":"Foo"}]}}' > .claude/graph/graph.json
+    rm -f "$UNITY_HOOK_STATE_DIR/graph-health-warned-$(date +%Y-%m-%d)"
     run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"Assets/Test.cs\"}}' | UNITY_HOOK_STATE_DIR='$UNITY_HOOK_STATE_DIR' bash $HOOK 2>&1"
     [ "$status" -eq 0 ]
     [[ "$output" != *"WARNING (graph-auto-update)"* ]]
