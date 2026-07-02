@@ -1,7 +1,7 @@
 {
   "schema_version": "1.3.0",
-  "generated_at": "2026-07-02T05:21:13Z",
-  "generator": "graph-builder.py@7f3b3a7",
+  "generated_at": "2026-07-02T06:47:26Z",
+  "generator": "graph-builder.py@e3549a4",
   "confidence_legend": {
     "EXTRACTED": "Explicit machine-readable data (asmdef JSON, tree-sitter AST)",
     "INFERRED": "Derived from regex patterns \u2014 correct on common cases, may miss edge cases",
@@ -33,13 +33,13 @@
     "warnings": []
   },
   "stats": {
-    "scanned_files": 1,
+    "scanned_files": 0,
     "cache_hits": 0,
-    "build_ms": 6,
+    "build_ms": 9,
     "call_count": 0
   },
   "analysis": {
-    "generated_at": "2026-07-02T05:21:14.012978+00:00",
+    "generated_at": "2026-07-02T06:47:26.213917+00:00",
     "surprising_connections": [],
     "enhanced_god_nodes": []
   }
