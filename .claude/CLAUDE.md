@@ -195,9 +195,9 @@ NEVER spawn a `tester`, `coder`, `unity-coder`, `unity-fixer`, `committer`, `uni
 
 1. Showing the required Director Gate (SCOPE_GATE or ARCHITECTURE_GATE) to the user
 2. Receiving explicit `go` from the user
-3. Writing `.claude/state/gate-cleared` via Bash
+3. Writing `$(git rev-parse --show-toplevel)/.claude/state/gate-cleared` via Bash
 
-Skipping a gate is a critical violation — the `guard-gate-cleared.sh` hook will block the agent spawn with exit 2. After the pipeline completes, delete `.claude/state/gate-cleared`.
+Skipping a gate is a critical violation — the `guard-gate-cleared.sh` hook will block the agent spawn with exit 2. After the pipeline completes, delete `$(git rev-parse --show-toplevel)/.claude/state/gate-cleared`.
 
 ---
 

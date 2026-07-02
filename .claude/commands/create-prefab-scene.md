@@ -26,7 +26,7 @@ Wait for `go` before proceeding.
 
 After receiving `go` → run:
 ```bash
-mkdir -p .claude/state && echo '{"gate":"SCOPE_GATE","pipeline":"create-prefab-scene","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
+mkdir -p "$(git rev-parse --show-toplevel)/.claude/state" && echo '{"gate":"SCOPE_GATE","pipeline":"create-prefab-scene","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"
 ```
 
 ---
@@ -316,7 +316,7 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 ## Completion
 
-Run: `rm -f .claude/state/gate-cleared`
+Run: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"`
 
 Print:
 ```

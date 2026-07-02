@@ -76,7 +76,7 @@ Wait for `go` before reading WORKFLOW.md or spawning any agents.
 
 After receiving `go` → run:
 ```bash
-mkdir -p .claude/state && echo '{"gate":"SCOPE_GATE","pipeline":"orchestrate","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
+mkdir -p "$(git rev-parse --show-toplevel)/.claude/state" && echo '{"gate":"SCOPE_GATE","pipeline":"orchestrate","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"
 ```
 
 Note: per-task COMMIT_GATE is intentionally omitted — orchestration is designed to run tasks hands-free. The Phase Gate ("Proceed? yes / no / stop") at the end of each phase serves as the human checkpoint before the next phase begins.
@@ -697,7 +697,7 @@ On startup, read this file and skip already-completed tasks.
 
 ## On Completion
 
-Run: `rm -f .claude/state/gate-cleared`
+Run: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"`
 
 ```
 ## Orchestration Complete

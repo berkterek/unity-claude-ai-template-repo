@@ -81,7 +81,7 @@ Wait for `go` before proceeding.
 
 After receiving `go` → run:
 ```bash
-mkdir -p .claude/state && echo '{"gate":"SCOPE_GATE","pipeline":"migrate","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
+mkdir -p "$(git rev-parse --show-toplevel)/.claude/state" && echo '{"gate":"SCOPE_GATE","pipeline":"migrate","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"
 ```
 
 If the migration scope touches more than 5 files (scoring signal "+0.3 Touches more than 5 files"): also fire **BREAKING_GATE** (see `.claude/docs/director-gates.md`). Show all files in scope and wait for `go` or `stop`.
@@ -287,7 +287,7 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 ## Completion
 
-Run: `rm -f .claude/state/gate-cleared`
+Run: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"`
 
 **If `superpowers:verification-before-completion` is available AND complexity score ≥ 0.7:** Invoke it before reporting done. Verify every old pattern instance was replaced and no orphaned references remain.
 

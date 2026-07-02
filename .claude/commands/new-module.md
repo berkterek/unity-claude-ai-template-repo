@@ -30,10 +30,10 @@ _GameFolders/Scripts/Games/Concretes/[ModuleName]/
    - Wait for `go` before generating any files.
    - After receiving `go` → run:
      ```bash
-     mkdir -p .claude/state && echo '{"gate":"ARCHITECTURE_GATE","pipeline":"new-module","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > .claude/state/gate-cleared
+     mkdir -p "$(git rev-parse --show-toplevel)/.claude/state" && echo '{"gate":"ARCHITECTURE_GATE","pipeline":"new-module","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"
      ```
 6. Generate all files with proper naming, namespace, and VContainer registration.
-7. After all files written → run: `rm -f .claude/state/gate-cleared`
+7. After all files written → run: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"`
 7. Print the **Portability Checklist** for the generated module.
 
 ## Code Rules

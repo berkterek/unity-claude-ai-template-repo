@@ -51,7 +51,7 @@ if [ ! -f "$GATE_FILE" ]; then
     echo "  To clear the gate:" >&2
     echo "    1. Show the required gate block to the user" >&2
     echo "    2. Wait for 'go'" >&2
-    echo "    3. Run: mkdir -p .claude/state && echo '{\"gate\":\"cleared\"}' > .claude/state/gate-cleared" >&2
+    echo "    3. Run: mkdir -p \"\$(git rev-parse --show-toplevel)/.claude/state\" && echo '{\"gate\":\"cleared\"}' > \"\$(git rev-parse --show-toplevel)/.claude/state/gate-cleared\"" >&2
     echo "  ────────────────────────────────────────────────────────────" >&2
     exit 2
 fi
