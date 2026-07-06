@@ -910,6 +910,14 @@ Automatically blocked by a PreToolUse hook — no mid-run pause, the hook exits 
 
 State file: `.claude/state/sparc-approved` (independent of `gate-cleared`). Written after "go", deleted after the gated agent completes. Guard hook: `guard-sparc-approved.sh`.
 
+### Gate TTL
+
+`gate-cleared` expires after **45 minutes** (2700 s). If a pipeline is abandoned mid-flight (QUALITY_GATE "stop", error, user interruption), the approval remains valid until the TTL elapses — a later pipeline can still run within that window without re-showing the gate. To force-expire immediately after stopping a pipeline:
+
+```bash
+rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"
+```
+
 ### Automated Check Gates
 
 | Gate | Checks |
