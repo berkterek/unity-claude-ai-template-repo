@@ -50,3 +50,19 @@ teardown() {
     run bash -c "cd /tmp && echo '{\"tool_name\":\"Agent\",\"tool_input\":{\"subagent_type\":\"unity-coder\"}}' | UNITY_HOOK_STATE_DIR=${state_dir} bash ${abs_hook}"
     [ "$status" -eq 0 ]
 }
+
+@test "blocks agent spawn when gate-cleared is older than TTL (46 min)" {
+    touch "$UNITY_HOOK_STATE_DIR/gate-cleared"
+    # Back-date the file by 2761 seconds (46 min) using python
+    python3 -c "import os,time; p='$UNITY_HOOK_STATE_DIR/gate-cleared'; os.utime(p,(time.time()-2761,time.time()-2761))"
+    run bash -c "echo '{\"tool_name\":\"Agent\",\"tool_input\":{\"subagent_type\":\"unity-coder\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
+@test "allows agent spawn when gate-cleared is within TTL (5 min old)" {
+    touch "$UNITY_HOOK_STATE_DIR/gate-cleared"
+    # Back-date by 300 seconds (5 min) — well within the 2700s TTL
+    python3 -c "import os,time; p='$UNITY_HOOK_STATE_DIR/gate-cleared'; os.utime(p,(time.time()-300,time.time()-300))"
+    run bash -c "echo '{\"tool_name\":\"Agent\",\"tool_input\":{\"subagent_type\":\"unity-coder\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}

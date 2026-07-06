@@ -199,6 +199,8 @@ NEVER spawn a `tester`, `coder`, `unity-coder`, `unity-fixer`, `committer`, `uni
 
 Skipping a gate is a critical violation — the `guard-gate-cleared.sh` hook will block the agent spawn with exit 2. After the pipeline completes, delete `$(git rev-parse --show-toplevel)/.claude/state/gate-cleared`.
 
+**Residual-risk note:** Gate approval expires after 45 minutes (2700s TTL). If a pipeline is abandoned mid-flight (QUALITY_GATE "stop", error, user interruption), the gate file remains valid until the TTL expires or the next SessionStart. A cautious Director can force-clear it immediately: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"`.
+
 ---
 
 ## Project Features
