@@ -54,3 +54,17 @@ teardown() {
     run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"Assets/Test.cs\"}}' | UNITY_HOOK_STATE_DIR='$UNITY_HOOK_STATE_DIR' bash $HOOK 2>/dev/null"
     [ "$status" -eq 0 ]
 }
+
+@test "template-mode: exits 0 without writing graph-updates.log when Assets dir absent" {
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    mkdir -p "$tmpdir/.claude/graph" "$tmpdir/.claude/state"
+    printf '{"graph":true,"unity_project_folder":"."}' > "$tmpdir/.claude/project-features.json"
+    # Intentionally no Assets/ dir — template repo scenario
+    local abs_hook
+    abs_hook="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)/$HOOK"
+    run bash -c "cd '$tmpdir' && echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"Scripts/Test.cs\"}}' | UNITY_HOOK_STATE_DIR='$tmpdir/.claude/state' bash '$abs_hook' 2>&1"
+    [ "$status" -eq 0 ]
+    [ ! -f "$tmpdir/.claude/state/graph-updates.log" ]
+    rm -rf "$tmpdir"
+}
