@@ -53,7 +53,7 @@ fi
 ISSUES=""
 
 # Strip comments and string literals to avoid false positives
-STRIPPED=$(sed 's|//.*||g; s/"[^"]*"/""/g' "$FILE_PATH" 2>/dev/null | sed ':a;N;$!ba;s|/\*[^*]*\*\+\([^/*][^*]*\*\+\)*/||g')
+STRIPPED=$(strip_cs_noise "$FILE_PATH")
 
 # --- Check 1: UnityEvent field declaration ---
 UNITY_EVENT_FIELD=$(echo "$STRIPPED" | grep -nE "\bUnityEvent\b(\s*<[^>]*>)?\s+\w+\s*;")

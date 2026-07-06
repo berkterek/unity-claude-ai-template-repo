@@ -52,7 +52,7 @@ if echo "$FILE_PATH" | grep -qE "/Editor/"; then
 fi
 
 # Strip comments and string literals to avoid false positives
-STRIPPED=$(sed 's|//.*||g; s/"[^"]*"/""/g' "$FILE_PATH" 2>/dev/null | sed ':a;N;$!ba;s|/\*[^*]*\*\+\([^/*][^*]*\*\+\)*/||g')
+STRIPPED=$(strip_cs_noise "$FILE_PATH")
 
 ISSUES=""
 

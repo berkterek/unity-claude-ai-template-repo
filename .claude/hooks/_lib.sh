@@ -193,3 +193,45 @@ unity_track_warning() {
         echo "${hook_name}: ${message}" >> "$UNITY_WARNINGS_FILE"
     fi
 }
+
+# strip_cs_noise <file_path> — strip C# string literals, // line comments, and /* */ block comments.
+# Uses python3 (required hook dependency). Replaces BSD-incompatible GNU sed ':a;N;$!ba' pipelines.
+# The Python helper is cached in /tmp on first call to avoid per-invocation overhead.
+strip_cs_noise() {
+    local src="$1"
+    local _helper="/tmp/_unity_strip_cs_noise.py"
+    if [ ! -f "$_helper" ]; then
+        cat > "$_helper" << 'PYEOF'
+import sys
+
+def strip_noise(text):
+    result = []; i = 0; n = len(text)
+    in_str = in_lc = in_bc = False
+    while i < n:
+        c = text[i]
+        if in_bc:
+            if c == '*' and i + 1 < n and text[i + 1] == '/':
+                in_bc = False; i += 2; continue
+            if c == '\n': result.append('\n')
+            i += 1; continue
+        if in_lc:
+            if c == '\n': in_lc = False; result.append('\n')
+            i += 1; continue
+        if in_str:
+            if c == '\\' and i + 1 < n: i += 2; continue
+            if c == '"': in_str = False
+            i += 1; continue
+        if c == '"': in_str = True; i += 1; continue
+        if c == '/' and i + 1 < n:
+            if text[i + 1] == '/': in_lc = True; i += 2; continue
+            if text[i + 1] == '*': in_bc = True; i += 2; continue
+        result.append(c); i += 1
+    return ''.join(result)
+
+src = sys.argv[1] if len(sys.argv) > 1 else '-'
+text = sys.stdin.read() if src == '-' else open(src, errors='replace').read()
+sys.stdout.write(strip_noise(text))
+PYEOF
+    fi
+    python3 "$_helper" "$src"
+}

@@ -43,7 +43,7 @@ fi
 should_skip_path "$FILE_PATH" && exit 0
 
 # Strip comments and string literals to avoid false positives
-STRIPPED=$(sed 's|//.*||g; s/"[^"]*"/""/g' "$FILE_PATH" 2>/dev/null | sed ':a;N;$!ba;s|/\*[^*]*\*\+\([^/*][^*]*\*\+\)*/||g')
+STRIPPED=$(strip_cs_noise "$FILE_PATH")
 
 # --- BLOCKING: new GameObject() ---
 # No exceptions — new GameObject() is forbidden everywhere in runtime code.

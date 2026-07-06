@@ -40,3 +40,51 @@ teardown() {
     run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
     [ "$status" -eq 0 ]
 }
+
+# --- strip_cs_noise / block comment false-positive tests ---
+
+@test "does not block new GameObject() inside a block comment" {
+    local f="$TMPDIR_TEST/Spawner.cs"
+    cat > "$f" << 'EOF'
+public class Spawner : MonoBehaviour
+{
+    /* This is forbidden:
+       var go = new GameObject("Enemy");
+    */
+    void Spawn() { var go = Instantiate(_prefab); }
+}
+EOF
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
+@test "blocks new GameObject() in live code even when a block comment is also present" {
+    local f="$TMPDIR_TEST/Spawner.cs"
+    cat > "$f" << 'EOF'
+/* factory class */
+public class Spawner : MonoBehaviour
+{
+    void Spawn() { var go = new GameObject("Enemy"); }
+}
+EOF
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
+@test "does not block when new GameObject appears only in a string literal" {
+    local f="$TMPDIR_TEST/Spawner.cs"
+    cat > "$f" << 'EOF'
+void Log() { Debug.Log("use new GameObject() carefully"); }
+EOF
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
+@test "blocks new GameObject() that follows a string containing double-slash" {
+    local f="$TMPDIR_TEST/Spawner.cs"
+    cat > "$f" << 'EOF'
+void S() { var s = "// not a comment"; var go = new GameObject("X"); }
+EOF
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}

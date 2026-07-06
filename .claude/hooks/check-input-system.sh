@@ -46,7 +46,7 @@ should_skip_path "$FILE_PATH" && exit 0
 ISSUES=""
 
 # Strip comments and string literals to avoid false positives
-STRIPPED=$(sed 's|//.*||g; s/"[^"]*"/""/g' "$FILE_PATH" 2>/dev/null | sed ':a;N;$!ba;s|/\*[^*]*\*\+\([^/*][^*]*\*\+\)*/||g')
+STRIPPED=$(strip_cs_noise "$FILE_PATH")
 
 # --- Check 1: Legacy Input API usage ---
 LEGACY_INPUT=$(echo "$STRIPPED" | grep -nE "\bInput\.(GetKey|GetAxis|GetButton|GetMouseButton|mousePosition|touches|GetTouch|touchCount|anyKey|inputString)\b")

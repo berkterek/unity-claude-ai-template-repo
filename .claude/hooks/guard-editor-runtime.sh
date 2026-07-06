@@ -55,7 +55,10 @@ if [ -z "$NEW_CONTENT" ]; then
 fi
 
 # Strip comments and strings to avoid false positives on commented-out code
-STRIPPED_CONTENT=$(echo "$NEW_CONTENT" | sed 's|//.*||g; s/"[^"]*"/""/g' | sed ':a;N;$!ba;s|/\*[^*]*\*\+\([^/*][^*]*\*\+\)*/||g')
+_guard_tmp=$(mktemp /tmp/unity_hook_XXXXXX.cs)
+trap "rm -f '$_guard_tmp'" EXIT
+printf '%s' "$NEW_CONTENT" > "$_guard_tmp"
+STRIPPED_CONTENT=$(strip_cs_noise "$_guard_tmp")
 
 # Check if the new content uses UnityEditor namespace
 if echo "$STRIPPED_CONTENT" | grep -qE '(using\s+UnityEditor|UnityEditor\.)'; then

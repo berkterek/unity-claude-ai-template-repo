@@ -46,7 +46,7 @@ if [ "$HAS_LINQ" -eq 0 ]; then
 fi
 
 # Strip comments and strings before checking for hot path methods
-STRIPPED=$(sed 's|//.*||g; s/"[^"]*"/""/g' "$FILE_PATH" 2>/dev/null | sed ':a;N;$!ba;s|/\*[^*]*\*\+\([^/*][^*]*\*\+\)*/||g')
+STRIPPED=$(strip_cs_noise "$FILE_PATH")
 
 # Check if file has hot path methods
 HOT_METHODS=$(echo "$STRIPPED" | grep -nE "(void|IEnumerator|UniTask)\s+(Update|FixedUpdate|LateUpdate|Tick|Execute|OnUpdate|Process)\s*\(")
