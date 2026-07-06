@@ -1,6 +1,8 @@
 # Plan: Graph Incremental Update — Ghost Purge Collapse Fix
 
-**Status:** PROPOSED — awaiting approval
+**Status:** IMPLEMENTED ✅ — template: `14cc640` (purge decouple + collapse guard + health warning), `57c9340` (path normalization), `e3549a4` (bats sync); nile: `a40d18bb` (sync + full rebuild, 1 → 174 classes). Verified in production: 3 hook-triggered incremental updates post-fix, zero duplicates, count preserved.
+
+**Implementation addendum (gap found during rollout):** the original plan missed that the hook passes *absolute* `--changed-files` paths while the full walk and extractor emit *relative* ones — mixed formats caused silent duplicate/decay instead of collapse. Fixed in `57c9340` via `os.path.relpath(os.path.realpath(f), realpath("."))` (realpath resolves macOS `/var → /private/var` aliasing). Lesson: any future path set-lookup in the graph pipeline must normalize to repo-root-relative form first.
 **Affected repos:** `unity-claude-ai-template-repo` (source of truth) + `nile_hole_incremental_repo` (copy + corrupted data)
 **Severity:** CRITICAL — silently destroys the knowledge graph, which CLAUDE.md declares "primary source of truth"
 
@@ -93,11 +95,11 @@ New test case: seed a fixture graph with N classes → run `graph-builder.py --i
 
 ## 4. Acceptance Criteria
 
-- [ ] After a full build followed by a single-file incremental update, class/interface/installer counts are preserved (±1 for the edited file's own contents).
-- [ ] Deleting a `.cs` file and running incremental (non-changed-files) build purges its entries (ghost purge still works).
-- [ ] A simulated collapse (forced tiny `current_paths`) does NOT overwrite graph.json and prints a warning.
-- [ ] verify-graphify.sh passes including the new test case.
-- [ ] nile_hole graph rebuilt: 170+ classes, and survives subsequent edits.
+- [x] After a full build followed by a single-file incremental update, class/interface/installer counts are preserved (±1 for the edited file's own contents). *(verified with absolute-path input — 10b.1)*
+- [x] Deleting a `.cs` file and running incremental (non-changed-files) build purges its entries (ghost purge still works).
+- [x] A simulated collapse (forced tiny `current_paths`) does NOT overwrite graph.json and prints a warning. *(10b.2)*
+- [x] verify-graphify.sh passes including the new test case.
+- [x] nile_hole graph rebuilt: 174 classes, survived 3 real hook-triggered edits with zero duplicates.
 
 ## 5. Out of Scope (separate discussions)
 
