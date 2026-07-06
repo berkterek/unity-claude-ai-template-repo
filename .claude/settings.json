@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-ls-grep.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-ls-grep.sh",
             "timeout": 5000
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/guard-gate-cleared.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-gate-cleared.sh",
             "timeout": 3000,
             "statusMessage": "Checking Director Gate..."
           }
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/gateguard.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/gateguard.sh",
             "timeout": 5000,
             "statusMessage": "Gate guard: checking read history..."
           }
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/block-git-push.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-git-push.sh",
             "timeout": 3000,
             "statusMessage": "Checking for git push..."
           }
@@ -61,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/block-scene-edit.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-scene-edit.sh",
             "timeout": 3000,
             "statusMessage": "Checking for scene/prefab edits..."
           }
@@ -72,7 +72,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/guard-editor-runtime.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-editor-runtime.sh",
             "timeout": 5000,
             "statusMessage": "Checking UnityEditor guard..."
           }
@@ -83,7 +83,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-no-monobehaviour-in-services.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-no-monobehaviour-in-services.sh",
             "timeout": 5000,
             "statusMessage": "Checking pure C# constraint..."
           }
@@ -94,7 +94,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-input-system.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-input-system.sh",
             "timeout": 5000,
             "statusMessage": "Checking Input System patterns..."
           }
@@ -105,7 +105,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-vcontainer-singleton.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-vcontainer-singleton.sh",
             "timeout": 5000,
             "statusMessage": "Checking for singleton patterns..."
           }
@@ -116,7 +116,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/guard-critical-files.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-critical-files.sh",
             "timeout": 5000,
             "statusMessage": "Checking critical architecture files..."
           }
@@ -127,7 +127,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-unity-event.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-unity-event.sh",
             "timeout": 5000,
             "statusMessage": "Checking UnityEvent usage..."
           }
@@ -138,7 +138,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-time-scale.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-time-scale.sh",
             "timeout": 5000,
             "statusMessage": "Checking Time.timeScale assignment..."
           }
@@ -149,7 +149,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-enum-byte-base.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-enum-byte-base.sh",
             "timeout": 5000,
             "statusMessage": "Checking enum byte base in ECS/IEvent..."
           }
@@ -160,7 +160,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-config-protection.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-config-protection.sh",
             "timeout": 5000,
             "statusMessage": "Checking config file protection..."
           }
@@ -171,7 +171,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/guard-reviewer-order.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-reviewer-order.sh",
             "timeout": 3000,
             "statusMessage": "Checking reviewer order (Codex first)..."
           }
@@ -182,7 +182,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/guard-sparc-approved.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-sparc-approved.sh",
             "timeout": 3000,
             "statusMessage": "Checking SPARC Gate..."
           }
@@ -193,7 +193,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/block-projectsettings.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-projectsettings.sh",
             "timeout": 3000,
             "statusMessage": "Checking ProjectSettings protection..."
           }
@@ -204,7 +204,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/agent-start-log.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/agent-start-log.sh",
             "timeout": 2000,
             "statusMessage": "Logging agent spawn..."
           }
@@ -215,7 +215,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/block-graph-direct-read.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-graph-direct-read.sh",
             "timeout": 5000
           }
         ]
@@ -227,7 +227,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/track-read.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/track-read.sh",
             "timeout": 2000,
             "statusMessage": "Tracking read for gateguard..."
           }
@@ -238,7 +238,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-no-linq-hotpath.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-no-linq-hotpath.sh",
             "timeout": 5000,
             "statusMessage": "Checking LINQ on hot paths..."
           }
@@ -249,7 +249,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-no-hotpath-expensive-calls.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-no-hotpath-expensive-calls.sh",
             "timeout": 5000,
             "statusMessage": "Checking expensive calls on hot paths..."
           }
@@ -260,7 +260,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-getcomponent-in-awake.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-getcomponent-in-awake.sh",
             "timeout": 5000,
             "statusMessage": "Checking GetComponent in Awake..."
           }
@@ -271,7 +271,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-no-runtime-instantiate.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-no-runtime-instantiate.sh",
             "timeout": 5000,
             "statusMessage": "Checking runtime instantiation..."
           }
@@ -282,7 +282,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/warn-serialization.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/warn-serialization.sh",
             "timeout": 5000,
             "statusMessage": "Checking serialization safety..."
           }
@@ -293,7 +293,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-ecs-structural-changes.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-ecs-structural-changes.sh",
             "timeout": 3000,
             "statusMessage": "Checking ECS structural changes..."
           }
@@ -304,7 +304,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-async-void.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-async-void.sh",
             "timeout": 5000,
             "statusMessage": "Checking async void usage..."
           }
@@ -315,7 +315,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-unitask-cancellation.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-unitask-cancellation.sh",
             "timeout": 5000,
             "statusMessage": "Checking UniTask cancellation tokens..."
           }
@@ -326,7 +326,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-null-propagation.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-null-propagation.sh",
             "timeout": 5000,
             "statusMessage": "Checking null propagation on Unity objects..."
           }
@@ -337,7 +337,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/check-vcontainer-singleton.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-vcontainer-singleton.sh",
             "timeout": 5000,
             "statusMessage": "Checking for singleton patterns..."
           }
@@ -347,7 +347,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/instinct-capture.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/instinct-capture.sh",
             "timeout": 3000,
             "statusMessage": "Capturing instinct..."
           }
@@ -357,7 +357,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/cost-tracker.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/cost-tracker.sh",
             "timeout": 2000,
             "statusMessage": "Tracking cost..."
           }
@@ -368,7 +368,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/track-codex-review.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/track-codex-review.sh",
             "timeout": 3000,
             "statusMessage": "Tracking Codex review completion..."
           }
@@ -379,7 +379,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/auto-load-skills.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/auto-load-skills.sh",
             "timeout": 5000,
             "statusMessage": "Syncing skill references to CLAUDE.md..."
           }
@@ -390,7 +390,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/graph-auto-update.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/graph-auto-update.sh",
             "timeout": 10000,
             "statusMessage": "Updating knowledge graph..."
           }
@@ -401,7 +401,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/verify-after-write.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-after-write.sh",
             "timeout": 5000
           }
         ]
@@ -411,7 +411,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/track-skill-invocations.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/track-skill-invocations.sh",
             "timeout": 3000,
             "statusMessage": "Tracking skill invocation..."
           }
@@ -422,7 +422,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/agent-stop-log.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/agent-stop-log.sh",
             "timeout": 3000,
             "statusMessage": "Logging agent stop..."
           }
@@ -434,7 +434,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/session-restore.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-restore.sh",
             "timeout": 3000,
             "statusMessage": "Restoring session state..."
           }
@@ -446,7 +446,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/instinct-distill.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/instinct-distill.sh",
             "timeout": 10000,
             "statusMessage": "Distilling instincts..."
           }
@@ -456,7 +456,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/session-save.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-save.sh",
             "timeout": 3000,
             "statusMessage": "Saving session state..."
           }
@@ -466,7 +466,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/stop-verify.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop-verify.sh",
             "timeout": 30000,
             "statusMessage": "Verifying session edits..."
           }
@@ -487,7 +487,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/enforce-skill-for-keywords.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/enforce-skill-for-keywords.sh",
             "timeout": 5000,
             "statusMessage": "Checking required skills for keywords..."
           }
@@ -499,7 +499,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/notify.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/notify.sh",
             "timeout": 3000
           }
         ]
@@ -510,7 +510,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/pre-compact.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pre-compact.sh",
             "timeout": 5000
           }
         ]
@@ -521,7 +521,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/task-completed-log.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/task-completed-log.sh",
             "timeout": 2000,
             "statusMessage": "Logging task completion..."
           }
