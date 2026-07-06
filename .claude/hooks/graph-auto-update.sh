@@ -46,26 +46,6 @@ except Exception:
 
 [[ "$GRAPH_ENABLED" == "true" ]] || exit 0
 
-# --- Template-mode early exit: skip auto-rebuild when Assets/ does not exist ---
-UNITY_PROJECT_FOLDER=$(python3 -c "
-import json, sys
-try:
-    d = json.load(open('$FEATURES'))
-    print(d.get('unity_project_folder', '.'))
-except Exception:
-    print('.')
-" 2>/dev/null || echo ".")
-
-if [ "$UNITY_PROJECT_FOLDER" = "." ]; then
-    ASSETS_ROOT="Assets"
-else
-    ASSETS_ROOT="${UNITY_PROJECT_FOLDER}/Assets"
-fi
-
-if [ ! -d "$ASSETS_ROOT" ]; then
-    exit 0
-fi
-
 # --- Graph health warning (re-fires each session, not once-ever) ---
 GRAPH_JSON=".claude/graph/graph.json"
 _STATE_DIR="${UNITY_HOOK_STATE_DIR:-.claude/state}"
@@ -116,6 +96,26 @@ fi
 # ── Log trigger ───────────────────────────────────────────────────────────────
 mkdir -p .claude/state
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $FILE_PATH" >> .claude/state/graph-updates.log
+
+# ── Template-mode guard: skip builder when Assets/ does not exist ─────────────
+# Health warning and log write still happen above; only the background builder
+# is suppressed — prevents graph.json timestamp churn in the template repo.
+UNITY_PROJECT_FOLDER=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$FEATURES'))
+    print(d.get('unity_project_folder', '.'))
+except Exception:
+    print('.')
+" 2>/dev/null || echo ".")
+
+if [ "$UNITY_PROJECT_FOLDER" = "." ]; then
+    ASSETS_ROOT="Assets"
+else
+    ASSETS_ROOT="${UNITY_PROJECT_FOLDER}/Assets"
+fi
+
+[ -d "$ASSETS_ROOT" ] || exit 0
 
 # ── Non-blocking incremental rebuild ─────────────────────────────────────────
 nohup python3 "$BUILDER" \
