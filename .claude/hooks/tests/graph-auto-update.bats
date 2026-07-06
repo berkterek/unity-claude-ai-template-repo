@@ -42,8 +42,9 @@ teardown() {
 
 @test "no warning when scanned_files > 0" {
     mkdir -p .claude/graph
-    # Fixture includes classes so the health check (which inspects classes count) sees a healthy graph.
-    echo '{"codebase":{"scanned_files":42,"classes":[{"name":"Foo"}]}}' > .claude/graph/graph.json
+    # Fixture needs >= 5 classes; health check fires when classes < 5 AND cs_count >= 20.
+    # With 6000+ .cs files in the project, a single-class fixture always triggers the warning.
+    echo '{"codebase":{"scanned_files":42,"classes":[{"name":"A"},{"name":"B"},{"name":"C"},{"name":"D"},{"name":"E"}]}}' > .claude/graph/graph.json
     rm -f "$UNITY_HOOK_STATE_DIR/graph-health-warned-$(date +%Y-%m-%d)"
     run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"Assets/Test.cs\"}}' | UNITY_HOOK_STATE_DIR='$UNITY_HOOK_STATE_DIR' bash $HOOK 2>&1"
     [ "$status" -eq 0 ]
