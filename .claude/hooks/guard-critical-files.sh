@@ -48,10 +48,10 @@ if echo "$FILENAME_NO_EXT" | grep -qiE "^AppScope$"; then
     REASON="AppScope is the VContainer root — changes affect all registered services and scene wiring."
 fi
 
-# InputView — sole owner of PlayerControls, changes affect all input
-if echo "$FILENAME_NO_EXT" | grep -qiE "^InputView$"; then
+# InputService — sole owner of PlayerControls, changes affect all input
+if echo "$FILENAME_NO_EXT" | grep -qiE "^InputService$"; then
     CRITICAL=true
-    REASON="InputView owns PlayerControls — changes affect all input bindings and action maps."
+    REASON="InputService owns PlayerControls — changes affect all input bindings and action maps."
 fi
 
 # Any Installer — registers services into VContainer scope
@@ -79,10 +79,16 @@ if [ "$EXT" = "asmdef" ]; then
     REASON=".asmdef files control assembly boundaries and references — incorrect changes cause compile errors across the project."
 fi
 
-# ModuleInstaller base class
-if echo "$FILENAME_NO_EXT" | grep -qiE "^ModuleInstaller$"; then
+# AppModules — lists every registered module, changes affect entire app DI graph
+if echo "$FILENAME_NO_EXT" | grep -qiE "^AppModules$"; then
     CRITICAL=true
-    REASON="ModuleInstaller is the base class for all module wiring — changes propagate to every installer."
+    REASON="AppModules.cs lists every registered module — changes affect entire app DI graph."
+fi
+
+# ConfigCatalog — single config aggregator, changes break module initialization
+if echo "$FILENAME_NO_EXT" | grep -qiE "^ConfigCatalog$"; then
+    CRITICAL=true
+    REASON="ConfigCatalog.cs is the single config aggregator — changes break module initialization."
 fi
 
 if [ "$CRITICAL" = true ]; then
