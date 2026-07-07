@@ -128,6 +128,11 @@ def extract_file(parser, path, src=None):
         name = _node_text(name_node, src)
         line = cls_node.start_point[0] + 1
 
+        # Extract class modifiers (static, sealed, etc.)
+        class_modifiers = _find_children(cls_node, "modifier")
+        class_mod_texts = [_node_text(m, src) for m in class_modifiers]
+        is_static = "static" in class_mod_texts
+
         # Base types — tree-sitter-c-sharp uses base_list named child, not "bases" field
         base_types = []
         bases_node = cls_node.child_by_field_name("bases")
@@ -160,7 +165,7 @@ def extract_file(parser, path, src=None):
                 "confidence": "EXTRACTED",
             })
 
-        is_installer = name.endswith("Installer")
+        is_installer = name.endswith("Installer") or (name.endswith("Module") and is_static)
         is_scope = "LifetimeScope" in base_types
         entry = {"name": name, "file": path, "source_file": path, "registrations": registrations}
         if is_scope:
