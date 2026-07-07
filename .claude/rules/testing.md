@@ -18,6 +18,15 @@ Is it a NoTest type? (stop here if any match)
 ├── Baker<T> inner class         → NoTest  (bake-time only)
 └── NO → continue below
 
+Is the target a Handler (pure C# class with Unity refs via constructor)?
+├── Does it contain complex calculation logic (physics math, pathfinding, etc.)?
+│   └── YES → Extract the pure math to a parameterless method → test that method in EditMode
+│             (full Handler test → PlayMode-Programmatic)
+└── Has Unity component refs (Rigidbody, Transform) passed via constructor?
+    ├── YES → PlayMode-Programmatic
+    │         (new GameObject() with required component, pass to Handler constructor)
+    └── NO (pure C# deps only) → EditMode
+
 Is the target a MonoBehaviour?
 ├── NO  → Is it an ISystem / SystemBase?
 │         ├── YES → PlayMode-ECS  (isolated World, no scene)
@@ -36,6 +45,35 @@ Is the target a MonoBehaviour?
 ```
 
 **Key insight:** A MonoBehaviour that only subscribes to a service in `OnEnable` and updates a value does NOT need a scene. `PlayMode-Programmatic` covers ~80% of MonoBehaviour tests. Reserve `PlayMode-Scene` for production wiring verification.
+
+### PlayMode-Programmatic: Handler with Unity Component Refs
+
+A Handler that takes Unity components (Rigidbody, Transform) via constructor is not a MonoBehaviour — but it still requires a Play Mode context because Unity physics components only function at runtime. Create the GameObject in the test, add the required component, then pass it to the Handler constructor:
+
+```csharp
+[UnityTest]
+public IEnumerator MoveHandler_WhenTickCalled_MovesRigidbodyForward()
+{
+    // Arrange
+    var go = new GameObject();
+    var rb = go.AddComponent<Rigidbody>();
+    var config = ScriptableObject.CreateInstance<MoveConfiguration>();
+    config.Speed = 5f;
+    var sut = new MoveHandler(rb, config);
+    sut.SetInput(Vector2.up);
+
+    // Act
+    sut.Tick(0.1f);
+    yield return new WaitForFixedUpdate();
+
+    // Assert
+    Assert.Greater(rb.position.z, 0f);
+
+    // Cleanup
+    Object.Destroy(go);
+    Object.Destroy(config);
+}
+```
 
 ## Test Types
 
@@ -56,6 +94,8 @@ Is the target a MonoBehaviour?
 | `Games/Concretes/` (pure C#) | Edit Mode | NUnit + NSubstitute |
 | `Games/Concretes/` (MonoBehaviour, isolated) | Play Mode — Programmatic | NUnit + new GameObject() |
 | `Games/Concretes/` (MonoBehaviour, scene wiring) | Play Mode — Scene | NUnit + TestBootstrap scene |
+| `Games/Concretes/<Domain>/` (Handler, Unity component refs) | Play Mode — Programmatic | NUnit + new GameObject().AddComponent<>() |
+| `Games/Concretes/<Domain>/` (Handler, pure C# deps only) | Edit Mode | NUnit + NSubstitute |
 | `Games/Ecs/Systems/` | Play Mode — ECS World | NUnit + isolated World |
 | `Games/Ecs/Components/` | — | Data struct — no test needed |
 | `Games/Ecs/Authorings/` | — | Baker bake-time — no test needed |
@@ -297,16 +337,20 @@ public sealed class PlayerMovementTestScope : LifetimeScope
 // PlayerMovementTestInstaller.cs
 public sealed class PlayerMovementTestInstaller : MonoBehaviour
 {
-    [SerializeField] private PlayerConfiguration _config;
+    [SerializeField] private PlayerConfiguration _testConfig;
 
     public void Install(IContainerBuilder builder)
     {
-        builder.RegisterInstance(_config);
-        builder.Register<PlayerService>(Lifetime.Singleton).As<IPlayerService>();
-        // Use real services unless the scenario specifically needs a fake
+        // Use the PRODUCTION module — never hand-copy registrations
+        PlayerModule.Install(builder, _testConfig);
+
+        // Override only what the scenario specifically requires to be fake
+        builder.Register<FakeInputService>(Lifetime.Singleton).As<IInputService>();
     }
 }
 ```
+
+**Rule:** TestInstallers never hand-copy production registrations. Use the production `[Module]Module.Install()` method directly — only override the specific dependencies the test scenario requires to be faked. This prevents test/production wiring drift.
 
 ### Scene Setup Rules
 
