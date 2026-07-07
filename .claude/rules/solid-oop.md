@@ -29,7 +29,7 @@ public sealed class WaveDirectorService : MonoBehaviour
 **RIGHT:**
 ```csharp
 // Pure C# service using ITickable — no MonoBehaviour needed
-public sealed class WaveDirectorService : IWaveDirectorService, ITickable, IDisposable
+public sealed class WaveDirectorService : IWaveDirectorService, ITickable, IInitializable, IDisposable
 {
     public void Tick() { /* VContainer calls every frame */ }
 }
@@ -340,7 +340,7 @@ When a pure C# service needs a frame update, use `ITickable`. **"I need Update" 
 ```csharp
 namespace Game.Concretes.Waves
 {
-    public sealed class WaveDirectorService : IWaveDirectorService, ITickable, IDisposable
+    public sealed class WaveDirectorService : IWaveDirectorService, ITickable, IInitializable, IDisposable
     {
         #region Fields
 
