@@ -21,7 +21,7 @@ public class AudioService : MonoBehaviour
 ```csharp
 public interface IAudioService { void PlaySound(string id); }
 public sealed class AudioService : IAudioService { /* ... */ }
-// AudioInstaller.cs
+// AudioModule.cs
 builder.Register<AudioService>(Lifetime.Singleton).AsImplementedInterfaces();
 ```
 
@@ -55,22 +55,27 @@ public sealed class BasicAudioProvider : MonoBehaviour, IAudioProvider
 }
 ```
 
-**GOTCHA:** If your service has `using UnityEngine`, you're leaking Unity API through the service layer. Move it to a Provider.
+**GOTCHA:** If your service has `using UnityEngine`, you're leaking Unity API through the service layer. Move it to a Provider. Do NOT open a Provider for prefab-local Unity access — that is Handler's job (Tier 2).
 
 ---
 
-### Card 3: Module → Service → Installer → Scope Chain
+### Card 3: Module → Static Install Method → AppModules → AppScope
 
 **WHEN:** Adding a new feature module (Audio, Score, Shop, etc.).
 
-**WRONG:** Registering directly in `AppScope.Configure()` or scattering registrations across multiple places.
+**WRONG:** Registering directly in `AppScope.Configure()`, creating ScriptableObject installer assets, or scattering registrations across multiple places.
 
 **RIGHT:**
 ```
-[Module]Installer (sealed SO) → AppInstaller._modules list → AppScope calls AppInstaller
+[X]Module.Install() → AppModules.Install() → AppScope calls AppModules
 ```
 
-**GOTCHA:** `AppScope.cs` never changes — add modules exclusively via `AppInstaller.asset`. Touching AppScope for every new module breaks the open/closed pattern.
+```csharp
+// One new line in AppModules.cs — no Editor asset work
+AudioModule.Install(builder, configs.Audio);
+```
+
+**GOTCHA:** `AppScope.cs` never changes. Add modules by adding one line to `AppModules.Install()`. There are no ScriptableObject installer assets, no `_modules` list, no Editor drag-and-drop for wiring modules.
 
 ---
 
@@ -96,23 +101,23 @@ _eventBus.Subscribe<ScoreChangedEvent>(OnScoreChanged);
 
 ---
 
-### Card 5: One-Caller Rule — Don't Abstract Too Early
+### Card 5: One-Caller Rule — Postpone MODULE Ceremony, Never Postpone the Interface
 
-**WHEN:** Tempted to create a new interface/module for a single caller.
+**WHEN:** Tempted to create a full module registration ceremony for a single caller.
 
 **WRONG:**
 ```csharp
-public interface IScoreDisplayService { void Display(int score); }
-// Only ScoreView ever calls this — premature abstraction
+// Creating an entire AudioModule with installer just for one sound effect in one class
+// — the module ceremony overhead is unjustified for a single caller
 ```
 
-**RIGHT:** Inject the concrete `ScoreModel` directly into `ScoreView` until a second caller exists.
+**RIGHT:** Register the handler or helper directly in the parent module's `Install()` without creating a separate module file for it.
 
-**GOTCHA:** Interface with ≤1 method AND ≤1 caller AND no real lifecycle = over-engineering. Add the interface only when a second caller arrives.
+**GOTCHA:** This rule postpones **module + installer ceremony** — it does NOT postpone interfaces. Every injectable layer (Handler, Service, Provider) always gets an interface. The test is a caller. Interface with a single production caller is correct and expected: `IMoveHandler` with only `PlayerController` as caller is not over-engineering — the test suite is the second caller.
 
 ---
 
-### Card 6: Same Prefab Hierarchy — Use SerializeField, Not VContainer
+### Card 6: Same Prefab Hierarchy — SerializeField + Handler, Not VContainer
 
 **WHEN:** A script needs a reference to a component on the same GameObject, a child, or any GameObject within the same prefab.
 
@@ -126,21 +131,31 @@ public sealed class PlayerController : MonoBehaviour
     [Inject]
     public void Construct(IPlayerProvider provider) => _provider = provider;
 }
-// PlayerInstaller: builder.RegisterComponent(_playerProvider).As<IPlayerProvider>();
+// PlayerModule: builder.RegisterComponent(_playerProvider).As<IPlayerProvider>();
 ```
 
 **RIGHT:**
 ```csharp
 public sealed class PlayerController : MonoBehaviour
 {
-    // Same GO, child GO, or anywhere within the same prefab — drag-drop in Inspector
-    [SerializeField] private PlayerProvider _provider;
-    [SerializeField] private Animator       _animator;   // child Body/
-    [SerializeField] private Transform      _firePoint;  // grandchild
+    // Prefab-local refs → [SerializeField]; Handlers → constructed with those refs
+    [SerializeField] private Rigidbody _rigidbody;
+
+    private IMoveHandler _moveHandler;
+
+    // Plain new: no container deps needed
+    private void Awake() => _moveHandler = new MoveHandler(_rigidbody, _moveConfig);
+
+    // Factory inject: when handler needs a container dep (IEventBus, config SO)
+    [Inject]
+    public void Construct(Func<Rigidbody, IMoveHandler> moveFactory)
+        => _moveHandler = moveFactory(_rigidbody);
+
+    private void Update() => _moveHandler.Tick(Time.deltaTime);
 }
 ```
 
-**GOTCHA:** VContainer injection is for **cross-module boundaries** — different prefabs, different scenes, different lifetimes. Everything inside the same prefab (root, children, grandchildren) is already co-owned; `[SerializeField]` is explicit, zero-cost, and Inspector-visible. Do not register these in an Installer just to inject them back into the same prefab.
+**GOTCHA:** VContainer injection is for **cross-module boundaries**. Everything inside the same prefab (root, children, grandchildren) wires via `[SerializeField]`. Handlers are pure C# — never registered with VContainer directly; the Controller creates them.
 
 **Boundary rule:**
 
@@ -148,18 +163,19 @@ public sealed class PlayerController : MonoBehaviour
 |---|---|
 | Same GameObject | `[SerializeField]` drag-drop |
 | Child or grandchild within the same prefab | `[SerializeField]` drag-drop |
+| Handler (prefab-local logic, pure C#) | `new` in Awake OR `Func<>` factory inject |
 | Different prefab / different module | VContainer injection (interface) |
 | Cross-scene / global service | VContainer injection (AppScope) |
 
 ---
 
-### Card 7: GameScope vs ModuleInstaller Boundary
+### Card 7: GameScope vs Module Boundary
 
 **WHEN:** Deciding where to put a registration in the scene-specific scope.
 
 **WRONG:**
 ```csharp
-// GameScope doing service wiring (belongs in ModuleInstaller)
+// GameScope doing service wiring (belongs in a Module)
 builder.Register<PlayerService>(Lifetime.Singleton);
 ```
 
@@ -167,24 +183,29 @@ builder.Register<PlayerService>(Lifetime.Singleton);
 ```csharp
 // GameScope registers scene components only
 builder.RegisterComponent(_playerView);    // scene MonoBehaviour
-// Service wiring → PlayerInstaller via AppInstaller.asset
+// Service wiring → PlayerModule.Install() via AppModules
 ```
 
-**GOTCHA:** If the registration doesn't reference a scene object (`RegisterComponent`), it belongs in a `ModuleInstaller`, not `GameScope`.
+**GOTCHA:** If the registration doesn't reference a scene object (`RegisterComponent`), it belongs in a module's `Install()` method, not `GameScope`.
+
+---
 
 ## Core Principle: Dependency Direction
 
 ```
-Views/Providers → Services → Models/Interfaces
-       ↓               ↓
-   IEventBus  (decoupled cross-system communication)
+Tier 1 (Mono Shell: Controller/View) → Tier 2 (Handler) → Tier 3 (Service + EntryPoint)
+                                                                    ↓
+                                                               IEventBus
+                                                                    ↓
+                                                          Tier 4 (Provider)
 ```
 
 - Services depend on interfaces, never concrete types
-- MonoBehaviours (Views/Providers) depend on services via VContainer injection
-- Models/data classes depend on nothing
+- Mono shells (Controller/View) depend on services via VContainer injection and on Handlers via direct `new` or `Func<>` factory
 - Cross-service communication goes through IEventBus, never direct references
 - Assembly definitions enforce direction at compile time
+
+> Full tier definitions and rules: see `rules/solid-oop.md` → 4-Tier Architecture
 
 ---
 
@@ -252,24 +273,36 @@ The **only** valid top-level folders under `Scripts/` are: `Games/`, `Tests/`, `
 
 ## Module Structure (NON-NEGOTIABLE)
 
-Every service/system spans two folders — one for the portable domain layer, one for Unity-specific providers:
+Every feature module spans two folders — one for the portable domain layer, one for Unity-specific providers:
 
 ```
 _GameFolders/Scripts/Games/Abstracts/Audio/
-└── IAudioService.cs           ← The only public API contract (interface only)
+├── IAudioService.cs           ← service contract (interface only)
+└── IAudioProvider.cs          ← provider contract (interface only)
+
+_GameFolders/Scripts/Games/Abstracts/Players/
+├── IPlayerService.cs          ← service contract
+└── IMoveHandler.cs            ← handler contract (NEW — pure C# NSubstitute seam)
 
 _GameFolders/Scripts/Games/Concretes/Audio/
-├── AudioService.cs            ← sealed implementation
+├── AudioService.cs            ← sealed service (Tier 3)
 ├── AudioConfiguration.cs      ← ScriptableObject config
-├── AudioInstaller.cs          ← VContainer registration
+├── AudioModule.cs             ← static install method (replaces AudioInstaller SO)
 ├── AudioEvents.cs             ← IEvent structs for this module (if any)
-├── BasicAudioProvider.cs      ← IAudioProvider impl (Unity API here)
-└── AudioRoot.cs               ← MonoBehaviour, scene object
+└── BasicAudioProvider.cs      ← IAudioProvider impl — Unity API here (Tier 4)
+
+_GameFolders/Scripts/Games/Concretes/Players/
+├── PlayerController.cs        ← Mono shell, Tier 1
+├── MoveHandler.cs             ← pure C# handler, Tier 2
+├── PlayerService.cs           ← sealed service, Tier 3
+├── PlayerConfiguration.cs     ← ScriptableObject config
+├── PlayerModule.cs            ← static install method
+└── PlayerEvents.cs            ← IEvent structs
 ```
 
-**`AudioEvents.cs` must live inside `Concretes/<Domain>/` (or a subfolder within it). NEVER outside `Concretes/` — do not create a top-level `Scripts/Games/Events/` or `Scripts/Events/` folder.**
+**`[Module]Events.cs` must live inside `Concretes/<Domain>/`. NEVER outside `Concretes/` — do not create a top-level `Scripts/Games/Events/` or `Scripts/Events/` folder.**
 
-**Why:** The interface lives in `Abstracts/` so other modules depend on the contract, not the implementation. Everything else — service, config, installer, events, and Unity providers — belongs in the same `Concretes/<Domain>/` folder. Splitting events into a sub-subfolder (`Concretes/Audio/Events/`) adds unnecessary nesting with no benefit.
+**Why:** Interfaces live in `Abstracts/` so other modules depend on contracts, not implementations. Everything else — service, handler, config, module installer, events, and Unity providers — belongs in the same `Concretes/<Domain>/` folder.
 
 ### Module Portability Checklist
 
@@ -281,14 +314,97 @@ Before exporting a module:
 | Cross-module dependencies | None — only interfaces consumed |
 | `UnityEngine` import | Not in service class; moved to provider |
 | Static service calls | None — constructor injection only |
-| Config null guard | Present in `Install()` or `OnValidate` |
+| Config null guard | Present in `Install()` |
 | Events in own file | `[Module]Events.cs` — not embedded in service |
+| Handler interface | `I[X]Handler` in `Abstracts/<Domain>/` |
 
 ---
 
 ## VContainer for Dependency Injection
 
 VContainer is the **only** wiring mechanism. No singletons, no static access, no `FindObjectOfType`, no service locator.
+
+### Code-First Static Module Pattern (NON-NEGOTIABLE)
+
+Modules are registered via static `Install()` methods — no ScriptableObject installer assets, no `ModuleInstaller` subclasses, no `AppInstaller.asset`.
+
+```csharp
+// Game/Concretes/Audio/AudioModule.cs — pure C# static class
+namespace Game.Concretes.Audio
+{
+    public static class AudioModule
+    {
+        public static void Install(IContainerBuilder builder, AudioConfiguration config)
+        {
+            if (config == null)
+            {
+                Debug.LogError("[AudioModule] AudioConfiguration missing.");
+                return;
+            }
+
+            builder.RegisterInstance(config);
+            builder.Register<AudioService>(Lifetime.Singleton).AsImplementedInterfaces();
+        }
+    }
+}
+
+// Game/Concretes/Infrastructure/AppModules.cs — single wiring point
+namespace Game.Concretes.Infrastructure
+{
+    public static class AppModules
+    {
+        public static void Install(IContainerBuilder builder, ConfigCatalog configs)
+        {
+            EventBusModule.Install(builder);                     // FIRST — structural guarantee
+            AudioModule.Install(builder, configs.Audio);
+            PlayerModule.Install(builder, configs.Player);
+            // New module = one line here — visible in git diff, hookable
+        }
+    }
+}
+```
+
+Adding a new module: add one static class with `Install()` and one call line in `AppModules`. No Editor asset work. `EventBusModule` is always first — enforced by code position, not convention.
+
+### AppScope — Uses AppModules (NON-NEGOTIABLE)
+
+```csharp
+// Game/Concretes/Infrastructure/AppScope.cs
+namespace Game.Concretes.Infrastructure
+{
+    public sealed class AppScope : LifetimeScope
+    {
+        #region Fields
+
+        [SerializeField] private ConfigCatalog _configCatalog;
+
+        #endregion
+
+        #region Lifecycle
+
+        protected override void Configure(IContainerBuilder builder)
+        {
+            if (_configCatalog == null)
+            {
+                Debug.LogError("[AppScope] ConfigCatalog missing.");
+                return;
+            }
+
+            builder.RegisterInstance(_configCatalog);
+            builder.RegisterComponentInHierarchy<UIRoot>();
+
+            AppModules.Install(builder, _configCatalog);
+
+            builder.RegisterBuildCallback(c =>
+                EventBusAccessor.Initialize(c.Resolve<IEventBus>()));
+        }
+
+        #endregion
+    }
+}
+```
+
+`AppScope.cs` **never changes** — to add a module, add one line to `AppModules.Install()`.
 
 ### NO GameContext / Service Locator (NON-NEGOTIABLE)
 
@@ -310,60 +426,125 @@ public sealed class ScoreView : MonoBehaviour
 }
 ```
 
-### Avoid One-Caller Overfitting — When NOT to Create a Module
+### Avoid One-Caller Overfitting — When NOT to Create a Separate Module
 
-Do NOT create a new module, interface, or installer just because one caller exists. Overfitting produces unnecessary boilerplate and makes the codebase harder to navigate.
+Do NOT create a new module file and wiring ceremony just because one production caller exists. Overfitting produces unnecessary boilerplate.
 
-**Create a module/interface only when:**
-- At least 2 independent callers exist, OR
+**Create a separate module only when:**
+- At least 2 independent production callers exist, OR
 - The service has its own lifecycle (async setup, pooling, Dispose), OR
 - A provider is needed to hide Unity API behind a pure C# boundary
 
-**Red flags for premature abstraction:**
-- Interface has ≤1 public method
-- Only one caller in the entire codebase
-- Implementation has ≤1 meaningful line of code
-- No real decoupling — the interface is only a constructor parameter alias
+**The one-caller rule does NOT apply to interfaces.** Every injectable layer (Handler, Service, Provider) always gets an interface — the test suite is the second caller, always. Delaying the interface prevents TDD and NSubstitute seam creation.
 
 ```csharp
-// BAD — IScoreDisplayService used only by ScoreView, wraps one Debug.Log
-public interface IScoreDisplayService { void Display(int score); }
-public sealed class ScoreDisplayService : IScoreDisplayService
+// BAD — creating a full ScoreDisplayModule for a helper used by one class
+// (module ceremony is unjustified; register directly in ScoreModule.Install())
+public static class ScoreDisplayModule
 {
-    public void Display(int score) => Debug.Log($"Score: {score}");
+    public static void Install(IContainerBuilder builder) { /* one line */ }
 }
 
-// GOOD — ScoreView injects ScoreModel directly; no intermediate service needed
-// Note: injecting the concrete ScoreModel here is intentional — the point of this rule
-// is that no interface wrapper is needed when only one caller exists. If ScoreModel were
-// shared across modules, IAudioService-style interface-first registration would apply.
-public sealed class ScoreView : MonoBehaviour
+// GOOD — register the helper directly in the parent module
+public static class ScoreModule
 {
-    #region Fields
-
-    private ScoreModel _model;
-
-    #endregion
-
-    #region Lifecycle
-
-    [Inject]
-    public void Construct(ScoreModel model) => _model = model;
-
-    private void OnEnable()  => _model.OnScoreChanged += Display;
-    private void OnDisable() => _model.OnScoreChanged -= Display;
-
-    #endregion
-
-    #region Private Methods
-
-    private void Display(int score) => _scoreLabel.text = score.ToString();
-
-    #endregion
+    public static void Install(IContainerBuilder builder, ScoreConfiguration config)
+    {
+        builder.Register<ScoreService>(Lifetime.Singleton).AsImplementedInterfaces();
+        builder.Register<ScoreDisplayHelper>(Lifetime.Singleton).AsImplementedInterfaces(); // one caller — no separate module needed
+    }
 }
 ```
 
-**Rule: Make it concrete. Add the interface only when a second caller arrives or a real boundary is needed.**
+**Rule: Postpone module ceremony. Never postpone the interface.**
+
+---
+
+### Handler Factory — VContainer Func<> Pattern
+
+When a Handler needs a container dependency (IEventBus, config SO), register a factory so the Controller can receive it:
+
+```csharp
+// In PlayerModule.Install():
+builder.RegisterFactory<Rigidbody, IMoveHandler>(
+    container => rigidbody =>
+        new MoveHandler(rigidbody, container.Resolve<MoveConfiguration>()),
+    Lifetime.Singleton
+);
+
+// In PlayerController — receives the factory via [Inject]:
+[Inject]
+public void Construct(Func<Rigidbody, IMoveHandler> moveFactory)
+{
+    _moveHandler = moveFactory(_rigidbody);
+}
+```
+
+If the Handler needs **no** container dependencies, use plain `new` in Awake — no factory needed. Forcing a factory on every Handler reintroduces installer ceremony.
+
+---
+
+### EntryPoint — ITickable for Pure C# Update
+
+When a pure C# service needs a frame update, use `ITickable`. "I need Update" is never a reason to make something a MonoBehaviour.
+
+```csharp
+// Game/Concretes/Waves/WaveDirectorService.cs
+namespace Game.Concretes.Waves
+{
+    public sealed class WaveDirectorService : IWaveDirectorService, ITickable, IInitializable, IDisposable
+    {
+        #region Fields
+
+        private readonly IEventBus _eventBus;
+        private CancellationTokenSource _cts;
+
+        #endregion
+
+        #region Constructor
+
+        public WaveDirectorService(IEventBus eventBus)
+        {
+            _eventBus = eventBus;
+        }
+
+        #endregion
+
+        #region Lifecycle
+
+        public void Initialize()
+        {
+            _cts = new CancellationTokenSource();
+        }
+
+        // VContainer calls every frame — no MonoBehaviour needed
+        public void Tick()
+        {
+            /* wave progression logic */
+        }
+
+        public void Dispose()
+        {
+            _cts?.Cancel();
+            _cts?.Dispose();
+        }
+
+        #endregion
+    }
+}
+
+// In WaveModule.Install():
+builder.RegisterEntryPoint<WaveDirectorService>().AsImplementedInterfaces();
+```
+
+| Interface | Called by VContainer | Replaces |
+|---|---|---|
+| `ITickable` | Every frame (Update equivalent) | `MonoBehaviour.Update` |
+| `IFixedTickable` | Every fixed frame (FixedUpdate) | `MonoBehaviour.FixedUpdate` |
+| `IStartable` | Once on scope start | `MonoBehaviour.Start` |
+| `IAsyncStartable` | Once on scope start (async) | Async `MonoBehaviour.Start` |
+
+Use `RegisterEntryPoint<T>()` — this wires lifecycle interfaces automatically.
 
 ---
 
@@ -380,55 +561,48 @@ AppScope (Bootstrap scene — DontDestroyOnLoad, persistent root)
 - `MenuScope` / `GameScope` register scene-local dependencies
 - A scope cannot access sibling scope services — only parent scope
 
-### AppScope / GameScope / ModuleInstaller Patterns
+### GameScope — Scene Component Registration Only
 
-> Full patterns, code examples, and rules: see `bootstrap-pattern.md`.
-
-Key points:
-- `AppScope.cs` never changes — add modules via `AppInstaller.asset`
-- `GameScope` uses only `builder.RegisterComponent(...)` with `[SerializeField]` scene refs
-- `ModuleInstaller` subclasses register a single module's dependencies
-
-### GameScope Wiring: Complex Orchestration Belongs in ModuleInstaller
-
-`GameScope` is for scene-specific registration only: binding scene components to their interfaces via `RegisterComponent`. Complex orchestration — service wiring, factory setup, conditional dependencies — belongs in `ModuleInstaller` subclasses.
-
-| Task | Location | Why |
-|------|----------|-----|
-| Register a scene-local MonoBehaviour | `GameScope` | Tied to scene hierarchy |
-| Wire services and factories | `ModuleInstaller` | Reusable, testable, scene-independent |
-| Conditional setup (difficulty, feature flags) | `ModuleInstaller` | Co-located with the module it configures |
-| Register a provider that depends on a scene object | `GameScope` via `RegisterComponent` | Scene ref required |
+`GameScope` registers MonoBehaviours that are present in the scene and need to be injected across the module boundary. It does NOT wire services or factories.
 
 ```csharp
-// BAD — GameScope doing orchestration
-protected override void Configure(IContainerBuilder builder)
-{
-    builder.RegisterComponent(_playerView);
-    builder.Register<PlayerService>(Lifetime.Singleton);           // ← belongs in PlayerInstaller
-    builder.Register<BattleOrchestrator>(Lifetime.Singleton);     // ← belongs in BattleInstaller
-}
-
 // GOOD — GameScope registers scene components only
 protected override void Configure(IContainerBuilder builder)
 {
     builder.RegisterComponent(_playerView);   // scene object
     builder.RegisterComponent(_uiRoot);       // scene object
-    // Service wiring is in PlayerInstaller, BattleInstaller (via AppInstaller.asset)
+    // Service wiring is in PlayerModule, BattleModule (via AppModules)
+}
+
+// BAD — GameScope doing service wiring
+protected override void Configure(IContainerBuilder builder)
+{
+    builder.RegisterComponent(_playerView);
+    builder.Register<PlayerService>(Lifetime.Singleton);       // belongs in PlayerModule
+    builder.Register<BattleOrchestrator>(Lifetime.Singleton);  // belongs in BattleModule
 }
 ```
 
-**Rule: If the wiring logic does not directly reference a scene object, it belongs in a `ModuleInstaller`.**
+| Task | Location | Why |
+|------|----------|-----|
+| Register a scene-local MonoBehaviour | `GameScope` | Tied to scene hierarchy |
+| Wire services and factories | Module `Install()` | Reusable, testable, scene-independent |
+| Conditional setup (difficulty, feature flags) | Module `Install()` | Co-located with the module it configures |
+| Register a provider that depends on a scene object | `GameScope` via `RegisterComponent` | Scene ref required |
+
+**Rule: If the wiring logic does not directly reference a scene object, it belongs in a module's `Install()` method.**
 
 ### Interface-First Registration
 
 ```csharp
 // GOOD
-builder.Register<AudioService>(Lifetime.Singleton).As<IAudioService>();
+builder.Register<AudioService>(Lifetime.Singleton).AsImplementedInterfaces();
 
-// BAD — concrete dependency
+// BAD — concrete dependency leaks through the container
 builder.Register<AudioService>(Lifetime.Singleton);
 ```
+
+Handler interfaces (`IMoveHandler`) follow the same rule — always interface-first for the NSubstitute seam. Handlers are NOT registered with VContainer directly; they are created by the Controller via `new` or `Func<>` factory.
 
 ---
 
@@ -480,10 +654,10 @@ Never unsubscribe in `OnDestroy()` for VContainer-managed types — conflicts wi
 
 ## Provider Pattern
 
-Domain services never touch Unity API. Unity calls stay at the provider boundary:
+Domain services never touch Unity API. Unity calls stay at the Provider boundary (Tier 4):
 
 ```csharp
-// Domain service — pure C#, no UnityEngine import
+// Domain service — pure C#, no UnityEngine import (Tier 3)
 public sealed class AudioService : IAudioService
 {
     private readonly IAudioProvider _provider;
@@ -491,65 +665,25 @@ public sealed class AudioService : IAudioService
     public void PlaySound(string id) => _provider.Play(id);
 }
 
-// Provider — Unity API lives here
-public sealed class BasicAudioProvider : IAudioProvider
+// Provider — Unity API lives here (Tier 4)
+public sealed class BasicAudioProvider : MonoBehaviour, IAudioProvider
 {
-    private readonly AudioSource _source;
-    public void Play(string id) => _source.PlayOneShot(GetClip(id));
+    [SerializeField] private AudioSource _source;
+    public void Play(AudioClip clip) => _source.PlayOneShot(clip);
 }
 ```
 
-> See also: `rules/solid-oop.md` → MonoBehaviour Rol Sınırları (View/Provider/Controller roles)
+Do NOT open a Provider for prefab-local Unity access — that is Handler's job. Provider is the cross-module Unity API boundary.
+
+> See also: `rules/solid-oop.md` → 4-Tier Architecture
 
 ---
 
-## Input System Architecture (NON-NEGOTIABLE)
+## Input System Architecture
 
-Input is a View-layer concern. InputView reads raw input and calls Services. Services never touch Unity Input directly.
+Input is handled via an `InputService` (pure C#, `ITickable`) paired with per-prefab `InputHandler` classes. Services never touch Unity Input directly.
 
-```csharp
-public sealed class InputView : MonoBehaviour
-{
-    private PlayerControls _controls;
-    private IPlayerService _playerService;
-
-    private void Awake() => _controls = new PlayerControls();
-
-    [Inject]
-    public void Construct(IPlayerService playerService) => _playerService = playerService;
-
-    private void OnEnable()
-    {
-        _controls.Player.Enable();
-        _controls.Player.Jump.performed += OnJump;
-    }
-
-    private void OnDisable()
-    {
-        _controls.Player.Jump.performed -= OnJump;
-        _controls.Player.Disable();
-    }
-
-    private void Update()
-    {
-        _playerService.SetMoveInput(_controls.Player.Move.ReadValue<Vector2>());
-    }
-
-    private void OnJump(InputAction.CallbackContext ctx) => _playerService.Jump();
-}
-```
-
-**Rules:**
-- InputView owns `PlayerControls` — no other class creates one
-- Enable in `OnEnable`, disable + unsubscribe in `OnDisable` (mandatory)
-- Continuous input (`ReadValue`) in `Update`, cached for physics in `FixedUpdate`
-- Discrete input (button press) via `performed` callbacks
-- Services are input-agnostic — they expose `SetMoveInput(Vector2)`, `Jump()`, etc.
-- Legacy `Input.GetKey` / `Input.GetAxis` is BLOCKED
-
-> **Why `Awake()` here is correct:** `new PlayerControls()` is a Unity Input System generated class with no injected dependencies. The `solid-oop.md` rule forbids *injection-dependent initialization* in `Awake()` — service dependencies must arrive via `[Inject] Construct()`. Constructing a dependency-free generated class does not violate this rule.
-
-> See also: `rules/unity-input.md` → InputView Pattern; `rules/solid-oop.md` → MonoBehaviour Sınırlar (Awake clarification); `rules/csharp-unity.md` → Card 4 (#region for 3+ methods)
+> See `rules/unity-input.md` for the full `InputView` pattern, generated C# class usage, action map switching, and enforcement rules.
 
 ---
 
@@ -574,7 +708,7 @@ public sealed class AudioConfiguration : ScriptableObject
 
 VContainer replaces all singleton patterns.
 
-- App-wide → register in `AppScope`
+- App-wide → register in `AppScope` (via `AppModules`)
 - Per-scene → register in `MenuScope` / `GameScope`
 - No `Instance`, no `static` mutable state, no `FindObjectOfType`
 
