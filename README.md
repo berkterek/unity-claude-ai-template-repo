@@ -103,7 +103,7 @@ claude
 /setup-project
 ```
 
-This generates project-specific boilerplate: assembly definition files, base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `ModuleInstaller`, `AppInstaller`, `AppScope`). If MCP is connected, it also creates scenes, sets up AppScope in the Bootstrap scene, wires `AppInstaller`, and configures Build Settings — all through the Unity Editor automatically.
+This generates project-specific boilerplate: assembly definition files, base framework classes (`IEventBus`, `EventBus`, `EventBusAccessor`, `AppModules`, `AppScope`, `ConfigCatalog`, `EventBusModule`). If MCP is connected, it also creates scenes, sets up AppScope in the Bootstrap scene, and configures Build Settings — all through the Unity Editor automatically.
 
 **Feature selection:** `/setup-project` asks about Addressables, Testing, and ECS DOTS. Based on your answers it writes `.claude/project-features.json`, skips irrelevant folders and asmdefs, removes disabled hooks from `settings.json`, and adds a `## Project Features` header to `CLAUDE.md`.
 
@@ -200,14 +200,14 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
-| `unity-input.md` | New Input System, InputView pattern, action map switching |
+| `unity-input.md` | New Input System, InputService (ITickable) + InputHandler (per-prefab), action map switching |
 | `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, BaseCanvas pattern, Prefab Variants (Base+Variant decision table), folder structure, logic/visual separation |
 | `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]` → `[Services]` → `[UI]` → `[Environment]` → `[Characters]` → `[VFX]`), classification table, prefab/container rules |
-| `bootstrap-pattern.md` | IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope layer chain, EventBusInstaller requirement, GameScope scene-based wiring (SerializeField + RegisterComponent), new module workflow |
+| `bootstrap-pattern.md` | Code-first static Module pattern: `[X]Module` static class → `AppModules.cs` → `AppScope`. ConfigCatalog, SceneModules, new module addition flow (one line in AppModules, no Editor asset) |
 | `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller only, ~100 satır max); **suffix kuralı: `*View` yalnızca Canvas/UI, `*Controller` gameplay/karakter, `*Provider` Unity API soyutlaması**; SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
 
 ### `.claude/docs/` — Key reference docs (not loaded at startup)
@@ -235,8 +235,10 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 |------|---------|
 | `ARCHITECTURE.md` | High-level system architecture diagram and pipeline flow |
 | `SETUP.md` | Quick start, adding to existing project, hook audit log, model tiers |
-| `WORKFLOW.md` | Full pipeline flows for `/implement`, `/fix`, `/orchestrate`, etc. |
+| `ROADMAP.md` | Module roadmap table — status rollup for all modules (`/roadmap` creates it) |
+| `modules/<n>-<name>/` | Per-module vertical slices: `spec.md`, `design.md`, `tasks.md` (`/plan-module <n>` creates them) |
 | `CATCH_UP.md` | Auto-generated codebase guide (created by `/catch-up`, not committed) |
+| `archive/WORKFLOW.md` | Archived — old horizontal phase-based pipeline (replaced by modules/ system) |
 
 ---
 
@@ -455,17 +457,10 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 
 | Command | How it runs | What it does |
 |---------|------------|-------------|
-| `/plan-workflow` | Manual — single step | Breaks the TDD into phases and tasks with agent types, inputs/outputs, and acceptance criteria → **WORKFLOW.md**. Includes: cycle detection gate (blocks circular dependencies), task atomicity gate (blocks XL tasks), and testing-capability preflight |
-| `/dry-run` | Manual — single step | *(optional)* Preview the orchestration plan without executing — shows agent assignments, phase count, risk points |
-| `/plan-summary <file>` | Manual — single step | *(optional)* Reads a plan file and produces a 3-section human-readable summary — what we're doing, how, and what you'll see at the end. Run before `/orchestrate` or `/implement` to verify the plan matches your intent. |
-
-### Phase 2b — Game Completion Planning (post-skeleton)
-
-Use this after the architecture skeleton is built and you need to plan the remaining gameplay module by module.
-
-| Command | How it runs | What it does |
-|---------|------------|-------------|
-| `/game-plan [docs/GDD.md]` | Manual — multi-agent | Reads GDD + TDD + PROGRESS + existing code → identifies done vs stub vs missing → produces `docs/0_MasterPlan.md` (module tracking table) + numbered module plan files (`1_SlingshotPhysics.md`, `2_VacuumCollection.md`, …). Each module plan is `/orchestrate`-ready with tasks, code skeletons, test types, and `parallel_group` annotations |
+| `/roadmap` | Manual — single step | Reads GDD + TDD + existing `docs/modules/` → produces `docs/ROADMAP.md` module table with gap analysis. Creates the list of modules to build; shows done vs. missing. Run once after TDD is approved. |
+| `/plan-module <n>` | Manual — single step | Just-in-time planner for a single module. ARCHITECTURE_GATE fires before spawning agents. Produces `docs/modules/<n>-<name>/spec.md`, `design.md`, and `tasks.md`. Run immediately before you orchestrate that module. |
+| `/dry-run` | Manual — single step | *(optional)* Preview pending tasks in a `tasks.md` without executing |
+| `/plan-summary <file>` | Manual — single step | *(optional)* Reads a plan file and produces a 3-section human-readable summary — what we're doing, how, and what you'll see at the end. |
 
 ### Phase 3 — Project Setup
 
@@ -477,8 +472,8 @@ Use this after the architecture skeleton is built and you need to plan the remai
 
 | Command | How it runs | What it does |
 |---------|------------|-------------|
-| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier (compile + assembly error check + Play Mode entry + VContainerException scan — **blocking**) → reviewer → committer run **automatically**. **Between phases:** pauses and asks `Proceed?` | Executes `WORKFLOW.md` end-to-end, phase by phase |
-| `/continue` | Manual — resumes interrupted orchestrate | Resumes an interrupted orchestration run from the event journal |
+| `/orchestrate docs/modules/<n>/tasks.md` | Manual to start. **Within each task:** tester → coder → verifier → reviewer → committer run **automatically**. **Checkpoint lines** pause for `Proceed?`. | Executes a module's `tasks.md` end-to-end; marks `- [ ]` → `- [x]` and updates `ROADMAP.md` on completion |
+| `/continue docs/modules/<n>/tasks.md` | Manual — resumes interrupted orchestrate | Resumes an interrupted orchestration run from the EVENTS.jsonl journal |
 
 ### Phase 5 — Quality
 
@@ -510,15 +505,16 @@ Use this after the architecture skeleton is built and you need to plan the remai
 Every command is **manually triggered** — there is no automatic chaining between phases.
 
 ```
-/game-idea → /architect → /plan-workflow → /setup-project → /orchestrate
-                                                                    ↓
-                                                         /game-plan (post-skeleton)
-                                                                    ↓
-                                              /orchestrate docs/1_Module.md → … → docs/N_Module.md
-                                                                    ↓
-                                                    /qa → /review-code → /performance-audit
-                                                                    ↓
-                                                         /learn → /smart-commit
+/game-idea → /architect → /roadmap → /setup-project
+                                           ↓
+                              /plan-module 1 → /orchestrate docs/modules/1-*/tasks.md
+                              /plan-module 2 → /orchestrate docs/modules/2-*/tasks.md
+                                          …
+                              /plan-module N → /orchestrate docs/modules/N-*/tasks.md
+                                           ↓
+                                /qa → /review-code → /performance-audit
+                                           ↓
+                                  /learn → /smart-commit
 ```
 
 #### When to run `/qa`
@@ -693,8 +689,8 @@ Both JSONL files are persistent (not auto-expired) and gitignored. See `.claude/
 | `/grill-me [plan or file]` | Manual — single step | Stress-test a plan or decision — one pointed question at a time, produces a Decision Record on `/done`. Auto-delegates to Opus (heavy tier) regardless of current session model. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed. |
 | `/refine-gdd` | Manual — single step | Iterate on an existing GDD |
 | `/refine-tdd` | Manual — single step | Iterate on an existing TDD |
-| `/plan-workflow` | Manual — single step | Create a phased execution plan from a TDD — assigns `parallel_group` numbers compatible with `/orchestrate`. Gates: cycle detection, task atomicity (XL split), testing-capability preflight |
-| `/game-plan [docs/GDD.md]` | Manual — multi-agent | **Post-skeleton game completion planner.** Reads GDD + TDD + PROGRESS + codebase → identifies done vs stub vs missing → produces `docs/0_MasterPlan.md` (module tracking table with status) + numbered module plan files (`docs/1_Module.md`, `docs/2_Module.md`, …). Each module plan is `/orchestrate`-ready: tasks with file paths, code skeletons, test types, and `parallel_group` annotations. Use after the architecture skeleton is built. |
+| `/roadmap` | Manual — single step | Read GDD + TDD + existing modules → produce `docs/ROADMAP.md` module table with gap analysis. Run once after TDD is approved. |
+| `/plan-module <n>` | Manual — single step | Just-in-time module planner: ARCHITECTURE_GATE → lean-planner + reviewer → writes `docs/modules/<n>-<name>/spec.md`, `design.md`, `tasks.md` → updates ROADMAP.md. Run immediately before orchestrating that module. |
 
 ### Pipelines (multi-agent)
 
@@ -714,7 +710,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/update-plan --lean <file> <change>` | analyzer → **lean-planner** (Sonnet) → reviewer → save. No implementer auto-spawn. | Small plan changes — task add/remove, file path fix. |
 | `/smart-commit` | Manual to start → analyze dirty tree → group commits → commit | Group working tree changes into logical semantic commits |
 | `/smart-commit-selected` | Manual to start → analyze → plan groups → multiSelect checklist → commit selected | Commit only user-selected groups from working tree |
-| `/orchestrate` | Manual to start. **Within each phase:** tester → coder → verifier (compile + assembly error check + Play Mode entry + VContainerException scan — **blocking**) → reviewer → committer. **Between phases:** pauses for `Proceed?` | Execute WORKFLOW.md end-to-end, phase by phase |
+| `/orchestrate docs/modules/<n>/tasks.md` | Manual to start. **Within each task:** tester → coder → verifier (compile + assembly error check + Play Mode entry + VContainerException scan — **blocking**) → reviewer → committer. **Checkpoint lines** pause for `Proceed?` | Execute a module's `tasks.md` end-to-end; marks checkboxes and updates ROADMAP.md on completion |
 
 > Reviewer priority across all pipelines: Codex → unity-reviewer (falls back if Codex is unavailable). Review loops: CHANGES NEEDED → coder fixes → reviewer re-checks → repeat (max 3 passes).
 >
@@ -758,9 +754,9 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/search <query>` | Manual to start → Explore + unity-scout → reviewer loop (max 5) → findings → action router | Codebase investigation pipeline — presents findings and recommends a next command |
 | `/dump` | Manual — single step | Save current session notes and decisions to `.claude/logs/` |
 | `/five` | Manual — single step | 5 Whys root cause analysis |
-| `/continue` | Manual — resumes orchestrate | Resume an interrupted `/orchestrate` run from the event journal |
-| `/status` | Manual — single step | Report current pipeline stage: GDD → TDD → WORKFLOW progress summary |
-| `/dry-run` | Manual — single step | Preview the orchestration plan for a WORKFLOW.md without executing |
+| `/continue docs/modules/<n>/tasks.md` | Manual — resumes orchestrate | Resume an interrupted `/orchestrate` run from the EVENTS.jsonl journal |
+| `/status` | Manual — single step | Report current pipeline stage: GDD → TDD → ROADMAP → module plans → checkbox progress |
+| `/dry-run docs/modules/<n>/tasks.md` | Manual — single step | Preview pending tasks in a `tasks.md` without executing |
 | `/instincts` | Manual — single step | Manage instinct library: status, list, evolve, promote, export, import |
 
 ### Documentation
@@ -827,7 +823,7 @@ Different tasks need different models. Use the right tier to balance speed and c
 |------|-------|-------|----------|
 | **light** | Haiku | `claude-light` | `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
 | **normal** | Sonnet | `claude-normal` | `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/new-module`, `/performance-audit`, `/clean-slop`, `/catch-up`, `/search` |
-| **heavy** | Opus | `claude-heavy` | `/architect`, `/plan-workflow`, `/game-idea`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
+| **heavy** | Opus | `claude-heavy` | `/architect`, `/roadmap`, `/plan-module`, `/game-idea`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
 
 ### Setup
 
@@ -1212,8 +1208,8 @@ Arts/
 
 **Key rules:**
 - VContainer for DI — no singletons, no service locators
-- Each module is 5 files: `IService`, `Service`, `Configuration`, `Installer`, `Events`
-- `AppScope` never changes — add modules via `AppInstaller.asset`
+- Each module is a static `[X]Module` class + `IService`, `Service`, `Configuration`, `Events` — no ScriptableObject installers
+- `AppScope` never changes — add modules via one line in `AppModules.Install()`
 - `IEventBus` for cross-module communication — no direct cross-module calls
 - `EventBusAccessor` static bridge for ECS ↔ Mono communication (only approved static accessor)
 - Provider pattern — Unity API stays in providers inside `Games/Concretes/<Domain>/`, never in service classes
@@ -1225,7 +1221,7 @@ Arts/
 - All prefabs under `_GameFolders/Prefabs/<Domain>/` (`Bootstrap/`, `CoreObjects/`, `Enemies/`, `UI/Canvases/`, `VFX/`, `Environment/`…); shared-base objects use Prefab Variants; all Canvas prefabs are Prefab Variants of `BaseCanvas`
 - All material assets (.mat) under `Arts/Materials/<Domain>/` — never inside `Prefabs/`; shader files (.shader / .shadergraph) under `_GameFolders/Arts/Shaders/`; never use Built-in Standard shader in a URP project — use the `unity-shader-dev` agent for shader authoring (automatically routes to HLSL or ShaderGraph based on complexity); use the `unity-particle-designer` agent for particle VFX (`Arts/Materials/VFX/` + `_GameFolders/Prefabs/VFX/` + pooling)
 - `AppScope` saved as `Prefabs/Bootstrap/AppScope.prefab`; `EventSystem` and `MainCamera` saved as `Prefabs/CoreObjects/` prefabs — same prefab instance reused across all scenes
-- New Input System only — `InputView` owns `PlayerControls`
+- New Input System only — `InputService` (pure C#, `ITickable`) owns `PlayerControls`; per-prefab `InputHandler` routes actions
 - UniTask everywhere — no coroutines, no `async void`, always pass `CancellationToken`
 - Addressables for all runtime asset loading — no `Resources.Load`
 - NSubstitute + AAA pattern for tests — only interfaces mocked
@@ -1274,12 +1270,16 @@ Runs `.claude/graph/test/verify-graphify.sh` (jq + Python 3.12) on every change 
 These are generated per-project and should NOT be committed back to this template:
 
 ```
-.claude/skills/learned/    ← patterns extracted from your specific project
-docs/CATCH_UP.md           ← auto-generated codebase guide (/catch-up)
-docs/decisions/            ← ADRs specific to your game
-docs/GDD.md                ← game design document (/game-idea)
-docs/TDD.md                ← technical design document (/architect)
-docs/WORKFLOW.md           ← phased execution plan (/plan-workflow)
+.claude/skills/learned/          ← patterns extracted from your specific project
+docs/CATCH_UP.md                 ← auto-generated codebase guide (/catch-up)
+docs/decisions/                  ← ADRs specific to your game
+docs/GDD.md                      ← game design document (/game-idea)
+docs/TDD.md                      ← technical design document (/architect)
+docs/ROADMAP.md                  ← module roadmap table (/roadmap)
+docs/modules/<n>-<name>/         ← per-module plans (/plan-module <n>)
+  spec.md                        ← player stories + acceptance criteria
+  design.md                      ← contracts, events, file map, risks
+  tasks.md                       ← /orchestrate-ready task list with checkboxes
 ```
 
 Note: `docs/ARCHITECTURE.md`, `docs/SETUP.md`, and `docs/engine-reference/` are part of the template and should be kept.
