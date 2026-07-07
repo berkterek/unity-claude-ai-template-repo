@@ -1,10 +1,17 @@
-# Orchestrate — Automated WORKFLOW.md Executor
+# Orchestrate — Modül Task Executor
 
-You are an orchestration agent. Your job is to read `docs/WORKFLOW.md` and execute every task automatically, one phase at a time. Each task runs a three-step pipeline: **coder → reviewer → committer**. After each phase you pause and ask the developer before moving on.
+Bir modülün `tasks.md` dosyasını okuyarak her task'ı otomatik çalıştırır.
+Kullanım: `/orchestrate docs/modules/01-core-loop/tasks.md`
 
-## Step 0 — Plugin Preflight & Argument Parsing
+---
+
+## Step 0 — Argument Parsing & Plugin Preflight
 
 **Parse $ARGUMENTS first:**
+- `$ARGUMENTS` → tasks.md dosya yolu (zorunlu). Eksikse dur:
+  ```
+  tasks.md yolu gerekli. Kullanım: /orchestrate docs/modules/01-core-loop/tasks.md
+  ```
 - Check $ARGUMENTS for `--heavy` flag → if present, set `FORCE_OPUS_TIER=true`
 - Print: `Mode: heavy (all implementation agents → opus tier)` if flag found, else nothing extra.
 
@@ -21,9 +28,21 @@ Plugins: superpowers:verification-before-completion [✓/✗]
 
 ---
 
-## Step 0b — Complexity Scoring
+## Step 0b — Tasks.md Okuma & Complexity Scoring & SCOPE_GATE
 
-**Step 0a — Read Review Mode**
+**Step 0b.1 — Tasks.md Okuma**
+
+1. `$ARGUMENTS`'teki tasks.md dosyasını oku. Dosya yoksa dur:
+   ```
+   tasks.md bulunamadı: [path]
+   Modül planını önce oluşturun.
+   ```
+2. Checkbox'lardan durumu parse et:
+   - `- [x]` → COMPLETE (skip)
+   - `- [ ]` → PENDING (çalıştır)
+3. Tekrar tamamlanan task'lar `[x]` checkbox ile işaretlidir — skip edilir.
+
+**Step 0b.2 — Review Mode**
 
 Read `production/review-mode.txt` (default: `lean` if file missing). This controls pipeline depth:
 
@@ -34,6 +53,8 @@ Read `production/review-mode.txt` (default: `lean` if file missing). This contro
 | `full` | Standard pipeline + unity-developer second reviewer always active (regardless of complexity score). For team review or learning sessions. |
 
 Set mode by editing `production/review-mode.txt`. Print the active mode before proceeding.
+
+**Step 0b.3 — Complexity Scoring**
 
 Before executing any task, score the overall workflow complexity on a 0.0–1.0 scale:
 
@@ -68,96 +89,93 @@ Review Mode: [solo | lean | full]
 
 For **Complex** tasks (score ≥ 0.7) in `lean` or `full` mode: after the standard reviewer step passes for each task, spawn a **unity-developer** subagent review pass before the committer.
 
-### SCOPE_GATE
+**Step 0b.4 — Codebase Pre-Scan**
+
+Before spawning any agents, read the knowledge graph (or fall back to file scan):
+
+Check `.claude/project-features.json`:
+- If `.graph == true`: Read `.claude/graph/graph.json`. If missing, run `/build-knowledge-graph --full --skip-mcp` first.
+- If `.graph != true`: run the original `find`-based scan (fallback below) and skip the jq queries.
+
+**Graph path (preferred):**
+- Existing `_Framework/`: `jq '.codebase.assemblies[] | select(.file | startswith("Assets/_Framework")) | {name, file}' .claude/graph/graph.json`
+- Existing Abstracts: `jq '.codebase.interfaces[] | select(.file | contains("/Games/Abstracts/")) | {name, file}' .claude/graph/graph.json`
+- Existing Concretes: `jq '.codebase.classes[] | select(.file | contains("/Games/Concretes/")) | {name, file, confidence}' .claude/graph/graph.json`
+- Cross-reference each tasks.md task output against the graph. If a file's class exists in the graph AND is registered in an installer, mark the task as a candidate to skip.
+
+**Fallback (no graph):**
+- Run `find _Framework -type f -name "*.cs" -o -name "*.asmdef" 2>/dev/null | sort`
+- Run `find _GameFolders/Scripts/Games/Abstracts -type f -name "*.cs" 2>/dev/null | sort`
+- Run `find _GameFolders/Scripts/Games/Concretes -type f -name "*.cs" 2>/dev/null | sort`
+- If a file already exists, read it and note whether it follows architecture rules (VContainer, UniTask, naming, #region).
+
+Print a **Pre-Scan Report**:
+```
+## Pre-Scan Report
+_Framework: [list of subfolders/assemblies found, or "empty"]
+Existing Abstracts: [list of interfaces, or "none"]
+Existing Concretes: [list of classes, or "none"]
+Conflicts with tasks.md: [list files that already exist and need review, or "none"]
+Architecture issues found: [list any rule violations in existing files, or "none"]
+Graph confidence: [EXTRACTED | mostly_INFERRED | N/A (file-scan mode)]
+```
+
+If a tasks.md output file already exists and is correctly implemented, mark that task as a candidate to skip and ask the developer: "Task [X] output already exists and looks correct — skip or re-implement?"
+
+**Step 0b.5 — SCOPE_GATE**
 
 Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
-Pass: WORKFLOW.md plan name, total phases and tasks, complexity score.
-Wait for `go` before reading WORKFLOW.md or spawning any agents.
+
+```
+## SCOPE_GATE — Modül Orchestration
+
+Plan: [tasks.md dosya yolu]
+Modül: [tasks.md başlığından]
+Toplam task: [sayı]
+Bekleyen: [sayı] (tamamlanan [sayı] skip edilecek)
+Complexity: [score] — [Label]
+Review Mode: [solo|lean|full]
+
+Devam etmek için `go` yaz:
+```
+
+Wait for `go` before spawning any agents.
 
 After receiving `go` → run:
 ```bash
 mkdir -p "$(git rev-parse --show-toplevel)/.claude/state" && echo '{"gate":"SCOPE_GATE","pipeline":"orchestrate","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"
 ```
 
-Note: per-task COMMIT_GATE is intentionally omitted — orchestration is designed to run tasks hands-free. The Phase Gate ("Proceed? yes / no / stop") at the end of each phase serves as the human checkpoint before the next phase begins.
+Note: per-task COMMIT_GATE is intentionally omitted — orchestration is designed to run tasks hands-free. The Phase Gate (Checkpoint) at the end of each checkpoint serves as the human checkpoint before the next section begins.
 
 ---
 
-## Initialization
+## Step 1 — Initialization
 
-1. Verify `docs/WORKFLOW.md` exists. If not, stop: "WORKFLOW.md not found. Run `/plan-workflow` first."
-2. Read `docs/WORKFLOW.md` completely.
-3. Read `.claude/CLAUDE.md` for project constraints.
-4. Read `docs/PROGRESS.md` if it exists — resume from where work left off.
-5. **Codebase Pre-Scan** — before spawning any agents, read the knowledge graph (or fall back to file scan):
+Append to `docs/EVENTS.jsonl` (create if missing):
+```jsonl
+{"event":"ORCHESTRATION_STARTED","plan":"[tasks.md path]","tasks":[N],"timestamp":"[ISO8601]"}
+```
 
-   Check `.claude/project-features.json`:
-   - If `.graph == true`: Read `.claude/graph/graph.json`. If missing, run `/build-knowledge-graph --full --skip-mcp` first.
-   - If `.graph != true`: run the original `find`-based scan (fallback below) and skip the jq queries.
-
-   **Graph path (preferred):**
-   - Existing `_Framework/`: `jq '.codebase.assemblies[] | select(.file | startswith("Assets/_Framework")) | {name, file}' .claude/graph/graph.json`
-   - Existing Abstracts: `jq '.codebase.interfaces[] | select(.file | contains("/Games/Abstracts/")) | {name, file}' .claude/graph/graph.json`
-   - Existing Concretes: `jq '.codebase.classes[] | select(.file | contains("/Games/Concretes/")) | {name, file, confidence}' .claude/graph/graph.json`
-   - Cross-reference each WORKFLOW.md task output against the graph. If a file's class exists in the graph AND is registered in an installer, mark the task as a candidate to skip.
-
-   **Fallback (no graph):**
-   - Run `find _Framework -type f -name "*.cs" -o -name "*.asmdef" 2>/dev/null | sort`
-   - Run `find _GameFolders/Scripts/Games/Abstracts -type f -name "*.cs" 2>/dev/null | sort`
-   - Run `find _GameFolders/Scripts/Games/Concretes -type f -name "*.cs" 2>/dev/null | sort`
-   - If a file already exists, read it and note whether it follows architecture rules (VContainer, UniTask, naming, #region).
-
-   Print a **Pre-Scan Report**:
-   ```
-   ## Pre-Scan Report
-   _Framework: [list of subfolders/assemblies found, or "empty"]
-   Existing Abstracts: [list of interfaces, or "none"]
-   Existing Concretes: [list of classes, or "none"]
-   Conflicts with WORKFLOW.md: [list files that already exist and need review, or "none"]
-   Architecture issues found: [list any rule violations in existing files, or "none"]
-   Graph confidence: [EXTRACTED | mostly_INFERRED | N/A (file-scan mode)]
-   ```
-   - If a WORKFLOW.md output file already exists and is correctly implemented, mark that task as a candidate to skip and ask the developer: "Task [X] output already exists and looks correct — skip or re-implement?"
-6. Append to `docs/EVENTS.jsonl` (create if missing):
-   ```jsonl
-   {"event":"ORCHESTRATION_STARTED","plan":"[game name]","phases":[N],"tasks":[M],"timestamp":"[ISO8601]"}
-   ```
-7. Announce:
-   ```
-   ## Orchestration Starting
-   Plan: [game name]
-   Total phases: X | Total tasks: Y
-   Resuming from: [Phase N, Task P or "beginning"]
-   ```
+Announce:
+```
+## Orchestration Starting
+Plan: [tasks.md path]
+Modül: [tasks.md başlığından]
+Toplam task: [N]
+Bekleyen task: [M]
+Resuming from: [ilk pending task veya "beginning"]
+```
 
 ---
 
 ## Execution Loop
 
-Repeat for each phase (skip completed phases from PROGRESS.md):
-
-### Phase Start
-
-Append to `docs/EVENTS.jsonl`:
-```jsonl
-{"event":"PHASE_STARTED","phase":[N],"name":"[Phase Name]","tasks":[count],"timestamp":"[ISO8601]"}
-```
-
-Print:
-```
----
-## Phase [N]: [Phase Name]
-Goal: [phase goal from WORKFLOW.md]
-Entry Criteria: [entry criteria]
-Tasks: [count]
----
-```
-
----
+Repeat for each pending task in tasks.md (skip tasks with `- [x]` checkbox):
 
 ### Task Execution
 
-Before executing tasks in a phase, check for `parallel_group` annotations in WORKFLOW.md:
+Before executing tasks, check for `parallel_group` annotations in tasks.md:
 
 **If no tasks have `parallel_group`:** Execute all tasks sequentially (existing behavior).
 
@@ -177,11 +195,11 @@ Before executing tasks in a phase, check for `parallel_group` annotations in WOR
 
 ---
 
-#### Sequential Task Execution (for each task without parallel_group, in order)
+#### Sequential Task Execution (for each task, in order)
 
 **Announce the task:**
 ```
-### [P{phase}.T{task}] [Task Title]
+### [Task ID] [Task Title]
 Type: [type] | Agent: [agent type] | Complexity: [S/M/L/XL] | Group: [parallel_group or "sequential"]
 Inputs: [list]
 Outputs: [list]
@@ -189,7 +207,7 @@ Outputs: [list]
 
 Append to `docs/EVENTS.jsonl`:
 ```jsonl
-{"event":"TASK_STARTED","phase":[N],"task":[P],"id":"P{phase}.T{task}","title":"[task title]","agent":"[agent type]","timestamp":"[ISO8601]"}
+{"event":"TASK_STARTED","id":"[task id]","title":"[task title]","agent":"[agent type]","timestamp":"[ISO8601]"}
 ```
 
 Each task runs four steps in sequence (TDD: tests first, then implementation). A failure at any step stops the pipeline.
@@ -212,12 +230,12 @@ Read .claude/CLAUDE.md for project architecture.
 - Only mock interfaces, never concrete classes
 
 ## Task
-ID: [P{phase}.T{task}]
+ID: [task id]
 Title: [task title]
-Description: [full task description from WORKFLOW.md]
+Description: [full task description from tasks.md]
 
 ## Acceptance Criteria (tests must cover these)
-[list every criterion from WORKFLOW.md]
+[list every criterion from tasks.md]
 
 ## Your job
 1. Write failing unit tests BEFORE any implementation exists.
@@ -230,13 +248,12 @@ Report: DONE or BLOCKED with reason.
 
 If **BLOCKED** → stop immediately. Print:
 ```
-⚠ BLOCKED at [P{phase}.T{task}] Step 1 (Test Writer): [reason]
-Fix this before continuing. Run /orchestrate to resume.
+⚠ BLOCKED at [task id] Step 1 (Test Writer): [reason]
+Fix this before continuing. Run /orchestrate [tasks.md path] to resume.
 ```
-Update PROGRESS.md with blocked status.
 Append to `docs/EVENTS.jsonl`:
 ```jsonl
-{"event":"TASK_BLOCKED","phase":[N],"task":[P],"id":"P{phase}.T{task}","step":"tester","reason":"[reason]","timestamp":"[ISO8601]"}
+{"event":"TASK_BLOCKED","id":"[task id]","step":"tester","reason":"[reason]","timestamp":"[ISO8601]"}
 ```
 Exit.
 
@@ -246,7 +263,7 @@ Exit.
 
 If `Agent: unity-setup` → spawn a **unity-setup** subagent.
 
-**Coder agent — use routing table from Step 0:**
+**Coder agent — use routing table from Step 0b.3:**
 - Pure C# target (`_Framework/`, `Games/Abstracts/`, `Games/Concretes/` no Unity API) → **coder**
 - Unity/Mixed target (MonoBehaviour, Provider, Installer, scene wiring) → **unity-coder**
 
@@ -259,9 +276,9 @@ If `Agent: unity-setup` → spawn a **unity-setup** subagent.
 You are a senior C# Unity developer implementing a specific task. Tests have already been written — your job is to make them pass.
 
 ## Task
-ID: [P{phase}.T{task}]
+ID: [task id]
 Title: [task title]
-Description: [full task description from WORKFLOW.md]
+Description: [full task description from tasks.md]
 
 ## Existing Tests (make these pass)
 [tester output — list of test files and what they cover]
@@ -273,7 +290,7 @@ Description: [full task description from WORKFLOW.md]
 [list every output file path]
 
 ## Acceptance Criteria
-[list every criterion from WORKFLOW.md]
+[list every criterion from tasks.md]
 
 ## Project Rules
 - Read .claude/CLAUDE.md before writing any code
@@ -303,9 +320,9 @@ Report: DONE or BLOCKED with reason.
 You are a Unity scene architect setting up a specific task.
 
 ## Task
-ID: [P{phase}.T{task}]
+ID: [task id]
 Title: [task title]
-Description: [full task description from WORKFLOW.md]
+Description: [full task description from tasks.md]
 
 ## Input Files (read these first)
 [list every input file path]
@@ -314,7 +331,7 @@ Description: [full task description from WORKFLOW.md]
 [list every output file path]
 
 ## Acceptance Criteria
-[list every criterion from WORKFLOW.md]
+[list every criterion from tasks.md]
 
 ## Rules
 - Use Unity MCP tools for all scene/prefab work — do NOT read or edit .unity or .prefab files as raw text
@@ -361,13 +378,12 @@ Report: DONE or BLOCKED with reason.
 
 If **BLOCKED** → stop immediately. Print:
 ```
-⚠ BLOCKED at [P{phase}.T{task}] Step 1 (Coder): [reason]
-Fix this before continuing. Run /orchestrate to resume.
+⚠ BLOCKED at [task id] Step 2 (Coder): [reason]
+Fix this before continuing. Run /orchestrate [tasks.md path] to resume.
 ```
-Update PROGRESS.md with blocked status.
 Append to `docs/EVENTS.jsonl`:
 ```jsonl
-{"event":"TASK_BLOCKED","phase":[N],"task":[P],"id":"P{phase}.T{task}","step":"coder","reason":"[reason]","timestamp":"[ISO8601]"}
+{"event":"TASK_BLOCKED","id":"[task id]","step":"coder","reason":"[reason]","timestamp":"[ISO8601]"}
 ```
 Exit.
 
@@ -384,14 +400,14 @@ Reviewer priority — try in order, fall back if unavailable:
 Review the following Unity C# implementation.
 
 ## Task
-ID: [P{phase}.T{task}]
+ID: [task id]
 Title: [task title]
 
 ## Files Changed
 [coder output — list of files with summaries]
 
 ## Acceptance Criteria (must all pass)
-[list every criterion from WORKFLOW.md]
+[list every criterion from tasks.md]
 
 ## Review Criteria
 1. Tests pass — all pre-written tests pass; no test files were modified
@@ -422,7 +438,7 @@ On **CHANGES NEEDED** → automatically enter the review loop (no user prompt ne
    You are a senior C# Unity developer. Fix the following review issues.
 
    ## Task Context
-   ID: [P{phase}.T{task}] — [task title]
+   ID: [task id] — [task title]
 
    ## Review Feedback (fix ALL of these)
    $REVIEWER_FEEDBACK
@@ -438,11 +454,11 @@ On **CHANGES NEEDED** → automatically enter the review loop (no user prompt ne
 
 2. Re-run the reviewer using the same priority order (codex:codex-rescue → unity-reviewer) with the updated files.
 
-3. If APPROVED → proceed to Step 3 (Committer).
+3. If APPROVED → proceed to Step 3.5 (Verifier).
 
 4. If still **CHANGES NEEDED** after 3 passes → stop. Print remaining issues and ask:
    - `skip` → proceed to commit (user accepts responsibility)
-   - `stop` → abort, leave files uncommitted, update PROGRESS.md as blocked
+   - `stop` → abort, leave files uncommitted
 
 ---
 
@@ -454,14 +470,14 @@ Spawn a **unity-verifier** subagent:
 You are a Unity verification agent. Run a final bounded check on completed work.
 
 ## Task
-ID: [P{phase}.T{task}]
+ID: [task id]
 Title: [task title]
 
 ## Files Changed
 [list from coder output]
 
 ## Acceptance Criteria
-[from WORKFLOW.md]
+[from tasks.md]
 
 ## Your Task (max 3 internal iterations)
 
@@ -505,26 +521,26 @@ Report: VERIFIED or ISSUES FOUND with details.
 
 **CRITICAL:** If the verifier reports compile or assembly errors and cannot fix them → the pipeline **MUST STOP**. Do NOT spawn the committer. Print:
 ```
-⛔ BLOCKED at [P{phase}.T{task}] Step 3.5 (Verification): Assembly/compile errors found.
+⛔ BLOCKED at [task id] Step 3.5 (Verification): Assembly/compile errors found.
 [paste error list]
 Fix these errors before this task can be committed.
-Run /orchestrate to resume after fixing.
+Run /orchestrate [tasks.md path] to resume after fixing.
 ```
-Update PROGRESS.md with blocked status. Append to `docs/EVENTS.jsonl`:
+Append to `docs/EVENTS.jsonl`:
 ```jsonl
-{"event":"TASK_BLOCKED","phase":[N],"task":[P],"id":"P{phase}.T{task}","step":"verifier","reason":"compile errors","timestamp":"[ISO8601]"}
+{"event":"TASK_BLOCKED","id":"[task id]","step":"verifier","reason":"compile errors","timestamp":"[ISO8601]"}
 ```
 Exit.
 
 If **VERIFIED** → append to `docs/EVENTS.jsonl`:
 ```jsonl
-{"event":"VERIFICATION_PASSED","phase":[N],"task":[P],"id":"P{phase}.T{task}","title":"[task title]","timestamp":"[ISO8601]"}
+{"event":"VERIFICATION_PASSED","id":"[task id]","title":"[task title]","timestamp":"[ISO8601]"}
 ```
 Then proceed to Step 4 Committer.
 
 If **ISSUES FOUND** and fixed → append VERIFICATION_PASSED event and proceed to Step 4 Committer.
 
-If **cannot fix** → stop. Print blockers and surface to developer before committing. Update PROGRESS.md with blocked status.
+If **cannot fix** → stop. Print blockers and surface to developer before committing.
 
 ---
 
@@ -532,11 +548,11 @@ If **cannot fix** → stop. Print blockers and surface to developer before commi
 
 **Execute commits directly.** Read `.claude/agents/committer.md` for full conventions, then:
 
-- Task completed: `[P{phase}.T{task}]` — `[task title]`
+- Task completed: `[task id]` — `[task title]`
 - Files changed: `[coder/unity-setup output — list of files]`
 - Run: `git status`, `git diff` to confirm what changed
 - Stage only files related to this task
-- Commit message format: `"feat: [P{phase}.T{task}] [task title]"`
+- Commit message format: `"feat: [task id] [task title]"`
 - Do NOT push — user pushes manually
 - Report: commit hash and message
 
@@ -544,21 +560,25 @@ If **cannot fix** → stop. Print blockers and surface to developer before commi
 
 #### After Each Task
 
-Update `docs/PROGRESS.md`:
-```markdown
-- [x] P{phase}.T{task} — [title] — [commit hash] — Reviewer: [Codex|Claude]
+Mark the checkbox in tasks.md:
+```
+- [ ] T001 [task title]  →  - [x] T001 [task title]
 ```
 
 Append to `docs/EVENTS.jsonl`:
 ```jsonl
-{"event":"TASK_COMPLETED","phase":[N],"task":[P],"id":"P{phase}.T{task}","title":"[task title]","commit":"[hash]","reviewer":"[Codex|Claude]","timestamp":"[ISO8601]"}
+{"event":"TASK_COMPLETED","id":"[task id]","title":"[task title]","commit":"[hash]","reviewer":"[Codex|Claude]","timestamp":"[ISO8601]"}
 ```
 
 ---
 
-### Phase Gate
+### Phase Gate (Checkpoint)
 
-After all tasks in a phase complete, run the automated QA sequence before asking the developer:
+tasks.md'de `**Checkpoint:**` ile başlayan satırlar phase gate noktalarıdır.
+
+Her Checkpoint'e ulaşıldığında:
+
+1. Run the automated QA sequence below before asking the developer.
 
 #### Step 1 — Ralph (compile + test green)
 
@@ -590,14 +610,14 @@ Print: `✓ Ralph passed — compile and tests green.` or `⛔ Ralph failed afte
 Spawn a **unity-linter** subagent with this prompt:
 
 ```
-Audit all files changed in this phase for silent failure patterns:
+Audit all files changed in this checkpoint for silent failure patterns:
 - catch blocks that swallow exceptions without logging
 - async void outside Unity lifecycle methods
 - IEventBus subscriptions without matching Unsubscribe
 - UniTask.Forget() without an error handler
 - empty catch blocks
 
-Files to audit: [list of output files from this phase's tasks]
+Files to audit: [list of output files from this checkpoint's tasks]
 
 Report each finding as: [file:line] — [pattern] — [fix]
 If none found: CLEAN
@@ -610,10 +630,9 @@ Print findings or `✓ Silent failure hunt — CLEAN.`
 Spawn a **general-purpose** subagent (`model: sonnet`) with the validate prompt:
 
 ```
-You are a strict QA gate. Validate phase [N] of this orchestration.
+You are a strict QA gate. Validate the tasks completed up to this checkpoint.
 
-WORKFLOW.md phase [N] tasks and acceptance criteria: [paste from WORKFLOW.md]
-PROGRESS.md reported status: [paste phase section]
+tasks.md checkpoint tasks and acceptance criteria: [paste from tasks.md]
 
 Checks:
 1. All output files exist at specified paths
@@ -632,63 +651,39 @@ If **FAIL** → print failures, ask user: `Validation failed. Fix issues and typ
 
 If **PASS** → proceed to developer prompt.
 
-**If `superpowers:verification-before-completion` is available:** Invoke it now before reporting Phase complete. Verify all acceptance criteria from WORKFLOW.md phase [N] are genuinely met.
+**If `superpowers:verification-before-completion` is available:** Invoke it now before reporting Checkpoint complete. Verify all acceptance criteria from tasks.md up to this checkpoint are genuinely met.
 
 #### Step 4 — Developer Prompt
 
 Print:
 ```
-## Phase [N] QA Complete ✓
+## Checkpoint: [checkpoint metni]
 Ralph: green | Silent failures: [CLEAN / N findings] | Validate: PASS
 
-Ready to start Phase [N+1]: [name]
-Goal: [goal]
-Tasks: [count]
+Devam edilecek sonraki task'lar: [list]
 
-Proceed? (yes / no / stop)
+Devam? (yes / no / stop)
 ```
 
 **Wait for the developer's response.**
 - `yes` → append to `docs/EVENTS.jsonl`:
   ```jsonl
-  {"event":"PHASE_COMPLETED","phase":[N],"name":"[Phase Name]","tasks_done":[count],"timestamp":"[ISO8601]"}
+  {"event":"CHECKPOINT_COMPLETED","checkpoint":"[checkpoint metni]","timestamp":"[ISO8601]"}
   ```
-  Then continue to next phase.
-- `no` or `stop` → exit gracefully, remind them to run `/continue` to resume.
-
----
-
-## Progress Tracking
-
-`docs/PROGRESS.md` format:
-
-```markdown
-# Execution Progress
-**Plan:** [game name]
-**Started:** [date]
-**Last updated:** [date]
-
-## Phase 1: Infrastructure Foundation — COMPLETE
-- [x] P1.T1 — IEventBus + EventBus — abc1234 — Reviewer: Codex
-- [x] P1.T2 — ModuleInstaller base — def5678 — Reviewer: Claude
-
-## Phase 2: Core Game Logic — IN PROGRESS
-- [x] P2.T1 — EnemyService — 9ab1234 — Reviewer: Codex
-- [ ] P2.T2 — ScoreService — pending
-- [ ] P2.T3 — PlayerService — pending
-
-## Phase 3: Unit Tests — PENDING
-```
-
-On startup, read this file and skip already-completed tasks.
+  Then continue to next tasks.
+- `no` or `stop` → append to `docs/EVENTS.jsonl`:
+  ```jsonl
+  {"event":"ORCHESTRATION_PAUSED","checkpoint":"[checkpoint metni]","timestamp":"[ISO8601]"}
+  ```
+  Exit gracefully. Remind them to run `/orchestrate [tasks.md path]` to resume.
 
 ---
 
 ## Rules
 
-- **Never skip acceptance criteria.** Re-read WORKFLOW.md criteria if a result is ambiguous.
+- **Never skip acceptance criteria.** Re-read tasks.md criteria if a result is ambiguous.
 - **Never continue past a BLOCKED task.** Fix it first.
-- **Phase gates are mandatory.** Always pause and ask between phases.
+- **Checkpoints are mandatory.** Always pause and ask at every `**Checkpoint:**` line.
 - **One pipeline per task.** Never batch multiple tasks into one subagent call.
 - **Subagents get no session history.** Write every prompt as if they know nothing about this conversation.
 - **Reviewer tries Codex first.** Fall back to unity-reviewer if Codex is unavailable.
@@ -699,21 +694,21 @@ On startup, read this file and skip already-completed tasks.
 
 Run: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"`
 
+Update `docs/ROADMAP.md` — ilgili modül satırını bul ve Status'u güncelle: `→ ✅ Complete`
+
 ```
 ## Orchestration Complete
-All [N] phases, [M] tasks executed.
 
-Summary:
-- Phase 1: [N] tasks ✓
-- Phase 2: [N] tasks ✓
-...
+tasks.md: [path]
+Tamamlanan task'lar: [N]
+Skip edilen (zaten tamamlanmış): [M]
 
-Next step: Run /validate to verify the full build, then /review-code on key systems.
+Sıradaki adım: /roadmap ile ROADMAP.md'yi güncelle
 ```
 
 Append to `docs/EVENTS.jsonl`:
 ```jsonl
-{"event":"ORCHESTRATION_COMPLETE","phases":[N],"tasks":[M],"timestamp":"[ISO8601]"}
+{"event":"ORCHESTRATION_COMPLETE","plan":"[tasks.md path]","tasks":[N],"skipped":[M],"timestamp":"[ISO8601]"}
 ```
 
 $ARGUMENTS
