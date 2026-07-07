@@ -103,6 +103,8 @@ When starting a new conversation on this project, read these files first:
 - "How does X reach Y?" → `/knowledge-graph path AudioService.PlaySound UIManager.UpdateHUD`
 - "Which classes are over-coupled?" → `/knowledge-graph god-nodes`
 
+Before modifying any injectable class: apply Card 0 (solid-oop.md) — if no `[SerializeField]` and no Unity callbacks needed, make it pure C#.
+
 If the user asks to continue work on a specific module, also read its source files before making any changes.
 
 Before modifying or implementing any existing system, check `skills-index.md` for a relevant skill first — do not read source files directly if a skill covers the system.
@@ -119,15 +121,15 @@ Detailed coding standards in `.claude/rules/`:
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
-| `unity-input.md` | New Input System, InputView pattern, action map switching |
+| `unity-input.md` | New Input System, InputService (ITickable) + InputHandler (per-prefab), action map switching. InputView removed. |
 | `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, BaseCanvas pattern, Prefab Variants (Base+Variant decision table), folder structure, logic/visual separation |
 | `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]`→`[VFX]`), classification table, prefab/container rules, enforcement |
-| `bootstrap-pattern.md` | IInstaller → ModuleInstaller → [Module]Installer → AppInstaller → AppScope layer structure, EventBusInstaller requirement, GameScope scene-based wiring (SerializeField + RegisterComponent), new module addition flow |
-| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller only, ~100 satır max); **suffix kuralı: `*View` yalnızca Canvas/UI, `*Controller` gameplay/karakter, `*Provider` Unity API soyutlaması**; SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
+| `bootstrap-pattern.md` | Code-first static Module pattern: [X]Module static class → AppModules.cs → AppScope. ConfigCatalog, SceneModules, new module addition flow. |
+| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller only, ~100 satır max); **suffix kuralı: `*View` yalnızca Canvas/UI, `*Controller` gameplay/karakter, `*Provider` Unity API soyutlaması**; SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı; 4-tier: Mono Shell (≤80 ln) / Handler (pure C#) / Service+EntryPoint / Provider |
 
 ## Hooks (auto-enforced on every Write/Edit)
 
