@@ -85,6 +85,10 @@ If your task prompt includes a **Mailbox** or **Heartbeat** section, follow thes
 - [ ] **No GameContext / Service Locator**: No class that bundles multiple dependencies into a single injectable object. Every class must declare only its own specific dependencies via constructor or `[Inject] Construct`. If a class takes a "context" or "container" parameter that exposes unrelated dependencies → **FAIL**
 - [ ] No static mutable state, no singletons
 - [ ] Class structure matches TDD specification
+- [ ] **Card 0 gate (MonoBehaviour decision)**: New MonoBehaviour passes Card 0 gate from `rules/solid-oop.md` — has `[SerializeField]` fields, Unity callbacks, cross-module Unity API boundary (Provider), or Canvas (View)? If none → **FAIL**, must be pure C#.
+- [ ] **Shell purity**: Controller/View shells only forward in Update/FixedUpdate/LateUpdate? No branching, calculation, state fields, or `_eventBus.Publish()` in lifecycle methods → **FAIL**.
+- [ ] **Handler boundary**: Handler not injected across prefab boundaries? If another class takes a Handler constructor parameter → **FAIL**, Handler must be promoted to Service.
+- [ ] **Interface-first on injectables**: Every Handler, Service, and Provider has an interface? Test suite is a caller; single production caller is not justification to omit → **FAIL**.
 
 ### UI Compliance (CRITICAL — blocks PASS)
 - [ ] All UI elements under a Canvas use RectTransform, NOT plain Transform

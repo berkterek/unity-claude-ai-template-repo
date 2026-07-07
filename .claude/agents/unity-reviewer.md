@@ -48,6 +48,10 @@ You are a senior Unity code reviewer. Review code for correctness, performance, 
 - [ ] **Tight coupling** — systems directly referencing each other instead of events/interfaces?
 - [ ] **Magic numbers/strings** — hardcoded values without constants or `nameof()`?
 - [ ] **Public fields** — should be `[SerializeField] private` with read-only property?
+- [ ] **Card 0 gate** — New MonoBehaviour passes Card 0 gate (`rules/solid-oop.md`)? Has `[SerializeField]` fields, Unity callbacks, cross-module Unity API boundary (Provider), or Canvas (View)?
+- [ ] **Shell purity** — Controller/View shells only forward in Update/FixedUpdate/LateUpdate? No branching, calculation, state fields, or `_eventBus.Publish()` in lifecycle methods?
+- [ ] **Handler boundary** — Handler not injected across prefab boundaries? If another class takes a Handler constructor parameter → indicate it should be promoted to Service.
+- [ ] **Interface-first** — Injectable classes (Handler, Service, Provider) have interfaces? Test suite is a caller; single production caller is not justification to omit interface.
 
 ### Unity-Specific (Watch For)
 
