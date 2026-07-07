@@ -217,8 +217,8 @@ namespace Game.Concretes.Input
 
         public void Tick()
         {
-            _jumpPressed = false; // clear one-frame flag before consumers read it
             _moveInput   = _controls.Player.Move.ReadValue<Vector2>();
+            _jumpPressed = false; // clear AFTER consumers read it — Update runs after EntryPoint Tick
         }
 
         public void Dispose()
