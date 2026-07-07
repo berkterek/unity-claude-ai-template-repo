@@ -2,6 +2,12 @@
 
 > Read the **Cards** section first. The prose below is reference detail.
 
+## Mono Shell Rule (NON-NEGOTIABLE)
+
+A Tier 1 Mono Shell (Controller/View) must NEVER publish or subscribe to IEventBus directly. Shell has no injected IEventBus. Event publishing is the Handler's or Service's responsibility — forwarded via the shell's handler reference. The shell's only job is to forward lifecycle calls to its handlers.
+
+---
+
 ## Cards
 
 ### Card 1: UnityEvent is Forbidden
@@ -100,12 +106,14 @@ public sealed class HealthService : IHealthService
 ## Decision Tree: Which Pattern to Use?
 
 ```
-Is the event crossing module boundaries?
-├── YES → IEventBus (publish/subscribe)
-└── NO — is it a one-time callback passed into a method?
-    ├── YES → System.Action / System.Func<T>
-    └── NO — is it an internal module notification?
-        └── YES → C# event keyword
+Is this a Mono Shell (Tier 1 Controller/View)?
+├── YES → Shell must NOT publish — delegate to Handler or Service
+└── NO — is the event crossing module boundaries?
+    ├── YES → IEventBus (publish/subscribe)
+    └── NO — is it a one-time callback passed into a method?
+        ├── YES → System.Action / System.Func<T>
+        └── NO — is it an internal module notification?
+            └── YES → C# event keyword
 ```
 
 ---
@@ -137,6 +145,8 @@ private void OnEnemyDied(EnemyDiedEvent e) { }
 - Name: past tense + `Event` suffix (`LevelStartedEvent`, `CoinsChangedEvent`)
 - Always unsubscribe in `Dispose()` (plain C#) or `OnDisable()` (MonoBehaviour)
 - Never subscribe in `Awake()` or constructors
+
+**Handlers (Tier 2):** A Handler that needs to publish events receives IEventBus via its constructor (injected through the owning Controller's `Func<Rigidbody, IEventBus, IMyHandler>` factory). See `rules/architecture.md → Handler factory pattern`.
 
 ---
 

@@ -54,6 +54,8 @@ private void Update() => _transform.position += Vector3.forward;
 - `Camera.main` (calls FindObjectOfType internally) → `[SerializeField] private Camera _camera`
 - `Animator.StringToHash()` / `Shader.PropertyToID()` → `static readonly int` (PascalCase, cached at class level)
 
+**Handler context:** A Tier 2 Handler (pure C#) cannot use `[SerializeField]`. Unity component refs it needs (Rigidbody, Transform, AudioSource) must be passed as constructor parameters by the owning Controller shell. The shell caches them via `[SerializeField]`, the Handler receives them clean. See `rules/architecture.md → Handler pattern`.
+
 ---
 
 ## Avoid Allocations
