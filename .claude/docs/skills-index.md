@@ -17,7 +17,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `unity-asmdef` | .asmdef authoring — references, platforms, define constraints, user-invocable |
 | `source-driven-development` | Fetch official Unity docs before writing API calls — cites sources, flags deprecated APIs, surfaces version conflicts |
 | `documentation-and-adrs` | ADR creation for architectural decisions — `/adr` command, `docs/decisions/` folder, lifecycle management |
-| `planning-and-task-breakdown` | Vertical slice decomposition + per-task acceptance criteria for `/create-plan` and `/plan-workflow` |
+| `planning-and-task-breakdown` | Vertical slice decomposition + per-task acceptance criteria for `/create-plan` and `/plan-module` |
 | `writing-plans` | Plan authoring — required End State section, bite-sized tasks, no-placeholder rules, self-review checklist |
 | `executing-plans` | Plan execution — pre-flight summary (Understood / Unclear / Assumptions) before any code is written |
 | `code-simplification` | Chesterton's Fence discipline for `/clean-slop` — understand before removing, behavior-preserving refactor |

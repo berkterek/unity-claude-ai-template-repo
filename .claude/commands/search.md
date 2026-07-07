@@ -257,7 +257,7 @@ Decide which single action the developer should take next. Choose from:
 | `/fix-deep <summary>` | Logic bug, intermittent issue, or race condition where root cause is still uncertain |
 | `/implement <summary>` | Missing feature, architectural gap, or something that needs to be built |
 | `/create-plan <file> <summary>` | Complex change spanning multiple modules that needs a phased plan before implementation |
-| `/update-plan <file> <summary>` | Existing plan or WORKFLOW.md needs to be updated based on the findings |
+| `/update-plan <file> <summary>` | Existing plan or module tasks.md needs to be updated based on the findings |
 | `no action` | Pure exploration query ("how does X work") — findings are informational only |
 
 ## Output Format (REQUIRED)

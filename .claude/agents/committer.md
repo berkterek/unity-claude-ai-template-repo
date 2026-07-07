@@ -112,8 +112,8 @@ Not-tested: concurrent access from multiple systems (deferred to integration pha
 1. **Run `git status`** — see all untracked and modified files
 2. **Run `git diff`** — see all unstaged changes in detail
 3. **Run `git diff --cached`** — see any already-staged changes
-4. **Read `docs/WORKFLOW.md`** — understand what tasks were in this phase so you can reference task IDs
-5. **Read `docs/PROGRESS.md`** — confirm which tasks passed review
+4. **Read the relevant `docs/modules/<n>/tasks.md`** — understand what tasks were in this module so you can reference task IDs
+5. **Read the relevant `docs/modules/<n>/tasks.md` for completed task context** — confirm which tasks passed review (check `[x]` checkboxes)
 6. **Plan commit groups** — analyze the file list and diffs, decide the logical groupings and ordering
 7. **Execute commits** — for each group, in dependency order:
    - `git add <specific files>` — add only the files for this logical group
@@ -145,7 +145,7 @@ If your task prompt includes a **Mailbox** or **Heartbeat** section, follow thes
 - **Prefer fewer, well-grouped commits over one-file-per-commit** — aim for 2-6 commits per phase depending on scope
 - **Verify file existence** before adding — if a file was deleted, use `git add` on the deletion
 - **Include meta files** — Unity `.meta` files must be committed alongside their corresponding assets
-- **Docs go last** — PROGRESS.md, ACTIVITY_LOG.md, and other doc updates go in a final "docs" commit
+- **Docs go last** — tasks.md checkbox updates, ROADMAP.md status updates, and EVENTS.jsonl go in a final "docs" commit
 
 ## Context Checkpoint
 

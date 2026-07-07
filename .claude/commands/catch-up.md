@@ -9,8 +9,8 @@ You think like a staff engineer onboarding onto a new project: you care about ar
 1. **Prerequisite check:** Verify documents exist:
    - `docs/GDD.md` — needed for design intent
    - `docs/TDD.md` — needed for architectural decisions
-   - `docs/WORKFLOW.md` — needed for phase structure
-   - `docs/PROGRESS.md` — needed for execution history
+   - `docs/ROADMAP.md` — needed for phase structure
+   - relevant `tasks.md` — needed for execution history
    If ANY are missing, tell the user what's missing. You can still proceed with what's available.
 2. Read all available pipeline documents.
 3. Scan the Unity project source tree to discover all generated scripts.

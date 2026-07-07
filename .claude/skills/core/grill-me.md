@@ -21,7 +21,7 @@ Conduct a relentless interview about a plan, design decision, or architectural c
 
 - You have a plan and want to find holes before writing code
 - You're about to make an architectural decision (new module, new pattern, DI wiring)
-- You want to stress-test a GDD, TDD, or WORKFLOW phase
+- You want to stress-test a GDD, TDD, or module tasks.md
 - You suspect a decision will cause problems later but can't articulate why
 
 ## Model Delegation (NON-NEGOTIABLE)

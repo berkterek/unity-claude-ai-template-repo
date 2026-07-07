@@ -227,7 +227,7 @@ Group files into atomic commits by system boundary, ordered by dependency:
 5. ScriptableObject configs and assets
 6. Tests
 7. MonoBehaviour adapters and scene-related files
-8. Documentation (PROGRESS.md, CHANGELOG.md last)
+8. Documentation (tasks.md checkbox updates, ROADMAP.md, CHANGELOG.md last)
 
 **Rules:**
 - Never `git add -A` or `git add .` — always add specific files

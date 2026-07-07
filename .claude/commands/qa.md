@@ -12,8 +12,8 @@ Runs a three-stage quality check on the current codebase state: compile + test g
 
 | Argument | Effect |
 |----------|--------|
-| *(none)* | Audit all recently changed files, validate most recently completed phase |
-| `--phase N` | Validate a specific phase from WORKFLOW.md |
+| *(none)* | Audit all recently changed files, validate most recently completed tasks |
+| `<tasks.md path>` | Validate tasks from a specific module tasks.md |
 | `--files <path>` | Scope silent failure hunt to specific files or folder |
 
 ---
@@ -88,20 +88,20 @@ Print all findings or `✓ Stage 2 — Silent failures: CLEAN.`
 
 ## Stage 3 — Validate
 
-Determine which phase to validate:
-- If `--phase N` given → validate phase N
-- Otherwise → validate the most recently completed phase from `docs/PROGRESS.md`
+Determine which tasks to validate:
+- If a tasks.md path given → validate tasks from that file
+- Otherwise → validate the most recently completed tasks from `[x]` checkboxes in `docs/modules/*/tasks.md`
 
-If no WORKFLOW.md or PROGRESS.md exists → skip this stage and note: `Stage 3 skipped — no WORKFLOW.md found.`
+If no tasks.md exists → skip this stage and note: `Stage 3 skipped — no tasks.md found.`
 
 Spawn a **general-purpose** subagent (`model: sonnet`) with this prompt:
 
 ```
-You are a strict QA gate. Validate phase [N] — [Phase Name].
+You are a strict QA gate. Validate the completed tasks.
 
 Read:
-- docs/WORKFLOW.md — task definitions and acceptance criteria for this phase
-- docs/PROGRESS.md — reported completion status
+- [tasks.md path] — task definitions and acceptance criteria
+- tasks.md checkbox status — reported completion status
 
 Checks:
 1. All output files listed in WORKFLOW.md for this phase exist at the specified paths
@@ -146,6 +146,6 @@ Issues found. Options:
 
 - `fix` → spawn **unity-coder** subagent with all findings as a fix list, then re-run `/qa`
 - `list` → print full details for each finding
-- `skip` → exit with warning logged to `docs/PROGRESS.md`
+- `skip` → exit with warning logged to the relevant tasks.md
 
 $ARGUMENTS

@@ -4,14 +4,14 @@ You preview what the orchestrator WOULD do without actually executing anything. 
 
 ## Initialization
 
-1. **Prerequisite check:** Verify `docs/GDD.md`, `docs/TDD.md`, and `docs/WORKFLOW.md` all exist. If any are missing, tell the user which to create first.
+1. **Prerequisite check:** Verify `docs/GDD.md`, `docs/TDD.md`, and the tasks.md path from `$ARGUMENTS` all exist. If any are missing, tell the user which to create first. Modül planı için önce `/plan-module <n>` çalıştırın.
 2. Read all three documents.
 3. Read `CLAUDE.md` for constraints.
 4. Check if `$ARGUMENTS` contains `--eco`. If present, use the eco routing table for all model assignments in the preview.
 
 ## Process
 
-Analyze the WORKFLOW.md and produce an execution preview:
+Analyze the tasks.md and produce an execution preview:
 
 ```
 ## Orchestration Dry Run
@@ -55,7 +55,7 @@ Analyze the WORKFLOW.md and produce an execution preview:
 - [Critical path bottlenecks]
 
 ### Proceed?
-Run `/orchestrate` to execute this plan.
+Run `/orchestrate docs/modules/<n>-<name>/tasks.md` to execute this plan.
 ```
 
 ## Rules

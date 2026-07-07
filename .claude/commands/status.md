@@ -1,71 +1,64 @@
 # Pipeline Status Reporter
 
-You are a concise status reporter for the Game Factory pipeline. Your job is to quickly assess and display the current state of the game development pipeline.
+Proje pipeline'ının mevcut durumunu hızlıca gösterir.
 
 ## Process
 
-1. Check which documents exist and read them:
-   - `docs/GDD.md` — Game Design Document
-   - `docs/TDD.md` — Technical Design Document
-   - `docs/WORKFLOW.md` — Execution Plan
-   - `docs/PROGRESS.md` — Orchestration Progress
+1. Şu dosyaları oku (varsa):
+   - `docs/GDD.md` — Oyun Tasarım Dokümanı
+   - `docs/TDD.md` — Teknik Mimari
+   - `docs/ROADMAP.md` — Modül yol haritası ve status rollup
+   - `docs/modules/` — mevcut modüllerin tasks.md'lerini tara
 
-2. Determine the current pipeline stage:
-   - **No docs** → Pipeline not started. Suggest `/build-game` or `/game-idea`.
-   - **GDD only** → GDD complete. Next step: `/architect`
-   - **GDD + TDD** → Architecture complete. Next step: `/plan-workflow`
-   - **GDD + TDD + WORKFLOW** → Plan ready. Next step: `/orchestrate`
-   - **GDD + TDD + WORKFLOW + PROGRESS** → Orchestration in progress or complete. Read PROGRESS.md for details.
+2. Pipeline aşamasını belirle:
+   - **Hiç doküman yok** → Pipeline başlamadı. `/game-idea` veya GDD oluştur.
+   - **Yalnızca GDD** → GDD hazır. Sıradaki: `/architect`
+   - **GDD + TDD** → Mimari hazır. Sıradaki: `/roadmap`
+   - **GDD + TDD + ROADMAP** → Yol haritası hazır. Sıradaki: `/plan-module <n>`
+   - **Modül planları var** → Her tasks.md'nin checkbox durumunu oku ve özetle.
 
-3. If PROGRESS.md exists, report:
-   - Current phase and task status
-   - How many tasks complete / total
-   - Any blockers or failed reviews
-   - Estimated completion (tasks remaining)
+3. `docs/ROADMAP.md` varsa modül tablosunu göster (mevcut status'larıyla).
 
-3b. If `docs/EVENTS.jsonl` exists, read the last 10 events and show a timeline:
+4. Son 10 EVENTS.jsonl olayını göster (varsa):
    ```
-   ### Recent Events
-   - [10:35:00] phase_transition → Phase 3: Pure C# Logic
-   - [10:34:00] review_verdict → P2.T3 PASS
-   - [10:30:00] agent_completed → coder-1 finished P2.T3
+   ### Son Olaylar
+   - [10:35:00] ORCHESTRATION_COMPLETE — 01-core-loop
+   - [10:34:00] TASK_COMPLETED — T003
    ...
    ```
 
-4. Scan the project for generated code:
-   - Count `.cs` files in `Assets/Scripts/`
-   - Count test files in `Assets/Tests/` or `Tests/`
-   - Count ScriptableObject assets in `Assets/Data/`
-   - Count prefabs in `Assets/Prefabs/`
+5. Proje dosyalarını tara:
+   - `.cs` dosya sayısı: `_GameFolders/Scripts/`
+   - Test dosyası sayısı: `_GameFolders/Scripts/Tests/`
+   - Prefab sayısı: `_GameFolders/Prefabs/`
 
-## Output Format
+## Çıktı Formatı
 
 ```
-## 🏭 Game Factory — Pipeline Status
+## Pipeline Status
 
-**Project:** [Game name from GDD or "Not started"]
-**Current Stage:** [Stage name]
-**Next Action:** [What to run next]
+**Proje:** [GDD'den oyun adı veya "Başlamadı"]
+**Mevcut Aşama:** [aşama adı]
+**Sıradaki Adım:** [çalıştırılacak komut]
 
-### Documents
+### Dokümanlar
 - [✅|❌] GDD  — docs/GDD.md
 - [✅|❌] TDD  — docs/TDD.md
-- [✅|❌] Plan — docs/WORKFLOW.md
-- [✅|❌] Progress — docs/PROGRESS.md
+- [✅|❌] ROADMAP — docs/ROADMAP.md
 
-### Orchestration Progress (if applicable)
-- Phase: X/Y
-- Tasks: completed/total
-- Status: [Running | Paused | Complete | Blocked]
-- Blockers: [list or "None"]
+### Modüller (ROADMAP özeti)
+| # | Modül | Status |
+|---|-------|--------|
+| 01 | core-loop | ✅ Complete |
+| 02 | audio | ⏳ Pending |
 
-### Generated Assets
-- C# Scripts: [count]
-- Test Files: [count]
-- ScriptableObjects: [count]
-- Prefabs: [count]
+### Son Olaylar (EVENTS.jsonl)
+[son 10 olay]
+
+### Üretilen Varlıklar
+- C# Scripts: [sayı]
+- Test Dosyaları: [sayı]
+- Prefablar: [sayı]
 ```
-
-Keep the output short and scannable. The developer wants a quick glance, not a report.
 
 $ARGUMENTS

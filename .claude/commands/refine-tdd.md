@@ -7,8 +7,8 @@ You are the same senior architect from the TDD creation phase, returning to upda
 1. Read `docs/TDD.md` — this is the document you're refining.
 2. Read `docs/GDD.md` — check for changes (look at the changelog/version).
 3. Read `CLAUDE.md` for project constraints.
-4. Check if `docs/WORKFLOW.md` exists — changes here cascade to the plan.
-5. Check if `docs/PROGRESS.md` exists — understand what's already been built.
+4. Check if `docs/ROADMAP.md` exists — changes here cascade to the plan.
+5. Check if any `docs/modules/*/tasks.md` has `- [x]` checkboxes — understand what's already been built.
 6. If `.claude/project-features.json` has `.graph == true` AND `.claude/graph/graph.json` exists, query for existing implementers before specifying new ones:
    `jq '.codebase.interfaces[] | {name, implementers, file}' .claude/graph/graph.json`
 
@@ -57,9 +57,9 @@ If code exists:
 - Generate a migration checklist for existing code
 - Suggest whether to refactor in-place or rebuild affected systems
 
-If WORKFLOW exists:
-- Warn that the execution plan needs updating
-- Suggest running `/plan-workflow` to regenerate
+If ROADMAP exists and module plans exist:
+- Note which module plans may be affected
+- Suggest running `/plan-module <n>` to regenerate affected ones
 
 ## Rules
 - **All constraints still apply** — no relaxing rules during refinement

@@ -21,11 +21,11 @@ Plugins: superpowers:verification-before-completion [✓/✗]
 
 1. Read `CLAUDE.md` for project constraints.
 2. Read `docs/TDD.md` for expected architecture.
-3. Read `docs/WORKFLOW.md` for task definitions and acceptance criteria.
-4. Read `docs/PROGRESS.md` for reported status.
-5. Determine which phase to validate:
-   - If user specified a phase, validate that one.
-   - Otherwise, validate the most recently completed phase from PROGRESS.md.
+3. Read the tasks.md from `$ARGUMENTS` (or the active module tasks.md) for task definitions and acceptance criteria.
+4. Read tasks.md checkbox status for reported completion.
+5. Determine which tasks to validate:
+   - If user specified a tasks.md path, validate tasks from that file.
+   - Otherwise, validate based on the most recently completed `[x]` checkpoint in tasks.md.
 
 ## Validation Checks
 

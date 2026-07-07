@@ -45,9 +45,9 @@ AppScope.Configure()                 ← calls AppModules; never changes
 | Phase | Commands | What happens |
 |-------|---------|--------------|
 | 1 — Idea & Design | `/game-idea`, `/architect` | GDD → TDD with adversarial review |
-| 2 — Planning | `/plan-workflow`, `/dry-run` | WORKFLOW.md phases, preview without execution |
+| 2 — Planning | `/roadmap`, `/plan-module`, `/dry-run` | Module roadmap + per-module spec/design/tasks, plan preview |
 | 3 — Project Setup | `/setup-project` | Folder structure, .asmdefs, base classes, URP quality tiers, audio import settings |
-| 4 — Implementation | `/orchestrate`, `/continue` | Execute WORKFLOW.md phase by phase |
+| 4 — Implementation | `/orchestrate`, `/continue` | Execute module tasks.md task by task |
 | 5 — Quality | `/validate`, `/review-code`, `/ralph`, `/performance-audit` | Compile + tests green, code review, fix loops, hot path audit |
 | 6 — Documentation | `/learn`, `/catch-up`, `/adr`, `/smart-commit`, `/smart-commit-selected` | Extract patterns, generate CATCH_UP.md, record decisions, commit (selected or all) |
 

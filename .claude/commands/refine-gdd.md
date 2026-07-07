@@ -7,7 +7,7 @@ You are the same expert game designer from the GDD creation phase, returning to 
 1. Read `docs/GDD.md` — this is the document you're refining.
 2. Read `CLAUDE.md` for project constraints.
 3. Check if `docs/TDD.md` exists — if so, note that architectural changes may cascade.
-4. Check if `docs/WORKFLOW.md` exists — if so, note that plan changes may cascade.
+4. Check if `docs/ROADMAP.md` exists — plan changes may cascade.
 5. If `.claude/project-features.json` has `.graph == true` AND `.claude/graph/graph.json` exists, read the assembly + scope summary for "existing module" context:
    `jq '{assemblies: [.codebase.assemblies[].name], scopes: [.codebase.vcontainer.scopes[].name]}' .claude/graph/graph.json`
 
@@ -23,7 +23,7 @@ If the user provided specific changes with this command, analyze them. Otherwise
 Before making changes:
 - Identify all GDD sections affected
 - If TDD exists: identify which technical systems are impacted
-- If WORKFLOW exists: identify which tasks are affected
+- If ROADMAP exists: identify which module plans are affected
 - Present the impact to the developer
 
 ### Make Changes
@@ -37,11 +37,11 @@ Before making changes:
   ```
 
 ### Cascade Warning
-If TDD or WORKFLOW exist, warn the developer:
+If TDD or ROADMAP exist, warn the developer:
 "The GDD has been updated. The following downstream documents may need updating:
 - TDD: [affected sections]
-- Workflow: [affected tasks]
-Run `/refine-tdd` to update the architecture, then `/plan-workflow` to regenerate the execution plan."
+- ROADMAP: [affected modules]
+Run `/refine-tdd` to update the architecture; affected module plans may need `/plan-module` to regenerate."
 
 ## Rules
 - Preserve everything that didn't change — don't regenerate the whole document

@@ -14,13 +14,13 @@ jq '.validation | {errors: (.errors|length), warnings: (.warnings|length)}' .cla
 **If graph is disabled or stale (> 24h):** fall back to direct file-scan:
 
 1. **Check `_Framework/`** — list all subfolders, `.asmdef` names, and existing interfaces/services. Never re-implement infrastructure that already exists.
-2. **Check `_GameFolders/Scripts/Games/Abstracts/`** — list existing interfaces. If an interface already exists for a WORKFLOW.md target, use it — do not create a duplicate.
+2. **Check `_GameFolders/Scripts/Games/Abstracts/`** — list existing interfaces. If an interface already exists for a tasks.md target, use it — do not create a duplicate.
 3. **Check `_GameFolders/Scripts/Games/Concretes/`** — list existing classes. If a target class already exists, read it and verify it follows architecture rules before deciding to modify or re-implement.
 
 In both paths:
 
 4. **Print a Pre-Scan Report** — what exists, what is missing, any conflicts with WORKFLOW.md outputs, any architecture violations in existing files.
-5. **Flag already-implemented tasks** — if a WORKFLOW.md output file already exists and is correct, ask the developer whether to skip or re-implement before proceeding.
+5. **Flag already-implemented tasks** — if a tasks.md output file already exists and is correct, ask the developer whether to skip or re-implement before proceeding.
 
 This scan is part of `/orchestrate` Initialization. It does not apply to `/implement` (which handles simpler, scoped tasks).
 

@@ -17,7 +17,7 @@
 - `/update-plan --lean <file> <change>` — analyzer → **lean-planner** (`claude-sonnet-4-6`) → reviewer → save. Output: updated 3-5 task table only. Implementer auto-spawn: **disabled**. Use when the change is small (adding/removing a task, adjusting a file path).
 - `/smart-commit` — analyze dirty working tree → group into logical commits → commit
 - `/smart-commit-selected` — analyze dirty working tree → plan commit groups → **show checklist (multiSelect)** → commit only selected groups
-- `/orchestrate` — **complexity score** → read WORKFLOW.md → check `parallel_group` annotations → per-task: **test-type-router** → [tester if not NoTest] → **coder** (pure C#) / **unity-coder** (Unity) → **unity-verifier** → **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → committer; tasks with same `parallel_group` run simultaneously (complexity ≥ 0.4); phase gate runs **ralph → silent-failure-hunt → validate** automatically before asking to proceed; emits `VERIFICATION_PASSED` event on success
+- `/orchestrate` — **complexity score** → read tasks.md from $ARGUMENTS → check `parallel_group` annotations → per-task: **test-type-router** → [tester if not NoTest] → **coder** (pure C#) / **unity-coder** (Unity) → **unity-verifier** → **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → committer; tasks with same `parallel_group` run simultaneously (complexity ≥ 0.4); phase gate runs **ralph → silent-failure-hunt → validate** automatically before asking to proceed; emits `VERIFICATION_PASSED` event on success
 
 > Reviewer priority: Codex → unity-reviewer (falls back to unity-reviewer if Codex is unavailable).
 
@@ -40,11 +40,9 @@
 - `/refine-gdd` — Iterate on an existing GDD
 - `/refine-tdd` — Iterate on an existing TDD
 
-### Game Completion Planning
-- `/game-plan [docs/GDD.md]` — **Game completion planner:** reads GDD + TDD + PROGRESS + codebase, identifies what's done vs stub vs missing, then produces `docs/0_MasterPlan.md` (master tracking table) + numbered module plan files (`docs/1_SlingshotPhysics.md`, `docs/2_VacuumCollection.md`, …). Each module plan is `/orchestrate`-ready: tasks with file paths, code skeletons, test types, and `parallel_group` annotations. Run after the architecture skeleton is built and gameplay needs to be completed module by module.
-
 ### Development
-- `/plan-workflow` — Create a phased execution plan from a TDD — assigns integer `parallel_group` numbers (1, 2, `—`) compatible with `/orchestrate`; compile-time type dependencies force sequential even across different files
+- `/roadmap` — GDD + TDD + mevcut modülleri okuyarak `docs/ROADMAP.md` modül tablosunu oluşturur. Gap analizi: hangi sistemlerin planı var, hangisi eksik.
+- `/plan-module <n>` — Tek modülün `spec.md + design.md + tasks.md` üçlüsünü just-in-time üretir. `/orchestrate` için direkt girdi.
 - `/new-module` — Generate the 5-file module structure (Interface, Service, Config, Installer, Events)
 
 ### Knowledge Graph
@@ -77,9 +75,9 @@
 - `/search <query>` — **complexity score** → Phase 1: **Explore** + **unity-scout** simultaneously (complexity ≥ 0.4) → write findings to `.claude/state/search-findings.md` → Phase 2: reviewer validates **completeness** (COMPLETE / INCOMPLETE / REJECT, max 5 iter) → Phase 3: present findings to user → Phase 4: **action router** recommends next command (`/fix`, `/fix-deep`, `/implement`, `/create-plan`, `/update-plan`, or no action) — never executes automatically
 - `/dump` — Save current session notes to `.claude/logs/` as markdown
 - `/five` — 5 Whys root cause analysis for a bug or architectural problem
-- `/continue` — Resume an interrupted orchestration run from the event journal (picks up where it left off)
-- `/status` — Report current pipeline stage: GDD → TDD → WORKFLOW progress summary
-- `/dry-run` — Preview the orchestration plan for a WORKFLOW.md without executing any tasks
+- `/continue` — Resume an interrupted orchestration run from the event journal (picks up where it left off, path via $ARGUMENTS)
+- `/status` — Report current pipeline stage: GDD → TDD → ROADMAP + modül task durumu özeti
+- `/dry-run` — Preview the orchestration plan for a tasks.md without executing any tasks
 - `/plan-summary <file>` — Plan dosyasını okur ve 3 bölümlü özet üretir: ne yapıyoruz, nasıl yapıyoruz, sonunda ne göreceğiz. `/orchestrate` veya `/implement` öncesinde planın beklentinizle örtüştüğünü doğrulamak için kullanın.
 - `/instincts` — Manage instinct library: status, list, evolve, promote, export, import
 

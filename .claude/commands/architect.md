@@ -335,7 +335,7 @@ After unity-critic reports, incorporate all CRITICAL and MAJOR feedback into the
 
 **If `superpowers:verification-before-completion` is available:** Invoke it before declaring the TDD complete. Verify every GDD system has TDD coverage, no section is left as "TBD", and no circular dependencies remain.
 
-Once confirmed, inform: "TDD is complete. Run `/plan-workflow` to generate the execution plan."
+Once confirmed, inform: "TDD is complete. Run `/roadmap` to generate the module roadmap, then `/plan-module <n>` to plan each module."
 
 ## Rules
 

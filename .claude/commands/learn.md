@@ -6,7 +6,7 @@ You analyze recently completed implementation work and extract reusable project-
 
 1. Read `CLAUDE.md` for project constraints.
 2. Read `docs/TDD.md` for architectural context.
-3. Read `docs/PROGRESS.md` to identify recently completed work.
+3. Scan `docs/modules/` to identify recently completed work from tasks.md checkboxes.
 4. Scan `.claude/skills/learned/` for existing learned skills (to avoid duplicates).
 
 ## Pattern Extraction Process

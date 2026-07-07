@@ -1,6 +1,6 @@
 ---
 name: planning-and-task-breakdown
-description: Task decomposition discipline for /create-plan and /plan-workflow. Vertical slice, per-task acceptance criteria, and checkpoints. Enhances existing planning pipelines.
+description: Task decomposition discipline for /create-plan and /plan-module. Vertical slice, per-task acceptance criteria, and checkpoints. Enhances existing planning pipelines.
 model-tier: heavy
 ---
 
@@ -12,10 +12,10 @@ Break work into small, verifiable tasks — each with clear acceptance criteria.
 
 ## When to Use
 
-- When `/create-plan` or `/plan-workflow` is invoked
+- When `/create-plan` or `/plan-module` is invoked
 - When a task looks too large or ambiguous to start
 - When planning parallel agent work
-- Before creating WORKFLOW.md
+- Before creating tasks.md
 
 ## Planning Process
 
@@ -132,7 +132,7 @@ Checkpoints should be explicit:
 - It touches two or more independent systems
 - VContainer scope change + ECS change + UI change all at once
 
-## WORKFLOW.md Template
+## tasks.md Template
 
 ```markdown
 # Implementation Plan: [Feature/Project Name]
@@ -184,7 +184,7 @@ When multiple agents or sessions are available:
 - **Must be sequential:** Database/schema migrations, shared state changes, dependency chains
 - **Requires coordination:** Features sharing a common interface (lock the interface first, then parallelize)
 
-Use `parallel_group` annotations in WORKFLOW.md — `/orchestrate` detects these automatically.
+Use `parallel_group` annotations in tasks.md — `/orchestrate` detects these automatically.
 
 ## Common Rationalizations
 
