@@ -21,7 +21,8 @@ _hook_log() {
 }
 trap '_hook_log $?' EXIT
 # --- End Hook Audit Logging ---
-# Hook: Validates that service/domain C# files don't import UnityEngine
+# Hook: Validates that service/domain C# files don't import UnityEngine.
+# Also blocks *Handler : MonoBehaviour and *Module : ScriptableObject violations.
 # Checks: _Framework/, Games/Abstracts/, Games/Concretes/ (excluding providers)
 # Receives JSON on stdin with tool_input.file_path
 
@@ -32,13 +33,46 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
+if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+    exit 0
+fi
+
 # Skip Editor / third-party / test paths
 should_skip_path "$FILE_PATH" && exit 0
 
-# Check domain/service directories
+# --- Check 1: *Handler : MonoBehaviour is forbidden (blocking) ---
+# Handler must be pure C# — never MonoBehaviour.
+if [ -f "$FILE_PATH" ]; then
+    HANDLER_MONO=$(grep -nE "class\s+\w+Handler\s*:\s*(MonoBehaviour|UnityEngine\.MonoBehaviour)" "$FILE_PATH" 2>/dev/null | head -5)
+    if [ -n "$HANDLER_MONO" ]; then
+        VIOLATION=$(echo "$HANDLER_MONO" | head -1 | sed 's/^[[:space:]]*//')
+        unity_hook_block "Handler classes must be pure C# — not MonoBehaviour.
+File: $FILE_PATH
+
+Found: $VIOLATION
+
+Rule (solid-oop.md Card 1): *Handler suffix is forbidden on MonoBehaviour. Handler must be pure C# sealed class."
+    fi
+fi
+
+# --- Check 2: *Module : ScriptableObject is forbidden (blocking) ---
+# Module classes must be static — not ScriptableObject.
+if [ -f "$FILE_PATH" ]; then
+    MODULE_SO=$(grep -nE "class\s+\w+Module\s*:\s*(ScriptableObject|UnityEngine\.ScriptableObject)" "$FILE_PATH" 2>/dev/null | head -5)
+    if [ -n "$MODULE_SO" ]; then
+        VIOLATION=$(echo "$MODULE_SO" | head -1 | sed 's/^[[:space:]]*//')
+        unity_hook_block "*Module classes must be static — not ScriptableObject.
+File: $FILE_PATH
+
+Found: $VIOLATION
+
+Rule (bootstrap-pattern.md): Modules are static classes. Use [Module]Module.Install(builder, config) pattern."
+    fi
+fi
+
+# --- Check 3: UnityEngine imports in domain/service files (blocking) ---
 if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.*\.cs$"; then
     # Skip providers, MonoBehaviours, views, handlers, editors, installers — Unity API lives here.
-    # Installer: VContainer ModuleInstaller subclasses are ScriptableObject/MonoBehaviour and need UnityEngine.
     if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Inspector|Editor|Drawer|Panel|Button|Controller|Installer|Scope)\.(cs)$"; then
         exit 0
     fi
