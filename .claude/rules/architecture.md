@@ -134,26 +134,63 @@ public sealed class PlayerController : MonoBehaviour
 // PlayerModule: builder.RegisterComponent(_playerProvider).As<IPlayerProvider>();
 ```
 
-**RIGHT:**
+**RIGHT — Pattern A: Handler needs no container dependencies (plain new):**
 ```csharp
 public sealed class PlayerController : MonoBehaviour
 {
-    // Prefab-local refs → [SerializeField]; Handlers → constructed with those refs
+    #region Fields
+
+    [SerializeField] private Rigidbody        _rigidbody;
+    [SerializeField] private MoveConfiguration _moveConfig;
+
+    private IMoveHandler _moveHandler;
+
+    #endregion
+
+    #region Lifecycle
+
+    private void Awake()
+    {
+        // Plain new — no container dependencies needed
+        _moveHandler = new MoveHandler(_rigidbody, _moveConfig);
+    }
+
+    private void Update()
+    {
+        _moveHandler.Tick(Time.deltaTime);
+    }
+
+    #endregion
+}
+```
+
+**RIGHT — Pattern B: Handler needs a container dependency (Func factory):**
+```csharp
+public sealed class PlayerController : MonoBehaviour
+{
+    #region Fields
+
     [SerializeField] private Rigidbody _rigidbody;
 
     private IMoveHandler _moveHandler;
 
-    // Plain new: no container deps needed
-    private void Awake() => _moveHandler = new MoveHandler(_rigidbody, _moveConfig);
+    #endregion
 
-    // Factory inject: when handler needs a container dep (IEventBus, config SO)
+    #region Lifecycle
+
     [Inject]
     public void Construct(Func<Rigidbody, IMoveHandler> moveFactory)
-        => _moveHandler = moveFactory(_rigidbody);
+    {
+        _moveHandler = moveFactory(_rigidbody);
+    }
 
     private void Update() => _moveHandler.Tick(Time.deltaTime);
+
+    #endregion
 }
 ```
+
+Use Pattern A when the handler only needs prefab-local references (`[SerializeField]` fields). Use Pattern B when the handler also needs a container-registered dependency (IEventBus, a configuration SO from ConfigCatalog, etc.).
 
 **GOTCHA:** VContainer injection is for **cross-module boundaries**. Everything inside the same prefab (root, children, grandchildren) wires via `[SerializeField]`. Handlers are pure C# — never registered with VContainer directly; the Controller creates them.
 
@@ -469,7 +506,7 @@ When a Handler needs a container dependency (IEventBus, config SO), register a f
 builder.RegisterFactory<Rigidbody, IMoveHandler>(
     container => rigidbody =>
         new MoveHandler(rigidbody, container.Resolve<MoveConfiguration>()),
-    Lifetime.Singleton
+    Lifetime.Singleton  // singleton = one factory delegate; each call produces a new handler instance
 );
 
 // In PlayerController — receives the factory via [Inject]:
