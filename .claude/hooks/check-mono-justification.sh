@@ -64,11 +64,12 @@ HAS_SERIALIZE_FIELD=$(echo "$STRIPPED" | grep -cE "\[SerializeField\]" 2>/dev/nu
 HAS_UNITY_CALLBACKS=$(echo "$STRIPPED" | grep -cE "\b(Awake|Start|OnEnable|OnDisable|OnDestroy|Update|FixedUpdate|LateUpdate|OnTriggerEnter|OnTriggerExit|OnCollisionEnter|OnCollisionExit)\s*\(" 2>/dev/null || true)
 
 if [ "${HAS_SERIALIZE_FIELD:-0}" -eq 0 ] && [ "${HAS_UNITY_CALLBACKS:-0}" -eq 0 ]; then
-    unity_hook_warn "Warning: MonoBehaviour with no [SerializeField] fields and no Unity callbacks.
+    # Print without exiting so Check 2 (line count) still runs
+    echo "Warning: MonoBehaviour with no [SerializeField] fields and no Unity callbacks.
 File: $FILE_PATH
 
 This class may not need to be a MonoBehaviour (solid-oop.md Card 0).
-If you need a frame tick, use ITickable instead. If you need no Unity lifecycle, make it pure C#."
+If you need a frame tick, use ITickable instead. If you need no Unity lifecycle, make it pure C#." >&2
 fi
 
 # --- Check 2: Oversized MonoBehaviour shell (> 150 lines) ---
