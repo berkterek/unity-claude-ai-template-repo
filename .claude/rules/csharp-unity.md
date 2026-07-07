@@ -132,6 +132,11 @@ namespace Game.Concretes.Camera
 | MonoBehaviour — UI/Canvas only | PascalCase + `View` suffix | `HUDView`, `PopupView`, `SliderView` |
 | MonoBehaviour — gameplay/character/physics | PascalCase + `Controller` suffix | `BlackholeController`, `ItemController` |
 | MonoBehaviour — Unity API abstraction | PascalCase + `Provider` suffix | `AudioProvider`, `PhysicsProvider` |
+| `*Handler` (pure C# class, prefab-local) | PascalCase + `Handler` suffix | `MoveHandler`, `JumpHandler` |
+| Interface for Handler | `I` + PascalCase + `Handler` | `IMoveHandler`, `IJumpHandler` |
+| Static installer class | PascalCase + `Module` suffix | `AudioModule`, `PlayerModule`, `AppModules` |
+| Runtime state class | PascalCase + `Model` suffix | `ScoreModel`, `HealthModel` |
+| Serializable save data class | PascalCase + `SaveData` suffix | `PlayerSaveData`, `GameSaveData` |
 | ScriptableObject | PascalCase + descriptive suffix | `AudioConfiguration`, `ProductCatalog` |
 | Installer | PascalCase + `Installer` suffix | `AudioInstaller`, `StoreInstaller` |
 | Namespace | `<Layer>.<Module>` | `Framework.Events`, `Game.Concretes` |
@@ -230,6 +235,37 @@ public float MoveSpeed => _moveSpeed;
 
 ---
 
+## Data Taxonomy
+
+| Data type | Author | Form | Suffix | Example |
+|-----------|--------|------|--------|---------|
+| Config — designer-set, runtime read-only | Designer, edit-time | `ScriptableObject` (in ConfigCatalog) | `*Configuration` | `AudioConfiguration` |
+| Save data — written to disk (JSON) | Runtime, persisted | `[Serializable]` plain class — no UnityEngine types | `*SaveData` | `PlayerSaveData` |
+| Runtime state — session-only mutable | Runtime, not persisted | plain class (held by service/model) | `*Model` | `ScoreModel` |
+| Event payload — single-frame message | Publish time | `readonly struct : IEvent` | `*Event` | `CoinsChangedEvent` |
+| ECS component | System | `struct : IComponentData` | see ecs-dots.md | `HealthData` |
+
+**Decision test:** Who writes it, and does it need disk?
+- Designer writes it, runtime reads it → ScriptableObject
+- Runtime writes it, goes to disk → `[Serializable]` class
+- Runtime writes it, dies with session → Model class
+- Created once, distributed → readonly struct
+
+**Rules:**
+- ScriptableObject is NEVER mutated at runtime (NON-NEGOTIABLE).
+  Classic trap: Editor SO mutation writes permanently to asset; build resets it → two environments differ.
+  If a config value must change at runtime: copy from SO to Model, mutate the Model.
+- SaveData classes contain NO UnityEngine types (Vector3, Color, etc.) — use plain float fields or
+  your own `[Serializable]` equivalents. Reason: JSON serializer independence + pure C# testability (EditMode).
+- Every SaveData root class has an `int Version` field for forward migration.
+- App-wide config (AudioConfiguration etc.) travels via ConfigCatalog → DI only.
+  Holding a config SO in a MonoBehaviour `[SerializeField]` is an anti-pattern for app-wide config —
+  same SO dragged onto N prefabs → one forgotten = silent null.
+  Exception: prefab-local designer tweaks (variant stats) — the shell holds `[SerializeField]`
+  for its own prefab's config only.
+
+---
+
 ## Encapsulation (NON-NEGOTIABLE)
 
 Everything is `private` unless there is a concrete caller that requires otherwise.
@@ -237,6 +273,23 @@ Everything is `private` unless there is a concrete caller that requires otherwis
 - Fields: `private` by default. `[SerializeField]` for two cases only: (1) designer-configurable values, (2) component references on the same GO or its children — never speculatively. `GetComponent` in Awake is forbidden when the component exists at edit time; assign via Inspector instead.
 - Methods: `public` only when another class actually calls it today.
 - Properties: expose getter only when another class reads it; expose setter only when another class writes it.
+
+### Constructor Injection Rule — No `new *Service()` or `new *Provider()`
+
+No `new *Service()` or `new *Provider()` in any class — always constructor-injected via VContainer.
+Exception: `new *Handler(...)` is allowed ONLY inside a `*Controller` or `*View` class (the Mono shell) — handlers are wired by the shell, not by VContainer directly.
+
+```csharp
+// BAD — Service constructed directly
+private void Awake() => _audioService = new AudioService(_provider);
+
+// GOOD — Handler constructed by shell (no container dep)
+private void Awake() => _moveHandler = new MoveHandler(_rigidbody, _moveConfig);
+
+// GOOD — Service injected via VContainer
+[Inject]
+public void Construct(IAudioService audioService) => _audioService = audioService;
+```
 
 ```csharp
 // BAD — speculative public API
