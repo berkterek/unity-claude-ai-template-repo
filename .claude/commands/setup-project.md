@@ -6,7 +6,7 @@ You set up a new Unity project using this template. You ask questions about the 
 
 The template provides rules, hooks, and commands that work for any Unity project. But every project needs its own:
 - Assembly definition files (with correct project name)
-- Base framework classes (IEventBus, EventBus, EventBusAccessor, ModuleInstaller, AppScope, AppInstaller)
+- Base framework classes (IEventBus, EventBus, EventBusAccessor, IInstaller, AppModules, ConfigCatalog, SceneModules, AppScope, GameScope)
 - NSubstitute test assembly setup
 - Sample test templates
 
@@ -276,6 +276,7 @@ Assets/
 │   └── Game.unity
 ├── _Framework/
 │   ├── Events/                     ← FrameworkEventBus.asmdef (each subfolder = own asmdef)
+│   ├── Installers/                 ← IInstaller.cs (pure C# interface — no asmdef, shares FrameworkEvents or root)
 │   ├── Logging/                    ← FrameworkLogging.asmdef
 │   ├── SaveLoadSystems/            ← FrameworkSaveLoadSystems.asmdef
 │   └── Editors/                    ← FrameworkEditor.asmdef (includePlatforms: ["Editor"])
@@ -296,7 +297,7 @@ Assets/
         ├── Games/                  ← [ProjectName]Games.asmdef
         │   ├── Abstracts/          ← interfaces and abstract base classes, organized by domain
         │   ├── Concretes/          ← ALL concrete classes (pure C# or MonoBehaviour), by domain
-        │   │   └── Infrastructure/ ← AppScope, AppInstaller, ModuleInstaller
+        │   │   └── Infrastructure/ ← AppScope, GameScope, AppModules, ConfigCatalog, SceneModules
         │   └── Ecs/                ← only if ECS=yes
         │       ├── Authorings/
         │       ├── Components/
@@ -681,52 +682,108 @@ namespace Framework.Events
 }
 ```
 
-#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/ModuleInstaller.cs`
+#### `_Framework/Installers/IInstaller.cs`
 ```csharp
-using UnityEngine;
 using VContainer;
 
-namespace Game.Concretes.Infrastructure
+namespace Framework.Installers
 {
-    public abstract class ModuleInstaller : ScriptableObject
+    /// <summary>
+    /// Pure C# installer contract. Modules do not need to implement this —
+    /// it exists for pure C# installer abstractions only.
+    /// </summary>
+    public interface IInstaller
     {
-        public abstract void Install(IContainerBuilder builder);
+        void Install(IContainerBuilder builder);
     }
 }
 ```
 
-> `ModuleInstaller` uses `ScriptableObject` (requires `using UnityEngine`) so it lives in `Games/Concretes/Infrastructure/`, not `Games/Abstracts/`. The `check-pure-csharp.sh` hook blocks `using UnityEngine` in `Games/Abstracts/`.
-
-#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/AppInstaller.cs`
+#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/EventBusModule.cs`
 ```csharp
-using UnityEngine;
+using Framework.Events;
 using VContainer;
 
 namespace Game.Concretes.Infrastructure
 {
-    [CreateAssetMenu(menuName = "Game/Infrastructure/App Installer", fileName = "AppInstaller")]
-    public sealed class AppInstaller : ScriptableObject
+    public static class EventBusModule
     {
-        #region Fields
-
-        [SerializeField] private ModuleInstaller[] _installers;
-
-        #endregion
-
-        #region Public Methods
-
-        public void Install(IContainerBuilder builder)
+        /// <summary>
+        /// Always called FIRST in AppModules.Install() — structural guarantee.
+        /// Other modules may subscribe to events during Initialize(); EventBus must exist first.
+        /// </summary>
+        public static void Install(IContainerBuilder builder)
         {
-            if (_installers == null) return;
+            builder.Register<EventBus>(Lifetime.Singleton).AsImplementedInterfaces();
+        }
+    }
+}
+```
 
-            foreach (var installer in _installers)
-            {
-                if (installer == null) continue;
-                installer.Install(builder);
-            }
+#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/AppModules.cs`
+```csharp
+using VContainer;
+
+namespace Game.Concretes.Infrastructure
+{
+    public static class AppModules
+    {
+        public static void Install(IContainerBuilder builder, ConfigCatalog configs)
+        {
+            EventBusModule.Install(builder); // FIRST — structural guarantee
+
+            // Add new modules here — one line per module:
+            // AudioModule.Install(builder, configs.Audio);
+            // PlayerModule.Install(builder, configs.Player);
+        }
+    }
+}
+```
+
+#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/ConfigCatalog.cs`
+```csharp
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Game.Concretes.Infrastructure
+{
+    [CreateAssetMenu(menuName = "Game/Config Catalog", fileName = "ConfigCatalog")]
+    public sealed class ConfigCatalog : ScriptableObject
+    {
+        // Add [SerializeField] config fields here as modules are added:
+        // [SerializeField] private AudioConfiguration _audio;
+        // public AudioConfiguration Audio => _audio;
+
+        public bool Validate(out List<string> missing)
+        {
+            missing = new List<string>();
+            // Add null checks here as config fields are added:
+            // if (_audio == null) missing.Add(nameof(_audio));
+            return missing.Count == 0;
+        }
+    }
+}
+```
+
+#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/SceneModules.cs`
+```csharp
+using VContainer;
+
+namespace Game.Concretes.Infrastructure
+{
+    public static class SceneModules
+    {
+        public static void InstallGame(IContainerBuilder builder)
+        {
+            // Leave empty until a scene-local pure C# service is needed.
+            // Scene-lifetime services go here — they resolve AppScope services via parent scope.
+            // Example: LevelTimerModule.Install(builder);
         }
 
-        #endregion
+        public static void InstallMenu(IContainerBuilder builder)
+        {
+            // Leave empty until a menu-scene service is needed.
+        }
     }
 }
 ```
@@ -744,7 +801,7 @@ namespace Game.Concretes.Infrastructure
     {
         #region Fields
 
-        [SerializeField] private AppInstaller _appInstaller;
+        [SerializeField] private ConfigCatalog _configCatalog;
 
         #endregion
 
@@ -752,9 +809,19 @@ namespace Game.Concretes.Infrastructure
 
         protected override void Configure(IContainerBuilder builder)
         {
-            builder.Register<EventBus>(Lifetime.Singleton).As<IEventBus>();
+            if (_configCatalog == null)
+            {
+                Debug.LogError("[AppScope] ConfigCatalog reference is missing.");
+                return;
+            }
 
-            _appInstaller?.Install(builder);
+            if (!_configCatalog.Validate(out var missing))
+            {
+                Debug.LogError($"[AppScope] ConfigCatalog missing fields: {string.Join(", ", missing)} — installation stopped.");
+                return;
+            }
+
+            AppModules.Install(builder, _configCatalog);
 
             builder.RegisterBuildCallback(container =>
             {
@@ -766,6 +833,39 @@ namespace Game.Concretes.Infrastructure
     }
 }
 ```
+
+> `AppScope.cs` **never changes** to add a new module. Add one line to `AppModules.Install()` instead.
+
+#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/GameScope.cs`
+```csharp
+using UnityEngine;
+using VContainer;
+using VContainer.Unity;
+
+namespace Game.Concretes.Infrastructure
+{
+    public sealed class GameScope : LifetimeScope
+    {
+        // Add [SerializeField] fields for scene MonoBehaviours that need injection:
+        // [SerializeField] private PlayerController _playerController;
+
+        #region Lifecycle
+
+        protected override void Configure(IContainerBuilder builder)
+        {
+            // Register scene MonoBehaviours with builder.RegisterComponent(...):
+            // if (_playerController == null) { Debug.LogError("[GameScope] PlayerController is missing."); return; }
+            // builder.RegisterComponent(_playerController);
+
+            SceneModules.InstallGame(builder);
+        }
+
+        #endregion
+    }
+}
+```
+
+> `GameScope` only calls `builder.RegisterComponent(...)` for scene MonoBehaviours and delegates pure C# services to `SceneModules`. Inline `builder.Register<T>()` in `GameScope` is forbidden.
 
 ---
 
@@ -967,24 +1067,24 @@ manage_gameobject(action="create", name="AppScope", parent="[Setup]")
 manage_gameobject(action="modify", target="AppScope", components_to_add=["Game.Concretes.Infrastructure.AppScope"])
 ```
 
-#### 5d-3 — Create AppInstaller Asset and Wire It
+#### 5d-3 — Create ConfigCatalog Asset and Wire It
 
 ```python
-# Create AppInstaller ScriptableObject asset
+# Create ConfigCatalog ScriptableObject asset
 manage_scriptable_object(
     action="create",
     path="Assets/_GameFolders/Configs",
-    name="AppInstaller",
-    type_name="Game.Concretes.Infrastructure.AppInstaller"
+    name="ConfigCatalog",
+    type_name="Game.Concretes.Infrastructure.ConfigCatalog"
 )
 
-# Wire AppInstaller into AppScope._appInstaller field
+# Wire ConfigCatalog into AppScope._configCatalog field
 manage_components(
     action="set_property",
     target="AppScope",
     component_type="Game.Concretes.Infrastructure.AppScope",
-    property="_appInstaller",
-    value="Assets/_GameFolders/Configs/AppInstaller.asset"
+    property="_configCatalog",
+    value="Assets/_GameFolders/Configs/ConfigCatalog.asset"
 )
 
 # Save AppScope as prefab — asset refs are stored on the prefab (NON-NEGOTIABLE)
@@ -992,6 +1092,15 @@ manage_gameobject(
     action="save_as_prefab",
     target="AppScope",
     path="Assets/_GameFolders/Prefabs/Bootstrap/AppScope.prefab"
+)
+
+# Create GameScope under [Setup] and save as prefab (fields populated per-scene at runtime)
+manage_gameobject(action="create", name="GameScope", parent="[Setup]")
+manage_gameobject(action="modify", target="GameScope", components_to_add=["Game.Concretes.Infrastructure.GameScope"])
+manage_gameobject(
+    action="save_as_prefab",
+    target="GameScope",
+    path="Assets/_GameFolders/Prefabs/Bootstrap/GameScope.prefab"
 )
 ```
 
@@ -1073,11 +1182,12 @@ In Unity Editor (File → New Scene → Save As):
 1. Open Bootstrap.unity
 2. Create 6 empty root GameObjects in this order: `[Setup]`, `[Services]`, `[UI]`, `[Environment]`, `[Characters]`, `[VFX]`
 3. Under `[Setup]`: create empty GameObject named "AppScope", add AppScope component
-4. Create ScriptableObject: right-click Assets/_GameFolders/Configs → Create → Game/Infrastructure/App Installer → name it AppInstaller
-5. Drag AppInstaller asset onto AppScope._appInstaller field in Inspector
+4. Create ScriptableObject: right-click Assets/_GameFolders/Configs → Create → Game/Config Catalog → name it ConfigCatalog
+5. Drag ConfigCatalog asset onto AppScope._configCatalog field in Inspector
 6. **Save AppScope as prefab**: drag AppScope from hierarchy into `Assets/_GameFolders/Prefabs/Bootstrap/` → select "Original Prefab"
-7. Under `[Environment]`: create EventSystem (GameObject → UI → Event System) → drag to `Assets/_GameFolders/Prefabs/CoreObjects/EventSystem.prefab`
-8. Reparent MainCamera under `[Environment]` → drag to `Assets/_GameFolders/Prefabs/CoreObjects/MainCamera.prefab`
+7. Under `[Setup]`: create empty GameObject named "GameScope", add GameScope component → drag to `Assets/_GameFolders/Prefabs/Bootstrap/GameScope.prefab` (leave SerializeField fields empty — filled per-scene)
+8. Under `[Environment]`: create EventSystem (GameObject → UI → Event System) → drag to `Assets/_GameFolders/Prefabs/CoreObjects/EventSystem.prefab`
+9. Reparent MainCamera under `[Environment]` → drag to `Assets/_GameFolders/Prefabs/CoreObjects/MainCamera.prefab`
 
 ### Build Settings (MCP unavailable)
 File → Build Settings → Add Open Scenes — add all three scenes with Bootstrap at index 0.
