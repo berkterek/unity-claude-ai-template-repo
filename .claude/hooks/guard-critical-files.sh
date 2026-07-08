@@ -43,15 +43,26 @@ CRITICAL=false
 REASON=""
 
 # AppScope — wiring for all DI, changes break entire app
+# Exception: creating a brand-new AppScope.cs (file doesn't exist yet) is safe —
+# there is no existing wiring to break.
 if echo "$FILENAME_NO_EXT" | grep -qiE "^AppScope$"; then
-    CRITICAL=true
-    REASON="AppScope is the VContainer root — changes affect all registered services and scene wiring."
+    if [ ! -f "$FILE_PATH" ]; then
+        : # new file — safe to create
+    else
+        CRITICAL=true
+        REASON="AppScope is the VContainer root — changes affect all registered services and scene wiring."
+    fi
 fi
 
 # InputService — sole owner of PlayerControls, changes affect all input
+# Exception: creating a brand-new InputService.cs (file doesn't exist yet) is safe.
 if echo "$FILENAME_NO_EXT" | grep -qiE "^InputService$"; then
-    CRITICAL=true
-    REASON="InputService owns PlayerControls — changes affect all input bindings and action maps."
+    if [ ! -f "$FILE_PATH" ]; then
+        : # new file — safe to create
+    else
+        CRITICAL=true
+        REASON="InputService owns PlayerControls — changes affect all input bindings and action maps."
+    fi
 fi
 
 # Any Installer — registers services into VContainer scope
@@ -68,9 +79,14 @@ if echo "$FILENAME_NO_EXT" | grep -qiE "Installer$"; then
 fi
 
 # IEventBus, EventBus — cross-system communication contract
+# Exception: creating a brand-new file (doesn't exist yet) is safe.
 if echo "$FILENAME_NO_EXT" | grep -qiE "^(IEventBus|EventBus|EventBusAccessor)$"; then
-    CRITICAL=true
-    REASON="EventBus is the cross-module communication contract — interface changes break all subscribers."
+    if [ ! -f "$FILE_PATH" ]; then
+        : # new file — safe to create
+    else
+        CRITICAL=true
+        REASON="EventBus is the cross-module communication contract — interface changes break all subscribers."
+    fi
 fi
 
 # Assembly definition files
@@ -80,18 +96,47 @@ if [ "$EXT" = "asmdef" ]; then
 fi
 
 # AppModules — lists every registered module, changes affect entire app DI graph
+# Exception: creating a brand-new AppModules.cs (file doesn't exist yet) is safe.
 if echo "$FILENAME_NO_EXT" | grep -qiE "^AppModules$"; then
-    CRITICAL=true
-    REASON="AppModules.cs lists every registered module — changes affect entire app DI graph."
+    if [ ! -f "$FILE_PATH" ]; then
+        : # new file — safe to create
+    else
+        CRITICAL=true
+        REASON="AppModules.cs lists every registered module — changes affect entire app DI graph."
+    fi
 fi
 
 # ConfigCatalog — single config aggregator, changes break module initialization
+# Exception: creating a brand-new ConfigCatalog.cs (file doesn't exist yet) is safe —
+# there is no existing wiring to break.
 if echo "$FILENAME_NO_EXT" | grep -qiE "^ConfigCatalog$"; then
-    CRITICAL=true
-    REASON="ConfigCatalog.cs is the single config aggregator — changes break module initialization."
+    if [ ! -f "$FILE_PATH" ]; then
+        : # new file — safe to create
+    else
+        CRITICAL=true
+        REASON="ConfigCatalog.cs is the single config aggregator — changes break module initialization."
+    fi
 fi
 
 if [ "$CRITICAL" = true ]; then
+    # Deny-then-allow gate: block the first attempt per file per session to force
+    # investigation, then let the (presumably now-informed) retry through. Without
+    # this, editing an EXISTING critical file (not just creating a new one) would
+    # block identically forever — there was no way to ever land a real edit.
+    DENIED_FILE="${UNITY_HOOK_STATE_DIR}/guard-critical-denied.txt"
+    PASSED_FILE="${UNITY_HOOK_STATE_DIR}/guard-critical-passed.txt"
+    touch "$DENIED_FILE" "$PASSED_FILE"
+
+    if grep -qxF "$FILE_PATH" "$PASSED_FILE" 2>/dev/null; then
+        exit 0
+    fi
+
+    if grep -qxF "$FILE_PATH" "$DENIED_FILE" 2>/dev/null; then
+        echo "$FILE_PATH" >> "$PASSED_FILE"
+        exit 0
+    fi
+
+    echo "$FILE_PATH" >> "$DENIED_FILE"
     echo "BLOCKED: Critical architecture file requires investigation before editing."
     echo ""
     echo "File: $FILE_PATH"
@@ -103,7 +148,7 @@ if [ "$CRITICAL" = true ]; then
     echo "  3. Understand what breaks if the public API changes"
     echo "  4. Confirm the change is intentional and scoped"
     echo ""
-    echo "Once you have investigated, re-attempt the edit with a clear plan."
+    echo "Once you have investigated, re-attempt the edit — it will pass this time."
     exit 2
 fi
 

@@ -82,6 +82,13 @@ if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.
         exit 0
     fi
 
+    # Skip ScriptableObject config classes — csharp-unity.md data taxonomy classifies these
+    # as *Configuration/*Config/*Catalog/*Definition. They legitimately `using UnityEngine`
+    # for [SerializeField]/ScriptableObject and are never treated as pure-C# services.
+    if echo "$FILE_PATH" | grep -qiE "(Configuration|Config|Catalog|Definition)\.(cs)$"; then
+        exit 0
+    fi
+
     if [ -f "$FILE_PATH" ]; then
         UNITY_IMPORTS=$(grep -n "using UnityEngine" "$FILE_PATH" 2>/dev/null)
         if [ -n "$UNITY_IMPORTS" ]; then
