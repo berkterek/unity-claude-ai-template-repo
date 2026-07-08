@@ -25,7 +25,7 @@ in `.claude/settings.json` under `env`. The default is `standard`.
 | `block-scene-edit.sh` | Blocks direct edits to `.unity`, `.prefab`, `.asset` |
 | `block-projectsettings.sh` | Blocks edits to `ProjectSettings/*.asset`, `Packages/manifest.json` |
 | `check-config-protection.sh` | Protects `.asmdef`, `settings.json`, `.inputactions`, `manifest.json` |
-| `guard-critical-files.sh` | Requires investigation before editing AppScope, InputView, Installers |
+| `guard-critical-files.sh` | Requires investigation before editing AppScope, InputService, Installers, EventBus, AppModules, ConfigCatalog (deny-then-allow: first attempt blocks, retry passes) |
 
 ### standard (default — all minimal + quality checks)
 

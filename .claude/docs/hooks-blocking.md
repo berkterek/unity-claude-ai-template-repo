@@ -5,13 +5,13 @@
 | `block-git-push.sh` | `git push` — Claude cannot push; user always pushes manually |
 | `block-scene-edit.sh` | Direct editing of `.unity`, `.prefab`, `.asset` files |
 | `guard-editor-runtime.sh` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
-| `check-no-monobehaviour-in-services.sh` | `class FooService : MonoBehaviour` or `: ScriptableObject` in `_Framework/` / `Games/Abstracts/` / `Games/Concretes/` — `using UnityEngine` is allowed (math types); only inheritance is blocked |
+| `check-no-monobehaviour-in-services.sh` | `class FooService : MonoBehaviour` or `: ScriptableObject` in `_Framework/` / `Games/Abstracts/` / `Games/Concretes/` — `using UnityEngine` is allowed (math types); only inheritance is blocked. Exempts `*Provider`/`*View`/`*Controller`/etc., `*Events` files, and ScriptableObject configs (`*Configuration`/`*Config`/`*Catalog`/`*Definition`) |
 | `check-input-system.sh` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-vcontainer-singleton.sh` | Static singleton patterns outside of `EventBusAccessor` |
 | `check-unity-event.sh` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |
 | `check-time-scale.sh` | `Time.timeScale =` assignment — use IEventBus + PauseService instead |
 | `check-enum-byte-base.sh` | `enum` without `: byte` base in ECS component or IEvent files — use `ushort` if 255+ values needed |
-| `guard-critical-files.sh` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — **exception: files under `TestScopes/`, `EditModeTest/`, or `PlayModeTest/` paths** |
+| `guard-critical-files.sh` | Edits to `AppScope`, `InputService`, `*Installer`, `EventBus`, `AppModules`, `ConfigCatalog`, `.asmdef` — deny-then-allow gate (first attempt blocks and demands investigation, retry passes); creating a brand-new file is never blocked; `*Installer` also exempts `TestScopes/`, `EditModeTest/`, `PlayModeTest/` paths |
 | `check-config-protection.sh` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — **exception: test assemblies (`EditModeTest`, `PlayModeTest`)** |
 | `gateguard.sh` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 | `guard-gate-cleared.sh` (PreToolUse) | Agent spawn blocked if `.claude/state/gate-cleared` is missing — Director Gate must be shown and `go` received before spawning any coder/fixer/committer agent |

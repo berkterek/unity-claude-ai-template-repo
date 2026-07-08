@@ -591,12 +591,12 @@ npm install -g bats      # Linux
 | `block-git-push` | `git push` — Claude cannot push; user always pushes manually |
 | `block-scene-edit` | Direct editing of `.unity`, `.prefab`, `.asset` YAML |
 | `guard-editor-runtime` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
-| `check-no-monobehaviour-in-services` | `class FooService : MonoBehaviour` or `: ScriptableObject` in service/domain files — inheritance blocked, `using UnityEngine` allowed; exempts `*Provider`, `*View`, `*Controller`, `*Root`, `*Panel`, `*Button` |
+| `check-no-monobehaviour-in-services` | `class FooService : MonoBehaviour` or `: ScriptableObject` in service/domain files — inheritance blocked, `using UnityEngine` allowed; exempts `*Provider`, `*View`, `*Controller`, `*Root`, `*Panel`, `*Button`, `*Events`, and ScriptableObject configs (`*Configuration`/`*Config`/`*Catalog`/`*Definition`) |
 | `check-input-system` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |
 | `check-time-scale` | `Time.timeScale =` assignment |
 | `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
-| `guard-critical-files` | Edits to `AppScope`, `InputView`, `*Installer`, `IEventBus`, `.asmdef` without investigation — exception: test assemblies |
+| `guard-critical-files` | Edits to `AppScope`, `InputService`, `*Installer`, `EventBus`, `AppModules`, `ConfigCatalog`, `.asmdef` — deny-then-allow gate: first edit attempt per file blocks and demands investigation, retry passes; creating a brand-new file is never blocked |
 | `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exception: test assemblies |
 | `guard-gate-cleared` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 | `guard-reviewer-order` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass |
