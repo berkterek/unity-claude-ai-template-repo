@@ -173,3 +173,5 @@ Use sparingly. Prefer a bootstrapper scene pattern:
 BootstrapScene (loads once, contains persistent services)
     → Additively loads GameScene, MenuScene, etc.
 ```
+
+Additive loading never changes the active scene. After the additive load completes, explicitly call `SceneManager.SetActiveScene(...)` on the newly loaded scene and `SceneManager.UnloadSceneAsync(...)` on the now-empty Bootstrap scene — otherwise Bootstrap stays loaded and active forever with nothing in it. Full pattern and code: `rules/bootstrap-pattern.md` → Card 6.

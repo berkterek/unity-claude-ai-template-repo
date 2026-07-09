@@ -133,6 +133,83 @@ protected override void Configure(IContainerBuilder builder)
 
 ---
 
+### Card 6: Scene Loading Goes Through ISceneService → ISceneLoader — Never Raw SceneManager in a Service
+
+**WHEN:** Writing anything that loads/activates/unloads a scene — including the Bootstrap → Game additive load.
+
+**Structure (standard Service + Provider split, same as `IAudioService`/`IAudioProvider`):**
+
+```
+Game.Abstracts.Scenes/ISceneService.cs     ← Tier 3 contract (pure C#)
+Game.Abstracts.Scenes/ISceneLoader.cs      ← Tier 4 contract (Unity API boundary)
+Game.Concretes.Scenes/SceneService.cs      ← Tier 3: EntryPoint, pure C#, depends on ISceneLoader
+Game.Concretes.Scenes/NormalSceneLoader.cs      ← Tier 4: SceneManager-backed ISceneLoader
+Game.Concretes.Scenes/AddressableSceneLoader.cs ← Tier 4: Addressables-backed ISceneLoader (swap-in, no SceneService change)
+Game.Concretes.Scenes/SceneModule.cs       ← static Install(): binds ISceneLoader, RegisterEntryPoint<SceneService>
+```
+
+**WRONG:**
+```csharp
+// SceneManager called directly inside the EntryPoint — no Provider boundary, no swap path to Addressables
+public sealed class BootstrapSceneLoader : IAsyncStartable
+{
+    public async UniTask StartAsync(CancellationToken ct)
+    {
+        await SceneManager.LoadSceneAsync("Game", LoadSceneMode.Additive).ToUniTask(cancellationToken: ct);
+        // Missing: SetActiveScene + unload Bootstrap — and this class can never become Addressables-backed without a rewrite
+    }
+}
+```
+
+**RIGHT:**
+```csharp
+// Game.Abstracts.Scenes/ISceneLoader.cs
+public interface ISceneLoader
+{
+    UniTask LoadAdditiveAsync(string sceneName, CancellationToken ct);
+    void ActivateAndUnload(Scene previousActive, string newActiveSceneName);
+}
+
+// Game.Concretes.Scenes/NormalSceneLoader.cs — Tier 4 Provider, Unity API lives here
+public sealed class NormalSceneLoader : ISceneLoader
+{
+    public async UniTask LoadAdditiveAsync(string sceneName, CancellationToken ct)
+        => await SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive).ToUniTask(cancellationToken: ct);
+
+    public void ActivateAndUnload(Scene previousActive, string newActiveSceneName)
+    {
+        SceneManager.SetActiveScene(SceneManager.GetSceneByName(newActiveSceneName));
+        SceneManager.UnloadSceneAsync(previousActive).ToUniTask().Forget();
+    }
+}
+
+// Game.Concretes.Scenes/SceneService.cs — Tier 3, pure C#, no UnityEngine import beyond Scene as a plain handle type
+public sealed class SceneService : ISceneService, IAsyncStartable
+{
+    private readonly ISceneLoader _loader;
+    private readonly LifetimeScope _appScope;
+
+    public SceneService(ISceneLoader loader, LifetimeScope appScope)
+    {
+        _loader   = loader;
+        _appScope = appScope;
+    }
+
+    public async UniTask StartAsync(CancellationToken ct)
+    {
+        var bootstrapScene = _appScope.gameObject.scene; // capture BEFORE DontDestroyOnLoad
+        Object.DontDestroyOnLoad(_appScope.gameObject);
+
+        await _loader.LoadAdditiveAsync("Game", ct);
+        _loader.ActivateAndUnload(bootstrapScene, "Game");
+    }
+}
+```
+
+**GOTCHA:** `LoadSceneMode.Additive` never changes the active scene — the scene active before the load stays active after it. Without an explicit activate+unload step, the empty Bootstrap scene stays loaded **and** active indefinitely: new `Instantiate()` calls with no explicit scene default to it, and Lighting/Skybox/Fog settings are read from it instead of the gameplay scene. Capture `_appScope.gameObject.scene` **before** calling `DontDestroyOnLoad` — after that call the GameObject's `.scene` is the special `DontDestroyOnLoad` pseudo-scene, not Bootstrap. Putting the raw `SceneManager` calls inside `SceneService` instead of `ISceneLoader` is the same DIP violation as calling `AudioSource` directly from `AudioService` — it blocks ever adding `AddressableSceneLoader` without touching the service.
+
+---
+
 ## Layer Structure
 
 ```

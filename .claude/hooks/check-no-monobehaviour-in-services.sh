@@ -73,7 +73,10 @@ fi
 # --- Check 3: UnityEngine imports in domain/service files (blocking) ---
 if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.*\.cs$"; then
     # Skip providers, MonoBehaviours, views, handlers, editors, installers — Unity API lives here.
-    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Inspector|Editor|Drawer|Panel|Button|Controller|Installer|Scope)\.(cs)$"; then
+    # *SceneLoader (NormalSceneLoader, AddressableSceneLoader, ...): Tier 4 ISceneLoader
+    # implementations (bootstrap-pattern.md Card 6) — the Unity SceneManager/Addressables
+    # boundary that ISceneService depends on. Same role as *Provider, different suffix.
+    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Inspector|Editor|Drawer|Panel|Button|Controller|Installer|Scope|SceneLoader)\.(cs)$"; then
         exit 0
     fi
 

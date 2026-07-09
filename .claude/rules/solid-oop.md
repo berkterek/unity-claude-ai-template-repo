@@ -180,6 +180,12 @@ Every class belongs to exactly one tier. Assign the tier before writing a single
 │  Remains as-is: wraps Unity API that the Service needs.               │
 │  Do NOT open a Provider for prefab-local Unity access —               │
 │  that is Handler's job.                                                │
+│  Scene loading follows this tier exactly: ISceneService (Tier 3,      │
+│  pure C#, EntryPoint) depends on ISceneLoader (Tier 4 Provider         │
+│  interface). SceneManager-backed and Addressables-backed loading are   │
+│  two interchangeable ISceneLoader implementations — swap without       │
+│  touching SceneService. Suffix: `*SceneLoader` (e.g.                   │
+│  NormalSceneLoader, AddressableSceneLoader).                          │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -193,6 +199,7 @@ Every class belongs to exactly one tier. Assign the tier before writing a single
 | Is it pure C# logic shared across modules? | Tier 3 — Service |
 | Does it need a frame tick but should stay pure C#? | Tier 3 — EntryPoint (`ITickable`) |
 | Does it wrap Unity API on behalf of a Service (cross-module)? | Tier 4 — Provider |
+| Does it perform the actual scene load call (SceneManager / Addressables)? | Tier 4 — `ISceneLoader` implementation (`*SceneLoader`) |
 
 ---
 
