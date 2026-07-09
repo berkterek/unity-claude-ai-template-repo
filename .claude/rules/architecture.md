@@ -111,6 +111,60 @@ public sealed class SaveLoadService : ISaveLoadService
 
 **GOTCHA:** The Service class name and its public API never change when a new backend is added — that is the test of whether this pattern was applied correctly. If adding `CloudSaveLoadDal` requires touching `SaveLoadService`, the DIP boundary is in the wrong place. Do not invent a new suffix per module out of habit — check this table first; only add a new row when none of the four existing meanings fit.
 
+**Two backends both active at once (different data categories) — split into two Service+Backend pairs, never a keyed factory:**
+
+**WHEN:** Some data always goes to one backend and other data always goes to another (e.g. settings → local, player progress → cloud) — the choice is known statically by what is being saved, not decided at runtime per call.
+
+**WRONG:**
+```csharp
+// Factory keyed by a string/enum — SaveLoadService now branches on backend type internally
+public sealed class SaveLoadService : ISaveLoadService
+{
+    private readonly Func<SaveTarget, ISaveLoadDal> _dalFactory;
+    public void Save(SaveTarget target, string key, string json) => _dalFactory(target).Write(key, json); // OCP violation: adding a 3rd target means a 3rd factory case
+}
+```
+
+**RIGHT:**
+```csharp
+// Two independent domains — each with its own Service + Dal pair, per Card 2.1's normal shape
+Game.Abstracts.SaveLoad/ILocalSaveLoadService.cs  → Game.Abstracts.SaveLoad/ILocalSaveLoadDal.cs  → LocalSaveLoadDal
+Game.Abstracts.SaveLoad/ICloudSaveLoadService.cs  → Game.Abstracts.SaveLoad/ICloudSaveLoadDal.cs  → FirestoreSaveLoadDal
+
+// Callers inject exactly the one they need — the choice already happened at the injection site
+public sealed class SettingsController : MonoBehaviour
+{
+    [Inject] public void Construct(ILocalSaveLoadService localSave) { /* settings are always local */ }
+}
+public sealed class ProgressService : IProgressService
+{
+    public ProgressService(ICloudSaveLoadService cloudSave) { /* progress is always cloud */ } // constructor injection — Tier 3 service
+}
+```
+
+**GOTCHA:** A factory keyed by category (`"local"`/`"cloud"`, or an enum) just moves the `if/switch` from outside the service to inside it — still an OCP violation, still couples the service to every backend it might route to. Two separate interface pairs mean adding a third category (e.g. `ISessionCacheService`) is a new pair, not a new branch anywhere.
+
+**Same data, runtime-routed to one or the other (e.g. online/offline sync) — Composite Dal, not a factory:**
+
+If the same save call must go to Local **and conditionally** Cloud based on runtime state (connectivity), wrap both behind a third `ISaveLoadDal` implementation instead of asking the Service to choose:
+
+```csharp
+public sealed class SyncingSaveLoadDal : ISaveLoadDal
+{
+    private readonly LocalSaveLoadDal _local;
+    private readonly FirestoreSaveLoadDal _cloud;
+    private readonly IConnectivityProvider _connectivity;
+
+    public void Write(string key, string json)
+    {
+        _local.Write(key, json);                         // always write local first — offline-safe
+        if (_connectivity.IsOnline) _cloud.Write(key, json); // best-effort cloud sync
+    }
+}
+```
+
+`SaveLoadService` still depends on a single `ISaveLoadDal` and never learns that syncing happens — the routing logic lives entirely inside the Dal implementation, not in a factory the Service calls into.
+
 ---
 
 ### Card 3: Module → Static Install Method → AppModules → AppScope
