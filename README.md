@@ -599,6 +599,7 @@ npm install -g bats      # Linux
 | `guard-critical-files` | Edits to `AppScope`, `InputService`, `*Installer`, `EventBus`, `AppModules`, `ConfigCatalog`, `.asmdef` — deny-then-allow gate: first edit attempt per file blocks and demands investigation, retry passes; creating a brand-new file is never blocked |
 | `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exception: test assemblies |
 | `guard-gate-cleared` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
+| `guard-pipeline-direct-work` (PreToolUse Edit\|MultiEdit\|Write\|Bash) | Blocks direct `Edit`/`Write` to `_GameFolders/Scripts/**/*.cs` and direct `git commit` while a Director Gate is open (`gate-cleared` exists) but no subagent is currently running (`subagent-depth` == 0) — closes the "gate was shown but pipeline agent was never spawned" loophole. Escape valve: `.claude/state/pipeline-override` for explicit user-approved bypasses |
 | `guard-reviewer-order` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass |
 | `check-no-runtime-instantiate` | `new GameObject()` — blocked everywhere in runtime code; use `Instantiate(prefab)` or `Addressables.InstantiateAsync()` |
 | `check-enum-byte-base` | `enum` without `: byte` base inside `IComponentData` or `IEvent` structs — use `: ushort` if 255+ values needed |

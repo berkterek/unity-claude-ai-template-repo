@@ -203,6 +203,8 @@ Skipping a gate is a critical violation — the `guard-gate-cleared.sh` hook wil
 
 **Residual-risk note:** Gate approval expires after 45 minutes (2700s TTL). If a pipeline is abandoned mid-flight (QUALITY_GATE "stop", error, user interruption), the gate file remains valid until the TTL expires or the next SessionStart. A cautious Director can force-clear it immediately: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"`.
 
+**Gate-cleared ≠ pipeline-executed — enforced mechanically, not just by instruction.** Showing a gate and receiving `go` only proves the gate was displayed; it does not prove the Test Writer/Coder/Reviewer/Committer pipeline was actually spawned afterward. Doing the work directly (Edit/Write/Bash) instead of spawning the pipeline agent is a violation of this rule even if the gate itself was shown correctly. This is enforced by `guard-pipeline-direct-work.sh`: while `.claude/state/gate-cleared` exists and no subagent is currently running (`.claude/state/subagent-depth` == 0), direct `Edit`/`MultiEdit`/`Write` to `_GameFolders/Scripts/**/*.cs` and direct `git commit` are blocked with exit 2. If the user has explicitly approved skipping the pipeline for a specific task, the escape valve is writing a one-line reason to `.claude/state/pipeline-override` before retrying — never write it speculatively or to route around a legitimate block.
+
 ---
 
 ## Project Features
