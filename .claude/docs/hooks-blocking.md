@@ -5,7 +5,7 @@
 | `block-git-push.sh` | `git push` — Claude cannot push; user always pushes manually |
 | `block-scene-edit.sh` | Direct editing of `.unity`, `.prefab`, `.asset` files |
 | `guard-editor-runtime.sh` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
-| `check-no-monobehaviour-in-services.sh` | `class FooService : MonoBehaviour` or `: ScriptableObject` in `_Framework/` / `Games/Abstracts/` / `Games/Concretes/` — `using UnityEngine` is allowed (math types); only inheritance is blocked. Exempts `*Provider`/`*View`/`*Controller`/`*SceneLoader`/etc., `*Events` files, and ScriptableObject configs (`*Configuration`/`*Config`/`*Catalog`/`*Definition`). `*SceneLoader` (NormalSceneLoader, AddressableSceneLoader, ...) is the Tier 4 `ISceneLoader` Provider implementation that `SceneService` depends on (bootstrap-pattern.md Card 6) |
+| `check-no-monobehaviour-in-services.sh` | `class FooService : MonoBehaviour` or `: ScriptableObject` in `_Framework/` / `Games/Abstracts/` / `Games/Concretes/` — `using UnityEngine` is allowed (math types); only inheritance is blocked. Exempts `*Provider`/`*View`/`*Controller`/`*Loader`/`*Dal`/`*Client`/etc., `*Events` files, and ScriptableObject configs (`*Configuration`/`*Config`/`*Catalog`/`*Definition`). `*Loader`/`*Dal`/`*Client` are Tier 4 swappable-backend implementations (architecture.md Card 2.1) — e.g. `ISceneLoader`→`NormalSceneLoader`, `ISaveLoadDal`→`LocalSaveLoadDal` |
 | `check-input-system.sh` | Legacy `Input.GetKey` / `Input.GetAxis` API |
 | `check-vcontainer-singleton.sh` | Static singleton patterns outside of `EventBusAccessor` |
 | `check-unity-event.sh` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |

@@ -59,6 +59,60 @@ public sealed class BasicAudioProvider : MonoBehaviour, IAudioProvider
 
 ---
 
+### Card 2.1: Swappable Backend Pattern — Same Shape, Suffix by Domain
+
+**WHEN:** A Service's job is inherently "call some external mechanism to do X" (load a scene, persist data, call a remote API) and more than one mechanism plausibly does it (SceneManager vs. Addressables; local JSON vs. cloud save; REST vs. gRPC).
+
+This is Card 2 generalized beyond Unity API — the backend isn't always `UnityEngine`, but the shape is identical: Service (Tier 3, pure C#) depends on an interface; each mechanism is a separate implementation the Service never references by concrete type.
+
+**WRONG:**
+```csharp
+// Backend mechanism hardcoded inside the service — swapping local↔cloud save means rewriting SaveLoadService
+public sealed class SaveLoadService : ISaveLoadService
+{
+    public void Save(PlayerSaveData data) => File.WriteAllText(Application.persistentDataPath + "/save.json", JsonUtility.ToJson(data));
+}
+```
+
+**RIGHT:**
+```csharp
+// Game.Abstracts.SaveLoad/ISaveLoadDal.cs — Tier 4 contract, one per backend mechanism
+public interface ISaveLoadDal
+{
+    void Write(string key, string json);
+    string Read(string key);
+}
+
+// Game.Concretes.SaveLoad/LocalSaveLoadDal.cs — Tier 4, file-system backend
+public sealed class LocalSaveLoadDal : ISaveLoadDal
+{
+    public void Write(string key, string json) => File.WriteAllText(PathFor(key), json);
+    public string Read(string key) => File.Exists(PathFor(key)) ? File.ReadAllText(PathFor(key)) : null;
+    private static string PathFor(string key) => Path.Combine(Application.persistentDataPath, key + ".json");
+}
+
+// Game.Concretes.SaveLoad/SaveLoadService.cs — Tier 3, pure C#, never touches File/JsonUtility directly
+public sealed class SaveLoadService : ISaveLoadService
+{
+    private readonly ISaveLoadDal _dal;
+    public SaveLoadService(ISaveLoadDal dal) => _dal = dal;
+    public void Save(PlayerSaveData data) => _dal.Write("save", JsonUtility.ToJson(data));
+}
+```
+
+**Suffix by domain — pick the name that says what the backend actually does, don't force one suffix everywhere:**
+
+| Domain | Backend interface suffix | Example |
+|---|---|---|
+| Scene loading | `*Loader` | `ISceneLoader` → `NormalSceneLoader`, `AddressableSceneLoader` |
+| Data persistence | `*Dal` (Data Access Layer) | `ISaveLoadDal` → `LocalSaveLoadDal`, `CloudSaveLoadDal` |
+| Unity API wrapping | `*Provider` | `IAudioProvider` → `BasicAudioProvider` |
+| Remote/external service call | `*Client` | `IAnalyticsClient` → `FirebaseAnalyticsClient` |
+
+**GOTCHA:** The Service class name and its public API never change when a new backend is added — that is the test of whether this pattern was applied correctly. If adding `CloudSaveLoadDal` requires touching `SaveLoadService`, the DIP boundary is in the wrong place. Do not invent a new suffix per module out of habit — check this table first; only add a new row when none of the four existing meanings fit.
+
+---
+
 ### Card 3: Module → Static Install Method → AppModules → AppScope
 
 **WHEN:** Adding a new feature module (Audio, Score, Shop, etc.).

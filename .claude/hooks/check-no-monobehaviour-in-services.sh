@@ -73,10 +73,10 @@ fi
 # --- Check 3: UnityEngine imports in domain/service files (blocking) ---
 if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.*\.cs$"; then
     # Skip providers, MonoBehaviours, views, handlers, editors, installers — Unity API lives here.
-    # *SceneLoader (NormalSceneLoader, AddressableSceneLoader, ...): Tier 4 ISceneLoader
-    # implementations (bootstrap-pattern.md Card 6) — the Unity SceneManager/Addressables
-    # boundary that ISceneService depends on. Same role as *Provider, different suffix.
-    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Inspector|Editor|Drawer|Panel|Button|Controller|Installer|Scope|SceneLoader)\.(cs)$"; then
+    # Swappable-backend implementations (architecture.md Card 2.1) get the same exemption as
+    # *Provider — *Loader (ISceneLoader), *Dal (ISaveLoadDal), *Client (external service calls)
+    # are all Tier 4 backend implementations a Tier 3 Service depends on via interface.
+    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Inspector|Editor|Drawer|Panel|Button|Controller|Installer|Scope|Loader|Dal|Client)\.(cs)$"; then
         exit 0
     fi
 
