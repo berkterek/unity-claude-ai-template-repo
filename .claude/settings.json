@@ -35,6 +35,17 @@
         ]
       },
       {
+        "matcher": "Edit|MultiEdit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-pipeline-direct-work.sh",
+            "timeout": 3000,
+            "statusMessage": "Checking pipeline gate vs. direct work..."
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write",
         "hooks": [
           {

@@ -59,4 +59,12 @@ if [ "$AGENT_TYPE" = "committer" ]; then
     rm -f "${UNITY_HOOK_STATE_DIR}/gate-cleared"
 fi
 
+# Depth counter — mirror of the increment in agent-start-log.sh. Floors at 0 so
+# an unmatched Stop (e.g. mid-session hook reload) can't go negative.
+DEPTH_FILE="${UNITY_HOOK_STATE_DIR}/subagent-depth"
+CURRENT_DEPTH=$(cat "$DEPTH_FILE" 2>/dev/null || echo 0)
+NEW_DEPTH=$(( CURRENT_DEPTH - 1 ))
+[ "$NEW_DEPTH" -lt 0 ] && NEW_DEPTH=0
+echo "$NEW_DEPTH" > "$DEPTH_FILE"
+
 exit 0

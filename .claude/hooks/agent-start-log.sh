@@ -33,4 +33,13 @@ jq -nc \
     '{event:$event, agent_type:$agent_type, description:$description, session_id:$session_id, started_at:$started_at, logged_at:$logged_at}' \
     >> "$SUBAGENT_LOG"
 
+# Depth counter — consumed by guard-pipeline-direct-work.sh to tell whether the
+# CURRENT tool call is happening inside a spawned subagent (depth > 0) or in the
+# main session directly (depth == 0). Incremented here, decremented in
+# agent-stop-log.sh. Not session-scoped by design: only one pipeline runs at a
+# time in practice, and a stale >0 count self-heals to 0 once agents complete.
+DEPTH_FILE="${UNITY_HOOK_STATE_DIR}/subagent-depth"
+CURRENT_DEPTH=$(cat "$DEPTH_FILE" 2>/dev/null || echo 0)
+echo $(( CURRENT_DEPTH + 1 )) > "$DEPTH_FILE"
+
 exit 0
