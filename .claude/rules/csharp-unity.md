@@ -24,6 +24,34 @@ namespace Game.Abstracts.Audio  { public interface IAudioService { } }
 
 ---
 
+### Card 1.1: Folder/Domain Names Plural, Class Names Singular
+
+**WHEN:** Naming a domain folder under `Abstracts/`/`Concretes/`, or naming any class/interface.
+
+**WRONG:**
+```
+Games/Concretes/Input/PlayerInputHandler.cs      // domain folder singular
+Games/Concretes/Controller/PlayerController.cs   // domain folder singular
+
+public sealed class Players { }                  // class name plural
+```
+
+**RIGHT:**
+```
+Games/Concretes/Inputs/PlayerInputHandler.cs     // domain folder plural
+Games/Concretes/Controllers/EnemyController.cs   // domain folder plural
+
+public sealed class Player { }                   // class singular
+public sealed class Enemy { }                     // class singular
+public sealed class PlayerController { }          // class singular
+```
+
+**GOTCHA:** Only the domain folder (and matching namespace segment, e.g. `Game.Concretes.Inputs`) is plural. The class/interface inside stays singular — `PlayerController.cs` never becomes `Controllers.cs`. This does not override the "one type per file, filename matches class name" rule.
+
+**Exception — static Extension classes:** the extension class itself (not a domain folder) is named in the plural, matching the type it extends: `Vector3Extensions`, `StringExtensions`, `TransformExtensions`. The file name matches the class name as usual (`Vector3Extensions.cs`).
+
+---
+
 ### Card 2: Null Check — Never `?.` on UnityEngine.Object
 
 **WHEN:** Null-checking any MonoBehaviour, Component, or other Unity object.
