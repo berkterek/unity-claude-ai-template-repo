@@ -76,7 +76,9 @@ if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.
     # Swappable-backend implementations (architecture.md Card 2.1) get the same exemption as
     # *Provider — *Loader (ISceneLoader), *Dal (ISaveLoadDal), *Client (external service calls)
     # are all Tier 4 backend implementations a Tier 3 Service depends on via interface.
-    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Inspector|Editor|Drawer|Panel|Button|Controller|Installer|Scope|Loader|Dal|Client)\.(cs)$"; then
+    # *Extensions: static extension classes (csharp-unity.md Card 1.1) legitimately extend
+    # UnityEngine types (Vector3Extensions, TransformExtensions) and are never pure-C# services.
+    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Inspector|Editor|Drawer|Panel|Button|Controller|Installer|Scope|Loader|Dal|Client|Extensions)\.(cs)$"; then
         exit 0
     fi
 
