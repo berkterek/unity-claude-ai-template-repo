@@ -25,7 +25,7 @@ This is a personal Unity development template for Claude Code. It enforces archi
 
 ## Important Constraints
 
-- `settings.json` cannot be edited by Claude — `check-config-protection.sh` blocks it. User must add hook entries manually after any new hook is created.
+- `settings.json` cannot be edited by Claude — `check-config-protection.sh` blocks it. User must add hook entries manually after any new hook is created. New hook scripts must be `chmod +x`'d (the harness invokes them by path, so a missing exec bit makes the hook fail with exit 126 and silently become a no-op); `session-restore.sh` also self-heals any `.claude/hooks/*.sh` missing its exec bit at SessionStart as a safety net.
 - Hook exit 0 = warning only (pipeline continues). Exit 2 = blocking. A hook that only warns has minimal enforcement value.
 - **Hook profiles:** `UNITY_HOOK_PROFILE=minimal|standard|strict` (default: `standard`). `minimal` runs only 5 critical hooks; `standard` runs all standard-level hooks; `strict` adds heavy enforcement hooks. `DISABLE_UNITY_HOOKS=1` disables all hooks. `UNITY_HOOK_MODE=warn` downgrades blocking to warnings. Full profile docs: `.claude/docs/hook-profiles.md`.
 - `skills/genre/` and `skills/gameplay/` were removed. Use `/skill-creator` to generate project-specific genre/gameplay skills when needed.
