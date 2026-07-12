@@ -96,6 +96,22 @@ argument-hint: "[--dry-run] [--write] [--only <pkg>] [--include-assets-plugins]"
 - All skill files are written under `.claude/skills/third-party/<pkg>/` — never under `skills/plugins/`.
 - `compliance.md` is only written when `violations` is non-empty. Clean packages produce no compliance file.
 
+## External / Non-Package Sources
+
+`/discover` only sees what is installed in `Packages/manifest.json` (and, with `--include-assets-plugins`, `Assets/Plugins/`). It deliberately does **not** cover:
+
+- A general Unity **capability** that is not a discrete package (NavMesh, object pooling, save systems)
+- A package whose shipped docs are thin but which has richer **external** documentation (a docs site, a GitHub repo, a PDF)
+
+Do **not** extend `/discover` with a scraper for these — that would rebuild an external tool that already exists, and its long, generic output style conflicts with this project's terse-skill convention. Instead, use the external **Skill Seekers** tool (https://github.com/yusufkaraaslan/Skill_Seekers) as the doc-ingestion front-end, then conform its output to project rules:
+
+1. **Skill Seekers** → pulls docs from the external source into a generic `SKILL.md` (often 500+ lines).
+2. **`/skill-creator`** → optimize the `description:` for auto-trigger accuracy and validate frontmatter (same optimizer `/discover` recommends for logic packages in Flow step 9).
+3. **Hand-conform** to this project's conventions: condense to the terse Cards/section style, and rewrite examples into project idioms — VContainer provider pattern, pure-C# services, UniTask over coroutines, `IEventBus`, `[SerializeField]` over `GetComponent`.
+4. Save under `.claude/skills/third-party/<name>/SKILL.md` — the `auto-load-skills.sh` hook adds the `@`-reference — and add a row to the `## Third-Party` table in `skills-index.md`.
+
+This keeps skill generation consolidated: `/discover` for installed packages, Skill Seekers + `/skill-creator` for everything else. There is no separate "refine" skill — the optimizer (`/skill-creator`) already owns that step.
+
 ## Error Surfaces
 
 | Error code | Trigger |
