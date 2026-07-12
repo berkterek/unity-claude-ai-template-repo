@@ -19,6 +19,18 @@ source "${SCRIPT_DIR}/_lib.sh"
 # Initialize session start time
 date +%s > "${UNITY_HOOK_STATE_DIR}/session-start-time"
 
+# ── Self-heal hook executable bits ──────────────────────────────────────────
+# Hook scripts are frequently created at 0644 — editors and the agent's Write
+# tool do not set the exec bit — then committed non-executable. Hooks invoked as
+# "$CLAUDE_PROJECT_DIR"/.claude/hooks/x.sh require +x, so a missing bit turns a
+# blocking guard into a silent no-op (exit 126, treated as pass). Repair every
+# SessionStart so enforcement can never be disabled by a lost exec bit alone.
+# Idempotent: a no-op once the bits are correct (as they are when committed 100755).
+for _hook in "${SCRIPT_DIR}"/*.sh; do
+    { [ -f "$_hook" ] && [ ! -x "$_hook" ] && chmod +x "$_hook"; } 2>/dev/null || true
+done
+unset _hook
+
 # Clear stale gateguard state from previous sessions
 rm -f "$UNITY_READS_FILE" "$UNITY_EDITS_FILE" "$UNITY_COST_FILE" "$UNITY_LEARNING_FILE"
 
