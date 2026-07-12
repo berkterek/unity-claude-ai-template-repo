@@ -11,8 +11,12 @@ teardown() {
     rm -rf "$UNITY_HOOK_STATE_DIR" "$TMPDIR_TEST"
 }
 
-@test "blocks editing AppScope" {
-    run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/AppScope.cs\"}}' | bash $HOOK"
+@test "blocks editing an EXISTING AppScope" {
+    # The hook allows brand-new critical files (creation is safe) and only blocks
+    # edits to files that already exist — so the test file must exist on disk.
+    local f="$TMPDIR_TEST/AppScope.cs"
+    echo "// existing" > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
     [ "$status" -eq 2 ]
 }
 
@@ -21,8 +25,10 @@ teardown() {
     [ "$status" -eq 2 ]
 }
 
-@test "blocks editing EventBus" {
-    run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/EventBus.cs\"}}' | bash $HOOK"
+@test "blocks editing an EXISTING EventBus" {
+    local f="$TMPDIR_TEST/EventBus.cs"
+    echo "// existing" > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
     [ "$status" -eq 2 ]
 }
 
