@@ -184,7 +184,8 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `graph-validator.sh` | Architecture invariant checks (R1–R6) |
 | `graph_cluster.py` | Community detection — groups related classes into modules. Uses Louvain (`networkx`) when available; falls back to stdlib greedy. Install `pip install networkx` for better results on sparse codebases. |
 | `graph_analyze.py` | Surprising connections + enhanced god-nodes (cross-boundary edge analysis) |
-| `graph_validate.py` | Two-mode validator. **Default (consistency):** internal graph integrity — orphan events, dangling call edges, missing installer classes. No source files read. **`--accuracy` flag:** re-extracts a sample via `csharp_extractor.py` (tree-sitter) and compares against graph — run manually or in CI |
+| `graph_validate.py` | Two-mode validator. **Default (consistency):** internal graph integrity — orphan events, dangling call edges, missing installer classes (skips `unresolved:true` registrations). No source files read. **`--accuracy` flag:** re-extracts a sample via `csharp_extractor.py` (tree-sitter) and compares against graph — run manually or in CI |
+| `graph-viz.py` | Self-contained `graph.html` generator — resolves `$partition` refs, builds a class/interface/event node model with calls/implements/publish/subscribe/registers edges, emits one HTML file with inline CSS + vanilla-JS force-directed canvas layout. No CDN, no build step. See [Visualizer](#visualizer-graphhtml) |
 | `codex-validator.md` | Codex accuracy spot-check prompt |
 | `graph-watch.sh` | Optional fswatch/inotifywait watch loop |
 
@@ -315,16 +316,40 @@ By default the C# extractor uses **regex** (confidence: `INFERRED`). For higher-
 pip install tree-sitter tree-sitter-c-sharp
 ```
 
-Once installed, `graph-builder.py` automatically uses `csharp_extractor.py` instead of the regex pipeline — no config change needed. Without it, the build falls back to regex silently.
+Once installed, `graph-builder.py` automatically uses `csharp_extractor.py` instead of the regex pipeline — no config change needed. Without it, the build falls back to regex and emits a loud `FALLBACK_EXTRACTOR` warning to both `validation.warnings[]` (in `graph.json`) and stderr — so a degraded build is never silent.
 
 The AST extractor correctly handles:
 - `base_list` named child lookup (tree-sitter-c-sharp grammar quirk — field-based lookup returns nothing)
-- `RegisterInstance<T>`, `RegisterComponent<T>`, `RegisterEntryPoint<T>` VContainer registration variants
+- **Type-inferred event pub/sub** — not just the generic form `Publish<T>()`/`Subscribe<T>()`, but also `Publish(new GoldChangedEvent())` where the event type comes from the argument's `object_creation_expression`. This is walked on the AST per member (fields + method params + method-local `var`), so scoped symbols never leak across methods
+- `RegisterInstance<T>`, `RegisterComponent<T>`, `RegisterEntryPoint<T>` VContainer registration variants **plus** type-inferred `RegisterInstance(config)` — the registered type is resolved from the argument identifier against fields and method-local variables
+- Null-conditional calls — `_eventBus?.Publish(...)` (via `conditional_access_expression` / `member_binding_expression`)
+- **Unresolved registrations are marked, never dropped** — when a registered type can't be resolved (e.g. a mystery local), the entry is emitted as `{"unresolved": true, "confidence": "AMBIGUOUS"}` for human review; consistency validation and the visualizer skip these rather than fabricating a false edge
 - `struct_declaration` — `IEvent` structs are added to `events[]`
-- Event bus calls with any field name (`_bus`, `_eventBus`, `bus`, etc.)
 - VContainer `Installer` / `LifetimeScope` detection for `vcontainer.installers` and `vcontainer.scopes`
 
+> **Known limitation:** a `Publish`/`Subscribe` on an arbitrary receiver (`foo.Publish<X>()`) is detected by method name alone — the extractor does not verify the receiver is an `IEventBus`. This matches the previous regex behaviour (no regression) and is documented in `.claude/docs/knowledge-graph.md`.
+
 > **Recommended** if your project has 50+ classes or complex generics/multi-line declarations. Not required for the graph to function.
+
+### Visualizer (graph.html)
+
+`graph-viz.py` turns `graph.json` into a single self-contained `graph.html` — inline CSS, an inline JSON data island, and a vanilla-JS force-directed layout on `<canvas>`. No CDN, no external fonts/images, no build step; it opens in any browser offline.
+
+```bash
+python3 .claude/graph/graph-viz.py                 # graph.json → graph.html (defaults)
+python3 .claude/graph/graph-viz.py --graph path/to/graph.json --out /tmp/graph.html
+```
+
+- Nodes: class (MonoBehaviour = blue, plain C# = purple), interface (green square), event (orange)
+- Edges: `calls` (grey), `implements` (green), `publish` (orange), `subscribe` (blue dashed), `registers` (purple dotted)
+- Interaction: hover for a tooltip (name · type · namespace), drag to reposition, scroll to zoom, drag empty space to pan
+- `$partition` refs (`scenes.json` / `prefabs.json`) are resolved recursively; a missing partition **fails fast** rather than rendering a partial graph
+- `unresolved:true` registrations are skipped — no fabricated `registers` edge
+- Graphs over 800 nodes still render fully, with an on-screen "layout may be dense" note (no silent truncation)
+
+`graph.html` is **generated** — it is `.gitignore`d, always reproducible from `graph.json`. `/build-knowledge-graph` regenerates it as part of the build.
+
+> This is the one piece taken from [Graphify](https://github.com/Graphify-Labs/graphify) (the self-contained force-directed viz idea), rebuilt standalone with zero external dependencies. Graphify itself was evaluated and **not** adopted as a backend — the fragile layer is the Unity-semantic detection, which is inherently ours to maintain.
 
 ### Hybrid MCP backend (optional, off by default)
 
