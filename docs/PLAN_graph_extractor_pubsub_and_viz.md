@@ -1,7 +1,7 @@
 # PLAN — Graph Extractor AST Fix (pub/sub + registrations) & graph.html Visualizer
 
 > **Version:** v1 — 2026-07-14
-> **Status:** Active
+> **Status:** Completed — 2026-07-14 (commits 7294052 fix, aa9e3ad viz)
 > **Scope:** `.claude/graph/` Python tooling only — `extractors/csharp_extractor.py`, a new `graph-viz.py`, and the `/build-knowledge-graph` wiring. No Unity C# runtime code is touched.
 
 **Complexity: 0.55 — Medium** (two-file logic change + one new generator + regression tests; no Unity runtime, no ECS/Addressables).
@@ -16,24 +16,24 @@ The fix is to replace the two text-regex detectors with AST-node walks (mirrorin
 
 ## Goals
 
-- [ ] Detect event publishers/subscribers via AST, catching both `Publish<T>(…)` and `Publish(new T())`
-- [ ] Detect VContainer registrations via AST, catching both `Register<T>()` and `RegisterInstance(localVar)` (with local type resolution + never-silently-drop fallback)
-- [ ] Add stdlib-only regression tests that pin both patterns, wired into `verify-graphify.sh`
-- [ ] Verify on `nile_hole_sphere_repo`: publishers non-empty and consistent with the 36 grep sites
-- [ ] Add `graph-viz.py` → self-contained `graph.html` (no external CDN), resolving `$partition` refs
-- [ ] Wire optional `graph.html` emission into `/build-knowledge-graph` and document it
+- [x] Detect event publishers/subscribers via AST, catching both `Publish<T>(…)` and `Publish(new T())`
+- [x] Detect VContainer registrations via AST, catching both `Register<T>()` and `RegisterInstance(localVar)` (with local type resolution + never-silently-drop fallback)
+- [x] Add stdlib-only regression tests that pin both patterns, wired into `verify-graphify.sh`
+- [x] Verify on `nile_hole_sphere_repo`: publishers non-empty and consistent with the 36 grep sites
+- [x] Add `graph-viz.py` → self-contained `graph.html` (no external CDN), resolving `$partition` refs
+- [x] Wire optional `graph.html` emission into `/build-knowledge-graph` and document it
 
 ## Status
 
 | Phase | Task | Status | parallel_group |
 |-------|------|--------|----------------|
-| 1 | Task 1 — AST pub/sub + registration detection | ⏳ Pending | — |
-| 1 | Task 7 — Loud warning + validator hardening (regex-fallback + unresolved regs) | ⏳ Pending | — |
-| 1 | Task 2 — Regression tests (stdlib) | ⏳ Pending | — |
-| 1 | Task 3 — Harvest real snippets into repo fixtures + verify | ⏳ Pending | — |
-| 2 | Task 4 — `graph-viz.py` generator | ⏳ Pending | — |
-| 2 | Task 5 — Wire into `/build-knowledge-graph` + docs + gitignore | ⏳ Pending | — |
-| 2 | Task 6 — Viz smoke test | ⏳ Pending | — |
+| 1 | Task 1 — AST pub/sub + registration detection | ✅ Done | — |
+| 1 | Task 7 — Loud warning + validator hardening (regex-fallback + unresolved regs) | ✅ Done | — |
+| 1 | Task 2 — Regression tests (stdlib) | ✅ Done | — |
+| 1 | Task 3 — Harvest real snippets into repo fixtures + verify | ✅ Done | — |
+| 2 | Task 4 — `graph-viz.py` generator | ✅ Done | — |
+| 2 | Task 5 — Wire into `/build-knowledge-graph` + docs + gitignore | ✅ Done | — |
+| 2 | Task 6 — Viz smoke test | ✅ Done | — |
 
 > Ordering note: Task 4's code has **no** dependency on Task 1 (it only reads `graph.json`), so Tasks 1 and 4 *could* run in parallel. They are kept sequential per the chosen "fix first, then viz" ordering so Task 6 verifies the visualizer against corrected data.
 
@@ -391,3 +391,9 @@ Four decisions resolved via `/grill-me`; all folded into the tasks above.
 | D4 | Commit `graph.html` or gitignore? | **gitignore** — generated, one-command-regenerable, no machine consumer (unlike committed `graph.json`). | Task 5; File Map (`.gitignore`) |
 
 Not re-litigated (already decided earlier): single plan / two phases / bug-fix-before-viz ordering; AST-walk over broadened-regex; self-contained vanilla-JS viz over CDN.
+
+## Completion Note — 2026-07-14
+
+All 7 tasks implemented, verified, committed (`7294052` fix, `aa9e3ad` viz). Extractor suite 14/14; `verify-graphify.sh` PASS 31 / FAIL 0 (2 pre-existing KNOWN_FAIL from a separate plan, unrelated); reviewer (Codex) APPROVED after 2 passes.
+
+**Deferred (documented, not fixed):** pub/sub detection matches by method name and cannot verify the receiver is an `IEventBus` — `foo.Publish<X>()` is a possible false positive. Same behavior as the previous regex (no regression); a reliable fix needs receiver type resolution we do not have. Documented as a known limitation in `knowledge-graph.md`.
