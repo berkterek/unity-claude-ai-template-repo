@@ -6,7 +6,6 @@ import sys
 import json
 import argparse
 import os
-import re
 
 
 def _try_import():
@@ -87,18 +86,153 @@ def _extract_invocations(class_body, src):
     return calls
 
 
-def _detect_vcontainer(class_body, src):
-    """Detect builder.Register* and eventBus.Subscribe/Publish patterns."""
-    registrations = []
-    pub_sub = []
-    text = _node_text(class_body, src)
-    # Register<T>, RegisterInstance<T>, RegisterComponent<T>, RegisterEntryPoint<T>
-    for m in re.finditer(r'builder\.Register(?:Instance|Component|EntryPoint)?<([A-Za-z0-9_]+)>', text):
-        registrations.append({"type": m.group(1), "as": "", "lifetime": ""})
-    # RegisterInstance(obj) — type from variable name not available, skip
-    # Any field name ending with eventBus / _eventBus / bus etc.
-    for m in re.finditer(r'\w+\.(Publish|Subscribe|Unsubscribe)<([A-Za-z0-9_]+)>', text):
-        pub_sub.append({"action": m.group(1), "event": m.group(2)})
+_TYPE_NODES = {"identifier", "qualified_name", "generic_name", "predefined_type"}
+
+
+def _type_name(node, src):
+    # normalize any type node to its LAST segment (Ns.Outer<Foo> -> Outer)
+    if node is None:
+        return None
+    if node.type == "qualified_name":
+        name = node.child_by_field_name("name")          # final segment (may be generic_name)
+        if name is not None:
+            return _type_name(name, src)
+        idents = _find_children(node, "identifier")
+        return _node_text(idents[-1], src) if idents else None
+    if node.type == "generic_name":
+        idents = _find_children(node, "identifier")
+        return _node_text(idents[0], src) if idents else None
+    return _node_text(node, src)  # identifier / predefined_type
+
+
+def _member_name_and_typearg(func, src):        # func = member_access_expression
+    name = func.child_by_field_name("name") or func.named_children[-1]
+    if name.type == "identifier":
+        return _node_text(name, src), None
+    if name.type == "generic_name":
+        idents = _find_children(name, "identifier")
+        method = idents[0] if idents else None
+        tal = next((c for c in name.children if c.type == "type_argument_list"), None)
+        payload = next((c for c in tal.named_children if c.type in _TYPE_NODES), None) if tal else None
+        return (_node_text(method, src) if method is not None else None), _type_name(payload, src)
+    return None, None
+
+
+def _first_arg_node(inv, src, kind_filter):
+    args = inv.child_by_field_name("arguments")            # argument_list
+    if not args:
+        return None
+    arg = next((c for c in args.named_children if c.type == "argument"), None)
+    if not arg:
+        return None
+    return next((c for c in arg.named_children if kind_filter(c)), None)
+
+
+def _first_arg_new_type(inv, src):
+    oce = _first_arg_node(inv, src, lambda c: c.type == "object_creation_expression")
+    if not oce:
+        return None
+    tnode = next((c for c in oce.named_children if c.type in _TYPE_NODES), None)
+    return _type_name(tnode, src)
+
+
+def _first_arg_identifier(inv, src):
+    idn = _first_arg_node(inv, src, lambda c: c.type == "identifier")
+    return _node_text(idn, src) if idn else None
+
+
+def _detect_member(member_body, src, symbols, registrations, pub_sub):
+    PUBSUB = {"Publish", "Subscribe", "Unsubscribe"}
+    REG = {"Register", "RegisterInstance", "RegisterComponent", "RegisterEntryPoint", "RegisterComponentInHierarchy"}
+    for inv in _walk(member_body, "invocation_expression"):
+        func = inv.child_by_field_name("function")
+        if not func:
+            continue
+        if func.type == "conditional_access_expression":
+            # null-conditional call: `_eventBus?.Publish(...)` — the callee name
+            # lives on the nested member_binding_expression, not directly on `func`.
+            func = next((c for c in func.children if c.type == "member_binding_expression"), None)
+            if not func:
+                continue
+        elif func.type != "member_access_expression":
+            continue
+        method, type_arg = _member_name_and_typearg(func, src)
+        if method in PUBSUB:
+            ev = type_arg or _first_arg_new_type(inv, src)   # generic wins -> no double count
+            if ev:
+                pub_sub.append({"action": method, "event": ev})
+        elif method in REG:
+            t = type_arg
+            if not t and method == "RegisterInstance":
+                t = _first_arg_new_type(inv, src) or symbols.get(_first_arg_identifier(inv, src), "")
+            reg = {"type": t or "", "as": "", "lifetime": ""}   # never skip
+            if not t:
+                reg["unresolved"] = True
+                reg["confidence"] = "AMBIGUOUS"   # D3
+            registrations.append(reg)
+
+
+def _class_field_symbols(cls_node, src):
+    syms = {}
+    body = cls_node.child_by_field_name("body")
+    if not body:
+        return syms
+    for fd in _find_children(body, "field_declaration"):
+        vd = next((c for c in fd.named_children if c.type == "variable_declaration"), None)
+        if not vd:
+            continue
+        tnode = next((c for c in vd.named_children if c.type in _TYPE_NODES), None)
+        tname = _type_name(tnode, src)
+        for decl in _find_children(vd, "variable_declarator"):
+            nm = decl.child_by_field_name("name")
+            if nm and tname:
+                syms[_node_text(nm, src)] = tname
+    return syms
+
+
+def _local_var_symbols(member_body, src):
+    syms = {}
+    for lds in _walk(member_body, "local_declaration_statement"):
+        vd = next((c for c in lds.named_children if c.type == "variable_declaration"), None)
+        if not vd:
+            continue
+        tnode = next((c for c in vd.named_children if c.type in _TYPE_NODES), None)
+        is_var = any(c.type == "implicit_type" for c in vd.named_children)
+        for decl in _find_children(vd, "variable_declarator"):
+            nm = decl.child_by_field_name("name")
+            if not nm:
+                continue
+            tname = _type_name(tnode, src) if tnode and not is_var else None
+            if not tname and is_var:
+                init = next((c for c in decl.named_children if c.type == "object_creation_expression"), None)
+                if init:
+                    itnode = next((c for c in init.named_children if c.type in _TYPE_NODES), None)
+                    tname = _type_name(itnode, src)
+            if tname:
+                syms[_node_text(nm, src)] = tname
+    return syms
+
+
+def _detect_vcontainer(cls_node, src):
+    """Detect builder.Register* and eventBus.Subscribe/Publish patterns via AST walk."""
+    registrations, pub_sub = [], []
+    fields = _class_field_symbols(cls_node, src)
+    body = cls_node.child_by_field_name("body")
+    members = (_find_children(body, "method_declaration")
+               + _find_children(body, "constructor_declaration")) if body else []
+    for member in members:
+        symbols = dict(fields)
+        plist = member.child_by_field_name("parameters")
+        if plist:
+            for p in _find_children(plist, "parameter"):
+                pn = p.child_by_field_name("name")
+                pt = p.child_by_field_name("type")
+                if pn and pt:
+                    symbols[_node_text(pn, src)] = _type_name(pt, src)
+        mbody = member.child_by_field_name("body")
+        if mbody:
+            symbols.update(_local_var_symbols(mbody, src))
+            _detect_member(mbody, src, symbols, registrations, pub_sub)
     return registrations, pub_sub
 
 
@@ -150,7 +284,7 @@ def extract_file(parser, path, src=None):
 
         body = cls_node.child_by_field_name("body")
         methods = _extract_methods(body, src) if body else []
-        registrations, pub_sub = _detect_vcontainer(body, src) if body else ([], [])
+        registrations, pub_sub = _detect_vcontainer(cls_node, src)
 
         events_published = [p["event"] for p in pub_sub if p["action"] == "Publish"]
         events_subscribed = [p["event"] for p in pub_sub if p["action"] in ("Subscribe", "Unsubscribe")]

@@ -234,8 +234,12 @@ def select_changed(all_files, cache, mode):
 
 
 def run_csharp_extractor(changed_cs, script_dir, quiet):
+    """Returns (result_dict, used_fallback: bool). used_fallback is True when the
+    tree-sitter python extractor was unavailable (exit 2) and the regex-based
+    shell extractor was used instead — its pub/sub + registration data is
+    LOW CONFIDENCE (D1)."""
     if not changed_cs:
-        return dict(EMPTY_CS, vcontainer={"installers": [], "scopes": []})
+        return dict(EMPTY_CS, vcontainer={"installers": [], "scopes": []}), False
     py_ex = script_dir / "extractors" / "csharp_extractor.py"
     sh_ex = script_dir / "extractors" / "csharp-extractor.sh"
     csv = ",".join(changed_cs)
@@ -247,21 +251,23 @@ def run_csharp_extractor(changed_cs, script_dir, quiet):
         cmds.append(("bash", ["bash", str(sh_ex), "--changed-files", csv]))
     if not cmds:
         log("csharp extractor not found — using empty result", quiet)
-        return dict(EMPTY_CS, vcontainer={"installers": [], "scopes": []})
+        return dict(EMPTY_CS, vcontainer={"installers": [], "scopes": []}), False
 
+    used_fallback = False
     for label, cmd in cmds:
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
             if r.returncode == 2 and label == "python3":
                 log("csharp_extractor.py: tree-sitter unavailable — falling back to shell extractor", quiet)
+                used_fallback = True
                 continue
             if r.returncode != 0:
                 log(f"csharp extractor ({label}) exited {r.returncode}: {r.stderr.strip()}", quiet)
             if r.stdout and r.stdout.strip():
-                return json.loads(r.stdout)
+                return json.loads(r.stdout), used_fallback
         except Exception as e:
             log(f"csharp extractor ({label}) failed: {e}", quiet)
-    return dict(EMPTY_CS, vcontainer={"installers": [], "scopes": []})
+    return dict(EMPTY_CS, vcontainer={"installers": [], "scopes": []}), used_fallback
 
 
 def run_asmdef_extractor(changed_asmdef, script_dir, quiet):
@@ -657,6 +663,7 @@ def assemble_graph(
     calls,
     stale_warnings,
     missing_warnings,
+    fallback_warnings,
     scanned,
     cache_hits,
     build_ms,
@@ -685,7 +692,7 @@ def assemble_graph(
         },
         "validation": {
             "errors": [],
-            "warnings": list(stale_warnings or []) + list(missing_warnings or []),
+            "warnings": list(stale_warnings or []) + list(missing_warnings or []) + list(fallback_warnings or []),
         },
         "stats": {
             "scanned_files": scanned,
@@ -877,7 +884,7 @@ def main():
     # ── Run extractors
     if changed_cs:
         log(f"running csharp-extractor on {len(changed_cs)} files…", quiet)
-    cs_output = run_csharp_extractor(changed_cs, SCRIPT_DIR, quiet)
+    cs_output, used_fallback_extractor = run_csharp_extractor(changed_cs, SCRIPT_DIR, quiet)
 
     if changed_asmdef:
         log(f"running asmdef-extractor on {len(changed_asmdef)} files…", quiet)
@@ -930,6 +937,14 @@ def main():
     # ── Validation warnings
     stale_warnings = check_path_drift(mcp_prefabs, unity_folder, repo_root, quiet)
     missing_warnings = check_missing_scripts(mcp_scenes, mcp_prefabs, quiet)
+    fallback_warnings = []
+    if used_fallback_extractor:
+        fallback_msg = (
+            "tree-sitter unavailable — pub/sub + registration data is LOW CONFIDENCE "
+            "(regex fallback under-reports non-generic Publish/RegisterInstance)."
+        )
+        fallback_warnings.append({"code": "FALLBACK_EXTRACTOR", "message": fallback_msg})
+        print(f"WARNING: FALLBACK_EXTRACTOR — {fallback_msg}", file=sys.stderr)
 
     # ── Assemble + atomic write
     end_ms = int(time.time() * 1000)
@@ -949,6 +964,7 @@ def main():
         calls=all_calls,
         stale_warnings=stale_warnings,
         missing_warnings=missing_warnings,
+        fallback_warnings=fallback_warnings,
         scanned=scanned,
         cache_hits=cache_hits,
         build_ms=build_ms,

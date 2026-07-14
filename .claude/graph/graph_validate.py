@@ -83,10 +83,17 @@ def run_consistency(g):
                 })
 
     # Installer references non-existent class
+    unresolved_registrations = 0
     vcontainer = codebase.get("vcontainer", {})
     for installer in vcontainer.get("installers", []):
         for reg in installer.get("registrations", []):
-            cls_name = reg.get("class", "")
+            # D3: registrations tagged unresolved:true (RegisterInstance(var) whose
+            # type could not be statically resolved) are known-incomplete, not
+            # dangling — never flag them as INSTALLER_MISSING_CLASS.
+            if reg.get("unresolved") is True:
+                unresolved_registrations += 1
+                continue
+            cls_name = reg.get("class", "") or reg.get("type", "")
             if cls_name and cls_name not in class_names:
                 issues.append({
                     "type": "INSTALLER_MISSING_CLASS",
@@ -94,6 +101,13 @@ def run_consistency(g):
                     "class": cls_name,
                     "detail": f"Installer {installer.get('name','?')} registers {cls_name} but class not in graph",
                 })
+
+    if unresolved_registrations:
+        print(
+            f"graph_validate: {unresolved_registrations} unresolved registration(s) "
+            f"(RegisterInstance with unresolvable variable type) — known-incomplete, not dangling",
+            file=sys.stderr,
+        )
 
     return issues
 
