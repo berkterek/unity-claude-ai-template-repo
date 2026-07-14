@@ -13,6 +13,7 @@ event, installer, scope, asmdef, scene, and prefab in the project.
 /build-knowledge-graph --validate            # run architecture invariant checks
 /build-knowledge-graph --validate-with-codex # run + Codex accuracy spot-check
 /build-knowledge-graph --quiet               # suppress progress output
+/build-knowledge-graph --viz                 # also emit graph.html (visualizer)
 ```
 
 ---
@@ -48,6 +49,7 @@ Stop here.
 | `--validate` | off | Run `graph-validator.sh` after build |
 | `--validate-with-codex` | off | Run Codex accuracy spot-check after build |
 | `--quiet` | off | Suppress progress output |
+| `--viz` | off | After export, generate `graph.html` (self-contained visualizer) |
 
 ---
 
@@ -140,3 +142,23 @@ If `graph.json.bak` exists, show a one-line diff:
 diff <(jq -S '.codebase.classes | map(.name) | sort' .claude/graph/graph.json.bak) \
      <(jq -S '.codebase.classes | map(.name) | sort' .claude/graph/graph.json)
 ```
+
+---
+
+## Step 7 — Visualizer (optional, `--viz` only)
+
+If `--viz` was passed, generate the self-contained HTML graph visualizer **after** the
+export/partition write from the preceding steps has completed:
+
+```bash
+python3 .claude/graph/graph-viz.py --graph .claude/graph/graph.json --out .claude/graph/graph.html
+```
+
+Print the resulting node/edge counts (emitted by the script to stderr) to the user, e.g.:
+```
+graph.html written: .claude/graph/graph.html (nodes=147, edges=191, publish_edges=12)
+```
+
+`graph.html` is a generated artifact (gitignored) — open it directly in a browser
+(`file://` works, no server needed). It is **not** produced by a default build; the flag
+must be passed explicitly. See `.claude/docs/knowledge-graph.md` for what it renders.

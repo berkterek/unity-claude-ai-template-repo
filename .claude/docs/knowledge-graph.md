@@ -7,7 +7,7 @@ for `/catch-up`, `/orchestrate` pre-scan, and `/context-prime`.
 **Pipeline:** detect → extract (C# / asmdef / MCP) → build → finalize-calls → analyze → report → export
 
 **Commands:**
-- `/build-knowledge-graph [--full|--incremental] [--skip-mcp] [--validate] [--validate-with-codex]`
+- `/build-knowledge-graph [--full|--incremental] [--skip-mcp] [--validate] [--validate-with-codex] [--viz]`
 - `/knowledge-graph <summary|implementers|publishers|subscribers|registrations|scope-tree|prefab|violations|diff|callers|impact|path|god-nodes>`
 
 **Triggers (kept in sync automatically):**
@@ -49,6 +49,43 @@ Lessons from live testing — read before debugging graph output.
 - **Python JSON passing** — both `STALE_PATH_WARNINGS` and `MISSING_SCRIPT_WARNINGS` blocks pass data via env vars (`MCP_PREFABS_JSON`, `MISSING_INPUT_JSON`) + `json.loads(os.environ[...])`, not `echo | python3 -`. Bash heredoc overrides stdin so the pipe pattern silently delivers empty input to Python.
 - **Subfolder layout (UNITY_FOLDER)** — `STALE_PATH_WARNINGS` passes `UNITY_FOLDER` to Python and prepends it to the `Assets/...` path before `os.path.exists()`. Without this, every prefab appears stale on projects where `Assets/` is not at repo root.
 - **gameObjects key casing** — MISSING_SCRIPT detection reads `scene.get("gameObjects", scene.get("gameobjects", []))` to handle both camelCase (MCP cache output) and lowercase (older extractions).
+
+### csharp_extractor.py — pub/sub + registration detection is AST-based (not regex)
+
+`_detect_vcontainer` in `csharp_extractor.py` (tree-sitter path) walks the real
+`invocation_expression` AST per-method — it is **not** a text regex. This replaces a prior
+regex approach that only matched the generic `Publish<T>(...)` form and silently missed the
+common non-generic form `_eventBus.Publish(new SettingsClosedEvent())`, and that skipped
+`builder.RegisterInstance(config)` registrations entirely. Both gaps are closed:
+
+- **Publish/Subscribe/Unsubscribe** are detected whether written generically (`Publish<T>(...)`)
+  or via type inference from the argument (`Publish(new T())`, including `_eventBus?.Publish(...)`
+  null-conditional call sites) — no double-count when both forms are present on the same call.
+- **Registrations** (`Register<T>()`, `RegisterInstance(var)`, `RegisterComponent`,
+  `RegisterEntryPoint`, `RegisterComponentInHierarchy`) are matched the same way. `RegisterInstance(var)`
+  resolves `var`'s type from a bounded local symbol table (class fields + the enclosing
+  method/constructor's own parameters). When the type cannot be resolved (e.g. `var x = Build(); builder.RegisterInstance(x);`),
+  the registration is **still recorded** — never silently dropped — tagged `"unresolved": true, "confidence": "AMBIGUOUS"`.
+- Chained calls (`builder.Register<T>(Lifetime.Singleton).AsImplementedInterfaces()`) resolve to
+  exactly one registration; the outer `.AsImplementedInterfaces()` invocation is not itself a
+  pub/sub or registration method and is ignored.
+- Regression tests pinning both patterns live in `.claude/graph/test/test_extractor_pubsub.py`
+  (stdlib-only, no pytest) and are run by `verify-graphify.sh`; the harness prints `SKIP` rather
+  than failing when tree-sitter is unavailable (the regex-fallback `.sh` path — see next bullet
+  — is unaffected by this AST rewrite and is out of scope for it).
+- **Regex-fallback path (`csharp-extractor.sh`) still under-reports.** If tree-sitter is
+  unavailable at build time, `graph-builder.py` falls back to the shell/regex extractor, which
+  has the same non-generic-form blind spot the AST walk fixes. When this happens, the build
+  appends a `FALLBACK_EXTRACTOR` entry to `validation.warnings[]` and echoes the same warning to
+  stderr — surfaced via `/knowledge-graph violations`. Treat pub/sub and registration data as
+  **low confidence** for any build that shows this warning.
+- **Known limitation (unchanged from the prior regex approach — not a new regression):**
+  pub/sub detection matches any `x.Publish<T>()` / `x.Publish(new T())` call by **method name
+  alone** — it does not verify that `x` resolves to an `IEventBus` instance (that would require
+  full type resolution across the project, which tree-sitter alone does not provide). A class
+  with an unrelated method also named `Publish` and a generic/`new`-argument call shape is a
+  possible false positive. This has always been true of the extraction approach and is
+  explicitly documented here rather than silently accepted.
 
 ### graph-builder.py call edge merge
 
@@ -129,11 +166,67 @@ Two-mode validator — always runs during graph-builder.
 
 **Never touches `validation.warnings[]`** — that array is owned by `graph-validator.sh`
 
+Consistency mode does **not** flag `unresolved:true` registrations as dangling/missing-class
+issues — they are known-incomplete by design (D3), not broken data.
+
+### `/knowledge-graph registrations <Class>` — unresolved registrations
+
+A registration produced from `builder.RegisterInstance(var)` whose `var` type could not be
+resolved locally is shown **distinctly**, not as an empty type:
+
+```
+AudioModule
+  RegisterInstance(?) — unresolved (AMBIGUOUS)
+  Register<AudioService> as IAudioService (Singleton)
+```
+
+A `FALLBACK_EXTRACTOR` warning anywhere in `validation.warnings[]` (surfaced via
+`/knowledge-graph violations`) means the regex-fallback extractor ran for at least one file —
+treat that build's pub/sub and registration data as **low confidence** until tree-sitter is
+available and `--full` is re-run.
+
 ### Query cheatsheet additions (v1.2.0)
 
 - "Which classes form a module?" → `/knowledge-graph communities`
 - "Architecture drifting where?" → `/knowledge-graph surprising`
 - "God-nodes with community context?" → `/knowledge-graph god-nodes` (now uses `analysis.enhanced_god_nodes[]` when present)
+
+---
+
+## graph.html — Self-Contained Visualizer
+
+`.claude/graph/graph-viz.py` reads `graph.json` (resolving `scenes.json`/`prefabs.json`
+`$partition` refs the same way `graph-mcp-server.py` does — fails fast if a referenced
+partition file is missing) and emits one self-contained `graph.html`: inline CSS, an inline
+JSON data island, and a vanilla-JS force-directed layout rendered on `<canvas>`. No CDN
+script tags, no external fonts, no remote images — it opens directly via `file://`, fully
+offline.
+
+**What it shows:**
+- **Nodes:** classes (color-coded by `is_mono_behaviour`), interfaces, events — each a
+  visually distinct type/color, with a legend.
+- **Edges:** `calls` (caller → callee), `implements` (class → interface), and publish/subscribe
+  (class → event) with visually distinct styling for publish vs subscribe. Registration edges
+  (installer → registered type) are drawn too, but any registration tagged `unresolved:true`
+  is skipped — an empty-type registration has no valid node to point at.
+- Hover a node to see its name/type/namespace; drag to reposition; scroll to zoom/pan.
+
+**How to generate:**
+```bash
+# via the build pipeline (after export):
+/build-knowledge-graph --viz
+
+# or directly:
+python3 .claude/graph/graph-viz.py [--graph PATH] [--out PATH]
+# defaults: .claude/graph/graph.json -> .claude/graph/graph.html
+```
+
+**How to open:** just open `.claude/graph/graph.html` in any browser — no server, no build
+step. It is a generated artifact (gitignored, see `.gitignore`) — regenerate it any time with
+the command above rather than committing it.
+
+If the graph has more than ~800 nodes, `graph-viz.py` still renders everything and prints a
+stderr note that the layout will be dense — it never silently truncates nodes.
 
 ---
 

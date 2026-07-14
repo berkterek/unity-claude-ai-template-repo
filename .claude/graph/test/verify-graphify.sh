@@ -579,6 +579,51 @@ run_v2_module_tests() {
                       || fail "builder must exit 0 even without v2 modules (got rc=$rc)"
 }
 
+# ──────────────────────────────────────────────────────────────────────────────
+# T11 — graph-viz.py smoke test
+# ──────────────────────────────────────────────────────────────────────────────
+run_viz_smoke_tests() {
+  section "T11 — graph-viz.py Smoke Test"
+
+  local sample_graph="$SCRIPT_DIR/fixtures/viz_sample/graph.json"
+  if [[ ! -f "$sample_graph" ]]; then
+    echo "[SKIP] T11: no sample graph fixture at fixtures/viz_sample/graph.json"
+    return
+  fi
+
+  local viz_out
+  viz_out="$SCRIPT_DIR/.work/graph_viz_sample.html"
+  mkdir -p "$(dirname "$viz_out")"
+
+  if ! python3 "$GRAPH_DIR/graph-viz.py" --graph "$sample_graph" --out "$viz_out" >/dev/null 2>&1; then
+    fail "T11: graph-viz.py exited non-zero against sample fixture"
+    return
+  fi
+
+  if [[ -s "$viz_out" ]]; then
+    pass "T11: graph.html generated and non-empty ($(wc -c < "$viz_out" | tr -d ' ') bytes)"
+  else
+    fail "T11: graph.html missing or empty"
+    return
+  fi
+
+  if grep -q "<canvas" "$viz_out" && grep -q 'id="graph-data"' "$viz_out"; then
+    pass "T11: output contains <canvas> and the inline data island"
+  else
+    fail "T11: output missing <canvas> or data island"
+  fi
+
+  # No external resource URL — strict: any match fails (favicon/comment text mentioning
+  # "http" in plain prose is not present in this template, so zero tolerance is safe here).
+  local ext_hits
+  ext_hits=$(grep -nEi 'https?://|src="//|cdn' "$viz_out" || true)
+  if [[ -z "$ext_hits" ]]; then
+    pass "T11: no external resource URL in generated HTML"
+  else
+    fail "T11: external resource reference found — $ext_hits"
+  fi
+}
+
 # T10 — Report
 # ──────────────────────────────────────────────────────────────────────────────
 emit_report() {
@@ -725,4 +770,5 @@ run_trigger_tests
 run_known_fail_bugs
 run_v2_module_tests
 run_incremental_purge_tests
+run_viz_smoke_tests
 emit_report

@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.3.0",
+  "generated_at": "2026-07-14T00:00:00Z",
+  "generator": "fixture-viz-sample",
+  "codebase": {
+    "classes": [
+      {
+        "name": "AudioService",
+        "namespace": "Game.Concretes.Audio",
+        "file": "Assets/_GameFolders/Scripts/Games/Concretes/Audio/AudioService.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Concretes/Audio/AudioService.cs",
+        "line": 5,
+        "base_types": ["IAudioService"],
+        "is_mono_behaviour": false,
+        "implements": ["IAudioService"],
+        "dependencies": ["IAudioProvider"],
+        "events_published": ["SoundPlayedEvent"],
+        "events_subscribed": [],
+        "has_static_instance": false,
+        "confidence": "EXTRACTED"
+      },
+      {
+        "name": "AudioProvider",
+        "namespace": "Game.Concretes.Audio",
+        "file": "Assets/_GameFolders/Scripts/Games/Concretes/Audio/AudioProvider.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Concretes/Audio/AudioProvider.cs",
+        "line": 5,
+        "base_types": ["MonoBehaviour", "IAudioProvider"],
+        "is_mono_behaviour": true,
+        "implements": ["IAudioProvider"],
+        "dependencies": [],
+        "events_published": [],
+        "events_subscribed": [],
+        "has_static_instance": false,
+        "confidence": "EXTRACTED"
+      },
+      {
+        "name": "ScoreService",
+        "namespace": "Game.Concretes.Score",
+        "file": "Assets/_GameFolders/Scripts/Games/Concretes/Score/ScoreService.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Concretes/Score/ScoreService.cs",
+        "line": 5,
+        "base_types": ["IScoreService"],
+        "is_mono_behaviour": false,
+        "implements": ["IScoreService"],
+        "dependencies": ["IEventBus"],
+        "events_published": [],
+        "events_subscribed": ["SoundPlayedEvent"],
+        "has_static_instance": false,
+        "confidence": "EXTRACTED"
+      },
+      {
+        "name": "AudioModule",
+        "namespace": "Game.Concretes.Audio",
+        "file": "Assets/_GameFolders/Scripts/Games/Concretes/Audio/AudioModule.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Concretes/Audio/AudioModule.cs",
+        "line": 5,
+        "base_types": [],
+        "is_mono_behaviour": false,
+        "implements": [],
+        "dependencies": [],
+        "events_published": [],
+        "events_subscribed": [],
+        "has_static_instance": false,
+        "confidence": "EXTRACTED"
+      }
+    ],
+    "interfaces": [
+      {
+        "name": "IAudioService",
+        "namespace": "Game.Abstracts.Audio",
+        "file": "Assets/_GameFolders/Scripts/Games/Abstracts/Audio/IAudioService.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Abstracts/Audio/IAudioService.cs",
+        "line": 3,
+        "implementers": ["AudioService"],
+        "confidence": "EXTRACTED"
+      },
+      {
+        "name": "IAudioProvider",
+        "namespace": "Game.Abstracts.Audio",
+        "file": "Assets/_GameFolders/Scripts/Games/Abstracts/Audio/IAudioProvider.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Abstracts/Audio/IAudioProvider.cs",
+        "line": 3,
+        "implementers": ["AudioProvider"],
+        "confidence": "EXTRACTED"
+      },
+      {
+        "name": "IScoreService",
+        "namespace": "Game.Abstracts.Score",
+        "file": "Assets/_GameFolders/Scripts/Games/Abstracts/Score/IScoreService.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Abstracts/Score/IScoreService.cs",
+        "line": 3,
+        "implementers": ["ScoreService"],
+        "confidence": "EXTRACTED"
+      }
+    ],
+    "events": [
+      {
+        "name": "SoundPlayedEvent",
+        "file": "Assets/_GameFolders/Scripts/Games/Concretes/Audio/AudioEvents.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Concretes/Audio/AudioEvents.cs",
+        "publishers": ["AudioService"],
+        "subscribers": ["ScoreService"],
+        "confidence": "EXTRACTED"
+      }
+    ],
+    "vcontainer": {
+      "installers": [
+        {
+          "name": "AudioModule",
+          "file": "Assets/_GameFolders/Scripts/Games/Concretes/Audio/AudioModule.cs",
+          "source_file": "Assets/_GameFolders/Scripts/Games/Concretes/Audio/AudioModule.cs",
+          "registrations": [
+            { "type": "AudioService", "as": "IAudioService", "lifetime": "Singleton" },
+            { "type": "", "as": "", "lifetime": "", "unresolved": true, "confidence": "AMBIGUOUS" }
+          ]
+        }
+      ],
+      "scopes": []
+    },
+    "assemblies": [],
+    "scenes": [],
+    "prefabs": [],
+    "mcp_extraction": { "status": "skipped", "skipped_reason": "FIXTURE" },
+    "calls": [
+      { "caller": "AudioService.PlaySound", "callee": "AudioProvider.Play", "file": "Assets/_GameFolders/Scripts/Games/Concretes/Audio/AudioService.cs", "line": 12, "confidence": "EXTRACTED" },
+      { "caller": "ScoreService.OnSoundPlayed", "callee": "AudioService.PlaySound", "file": "Assets/_GameFolders/Scripts/Games/Concretes/Score/ScoreService.cs", "line": 20, "confidence": "INFERRED" }
+    ]
+  },
+  "validation": { "errors": [], "warnings": [] },
+  "stats": { "scanned_files": 0, "cache_hits": 0, "build_ms": 0 }
+}
