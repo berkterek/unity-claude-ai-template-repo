@@ -27,6 +27,65 @@ _GameFolders/Scripts/Games/Concretes/[X]/
 └── Basic[X]Provider.cs                  ← MonoBehaviour, wraps Unity API
 ```
 
+## Step 0 — Knowledge Graph Preload
+
+Before gathering requirements, decide whether the knowledge graph can accelerate the existing-structure check for this new module — specifically, checking for existing class/interface/installer names and namespace collisions before scaffolding, so a duplicate `I[X]Service` or a namespace clash is caught before any file is written rather than after.
+
+Check `.claude/project-features.json`:
+- If `.graph == true` AND `.claude/graph/graph.json` exists → candidate for the graph path.
+- Otherwise → set `GRAPH_CONTEXT` empty, skip to Step 1 (file-scan behavior, unchanged).
+
+If it is a candidate, verify the graph is **usable** (fresh AND non-empty):
+
+```bash
+python3 -c "
+import json, os, time
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+n = len(cb.get('classes', []))
+lb = '.claude/graph/.last-build'
+age_h = (time.time() - os.path.getmtime(lb)) / 3600 if os.path.exists(lb) else 1e9
+print('classes=%d age_h=%.1f' % (n, age_h))
+"
+```
+
+- If `classes == 0` (empty graph — e.g. a fresh template with no game code yet) → set `GRAPH_CONTEXT` empty, fall back to file scan. Do NOT warn — an empty graph is a valid state.
+- If `age_h > 24` (stale) → tell the user, then fall back to file scan:
+  ```
+  ⚠ Knowledge graph is stale (last built > 24h ago).
+    Run /build-knowledge-graph for graph-accelerated new-module scaffolding. Falling back to file scan.
+  ```
+- Otherwise (fresh AND non-empty) → build `GRAPH_CONTEXT` from the graph inventory:
+
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Keep this output as `GRAPH_CONTEXT`. When `GRAPH_CONTEXT` is empty, Step 2 behaves exactly as before — no regression.
+
+---
+
 ## Your Process
 
 ### Step 1 — Gather requirements (ask these questions)
@@ -38,7 +97,16 @@ _GameFolders/Scripts/Games/Concretes/[X]/
 
 ### Step 2 — Read existing infrastructure
 
-Before proposing any structure, read these files:
+## Knowledge Graph (class/interface/installer inventory — query this BEFORE scanning source files)
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0 — if empty, write "No usable graph — scan source files directly."]
+
+If a knowledge graph inventory is provided above (non-empty), use it FIRST to check for conflicts before proposing any structure:
+- Confirm no existing class/interface named `I[X]Service`, `[X]Service`, `[X]Module`, `[X]Configuration`, or `[X]Events` already exists (the graph's CLASSES/INTERFACES lists).
+- Confirm the proposed `Game.Concretes.[X]` / `Game.Abstracts.[X]` namespace does not collide with an existing domain folder in the graph's class list.
+- Check the INSTALLERS list for the existing module registration order, so the new `[X]Module.Install()` line is placed correctly relative to `EventBusModule` and other modules — without needing to open `AppModules.cs` directly.
+- Only read source files for the specific detail (exact field list, `Validate()` body) the graph cannot provide.
+
+If the graph inventory is empty (or absent), read these files directly before proposing any structure (unchanged fallback):
 - `_GameFolders/Scripts/Games/Concretes/Infrastructure/AppModules.cs` — to see existing module order
 - `_GameFolders/Scripts/Games/Concretes/Infrastructure/ConfigCatalog.cs` — to see existing fields
 

@@ -1,6 +1,6 @@
 # /fix-codex — Codex-Driven Fix Pipeline
 
-**Pipeline:** Codex Analysis → Human Gate → Codex Implementation → Claude Review → Committer
+**Pipeline:** Knowledge Graph Preload → Codex Analysis → Human Gate → Codex Implementation → Claude Review → Committer
 
 ## Usage
 
@@ -29,6 +29,65 @@ Check that the `codex:codex-rescue` skill is available. If not, stop and tell th
 
 ---
 
+## Step 0.5 — Knowledge Graph Preload
+
+Before Codex reads a single file, check whether the knowledge graph can hand it a pre-built inventory instead of a cold-start scan. `/fix-codex` exists for cases where Claude's own hypothesis-forming has already failed — the same risk applies to a stale graph: a wrong or outdated inventory would bias Codex's "fresh eyes" read exactly the way we're trying to avoid. So this follows `/search`'s stricter staleness rule, not `/fix`'s looser one.
+
+Check `.claude/project-features.json`:
+- If `.graph == true` AND `.claude/graph/graph.json` exists → candidate for the graph path.
+- Otherwise → set `GRAPH_CONTEXT` empty, proceed to Step 1 (unchanged, Codex discovers everything itself).
+
+If it is a candidate, verify the graph is **usable** (fresh AND non-empty):
+
+```bash
+python3 -c "
+import json, os, time
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+n = len(cb.get('classes', []))
+lb = '.claude/graph/.last-build'
+age_h = (time.time() - os.path.getmtime(lb)) / 3600 if os.path.exists(lb) else 1e9
+print('classes=%d age_h=%.1f' % (n, age_h))
+"
+```
+
+- If `classes == 0` (empty graph — e.g. a fresh template with no game code yet) → set `GRAPH_CONTEXT` empty, proceed to Step 1 silently. Do NOT warn — an empty graph is a valid state.
+- If `age_h > 24` (stale) → tell the user, then proceed with `GRAPH_CONTEXT` empty:
+  ```
+  ⚠ Knowledge graph is stale (last built > 24h ago).
+    Run /build-knowledge-graph for graph-accelerated analysis. Codex will scan source files directly.
+  ```
+- Otherwise (fresh AND non-empty) → build `GRAPH_CONTEXT` from the graph inventory:
+
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Keep this output as `GRAPH_CONTEXT` and embed it into the Codex Analysis prompt (Step 1). When `GRAPH_CONTEXT` is empty, Step 1 behaves exactly as before — no regression.
+
+---
+
 ## Step 1 — Codex Analysis Pass
 
 Have Codex analyze the code directly. Claude must do **zero pre-analysis** at this stage — no file reads, no hypothesis formation, no "probably this file" guesses. Codex starts with fresh eyes.
@@ -44,7 +103,13 @@ BUG: <user's full description>
 REPRODUCTION: <how it is triggered>
 FILES (if specified): <list from --files argument, or "discover yourself">
 
-Read the codebase directly. Trace the execution path from the symptom backward to the root cause.
+## Knowledge Graph (class/interface/event/installer inventory — query this BEFORE scanning source files)
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0.5 — if empty, write "No usable graph — scan source files directly."]
+
+If a knowledge graph inventory is provided above (non-empty), use it to locate the fault area first — e.g. callers/dependencies of a suspect class, who publishes/subscribes an event, what an installer registers — before opening any file. This narrows which files you read; it does not replace reading them. Still trace the execution path from the symptom backward to the root cause by reading the actual code the graph points you to.
+
+If the graph inventory is empty (or absent), read the codebase directly as before — discover files yourself.
+
 Do NOT form a hypothesis first — read the code literally and follow the data/call flow.
 
 Report:

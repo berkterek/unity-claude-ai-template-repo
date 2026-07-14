@@ -23,6 +23,63 @@ Tek bir modülün `docs/modules/<n>-<name>/` klasörünü oluşturur: `spec.md`,
 
 ## Süreç
 
+### Step 0 — Knowledge Graph Preload
+
+Herhangi bir codebase taraması veya subagent spawn'ından önce, knowledge graph'ın bu modül planlamasını hızlandırıp hızlandıramayacağına karar ver.
+
+`.claude/project-features.json` kontrol et:
+- `.graph == true` VE `.claude/graph/graph.json` mevcut → graph yolu adayı.
+- Aksi halde → `GRAPH_CONTEXT` boş bırak, Step 1'e geç (mevcut file-scan davranışı, değişmedi).
+
+Aday ise, graph'ın **kullanılabilir** olduğunu doğrula (fresh VE non-empty):
+
+```bash
+python3 -c "
+import json, os, time
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+n = len(cb.get('classes', []))
+lb = '.claude/graph/.last-build'
+age_h = (time.time() - os.path.getmtime(lb)) / 3600 if os.path.exists(lb) else 1e9
+print('classes=%d age_h=%.1f' % (n, age_h))
+"
+```
+
+- `classes == 0` ise (boş graph — örn. henüz oyun kodu olmayan taze bir template) → `GRAPH_CONTEXT` boş bırak, sessizce file scan'e düş. Uyarma — boş graph geçerli bir durumdur.
+- `age_h > 24` ise (stale) → kullanıcıya bildir, sonra file scan'e düş:
+  ```
+  ⚠ Knowledge graph is stale (last built > 24h ago).
+    Run /build-knowledge-graph for graph-accelerated planning. Falling back to file scan.
+  ```
+- Aksi halde (fresh VE non-empty) → `GRAPH_CONTEXT`'i graph inventory'sinden oluştur:
+
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Bu çıktıyı `GRAPH_CONTEXT` olarak sakla ve Step 3'teki `lean-planner` subagent prompt'una göm. `GRAPH_CONTEXT` boşsa, planlama aşaması tıpkı öncesi gibi davranır — regresyon yok.
+
 ### Step 1 — Okuma
 
 1. $ARGUMENTS'ten modül numarası/adını parse et
@@ -63,7 +120,17 @@ Gate onaylanmadan (kullanıcı `go` yazmadan) bir sonraki adıma geçme.
 - Modülün GDD özeti
 - TDD'deki ilgili mimari kararlar
 - Mevcut codebase scan sonuçları
+- Aşağıdaki Knowledge Graph bloğu (Step 0'dan)
 - Şablon formatı: `docs/modules/_templates/` altındaki spec/design/tasks şablonları
+
+Prompt'a şu bloğu ekle:
+
+```
+## Knowledge Graph (mevcut class/interface/event/installer envanteri — dosya taramadan ÖNCE bunu sorgula)
+[INSERT HERE: the GRAPH_CONTEXT output from the Step 0 preload step — if empty, write "No usable graph — scan source files directly."]
+```
+
+Talimat: Yukarıdaki graph inventory boş değilse, önce onu kullan — zaten var olan interface/class/installer/dependency'leri graph'tan oku, sadece belirli bir satır/detay için kaynak dosyayı aç. Graph boşsa (veya "No usable graph" yazıyorsa), önceki gibi mevcut codebase scan sonuçlarına dayan.
 
 Subagent çıktısı olarak üç dokümanın taslağını al.
 

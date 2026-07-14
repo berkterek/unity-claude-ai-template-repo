@@ -88,6 +88,65 @@ If the migration scope touches more than 5 files (scoring signal "+0.3 Touches m
 
 ---
 
+## Step 0c — Knowledge Graph Preload
+
+Before spawning the migrator, decide whether the knowledge graph can accelerate finding every affected site. This follows the graph-first pattern in `/search` Step 0a. It runs *after* the gates above and does NOT feed them — it only accelerates the Migrator's own site enumeration in Step 2, giving it a complete affected-site list and blast radius faster than grepping.
+
+Check `.claude/project-features.json`:
+- If `.graph == true` AND `.claude/graph/graph.json` exists → candidate for the graph path.
+- Otherwise → set `GRAPH_CONTEXT` empty, proceed with file-scan behavior (unchanged).
+
+If it is a candidate, verify the graph is **usable** (fresh AND non-empty):
+
+```bash
+python3 -c "
+import json, os, time
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+n = len(cb.get('classes', []))
+lb = '.claude/graph/.last-build'
+age_h = (time.time() - os.path.getmtime(lb)) / 3600 if os.path.exists(lb) else 1e9
+print('classes=%d age_h=%.1f' % (n, age_h))
+"
+```
+
+- If `classes == 0` (empty graph — e.g. a fresh template with no game code yet) → set `GRAPH_CONTEXT` empty, fall back to file scan. Do NOT warn — an empty graph is a valid state.
+- If `age_h > 24` (stale) → tell the user, then fall back to file scan:
+  ```
+  ⚠ Knowledge graph is stale (last built > 24h ago).
+    Run /build-knowledge-graph for graph-accelerated migration scoping. Falling back to file scan.
+  ```
+- Otherwise (fresh AND non-empty) → build `GRAPH_CONTEXT` from the graph inventory:
+
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Keep this output as `GRAPH_CONTEXT` and embed it into the Migrator agent prompt (Step 2). When `GRAPH_CONTEXT` is empty, the migration phase behaves exactly as before — no regression. When non-empty, the Migrator uses the graph's `callers`/`impact`/`dependencies` data to **enumerate every affected site** — a faster and more complete source for "what depends on this" than grepping.
+
+---
+
 ## Pipeline
 
 ```
@@ -137,6 +196,17 @@ You are a Unity code migration specialist. Migrate legacy patterns in this proje
 
 ## Migration Task
 [INSERT HERE: the migration description from the /migrate argument]
+
+## Knowledge Graph (class/interface/event/installer inventory — query this BEFORE scanning source files)
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0c — if empty, write "No usable graph — scan source files directly."]
+
+## Instructions — Graph-First Site Discovery
+1. If a knowledge graph inventory is provided above (non-empty), use it FIRST to find every site affected by this migration and its blast radius — do not re-scan folders for what it already answers:
+   - Use `impact` / `dependencies` on the class or pattern being migrated to enumerate every caller and dependent, so no instance of the old pattern is missed.
+   - Use `callers` to confirm which call sites must be updated alongside the migrated class.
+   - Use the installers/registrations data to find every VContainer wiring point that needs updating (singleton→VContainer migrations).
+   - Only read source files for the exact lines to change — not to rediscover what already depends on what.
+2. If the graph inventory is empty (or absent), search the codebase directly for every instance of the old pattern (file scan, as before).
 
 ## Project Rules
 - Read .claude/CLAUDE.md before making any changes

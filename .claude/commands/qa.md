@@ -36,8 +36,69 @@ Plugins: superpowers:verification-before-completion [✓/✗]
 ## Pipeline
 
 ```
+[Step 0] Knowledge Graph Preload → GRAPH_CONTEXT (or empty on stale/empty/disabled)
+    ↓
 [Stage 1] Ralph → [Stage 2] Silent Failure Hunt → [Stage 3] Validate → [Report]
 ```
+
+---
+
+## Step 0 — Knowledge Graph Preload
+
+Before spawning the Stage 2 audit agent, decide whether the knowledge graph can give it a head start. This is a lightweight, optional preload — `/qa` audits specific files rather than building broad codebase understanding, so the graph mainly helps Stage 2's IEventBus Subscribe/Unsubscribe check (the graph already tracks `events_published`/`events_subscribed` per class).
+
+Check `.claude/project-features.json`:
+- If `.graph == true` AND `.claude/graph/graph.json` exists → candidate for the graph path.
+- Otherwise → set `GRAPH_CONTEXT` empty, proceed to Stage 1 unchanged.
+
+If it is a candidate, verify the graph is **usable** (fresh AND non-empty):
+
+```bash
+python3 -c "
+import json, os, time
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+n = len(cb.get('classes', []))
+lb = '.claude/graph/.last-build'
+age_h = (time.time() - os.path.getmtime(lb)) / 3600 if os.path.exists(lb) else 1e9
+print('classes=%d age_h=%.1f' % (n, age_h))
+"
+```
+
+- If `classes == 0` (empty graph — e.g. a fresh template with no game code yet) → set `GRAPH_CONTEXT` empty, no warning — an empty graph is a valid state.
+- If `age_h > 24` (stale) → tell the user, then fall back to file scan for this pass:
+  ```
+  ⚠ Knowledge graph is stale (last built > 24h ago).
+    Run /build-knowledge-graph for graph-accelerated audit. Falling back to file scan.
+  ```
+- Otherwise (fresh AND non-empty) → build `GRAPH_CONTEXT` from the graph inventory:
+
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Keep this output as `GRAPH_CONTEXT` and embed it into the Stage 2 (unity-linter) agent prompt. When `GRAPH_CONTEXT` is empty, Stage 2 behaves exactly as before — no regression.
 
 ---
 
@@ -68,6 +129,14 @@ Spawn a **unity-linter** subagent with this prompt:
 Audit the following C# files for silent failure patterns:
 
 FILES: $TARGET_FILES
+
+## Knowledge Graph (event pub/sub inventory — query BEFORE scanning source files)
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0 — if empty, write "No usable graph — scan source files directly."]
+
+If a knowledge graph inventory is provided above (non-empty), use it FIRST to cross-check check #3 below —
+a class listed with `sub=[...]` events but no matching `Unsubscribe<T>` call in its Dispose/OnDisable is a
+strong candidate finding; confirm by reading the actual file before reporting. If the graph is empty or absent,
+scan the target files directly as before.
 
 Check for:
 1. catch blocks that swallow exceptions without logging or rethrowing

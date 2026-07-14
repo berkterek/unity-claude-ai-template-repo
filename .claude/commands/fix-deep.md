@@ -129,6 +129,65 @@ Wait for user input. If "proceed" → continue with empty evidence, clearly mark
 
 ---
 
+## Step 0c — Knowledge Graph Preload
+
+Before spawning the hypothesis-forming agent, decide whether the knowledge graph can accelerate root cause investigation. This follows the same graph-first pattern as `/fix` and `/search`, but — like `/search` — is **stricter on staleness** than `/catch-up`: a stale graph can point the hypothesis at code that already moved, which is worse than no graph at all for a "prove it before touching code" pipeline.
+
+Check `.claude/project-features.json`:
+- If `.graph == true` AND `.claude/graph/graph.json` exists → candidate for the graph path.
+- Otherwise → set `GRAPH_CONTEXT` empty, skip to Step 1 (file-scan behavior, unchanged).
+
+If it is a candidate, verify the graph is **usable** (fresh AND non-empty):
+
+```bash
+python3 -c "
+import json, os, time
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+n = len(cb.get('classes', []))
+lb = '.claude/graph/.last-build'
+age_h = (time.time() - os.path.getmtime(lb)) / 3600 if os.path.exists(lb) else 1e9
+print('classes=%d age_h=%.1f' % (n, age_h))
+"
+```
+
+- If `classes == 0` (empty graph — e.g. a fresh template with no game code yet) → set `GRAPH_CONTEXT` empty, fall back to file scan. Do NOT warn — an empty graph is a valid state.
+- If `age_h > 24` (stale) → tell the user, then fall back to file scan:
+  ```
+  ⚠ Knowledge graph is stale (last built > 24h ago).
+    Run /build-knowledge-graph for graph-accelerated investigation. Falling back to file scan.
+  ```
+- Otherwise (fresh AND non-empty) → build `GRAPH_CONTEXT` from the graph inventory:
+
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Keep this output as `GRAPH_CONTEXT` and embed it into the Step 1 unity-fixer prompt. When `GRAPH_CONTEXT` is empty, hypothesis formation behaves exactly as before — no regression.
+
+---
+
 ## Step 1 — Hypothesis Formation
 
 **If `superpowers:systematic-debugging` is available AND complexity score ≥ 0.4:** Invoke `superpowers:systematic-debugging` first to structure the root cause hypothesis. Pass the bug description and log evidence. Use its output (hypothesis + confidence + injection plan) to enrich the unity-fixer prompt below.
@@ -144,15 +203,23 @@ You are a senior Unity engineer doing root cause analysis. You have log evidence
 ## Log Evidence
 [INSERT HERE: the log evidence collected in Step 0]
 
+## Knowledge Graph (class/interface/event/installer inventory — query this BEFORE scanning source files)
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0c — if empty, write "No usable graph — scan source files directly."]
+
 ## Project Context
 - Read .claude/CLAUDE.md for architecture overview
 - VContainer DI, UniTask async, IEventBus for events
 
 ## Your Task
-1. Read the relevant source files — follow the call chain from the log evidence.
-2. Form a hypothesis: what is the most likely root cause?
-3. Identify exactly which lines/conditions need to be proven.
-4. List the specific code locations where debug logs must be injected to confirm or deny your hypothesis.
+1. If a knowledge graph inventory is provided above (non-empty), use it FIRST to narrow down the fault fast — do not re-scan folders for what it already answers:
+   - "who calls this method" / "what breaks if this changes" → the graph's dependencies/callers/impact data
+   - "who publishes/subscribes to event E" → the graph's pub/sub data
+   - "what does installer I register" → the graph's registrations data
+   Only read source files for the exact lines/conditions the graph cannot provide (logic bodies, the specific bug location).
+2. If the graph inventory is empty (or absent), read the relevant source files — follow the call chain from the log evidence, as before.
+3. Form a hypothesis: what is the most likely root cause?
+4. Identify exactly which lines/conditions need to be proven.
+5. List the specific code locations where debug logs must be injected to confirm or deny your hypothesis.
 
 ## Output Format
 HYPOTHESIS:

@@ -14,8 +14,67 @@ If no argument is given, ask: "Which plan file and what needs to be added or cha
 ## Pipeline
 
 ```
-[1] ANALYZER → [2] PLANNER → [3] REVIEWER → [4] SAVE → [5] IMPLEMENTER
+[0] Knowledge Graph Preload → [1] ANALYZER → [2] PLANNER → [3] REVIEWER → [4] SAVE → [5] IMPLEMENTER
 ```
+
+---
+
+## Step 0 — Knowledge Graph Preload
+
+Before spawning the Analyzer, check whether the knowledge graph can accelerate this update.
+
+Check `.claude/project-features.json`:
+- If `.graph == true` AND `.claude/graph/graph.json` exists → candidate for the graph path.
+- Otherwise → set `GRAPH_CONTEXT` empty, proceed to Step 1 (file-scan behavior, unchanged).
+
+If it is a candidate, verify the graph is **usable** (fresh AND non-empty):
+
+```bash
+python3 -c "
+import json, os, time
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+n = len(cb.get('classes', []))
+lb = '.claude/graph/.last-build'
+age_h = (time.time() - os.path.getmtime(lb)) / 3600 if os.path.exists(lb) else 1e9
+print('classes=%d age_h=%.1f' % (n, age_h))
+"
+```
+
+- If `classes == 0` (empty graph — e.g. a fresh template with no game code yet) → set `GRAPH_CONTEXT` empty, fall back to file scan. Do NOT warn — an empty graph is a valid state.
+- If `age_h > 24` (stale) → tell the user, then fall back to file scan:
+  ```
+  ⚠ Knowledge graph is stale (last built > 24h ago).
+    Run /build-knowledge-graph for graph-accelerated update. Falling back to file scan.
+  ```
+- Otherwise (fresh AND non-empty) → build `GRAPH_CONTEXT` from the graph inventory:
+
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Keep this output in your active context as `GRAPH_CONTEXT`. You will embed it into the Step 1 Analyzer subagent prompt below. When `GRAPH_CONTEXT` is empty, the analysis phase behaves exactly as before — no regression.
 
 ---
 
@@ -38,11 +97,21 @@ Analyze the existing plan and relevant source files to understand:
 ## Change Request
 [INSERT HERE: the change description from the /update-plan argument]
 
+## Knowledge Graph (class/interface/event/installer inventory — query this BEFORE scanning source files)
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0 — if empty, write "No usable graph — scan source files directly."]
+
 ## What to Read
 1. The plan file listed above
 2. Recent git log: `git log --oneline -10`
 3. Source files relevant to the change request — **read every file the change request implies modifying, before anything else**
 4. Any relevant .claude/skills/learned/ files
+
+## Graph-First Instruction
+If a knowledge graph inventory is provided above (non-empty), use it FIRST — do not re-scan folders for what it already answers:
+- "who implements interface X" → the graph's implements/interfaces data
+- "who publishes/subscribes to event E" → the graph's pub/sub data
+- "what does installer I register" / "what is class C's blast radius" → the graph's registrations / dependencies
+Only read source files for the specific detail (exact line, logic body) the graph cannot provide. If the graph inventory is empty (or absent), fall back to scanning the codebase for files, classes, and patterns relevant to the change request exactly as below.
 
 ## Modify Pre-Read (MANDATORY)
 From the plan's File Map and the change request, identify every existing file that will be modified.
