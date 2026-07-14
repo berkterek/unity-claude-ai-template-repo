@@ -247,8 +247,10 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 `.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.3.0). When enabled (default in
 `/setup-project`), the graph indexes every class, interface, event, installer, scope, asmdef, scene,
-prefab, **method**, and **call edge**. `/catch-up`, `/orchestrate`, and `/context-prime`
-all read this graph instead of scanning files from scratch.
+prefab, **method**, and **call edge**. Graph-aware commands across planning, implementation,
+fix/debug, investigation, migration, and audit/review pipelines run a Step 0 graph preload —
+reading this graph instead of scanning files from scratch, and falling back to a file scan only
+when the graph is stale (> 24h), empty, or disabled.
 
 **v1.3.0 partition architecture:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
 
