@@ -41,6 +41,8 @@
 .claude/state/last-notify.json
 .claude/state/precompact-state.md
 .claude/state/graph-empty-warned
+.claude/state/graph-health-warned-*
+.claude/state/subagent-depth
 
 # Python bytecode
 __pycache__/
