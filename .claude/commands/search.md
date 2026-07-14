@@ -18,9 +18,11 @@ If no argument is given, ask: "What should I investigate?"
 ## Pipeline
 
 ```
-[Step 0] Complexity Score
+[Step 0a] Knowledge Graph Preload → GRAPH_CONTEXT (or empty on stale/empty/disabled)
     ↓
-[Phase 1] Research → write .claude/state/search-findings.md
+[Step 0b] Complexity Score
+    ↓
+[Phase 1] Research (graph-first if GRAPH_CONTEXT set) → write .claude/state/search-findings.md
     ↓
 [Phase 2] Reviewer reads file → COMPLETE / INCOMPLETE / REJECT
     ↓ (loop max 5 if INCOMPLETE)
@@ -31,7 +33,66 @@ If no argument is given, ask: "What should I investigate?"
 
 ---
 
-## Step 0 — Complexity Scoring
+## Step 0a — Knowledge Graph Preload
+
+Before spawning any research agent, decide whether the knowledge graph can accelerate this investigation. This follows the graph-first spirit of `/implement`, `/create-plan`, `/fix`, and `/catch-up`, but is deliberately **stricter on staleness**: `/catch-up` proceeds on a stale graph (an overview tolerates slightly-old data), whereas `/search` answers pointed questions where a stale graph can give a flatly wrong answer (e.g. "who publishes X" after X moved) — so a stale or empty graph here falls back to a fresh file scan rather than risk a wrong investigation result.
+
+Check `.claude/project-features.json`:
+- If `.graph == true` AND `.claude/graph/graph.json` exists → candidate for the graph path.
+- Otherwise → set `GRAPH_CONTEXT` empty, skip to Step 0b (file-scan behavior, unchanged).
+
+If it is a candidate, verify the graph is **usable** (fresh AND non-empty):
+
+```bash
+python3 -c "
+import json, os, time
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+n = len(cb.get('classes', []))
+lb = '.claude/graph/.last-build'
+age_h = (time.time() - os.path.getmtime(lb)) / 3600 if os.path.exists(lb) else 1e9
+print('classes=%d age_h=%.1f' % (n, age_h))
+"
+```
+
+- If `classes == 0` (empty graph — e.g. a fresh template with no game code yet) → set `GRAPH_CONTEXT` empty, fall back to file scan. Do NOT warn — an empty graph is a valid state.
+- If `age_h > 24` (stale) → tell the user, then fall back to file scan:
+  ```
+  ⚠ Knowledge graph is stale (last built > 24h ago).
+    Run /build-knowledge-graph for graph-accelerated search. Falling back to file scan.
+  ```
+- Otherwise (fresh AND non-empty) → build `GRAPH_CONTEXT` from the graph inventory:
+
+```bash
+python3 -c "
+import json
+g = json.load(open('.claude/graph/graph.json'))
+cb = g.get('codebase', {})
+classes = cb.get('classes', [])
+interfaces = cb.get('interfaces', [])
+events = cb.get('events', [])
+installers = cb.get('vcontainer', {}).get('installers', [])
+print('CLASSES (%d):' % len(classes))
+for c in classes:
+    print('  %s | mono=%s | deps=%s | pub=%s | sub=%s' % (
+        c['name'], c.get('is_mono_behaviour', False),
+        c.get('dependencies', []), c.get('events_published', []), c.get('events_subscribed', [])))
+print('INTERFACES (%d):' % len(interfaces))
+for i in interfaces: print('  %s' % i['name'])
+print('EVENTS (%d):' % len(events))
+for e in events: print('  %s' % e['name'])
+print('INSTALLERS (%d):' % len(installers))
+for inst in installers:
+    regs = [r.get('type','') for r in inst.get('registrations', [])]
+    print('  %s | registrations=%s' % (inst['name'], regs))
+"
+```
+
+Keep this output as `GRAPH_CONTEXT` and embed it into the Explore agent prompt (Phase 1). When `GRAPH_CONTEXT` is empty, the research phase behaves exactly as before — no regression.
+
+---
+
+## Step 0b — Complexity Scoring
 
 Score the query complexity on a 0.0–1.0 scale before spawning any agents:
 
@@ -70,12 +131,20 @@ QUERY: $QUERY
 ITERATION: $ITERATION / 5
 PREVIOUS_REVIEWER_FEEDBACK: $FEEDBACK (empty on first run)
 
+## Knowledge Graph (class/interface/event/installer inventory — query this BEFORE scanning source files)
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0a — if empty, write "No usable graph — scan source files directly."]
+
 ## Instructions
 
-1. Search the codebase for files, classes, and patterns relevant to the query.
+1. If a knowledge graph inventory is provided above (non-empty), use it FIRST — do not re-scan folders for what it already answers:
+   - "who implements interface X" → the graph's implements/interfaces data
+   - "who publishes/subscribes to event E" → the graph's pub/sub data
+   - "what does installer I register" / "what is class C's blast radius" → the graph's registrations / dependencies
+   Only read source files for the specific detail (exact line, logic body) the graph cannot provide.
+2. If the graph inventory is empty (or absent), search the codebase for files, classes, and patterns relevant to the query.
    Focus on: .claude/rules/, _Framework/, _GameFolders/Scripts/Games/
-2. If the query mentions a Unity API, package, or error message → web search for Unity docs or known issues.
-3. If PREVIOUS_REVIEWER_FEEDBACK is not empty → specifically address the gap flagged. Do not repeat the same evidence.
+3. If the query mentions a Unity API, package, or error message → web search for Unity docs or known issues.
+4. If PREVIOUS_REVIEWER_FEEDBACK is not empty → specifically address the gap flagged. Do not repeat the same evidence.
 
 ## Output Format (REQUIRED)
 
