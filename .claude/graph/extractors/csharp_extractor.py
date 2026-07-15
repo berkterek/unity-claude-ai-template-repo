@@ -37,10 +37,14 @@ def _walk(node, kind, results=None):
 
 
 def _extract_namespace(root, src):
-    for ns_node in _walk(root, "namespace_declaration"):
-        name_node = ns_node.child_by_field_name("name")
-        if name_node:
-            return _node_text(name_node, src)
+    # Match both block-scoped `namespace N { }` and C# 10+ file-scoped
+    # `namespace N;` (parsed as file_scoped_namespace_declaration) — the latter
+    # was previously unmatched, silently yielding "".
+    for kind in ("file_scoped_namespace_declaration", "namespace_declaration"):
+        for ns_node in _walk(root, kind):
+            name_node = ns_node.child_by_field_name("name")
+            if name_node:
+                return _node_text(name_node, src)
     return ""
 
 
@@ -52,9 +56,33 @@ def _extract_accessibility(modifier_nodes, src):
     return "private"
 
 
+_NESTED_TYPE_KINDS = {
+    "class_declaration", "struct_declaration", "interface_declaration",
+    "record_declaration", "record_struct_declaration", "enum_declaration",
+}
+
+
+def _own_method_nodes(node, results):
+    """method_declaration nodes belonging to THIS type. Descends through
+    wrappers (e.g. `#if UNITY_EDITOR` / `#region` → preproc_* nodes) so guarded
+    methods are still captured, but does NOT descend into nested type
+    declarations (their methods belong to their own class entry) nor into a
+    method's own body. A plain `_find_children` would drop preproc-wrapped
+    methods; a plain recursive `_walk` would double-count nested-type methods."""
+    for child in node.children:
+        t = child.type
+        if t in _NESTED_TYPE_KINDS:
+            continue
+        if t == "method_declaration":
+            results.append(child)
+            continue
+        _own_method_nodes(child, results)
+    return results
+
+
 def _extract_methods(class_body, src):
     methods = []
-    for m_node in _walk(class_body, "method_declaration"):
+    for m_node in _own_method_nodes(class_body, []):
         name_node = m_node.child_by_field_name("name")
         if not name_node:
             continue
@@ -77,13 +105,174 @@ def _extract_methods(class_body, src):
     return methods
 
 
-def _extract_invocations(class_body, src):
+def _call_method_name(name_node, src):
+    """Method identifier from a member_access/binding `name` node (handles Foo<T>)."""
+    if name_node is None:
+        return None
+    if name_node.type == "generic_name":
+        idents = _find_children(name_node, "identifier")
+        return _node_text(idents[0], src) if idents else None
+    return _node_text(name_node, src)
+
+
+def _resolve_receiver_type(recv, src, symbols, self_class, base_types):
+    """Resolve a call receiver expression to its declared type name.
+
+    Returns the type string, or None when the receiver cannot be resolved
+    (chained expressions, unknown locals, element access). None callees are
+    kept as raw text so downstream node-id filtering drops them.
+    """
+    if recv is None:
+        return None
+    t = recv.type
+    if t == "identifier":
+        tok = _node_text(recv, src)
+        if tok in symbols:
+            return symbols[tok]
+        # Bare `Type.StaticMethod()` — receiver token IS the type (PascalCase heuristic).
+        if tok and tok[0].isupper():
+            return tok
+        return None
+    if t == "this":
+        return self_class
+    if t == "base":
+        # First non-interface base is the base class (heuristic: not `I<Upper>`).
+        for b in base_types:
+            if not (b.startswith("I") and len(b) > 1 and b[1].isupper()):
+                return b
+        return None
+    if t == "member_access_expression":
+        # `this.<field>.Method()` → resolve the field via the symbol table.
+        inner = recv.child_by_field_name("expression")
+        nm = recv.child_by_field_name("name")
+        if inner is not None and inner.type == "this" and nm is not None:
+            return symbols.get(_node_text(nm, src))
+        return None
+    return None
+
+
+def _extract_calls(cls_node, src, self_class, base_types, path):
+    """Method-scoped call edges with receiver→type resolution.
+
+    caller = `Class.Method`; callee = `ResolvedType.Method` when the receiver
+    resolves, else the raw `receiver.method` text (kept for completeness,
+    unlinkable at class level). Symbol table = fields + params + locals.
+    """
     calls = []
-    for inv in _walk(class_body, "invocation_expression"):
-        func_node = inv.child_by_field_name("function")
-        if func_node:
-            calls.append(_node_text(func_node, src))
+    body = cls_node.child_by_field_name("body")
+    if not body:
+        return calls
+    fields = _class_field_symbols(cls_node, src)
+    members = (_find_children(body, "method_declaration")
+               + _find_children(body, "constructor_declaration")
+               + _find_children(body, "property_declaration"))
+    for member in members:
+        mn = member.child_by_field_name("name")
+        method_name = (_node_text(mn, src) if mn
+                       else "ctor" if member.type == "constructor_declaration" else None)
+        caller = f"{self_class}.{method_name}" if method_name else self_class
+
+        symbols = dict(fields)
+        plist = member.child_by_field_name("parameters")
+        if plist:
+            for p in _find_children(plist, "parameter"):
+                pn = p.child_by_field_name("name")
+                pt = p.child_by_field_name("type")
+                if pn and pt:
+                    symbols[_node_text(pn, src)] = _type_name(pt, src)
+
+        # Method blocks, expression-bodied members, and property accessors.
+        bodies = []
+        mbody = member.child_by_field_name("body")
+        if mbody:
+            bodies.append(mbody)
+        for c in member.named_children:
+            if c.type in ("arrow_expression_clause", "accessor_list"):
+                bodies.append(c)
+        for b in bodies:
+            symbols.update(_local_var_symbols(b, src))
+
+        for b in bodies:
+            for inv in _walk(b, "invocation_expression"):
+                func = inv.child_by_field_name("function")
+                if not func:
+                    continue
+                recv_type = None
+                method = None
+                if func.type == "identifier":
+                    # Bare `Foo()` — intra-class call on self.
+                    method = _node_text(func, src)
+                    recv_type = self_class
+                elif func.type == "member_access_expression":
+                    method = _call_method_name(func.child_by_field_name("name"), src)
+                    recv_type = _resolve_receiver_type(
+                        func.child_by_field_name("expression"), src, symbols, self_class, base_types)
+                elif func.type == "conditional_access_expression":
+                    mbe = next((c for c in func.children if c.type == "member_binding_expression"), None)
+                    if mbe is not None:
+                        nm = mbe.child_by_field_name("name") or (
+                            mbe.named_children[-1] if mbe.named_children else None)
+                        method = _call_method_name(nm, src)
+                    recv_type = _resolve_receiver_type(
+                        func.child_by_field_name("condition"), src, symbols, self_class, base_types)
+                else:
+                    continue
+
+                callee = f"{recv_type}.{method}" if (recv_type and method) else _node_text(func, src)
+                calls.append({
+                    "caller": caller,
+                    "callee": callee,
+                    "caller_file": path,
+                    "callee_file": path,
+                    "file": path,
+                    "line": inv.start_point[0] + 1,
+                    "confidence": "EXTRACTED",
+                })
     return calls
+
+
+def _has_inject_attr(member, src):
+    """True if a member carries an attribute whose name ends with `Inject`
+    (covers `[Inject]`, `[Zenject.Inject]`, `[VContainer.Inject]`)."""
+    for al in member.children:
+        if al.type != "attribute_list":
+            continue
+        for at in al.children:
+            if at.type != "attribute":
+                continue
+            an = at.child_by_field_name("name")
+            nm = _type_name(an, src) if an else None
+            if nm and nm.endswith("Inject"):
+                return True
+    return False
+
+
+def _extract_dependencies(cls_node, src):
+    """Constructor + [*Inject] method parameter types → deduped dependency list.
+
+    Collects pure-C# real constructors, Zenject `[Zenject.Inject]`, and
+    VContainer `[VContainer.Inject]` styles. No type filtering here — resolution
+    to real graph nodes happens downstream; unresolved framework types drop out.
+    """
+    deps = []
+    seen = set()
+    body = cls_node.child_by_field_name("body")
+    if not body:
+        return deps
+    members = (_find_children(body, "constructor_declaration")
+               + [m for m in _find_children(body, "method_declaration")
+                  if _has_inject_attr(m, src)])
+    for member in members:
+        plist = member.child_by_field_name("parameters")
+        if not plist:
+            continue
+        for p in _find_children(plist, "parameter"):
+            pt = p.child_by_field_name("type")
+            tname = _type_name(pt, src) if pt else None
+            if tname and tname not in seen:
+                seen.add(tname)
+                deps.append(tname)
+    return deps
 
 
 _TYPE_NODES = {"identifier", "qualified_name", "generic_name", "predefined_type"}
@@ -276,8 +465,15 @@ def extract_file(parser, path, src=None):
                     bases_node = child
                     break
         if bases_node:
-            for bt in _walk(bases_node, "identifier"):
-                base_types.append(_node_text(bt, src))
+            # Direct base-type children only, normalized to their name — _walk on
+            # "identifier" also pulled generic type ARGUMENTS (`Panel<IThing>` →
+            # bogus "IThing") and qualified segments (`UnityEngine.MonoBehaviour`
+            # → stray "UnityEngine").
+            for bt in bases_node.named_children:
+                if bt.type in _TYPE_NODES:
+                    tn = _type_name(bt, src)
+                    if tn:
+                        base_types.append(tn)
 
         implements = [b for b in base_types if b.startswith("I") and len(b) > 1 and b[1].isupper()]
         is_mono = "MonoBehaviour" in base_types
@@ -289,15 +485,7 @@ def extract_file(parser, path, src=None):
         events_published = [p["event"] for p in pub_sub if p["action"] == "Publish"]
         events_subscribed = [p["event"] for p in pub_sub if p["action"] in ("Subscribe", "Unsubscribe")]
 
-        invocations = _extract_invocations(body, src) if body else []
-        for inv in invocations:
-            partial_calls.append({
-                "caller": f"{name}",
-                "callee": inv,
-                "file": path,
-                "line": 0,
-                "confidence": "EXTRACTED",
-            })
+        partial_calls.extend(_extract_calls(cls_node, src, name, base_types, path))
 
         is_installer = name.endswith("Installer") or (name.endswith("Module") and is_static)
         is_scope = "LifetimeScope" in base_types
@@ -316,7 +504,7 @@ def extract_file(parser, path, src=None):
             "base_types": base_types,
             "is_mono_behaviour": is_mono,
             "implements": implements,
-            "dependencies": [],
+            "dependencies": _extract_dependencies(cls_node, src),
             "events_published": events_published,
             "events_subscribed": events_subscribed,
             "has_static_instance": False,
@@ -338,8 +526,11 @@ def extract_file(parser, path, src=None):
                     sb_node = child
                     break
         if sb_node:
-            for bt in _walk(sb_node, "identifier"):
-                struct_bases.append(_node_text(bt, src))
+            for bt in sb_node.named_children:
+                if bt.type in _TYPE_NODES:
+                    tn = _type_name(bt, src)
+                    if tn:
+                        struct_bases.append(tn)
         if "IEvent" in struct_bases:
             events.append({
                 "name": name,
