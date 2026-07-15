@@ -151,6 +151,23 @@ def build_nodes_edges(g):
             if t and t in node_ids and installer_name in node_ids:
                 edges.append({"type": "registers", "source": installer_name, "target": t})
 
+    # injects: class -> constructor/[*Inject] dependency (interface node preferred,
+    # then class node). Unresolved framework types (R3/UniTask/Unity) are silently
+    # dropped by the node_ids membership test. Deduped per (class, dependency).
+    seen_inject = set()
+    for c in classes:
+        name = c.get("name")
+        if not name:
+            continue
+        for dep in c.get("dependencies", []) or []:
+            if dep not in node_ids or dep == name:
+                continue
+            key = ("injects", name, dep)
+            if key in seen_inject:
+                continue
+            seen_inject.add(key)
+            edges.append({"type": "injects", "source": name, "target": dep})
+
     return nodes, edges
 
 
@@ -217,6 +234,7 @@ HTML_TEMPLATE = """<!doctype html>
   <div class="legend-row"><span class="line-swatch" style="border-color:#ffb74d"></span> Publish</div>
   <div class="legend-row"><span class="line-swatch" style="border-color:#4fc3f7;border-top-style:dashed"></span> Subscribe</div>
   <div class="legend-row"><span class="line-swatch" style="border-color:#ba68c8;border-top-style:dotted"></span> Registers</div>
+  <div class="legend-row"><span class="line-swatch" style="border-color:#f06292;border-top-style:dashed"></span> Injects</div>
 </div>
 <div id="tooltip"></div>
 <div id="stats"></div>
@@ -316,10 +334,11 @@ __DATA__
 
   var EDGE_COLORS = {
     calls: "#5c6470", implements: "#81c784", publish: "#ffb74d",
-    subscribe: "#4fc3f7", registers: "#ba68c8"
+    subscribe: "#4fc3f7", registers: "#ba68c8", injects: "#f06292"
   };
   var EDGE_DASH = {
-    calls: [], implements: [], publish: [], subscribe: [5, 4], registers: [2, 3]
+    calls: [], implements: [], publish: [], subscribe: [5, 4], registers: [2, 3],
+    injects: [6, 3]
   };
 
   function nodeColor(n) {
@@ -505,8 +524,10 @@ def main(argv=None):
         fh.write(html)
 
     n_pub = sum(1 for e in edges if e["type"] == "publish")
+    n_inject = sum(1 for e in edges if e["type"] == "injects")
     print(f"graph.html written: {args.out} "
-          f"(nodes={len(nodes)}, edges={len(edges)}, publish_edges={n_pub})", file=sys.stderr)
+          f"(nodes={len(nodes)}, edges={len(edges)}, publish_edges={n_pub}, "
+          f"inject_edges={n_inject})", file=sys.stderr)
     return 0
 
 
