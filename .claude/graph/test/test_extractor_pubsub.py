@@ -68,10 +68,19 @@ def _installer_or_scope_regs(code_str):
 
 def _extract_fixture(filename):
     path = os.path.join(_FIXTURES_DIR, filename)
+    assert os.path.isfile(path), f"fixture missing: {path}"
     with open(path, "rb") as f:
         src = f.read()
     parser = _parser()
     return csx.extract_file(parser, path, src)
+
+
+def _class_named(code_str, class_name):
+    """Return the class entry with the given name (for multi-class snippets)."""
+    res = _extract(code_str)
+    match = next((c for c in res["classes"] if c["name"] == class_name), None)
+    assert match is not None, f"class {class_name!r} not found in: {[c['name'] for c in res['classes']]}"
+    return match
 
 
 # ── Task 1 acceptance cases: pub/sub ────────────────────────────────────────
@@ -249,26 +258,134 @@ def test_fixture_run_summary_view_null_conditional_publish_with_args():
         c["events_published"]
 
 
+# ── Extractor correctness regressions (template bug-fix pins) ────────────────
+
+def test_file_scoped_namespace_resolves():
+    # BUG: _extract_namespace only matched `namespace_declaration`; C# 10+
+    # file-scoped `namespace N;` parses as `file_scoped_namespace_declaration`
+    # and silently yielded namespace="".
+    code = "namespace Game.Concretes.Audio;\npublic class AudioService { }"
+    c = _facts(code)
+    assert c["namespace"] == "Game.Concretes.Audio", c["namespace"]
+
+
+def test_block_namespace_still_resolves():
+    # Regression guard: block-scoped namespace must keep resolving.
+    code = "namespace Game.Concretes.Audio { public class AudioService { } }"
+    c = _facts(code)
+    assert c["namespace"] == "Game.Concretes.Audio", c["namespace"]
+
+
+def test_generic_base_type_argument_not_treated_as_base():
+    # BUG: base types were collected via _walk(...,"identifier"), which also
+    # pulled generic type ARGUMENTS. `UiPanel<IThing>` wrongly produced an
+    # implements edge to IThing and polluted base_types.
+    code = "namespace N { public class HomePanel : UiPanel<IThing> { } }"
+    c = _facts(code)
+    assert "IThing" not in c["implements"], c["implements"]
+    assert "IThing" not in c["base_types"], c["base_types"]
+    assert "UiPanel" in c["base_types"], c["base_types"]
+
+
+def test_qualified_base_type_normalized_and_mono_detected():
+    # A qualified base (UnityEngine.MonoBehaviour) must resolve to the final
+    # segment and still flag is_mono — not leak "UnityEngine" into base_types.
+    code = "namespace N { public class V : UnityEngine.MonoBehaviour { } }"
+    c = _facts(code)
+    assert c["is_mono_behaviour"] is True, c["base_types"]
+    assert "UnityEngine" not in c["base_types"], c["base_types"]
+
+
+def test_nested_class_methods_not_double_counted():
+    # BUG: _extract_methods used a recursive _walk, so a nested class's methods
+    # were also attributed to the outer class.
+    code = (
+        "namespace N { public class Outer { "
+        "  public void OuterM() { } "
+        "  public class Inner { public void InnerM() { } } "
+        "} }"
+    )
+    outer = _class_named(code, "Outer")
+    inner = _class_named(code, "Inner")
+    assert [m["name"] for m in outer["methods"]] == ["OuterM"], outer["methods"]
+    assert [m["name"] for m in inner["methods"]] == ["InnerM"], inner["methods"]
+
+
+def test_preprocessor_wrapped_method_still_captured():
+    # REGRESSION: excluding nested types must NOT drop own methods that sit
+    # inside a `#if UNITY_EDITOR` (or #region) block — those parse as preproc_*
+    # wrapper nodes, not nested type declarations.
+    code = (
+        "namespace N { public class Svc { "
+        "  public void Always() { } "
+        "#if UNITY_EDITOR\n"
+        "  public void EditorOnly() { } "
+        "#endif\n"
+        "} }"
+    )
+    c = _class_named(code, "Svc")
+    names = [m["name"] for m in c["methods"]]
+    assert "Always" in names, names
+    assert "EditorOnly" in names, names
+
+
+# ── Injection (DIP) dependency extraction ────────────────────────────────────
+
+def test_dependencies_all_three_di_styles():
+    """A class mixing a real constructor, a Zenject `[Zenject.Inject]`
+    Constructor method, and a VContainer `[VContainer.Inject]` Construct method
+    must surface all three parameter types in dependencies[], deduped."""
+    code = """
+    namespace N {
+      public class Hybrid {
+        public Hybrid(IScoreService score) {}
+        [Zenject.Inject] public void Constructor(IEventBus bus) {}
+        [VContainer.Inject] public void Construct(ISaveLoadService save) {}
+        public void NotInjected(int notADep) {}
+      }
+    }
+    """
+    c = _facts(code)
+    deps = c["dependencies"]
+    assert "IScoreService" in deps, deps       # real constructor
+    assert "IEventBus" in deps, deps           # [Zenject.Inject]
+    assert "ISaveLoadService" in deps, deps    # [VContainer.Inject]
+    assert "int" not in deps, deps             # non-inject method param excluded
+    assert len(deps) == len(set(deps)), deps   # deduped
+
+
 # ── Runner ───────────────────────────────────────────────────────────────────
 
 def _run():
+    """Run every test_* fn, reporting each by name. Unlike a plain loop, a single
+    failure does NOT abort the rest — all failures are collected and named."""
     test_fns = [(name, fn) for name, fn in sorted(globals().items())
                 if name.startswith("test_") and callable(fn)]
+    failures = []
     for name, fn in test_fns:
-        fn()
-        print(f"  ok  {name}")
+        try:
+            fn()
+            print(f"  ok    {name}")
+        except AssertionError as e:
+            failures.append(name)
+            print(f"  FAIL  {name}: {e!r}", file=sys.stderr)
+        except Exception as e:  # report, don't abort; SystemExit (BaseException) still propagates for SKIP
+            failures.append(name)
+            print(f"  ERR   {name}: {type(e).__name__}: {e}", file=sys.stderr)
+    if failures:
+        print(f"\n{len(failures)}/{len(test_fns)} FAILED: {', '.join(failures)}", file=sys.stderr)
+        return False
     print("OK")
+    return True
 
 
 if __name__ == "__main__":
     try:
-        _run()
+        passed = _run()
     except SystemExit as e:
         # csx._try_import() calls sys.exit(2) when tree-sitter is unavailable.
         if getattr(e, "code", None) == 2:
             print("SKIP: tree-sitter unavailable")
             sys.exit(0)
         raise
-    except AssertionError as e:
-        print(f"FAIL: {e}", file=sys.stderr)
-        sys.exit(1)
+    sys.exit(0 if passed else 1)
