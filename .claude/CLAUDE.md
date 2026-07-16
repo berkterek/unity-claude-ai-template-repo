@@ -97,7 +97,7 @@ When starting a new conversation on this project, read these files first:
 - "What does an installer register?" → `/knowledge-graph registrations AudioService`
 - "VContainer scope hierarchy?" → `/knowledge-graph scope-tree`
 - "Any architecture violations?" → `/knowledge-graph violations`
-- "What components does a prefab have?" → `/knowledge-graph prefab PlayerSphere`
+- "What components does a prefab have?" → `/knowledge-graph prefab Player`
 - "Who calls this method?" → `/knowledge-graph callers AudioService.PlaySound`
 - "What breaks if I change this class?" → `/knowledge-graph impact AudioService --hops 3`
 - "How does X reach Y?" → `/knowledge-graph path AudioService.PlaySound UIManager.UpdateHUD`

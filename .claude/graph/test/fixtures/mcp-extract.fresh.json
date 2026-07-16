@@ -10,7 +10,7 @@
   ],
   "prefabs": [
     {"name":"GameScope","path":"Assets/_GameFolders/Prefabs/Bootstrap/GameScope.prefab","domain":"Bootstrap","components":["Transform","GameScope"],"isVariant":false,"confidence":"EXTRACTED"},
-    {"name":"BlackholeSphere","path":"Assets/_GameFolders/Prefabs/Characters/BlackholeSphere.prefab","domain":"Characters","components":["Transform","Rigidbody","SphereCollider","BlackholeView","SlingshotView","VacuumView","LaneControlView","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
+    {"name":"Player","path":"Assets/_GameFolders/Prefabs/Characters/Player.prefab","domain":"Characters","components":["Transform","Rigidbody","PlayerController","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
     {"name":"CameraRig","path":"Assets/_GameFolders/Prefabs/Environment/CameraRig.prefab","domain":"Environment","components":["Transform","Camera","AudioListener","CameraProvider"],"isVariant":false,"confidence":"EXTRACTED"},
     {"name":"DirectionalLight","path":"Assets/_GameFolders/Prefabs/Environment/DirectionalLight.prefab","domain":"Environment","components":["Transform","Light"],"isVariant":false,"confidence":"EXTRACTED"},
     {"name":"FinishLine","path":"Assets/_GameFolders/Prefabs/Environment/FinishLine.prefab","domain":"Environment","components":["Transform","BoxCollider","FinishLineTrigger","MeshFilter","MeshRenderer"],"isVariant":false,"confidence":"EXTRACTED"},
