@@ -49,7 +49,7 @@ Stop here.
 | `--validate` | off | Run `graph-validator.sh` after build |
 | `--validate-with-codex` | off | Run Codex accuracy spot-check after build |
 | `--quiet` | off | Suppress progress output |
-| `--viz` | off | After export, generate `graph.html` (self-contained visualizer) |
+| `--viz` | off | After export, generate `graph.html` (vis-network visualizer) |
 
 ---
 
@@ -147,7 +147,7 @@ diff <(jq -S '.codebase.classes | map(.name) | sort' .claude/graph/graph.json.ba
 
 ## Step 7 — Visualizer (optional, `--viz` only)
 
-If `--viz` was passed, generate the self-contained HTML graph visualizer **after** the
+If `--viz` was passed, generate the HTML graph visualizer **after** the
 export/partition write from the preceding steps has completed:
 
 ```bash
@@ -159,6 +159,7 @@ Print the resulting node/edge counts (emitted by the script to stderr) to the us
 graph.html written: .claude/graph/graph.html (nodes=147, edges=191, publish_edges=12)
 ```
 
-`graph.html` is a generated artifact (gitignored) — open it directly in a browser
-(`file://` works, no server needed). It is **not** produced by a default build; the flag
-must be passed explicitly. See `.claude/docs/knowledge-graph.md` for what it renders.
+`graph.html` is a generated artifact (**gitignored**) — open it directly in a browser
+(`file://` works, no server needed). It renders via a vendored `vis-network.min.js` (pinned
+9.1.6, **committed**) that must sit next to it. It is **not** produced by a default build; the
+flag must be passed explicitly. See `.claude/docs/knowledge-graph.md` for what it renders.

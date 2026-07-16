@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
-"""graph-viz.py — self-contained graph.html generator for the Unity Knowledge Graph.
+"""graph-viz.py — graph.html generator for the Unity Knowledge Graph.
 
 Reads graph.json (+ resolves scenes.json / prefabs.json $partition refs, mirroring
 graph-mcp-server.py's _resolve_partition), builds a node/edge model from
 classes/interfaces/events + calls/implements/publish/subscribe, and emits ONE
-self-contained graph.html: inline CSS, inline JSON data island, inline vanilla-JS
-force-directed layout rendered on <canvas>. No external URLs, no CDN, no build step.
+graph.html: inline CSS, inline JSON data island, inline glue JS that drives a
+vis-network force-directed layout. The page is self-contained except for the
+vendored vis-network.min.js (pinned 9.1.6, committed alongside graph.html and
+referenced relatively) — no CDN, no external URLs, no build step. That vendored
+file is NEVER written or touched by this script.
 
 Usage:
     python3 graph-viz.py [--graph PATH] [--out PATH]
 
 Defaults: .claude/graph/graph.json -> .claude/graph/graph.html
+(vis-network.min.js must already sit next to the --out path.)
 """
 
 import argparse
 import json
 import os
+import re
 import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -62,21 +67,77 @@ def _caller_class(qualified):
     return parts[0]
 
 
+_INSTANCE_SUFFIX = re.compile(r"\s*\(\d+\)$")
+
+
+def _prefab_name(p):
+    """Prefab display name. Supports both the flat fixture schema (top-level
+    'name') and the real graph.json schema (nested under 'root')."""
+    return p.get("name") or (p.get("root") or {}).get("name")
+
+
+def _prefab_components(p):
+    """All component type names on a prefab. Flat schema exposes a top-level
+    'components' list; the real schema stores them on the root GO and its
+    recursive children — flatten the whole tree."""
+    comps = list(p.get("components") or [])
+    root = p.get("root")
+    if isinstance(root, dict):
+        stack = [root]
+        while stack:
+            go = stack.pop()
+            comps.extend(go.get("components") or [])
+            for ch in go.get("children") or []:
+                stack.append(ch)
+    return comps
+
+
+def _prefab_is_variant(p):
+    if "isVariant" in p:
+        return bool(p.get("isVariant"))
+    return bool((p.get("root") or {}).get("isVariant"))
+
+
+def _prefab_base(p):
+    return p.get("basePrefab") or (p.get("root") or {}).get("basePrefab")
+
+
+def _scene_name(s):
+    """Scene display name. Flat fixture schema carries 'name'; the real schema
+    only has 'path', so derive the name from the .unity file basename."""
+    name = s.get("name")
+    if name:
+        return name
+    path = s.get("path", "") or ""
+    base = os.path.basename(path)
+    if base.endswith(".unity"):
+        base = base[:-len(".unity")]
+    return base or path
+
+
 def build_nodes_edges(g):
     cb = g.get("codebase", {})
     classes = cb.get("classes", []) or []
     interfaces = cb.get("interfaces", []) or []
     events = cb.get("events", []) or []
     calls = cb.get("calls", []) or []
+    prefabs = cb.get("prefabs", [])
+    scenes = cb.get("scenes", [])
+    if not isinstance(prefabs, list):
+        prefabs = []
+    if not isinstance(scenes, list):
+        scenes = []
 
     nodes = []
     node_ids = set()
+    class_ids = set()   # classes only (not interfaces/events) — used for component matching
 
     for c in classes:
         name = c.get("name")
         if not name or name in node_ids:
             continue
         node_ids.add(name)
+        class_ids.add(name)
         nodes.append({
             "id": name,
             "type": "class",
@@ -168,10 +229,108 @@ def build_nodes_edges(g):
             seen_inject.add(key)
             edges.append({"type": "injects", "source": name, "target": dep})
 
+    # ── Partitioned data: prefab + scene nodes (from scenes.json / prefabs.json) ─
+    # Prefab node ids are prefixed with "prefab:" and scene ids with "scene:" so
+    # they never collide with class/interface/event names (which are bare).
+    prefab_name_to_id = {}
+    for p in prefabs:
+        name = _prefab_name(p)
+        if not name:
+            continue
+        pid = "prefab:" + name
+        if pid in node_ids:
+            continue
+        node_ids.add(pid)
+        prefab_name_to_id[name] = pid
+        nodes.append({
+            "id": pid,
+            "label": name,
+            "type": "prefab",
+            "namespace": p.get("domain", "") or "",   # reuse tooltip slot
+        })
+
+    scene_entries = []   # (scene_id, scene_dict) for the contains walk below
+    for s in scenes:
+        name = _scene_name(s)
+        if not name:
+            continue
+        sid = "scene:" + name
+        if sid in node_ids:
+            continue
+        node_ids.add(sid)
+        scene_entries.append((sid, s))
+        nodes.append({
+            "id": sid,
+            "label": name,
+            "type": "scene",
+            "namespace": s.get("path", "") or "",   # reuse tooltip slot
+        })
+
+    # has_component: prefab -> class, for each component type that is a known class
+    seen_has = set()
+    for p in prefabs:
+        name = _prefab_name(p)
+        pid = prefab_name_to_id.get(name) if name else None
+        if not pid:
+            continue
+        for comp in _prefab_components(p):
+            if comp in class_ids:
+                key = (pid, comp)
+                if key in seen_has:
+                    continue
+                seen_has.add(key)
+                edges.append({"type": "has_component", "source": pid, "target": comp})
+
+    # variant_of: prefab -> prefab, when basePrefab matches another prefab node
+    seen_variant = set()
+    for p in prefabs:
+        name = _prefab_name(p)
+        pid = prefab_name_to_id.get(name) if name else None
+        if not pid:
+            continue
+        base = _prefab_base(p)
+        base_id = prefab_name_to_id.get(base) if base else None
+        if not base_id or base_id == pid:
+            continue
+        key = (pid, base_id)
+        if key in seen_variant:
+            continue
+        seen_variant.add(key)
+        edges.append({"type": "variant_of", "source": pid, "target": base_id})
+
+    # contains: scene -> prefab (GO name matches a prefab after stripping the
+    # instance suffix). Fallback when no prefab matches: scene -> class edges for
+    # GO components that are known classes — so scenes never float disconnected.
+    seen_contains = set()
+
+    def _walk_go(go, sid):
+        raw_name = go.get("name", "") or ""
+        base = _INSTANCE_SUFFIX.sub("", raw_name)
+        pid = prefab_name_to_id.get(base)
+        if pid:
+            key = (sid, pid)
+            if key not in seen_contains:
+                seen_contains.add(key)
+                edges.append({"type": "contains", "source": sid, "target": pid})
+        else:
+            for comp in go.get("components") or []:
+                if comp in class_ids:
+                    key = (sid, comp)
+                    if key not in seen_contains:
+                        seen_contains.add(key)
+                        edges.append({"type": "contains", "source": sid, "target": comp})
+        for ch in go.get("children") or []:
+            _walk_go(ch, sid)
+
+    for sid, s in scene_entries:
+        for go in s.get("gameobjects") or []:
+            _walk_go(go, sid)
+
     return nodes, edges
 
 
-# ── HTML template (self-contained: inline CSS + JS + canvas, no external URLs) ─
+# ── HTML template — inline CSS + JSON data island + vis-network glue JS ──────
+# Self-contained except for the vendored vis-network.min.js referenced relatively.
 
 HTML_TEMPLATE = """<!doctype html>
 <html>
@@ -185,9 +344,7 @@ HTML_TEMPLATE = """<!doctype html>
     background: #12141a; color: #e8e8ec;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   }
-  #canvas-wrap { position: absolute; inset: 0; }
-  canvas { display: block; width: 100%; height: 100%; background: #12141a; cursor: grab; }
-  canvas.dragging { cursor: grabbing; }
+  #graph { position: absolute; inset: 0; background: #12141a; }
 
   #legend {
     position: absolute; top: 12px; left: 12px; z-index: 10;
@@ -196,16 +353,18 @@ HTML_TEMPLATE = """<!doctype html>
   }
   #legend h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #9aa1ad; }
   .legend-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+  .legend-row.toggle { cursor: pointer; user-select: none; }
+  .legend-row.toggle.off { opacity: 0.35; }
   .swatch { width: 12px; height: 12px; border-radius: 50%; flex: none; }
   .swatch.sq { border-radius: 3px; }
+  .swatch.diamond { border-radius: 2px; transform: rotate(45deg); }
+  .swatch.tri {
+    width: 0; height: 0; border-radius: 0; background: none !important;
+    border-left: 6px solid transparent; border-right: 6px solid transparent;
+    border-bottom-width: 12px; border-bottom-style: solid;
+  }
   .line-swatch { width: 22px; height: 0; border-top-width: 2px; border-top-style: solid; flex: none; }
 
-  #tooltip {
-    position: absolute; z-index: 20; pointer-events: none;
-    background: rgba(20, 22, 28, 0.95); border: 1px solid #444b5a;
-    border-radius: 6px; padding: 6px 10px; font-size: 12px; display: none;
-    max-width: 320px; white-space: nowrap;
-  }
   #stats {
     position: absolute; bottom: 12px; left: 12px; z-index: 10;
     background: rgba(20, 22, 28, 0.9); border: 1px solid #333844;
@@ -216,27 +375,35 @@ HTML_TEMPLATE = """<!doctype html>
     background: rgba(120, 90, 20, 0.9); border: 1px solid #7a5c14;
     border-radius: 8px; padding: 6px 12px; font-size: 11px; display: none;
   }
+  /* vis-network's built-in tooltip, restyled for the dark theme */
+  div.vis-tooltip {
+    background: rgba(20, 22, 28, 0.95) !important; border: 1px solid #444b5a !important;
+    color: #e8e8ec !important; border-radius: 6px !important; padding: 6px 10px !important;
+    font-family: inherit !important; font-size: 12px !important; box-shadow: none !important;
+  }
 </style>
 </head>
 <body>
-<div id="canvas-wrap">
-  <canvas id="graph-canvas"></canvas>
-</div>
+<div id="graph"></div>
 <div id="legend">
-  <h3>Node Types</h3>
-  <div class="legend-row"><span class="swatch" style="background:#4fc3f7"></span> Class (MonoBehaviour)</div>
-  <div class="legend-row"><span class="swatch" style="background:#7986cb"></span> Class (plain C#)</div>
-  <div class="legend-row"><span class="swatch sq" style="background:#81c784"></span> Interface</div>
-  <div class="legend-row"><span class="swatch" style="background:#ffb74d"></span> Event</div>
+  <h3>Node Types (click to filter)</h3>
+  <div class="legend-row toggle" data-cat="mono"><span class="swatch" style="background:#4fc3f7"></span> Class (MonoBehaviour)</div>
+  <div class="legend-row toggle" data-cat="class"><span class="swatch" style="background:#7986cb"></span> Class (plain C#)</div>
+  <div class="legend-row toggle" data-cat="interface"><span class="swatch sq" style="background:#81c784"></span> Interface</div>
+  <div class="legend-row toggle" data-cat="event"><span class="swatch" style="background:#ffb74d"></span> Event</div>
+  <div class="legend-row toggle" data-cat="prefab"><span class="swatch diamond" style="background:#e57373"></span> Prefab</div>
+  <div class="legend-row toggle" data-cat="scene"><span class="swatch tri" style="border-bottom-color:#4db6ac"></span> Scene</div>
   <h3 style="margin-top:10px;">Edge Types</h3>
   <div class="legend-row"><span class="line-swatch" style="border-color:#5c6470"></span> Calls</div>
   <div class="legend-row"><span class="line-swatch" style="border-color:#81c784"></span> Implements</div>
   <div class="legend-row"><span class="line-swatch" style="border-color:#ffb74d"></span> Publish</div>
   <div class="legend-row"><span class="line-swatch" style="border-color:#4fc3f7;border-top-style:dashed"></span> Subscribe</div>
-  <div class="legend-row"><span class="line-swatch" style="border-color:#ba68c8;border-top-style:dotted"></span> Registers</div>
+  <div class="legend-row"><span class="line-swatch" style="border-color:#ba68c8;border-top-style:dashed"></span> Registers</div>
   <div class="legend-row"><span class="line-swatch" style="border-color:#f06292;border-top-style:dashed"></span> Injects</div>
+  <div class="legend-row"><span class="line-swatch" style="border-color:#8d6e63"></span> Has Component</div>
+  <div class="legend-row"><span class="line-swatch" style="border-color:#4db6ac;border-top-style:dashed"></span> Contains</div>
+  <div class="legend-row"><span class="line-swatch" style="border-color:#e57373;border-top-style:dashed"></span> Variant Of</div>
 </div>
-<div id="tooltip"></div>
 <div id="stats"></div>
 <div id="note">Large graph (&gt;800 nodes) — layout may be dense.</div>
 
@@ -244,239 +411,146 @@ HTML_TEMPLATE = """<!doctype html>
 __DATA__
 </script>
 
+<!-- Vendored, pinned vis-network 9.1.6 — lives in the same directory, never regenerated -->
+<script src="vis-network.min.js"></script>
+
 <script>
 (function () {
   "use strict";
 
   var raw = JSON.parse(document.getElementById("graph-data").textContent);
-  var nodes = raw.nodes.map(function (n, i) {
+
+  // Same filter category derivation as before: MonoBehaviour classes vs plain C#.
+  function filterKey(n) { return n.type === "class" ? (n.is_mono_behaviour ? "mono" : "class") : n.type; }
+
+  // Node visuals by category / type.
+  var CAT_COLOR = {
+    mono: "#4fc3f7", "class": "#7986cb", interface: "#81c784",
+    event: "#ffb74d", prefab: "#e57373", scene: "#4db6ac"
+  };
+  var TYPE_SHAPE = { interface: "square", prefab: "diamond", scene: "triangle" }; // default "dot"
+
+  // Edge visuals by type.
+  var EDGE_COLORS = {
+    calls: "#5c6470", implements: "#81c784", publish: "#ffb74d",
+    subscribe: "#4fc3f7", registers: "#ba68c8", injects: "#f06292",
+    has_component: "#8d6e63", contains: "#4db6ac", variant_of: "#e57373"
+  };
+  var EDGE_DASHED = {
+    subscribe: true, registers: true, injects: true, contains: true, variant_of: true
+  };
+
+  // Node degree → hubs read a little bigger.
+  var degree = {};
+  raw.edges.forEach(function (e) {
+    degree[e.source] = (degree[e.source] || 0) + 1;
+    degree[e.target] = (degree[e.target] || 0) + 1;
+  });
+
+  // ── Build vis node objects (master copies kept for re-adding on filter show) ─
+  var allNodes = raw.nodes.map(function (n) {
+    var cat = filterKey(n);
+    var base = n.type === "scene" ? 12 : (n.type === "prefab" ? 10 : 8);
+    var ns = n.namespace || "";
+    var lbl = n.label || n.id;
     return {
-      id: n.id, type: n.type, is_mono_behaviour: !!n.is_mono_behaviour,
-      namespace: n.namespace || "",
-      x: (Math.random() - 0.5) * 800, y: (Math.random() - 0.5) * 800,
-      vx: 0, vy: 0, idx: i
+      id: n.id,
+      label: lbl,
+      _cat: cat,
+      shape: TYPE_SHAPE[n.type] || "dot",
+      color: { background: CAT_COLOR[cat] || "#aaaaaa", border: CAT_COLOR[cat] || "#aaaaaa" },
+      size: base + Math.sqrt(degree[n.id] || 0),
+      title: lbl + " (" + n.type + (ns ? ", " + ns : "") + ")",
+      font: { color: "#e8e8ec", size: 11 }
     };
   });
-  var edges = raw.edges;
 
-  var byId = {};
-  nodes.forEach(function (n) { byId[n.id] = n; });
-  var edgeList = edges.map(function (e) {
-    return { type: e.type, source: byId[e.source], target: byId[e.target] };
-  }).filter(function (e) { return e.source && e.target; });
+  var visEdges = raw.edges.map(function (e, i) {
+    return {
+      id: "e" + i,
+      from: e.source,
+      to: e.target,
+      color: { color: EDGE_COLORS[e.type] || "#5c6470" },
+      dashes: !!EDGE_DASHED[e.type],
+      arrows: { to: { enabled: true, scaleFactor: 0.5 } }
+    };
+  });
 
-  document.getElementById("stats").textContent =
-    "nodes: " + nodes.length + "   edges: " + edgeList.length;
-  if (nodes.length > __MAX_NODES__) {
+  var nodeById = {};
+  allNodes.forEach(function (n) { nodeById[n.id] = n; });
+
+  var nodesDS = new vis.DataSet(allNodes);
+  var edgesDS = new vis.DataSet(visEdges);
+
+  var container = document.getElementById("graph");
+  var options = {
+    nodes: { borderWidth: 0, font: { color: "#e8e8ec" } },
+    edges: { smooth: false, width: 1 },
+    physics: {
+      solver: "forceAtlas2Based",
+      forceAtlas2Based: {
+        gravitationalConstant: -60, centralGravity: 0.005, springLength: 120,
+        springConstant: 0.08, damping: 0.4, avoidOverlap: 0.8
+      },
+      stabilization: { iterations: 200, fit: true }
+    },
+    interaction: { hover: true, tooltipDelay: 100, hideEdgesOnDrag: true }
+  };
+
+  var network = new vis.Network(container, { nodes: nodesDS, edges: edgesDS }, options);
+
+  // Freeze the layout once it settles — no perpetual motion.
+  network.once("stabilizationIterationsDone", function () {
+    network.setOptions({ physics: { enabled: false } });
+  });
+
+  // ── Stats: visible node/edge counts read from the live DataSets ─────────────
+  var statsEl = document.getElementById("stats");
+  function updateStats() {
+    var present = {};
+    nodesDS.getIds().forEach(function (id) { present[id] = true; });
+    var ve = 0;
+    edgesDS.forEach(function (e) { if (present[e.from] && present[e.to]) ve++; });
+    statsEl.textContent = "nodes: " + nodesDS.length + "   edges: " + ve;
+  }
+  updateStats();
+
+  if (allNodes.length > __MAX_NODES__) {
     document.getElementById("note").style.display = "block";
   }
 
-  var canvas = document.getElementById("graph-canvas");
-  var ctx = canvas.getContext("2d");
-  var wrap = document.getElementById("canvas-wrap");
-  var tooltip = document.getElementById("tooltip");
+  // ── Legend-as-filter: remove a category's nodes (saving positions) / re-add ──
+  var hiddenStore = {}; // cat -> array of node objects carrying their saved x/y
 
-  var view = { scale: 1, ox: 0, oy: 0 };
-
-  function resize() {
-    canvas.width = wrap.clientWidth * window.devicePixelRatio;
-    canvas.height = wrap.clientHeight * window.devicePixelRatio;
-    canvas.style.width = wrap.clientWidth + "px";
-    canvas.style.height = wrap.clientHeight + "px";
-    view.ox = canvas.width / 2;
-    view.oy = canvas.height / 2;
-  }
-  window.addEventListener("resize", resize);
-  resize();
-
-  // ── Force-directed layout: simple O(n^2) repulsion + spring attraction ──────
-  var REPULSION = 2600;
-  var SPRING_LEN = 90;
-  var SPRING_K = 0.02;
-  var DAMPING = 0.85;
-  var CENTER_K = 0.002;
-
-  function step() {
-    var n = nodes.length;
-    for (var i = 0; i < n; i++) {
-      var a = nodes[i];
-      var fx = -a.x * CENTER_K;
-      var fy = -a.y * CENTER_K;
-      for (var j = 0; j < n; j++) {
-        if (i === j) continue;
-        var b = nodes[j];
-        var dx = a.x - b.x, dy = a.y - b.y;
-        var d2 = dx * dx + dy * dy + 0.01;
-        var d = Math.sqrt(d2);
-        var f = REPULSION / d2;
-        fx += (dx / d) * f;
-        fy += (dy / d) * f;
-      }
-      a.fx = fx; a.fy = fy;
-    }
-    edgeList.forEach(function (e) {
-      var dx = e.target.x - e.source.x, dy = e.target.y - e.source.y;
-      var d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      var stretch = d - SPRING_LEN;
-      var f = SPRING_K * stretch;
-      var fx = (dx / d) * f, fy = (dy / d) * f;
-      e.source.fx += fx; e.source.fy += fy;
-      e.target.fx -= fx; e.target.fy -= fy;
-    });
-    nodes.forEach(function (a) {
-      if (a.dragging) return;
-      a.vx = (a.vx + a.fx) * DAMPING;
-      a.vy = (a.vy + a.fy) * DAMPING;
-      a.x += a.vx;
-      a.y += a.vy;
-    });
-  }
-
-  var EDGE_COLORS = {
-    calls: "#5c6470", implements: "#81c784", publish: "#ffb74d",
-    subscribe: "#4fc3f7", registers: "#ba68c8", injects: "#f06292"
-  };
-  var EDGE_DASH = {
-    calls: [], implements: [], publish: [], subscribe: [5, 4], registers: [2, 3],
-    injects: [6, 3]
-  };
-
-  function nodeColor(n) {
-    if (n.type === "interface") return "#81c784";
-    if (n.type === "event") return "#ffb74d";
-    if (n.type === "class") return n.is_mono_behaviour ? "#4fc3f7" : "#7986cb";
-    return "#aaaaaa";
-  }
-  function nodeRadius(n) {
-    return n.type === "event" ? 5 : (n.type === "interface" ? 6 : 7);
-  }
-  function nodeShape(n) { return n.type === "interface" ? "sq" : "circle"; }
-
-  function toScreen(x, y) {
-    return [x * view.scale + view.ox, y * view.scale + view.oy];
-  }
-  function toWorld(sx, sy) {
-    return [(sx - view.ox) / view.scale, (sy - view.oy) / view.scale];
-  }
-
-  function draw() {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.lineWidth = 1;
-    edgeList.forEach(function (e) {
-      var p1 = toScreen(e.source.x, e.source.y);
-      var p2 = toScreen(e.target.x, e.target.y);
-      ctx.beginPath();
-      ctx.setLineDash(EDGE_DASH[e.type] || []);
-      ctx.strokeStyle = EDGE_COLORS[e.type] || "#5c6470";
-      ctx.moveTo(p1[0], p1[1]);
-      ctx.lineTo(p2[0], p2[1]);
-      ctx.stroke();
-    });
-    ctx.setLineDash([]);
-
-    nodes.forEach(function (n) {
-      var p = toScreen(n.x, n.y);
-      var r = nodeRadius(n) * Math.max(view.scale, 0.4);
-      ctx.fillStyle = nodeColor(n);
-      if (nodeShape(n) === "sq") {
-        ctx.fillRect(p[0] - r, p[1] - r, r * 2, r * 2);
+  Array.prototype.forEach.call(document.querySelectorAll(".legend-row.toggle"), function (row) {
+    row.addEventListener("click", function () {
+      var cat = row.getAttribute("data-cat");
+      if (hiddenStore[cat]) {
+        // Show again at the exact saved coordinates — layout does not jump,
+        // and physics stays disabled.
+        nodesDS.add(hiddenStore[cat]);
+        hiddenStore[cat] = null;
+        row.classList.remove("off");
       } else {
-        ctx.beginPath();
-        ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
-        ctx.fill();
+        // Hide: capture live positions, then remove. vis auto-hides any edge
+        // whose endpoint is gone.
+        var ids = nodesDS.getIds().filter(function (id) {
+          return nodeById[id] && nodeById[id]._cat === cat;
+        });
+        var pos = network.getPositions(ids);
+        hiddenStore[cat] = ids.map(function (id) {
+          var src = nodeById[id];
+          var copy = {};
+          for (var k in src) { if (src.hasOwnProperty(k)) copy[k] = src[k]; }
+          if (pos[id]) { copy.x = pos[id].x; copy.y = pos[id].y; }
+          return copy;
+        });
+        nodesDS.remove(ids);
+        row.classList.add("off");
       }
-      if (n === hoverNode || n === dragNode) {
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(p[0], p[1], r + 3, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      updateStats();
     });
-  }
-
-  function tick() {
-    step();
-    draw();
-    requestAnimationFrame(tick);
-  }
-
-  // ── Interaction: hover-to-label, drag-to-reposition, wheel-to-zoom ──────────
-  var hoverNode = null, dragNode = null, panning = false, panStart = null;
-
-  function nodeAtScreen(sx, sy) {
-    var w = toWorld(sx, sy);
-    var best = null, bestD = 1e9;
-    nodes.forEach(function (n) {
-      var dx = n.x - w[0], dy = n.y - w[1];
-      var d = dx * dx + dy * dy;
-      var r = nodeRadius(n) + 4;
-      if (d < r * r && d < bestD) { best = n; bestD = d; }
-    });
-    return best;
-  }
-
-  canvas.addEventListener("mousemove", function (ev) {
-    var rect = canvas.getBoundingClientRect();
-    var sx = (ev.clientX - rect.left) * window.devicePixelRatio;
-    var sy = (ev.clientY - rect.top) * window.devicePixelRatio;
-
-    if (dragNode) {
-      var w = toWorld(sx, sy);
-      dragNode.x = w[0]; dragNode.y = w[1];
-      dragNode.vx = 0; dragNode.vy = 0;
-      return;
-    }
-    if (panning) {
-      view.ox += sx - panStart[0];
-      view.oy += sy - panStart[1];
-      panStart = [sx, sy];
-      return;
-    }
-    var hit = nodeAtScreen(sx, sy);
-    hoverNode = hit;
-    if (hit) {
-      tooltip.style.display = "block";
-      tooltip.style.left = (ev.clientX + 14) + "px";
-      tooltip.style.top = (ev.clientY + 10) + "px";
-      tooltip.textContent = hit.id + " (" + hit.type + (hit.namespace ? ", " + hit.namespace : "") + ")";
-    } else {
-      tooltip.style.display = "none";
-    }
   });
-
-  canvas.addEventListener("mousedown", function (ev) {
-    var rect = canvas.getBoundingClientRect();
-    var sx = (ev.clientX - rect.left) * window.devicePixelRatio;
-    var sy = (ev.clientY - rect.top) * window.devicePixelRatio;
-    var hit = nodeAtScreen(sx, sy);
-    if (hit) {
-      dragNode = hit;
-      dragNode.dragging = true;
-      canvas.classList.add("dragging");
-    } else {
-      panning = true;
-      panStart = [sx, sy];
-      canvas.classList.add("dragging");
-    }
-  });
-
-  window.addEventListener("mouseup", function () {
-    if (dragNode) { dragNode.dragging = false; }
-    dragNode = null;
-    panning = false;
-    canvas.classList.remove("dragging");
-  });
-
-  canvas.addEventListener("wheel", function (ev) {
-    ev.preventDefault();
-    var factor = ev.deltaY < 0 ? 1.1 : 0.9;
-    view.scale = Math.max(0.05, Math.min(8, view.scale * factor));
-  }, { passive: false });
-
-  tick();
 })();
 </script>
 </body>
@@ -503,6 +577,17 @@ def main(argv=None):
         print(f"error: graph file not found: {args.graph}", file=sys.stderr)
         return 1
 
+    lib = os.path.join(os.path.dirname(os.path.abspath(args.out)), "vis-network.min.js")
+    if not os.path.exists(lib):
+        print(f"error: vendored library missing: {lib}\n"
+              f"       graph.html requires vis-network.min.js (pinned 9.1.6) in the same "
+              f"directory as the output.\n"
+              f"       Download it once and commit it:\n"
+              f"         curl -sfL -o '{lib}' "
+              f"https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js",
+              file=sys.stderr)
+        return 1
+
     try:
         g = load_graph(args.graph)
     except FileNotFoundError as exc:
@@ -525,9 +610,16 @@ def main(argv=None):
 
     n_pub = sum(1 for e in edges if e["type"] == "publish")
     n_inject = sum(1 for e in edges if e["type"] == "injects")
+    n_prefab = sum(1 for n in nodes if n["type"] == "prefab")
+    n_scene = sum(1 for n in nodes if n["type"] == "scene")
+    n_has = sum(1 for e in edges if e["type"] == "has_component")
+    n_contains = sum(1 for e in edges if e["type"] == "contains")
+    n_variant = sum(1 for e in edges if e["type"] == "variant_of")
     print(f"graph.html written: {args.out} "
           f"(nodes={len(nodes)}, edges={len(edges)}, publish_edges={n_pub}, "
-          f"inject_edges={n_inject})", file=sys.stderr)
+          f"inject_edges={n_inject}, prefab_nodes={n_prefab}, scene_nodes={n_scene}, "
+          f"has_component_edges={n_has}, contains_edges={n_contains}, "
+          f"variant_of_edges={n_variant})", file=sys.stderr)
     return 0
 
 

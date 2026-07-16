@@ -193,14 +193,16 @@ available and `--full` is re-run.
 
 ---
 
-## graph.html — Self-Contained Visualizer
+## graph.html — Graph Visualizer
 
 `.claude/graph/graph-viz.py` reads `graph.json` (resolving `scenes.json`/`prefabs.json`
 `$partition` refs the same way `graph-mcp-server.py` does — fails fast if a referenced
-partition file is missing) and emits one self-contained `graph.html`: inline CSS, an inline
-JSON data island, and a vanilla-JS force-directed layout rendered on `<canvas>`. No CDN
-script tags, no external fonts, no remote images — it opens directly via `file://`, fully
-offline.
+partition file is missing) and emits one `graph.html`: inline CSS, an inline JSON data
+island, and inline glue JS driving a **vis-network** force-directed layout. It is offline
+and build-free — no CDN, no external fonts, no remote images — but **not** fully
+self-contained: it references a vendored `vis-network.min.js` (pinned 9.1.6) that must sit
+in the same directory. That vendored file is committed and is never written or touched by
+`graph-viz.py`. Open `graph.html` directly via `file://`.
 
 **What it shows:**
 - **Nodes:** classes (color-coded by `is_mono_behaviour`), interfaces, events — each a
@@ -222,8 +224,9 @@ python3 .claude/graph/graph-viz.py [--graph PATH] [--out PATH]
 ```
 
 **How to open:** just open `.claude/graph/graph.html` in any browser — no server, no build
-step. It is a generated artifact (gitignored, see `.gitignore`) — regenerate it any time with
-the command above rather than committing it.
+step. `graph.html` itself is a generated artifact (**gitignored** — regenerate with the
+command above rather than committing it); it renders only when the pinned `vis-network.min.js`
+sits next to it. That vendored library, unlike `graph.html`, **is** committed to `.claude/graph/`.
 
 If the graph has more than ~800 nodes, `graph-viz.py` still renders everything and prints a
 stderr note that the layout will be dense — it never silently truncates nodes.

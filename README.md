@@ -185,7 +185,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `graph_cluster.py` | Community detection — groups related classes into modules. Uses Louvain (`networkx`) when available; falls back to stdlib greedy. Install `pip install networkx` for better results on sparse codebases. |
 | `graph_analyze.py` | Surprising connections + enhanced god-nodes (cross-boundary edge analysis) |
 | `graph_validate.py` | Two-mode validator. **Default (consistency):** internal graph integrity — orphan events, dangling call edges, missing installer classes (skips `unresolved:true` registrations). No source files read. **`--accuracy` flag:** re-extracts a sample via `csharp_extractor.py` (tree-sitter) and compares against graph — run manually or in CI |
-| `graph-viz.py` | Self-contained `graph.html` generator — resolves `$partition` refs, builds a class/interface/event node model with calls/implements/publish/subscribe/registers edges, emits one HTML file with inline CSS + vanilla-JS force-directed canvas layout. No CDN, no build step. See [Visualizer](#visualizer-graphhtml) |
+| `graph-viz.py` | `graph.html` generator — resolves `$partition` refs, builds a class/interface/event node model with calls/implements/publish/subscribe/registers edges, emits one HTML file with inline CSS + a vis-network force-directed layout. Offline, no CDN, no build step; references a vendored `vis-network.min.js` (pinned 9.1.6). See [Visualizer](#visualizer-graphhtml) |
 | `codex-validator.md` | Codex accuracy spot-check prompt |
 | `graph-watch.sh` | Optional fswatch/inotifywait watch loop |
 
@@ -335,7 +335,7 @@ The AST extractor correctly handles:
 
 ### Visualizer (graph.html)
 
-`graph-viz.py` turns `graph.json` into a single self-contained `graph.html` — inline CSS, an inline JSON data island, and a vanilla-JS force-directed layout on `<canvas>`. No CDN, no external fonts/images, no build step; it opens in any browser offline.
+`graph-viz.py` turns `graph.json` into a `graph.html` — inline CSS, an inline JSON data island, and inline glue JS driving a **vis-network** force-directed layout. Offline and build-free (no CDN, no external fonts/images), it opens in any browser — but it is **not** fully self-contained: it references a vendored `vis-network.min.js` (pinned 9.1.6) that must sit in the same directory.
 
 ```bash
 python3 .claude/graph/graph-viz.py                 # graph.json → graph.html (defaults)
@@ -349,9 +349,9 @@ python3 .claude/graph/graph-viz.py --graph path/to/graph.json --out /tmp/graph.h
 - `unresolved:true` registrations are skipped — no fabricated `registers` edge
 - Graphs over 800 nodes still render fully, with an on-screen "layout may be dense" note (no silent truncation)
 
-`graph.html` is **generated** — it is `.gitignore`d, always reproducible from `graph.json`. `/build-knowledge-graph` regenerates it as part of the build.
+`graph.html` is **generated** and `.gitignore`d — reproducible from `graph.json` via `/build-knowledge-graph --viz`. The vendored `vis-network.min.js` it loads **is** committed; that one file is the only tracked viz artifact.
 
-> This is the one piece taken from [Graphify](https://github.com/Graphify-Labs/graphify) (the self-contained force-directed viz idea), rebuilt standalone with zero external dependencies. Graphify itself was evaluated and **not** adopted as a backend — the fragile layer is the Unity-semantic detection, which is inherently ours to maintain.
+> This is the one piece taken from [Graphify](https://github.com/Graphify-Labs/graphify) (the force-directed viz idea), rebuilt standalone — our own generator over `graph.json`, rendering with a single vendored, pinned `vis-network.min.js` (no CDN, no build step). Graphify itself was evaluated and **not** adopted as a backend — the fragile layer is the Unity-semantic detection, which is inherently ours to maintain.
 
 ### Hybrid MCP backend (optional, off by default)
 
