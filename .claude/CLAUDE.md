@@ -100,7 +100,7 @@ When starting a new conversation on this project, read these files first:
 - "What components does a prefab have?" → `/knowledge-graph prefab Player`
 - "Who calls this method?" → `/knowledge-graph callers AudioService.PlaySound`
 - "What breaks if I change this class?" → `/knowledge-graph impact AudioService --hops 3`
-- "How does X reach Y?" → `/knowledge-graph path AudioService.PlaySound UIManager.UpdateHUD`
+- "How does X reach Y?" → `/knowledge-graph path AudioService.PlaySound HUDView.UpdateHUD`
 - "Which classes are over-coupled?" → `/knowledge-graph god-nodes`
 
 Before modifying any injectable class: apply Card 0 (solid-oop.md) — if no `[SerializeField]` and no Unity callbacks needed, make it pure C#.
