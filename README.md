@@ -288,7 +288,7 @@ when the graph is stale (> 24h), empty, or disabled.
 |------|--------|
 | Classes / interfaces | Name, namespace, file, base types, `implements[]`, `is_mono_behaviour`, `has_static_instance` |
 | Methods | Per-class: name, signature, line, accessibility, `is_async`, `is_static`, return type |
-| Call edges | `calls[]` — `ClassName.MethodName → callee`, file, line, confidence (INFERRED in regex mode) |
+| Call edges | `calls[]` — `ClassName.MethodName → callee`, file, line, confidence; resolution fields `callee_class` / `callee_file` / `method_match` / `callee_kind` (`internal` \| `external` \| `unresolved`) set by the builder's global pass |
 | Events | Publishers + subscribers via `_eventBus.Publish<T>()` / `.Publish(new T())` and `Subscribe<T>()` |
 | VContainer registrations | `Register<T>`, `RegisterInstance`, `RegisterComponent` — including `.As<IFoo>()`, `.AsImplementedInterfaces()`, and real `Lifetime` (Singleton/Transient/Scoped) |
 | VContainer scopes | `LifetimeScope` subclasses; parent resolved from `[ParentScope(typeof(X))]` in C# code **or** from `LifetimeScope.parentReference` Inspector field via MCP (MCP wins on conflict) |

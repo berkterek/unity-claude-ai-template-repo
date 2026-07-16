@@ -94,6 +94,13 @@ common non-generic form `_eventBus.Publish(new SettingsClosedEvent())`, and that
 - **Incremental with no changed files:** retains all existing call edges unchanged (no re-extraction needed).
 - After assembly, `graph-traversal.py --finalize-calls` deduplicates edges and promotes `EXTRACTED` over `INFERRED` for the same caller+callee+file+line.
 
+**Callee resolution (global pass, `resolve_call_targets`):** every edge is resolved against all project types and tagged `callee_kind`:
+- `internal` — head linked to a project class/interface (`callee_class` / `callee_file` set).
+- `external` — head is a resolved non-project type (Unity/BCL/3rd-party, e.g. `Transform`) — a **correct** null, not a miss.
+- `unresolved` — bare variable the extractor could not type, or an ambiguous same-name project type — the genuine miss.
+
+When the head is a variable, the pass walks the caller class's own **+ inherited** `field_types` map across base classes and links **only** when the resolved type actually declares the method (`method_match: true`), so fluent-chain tails never fabricate false edges. `method_match` is recomputed every build and never touches `confidence`.
+
 ### graph-traversal.py
 
 New in v1.1.0. Pure Python 3 stdlib — no pip install needed.
@@ -153,7 +160,7 @@ Two-mode validator — always runs during graph-builder.
 
 **Mode 1 — Consistency (default, fast):** Checks `graph.json` internal integrity. No source files read.
 - Orphan events: published/subscribed but not declared in graph
-- Dangling call edges: callee class not in graph
+- Dangling call edges: resolved callee class **or interface** not in graph (`callee_class=null` is never flagged — it means external/unresolved)
 - Installer registrations referencing missing classes
 - Results → `validation.consistency.{issues[], issue_count, passed}`
 
