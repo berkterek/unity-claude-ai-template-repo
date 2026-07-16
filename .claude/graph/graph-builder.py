@@ -353,8 +353,7 @@ def merge_call_edges(existing_calls, new_partial_calls, changed_cs, mode):
         retained = [
             c
             for c in (existing_calls or [])
-            if c.get("caller_file") not in changed_set
-            and c.get("callee_file") not in changed_set
+            if c.get("caller_file") not in changed_set   # callee_file clause removed (RC1 blocker fix)
         ]
         return retained + list(new_partial_calls or [])
     if mode == "full":
@@ -415,6 +414,56 @@ def resolve_implementers(interfaces, classes):
                 if cname not in imps:
                     imps.append(cname)
     return list(iface_map.values())
+
+
+def _is_test_file(path):
+    p = (path or "").replace("\\", "/")
+    if "/Tests/" in p or "/Test/" in p:
+        return True
+    stem = p.rsplit("/", 1)[-1].split(".", 1)[0]
+    return "Test" in stem
+
+
+def resolve_call_targets(calls, classes, interfaces):
+    """Resolve each call edge's callee head token to a real project type + file.
+    - REV4: same simple name on multiple files -> prefer the single NON-test file;
+      if 0 or >=2 non-test candidates remain, leave unresolved (None) -- no guess.
+    - REV5: set method_match = True/False/None from the resolved type's methods[]
+      (True=present, False=populated-but-absent, None=methods[] empty/unknown).
+      Computed fresh every build; NEVER touches confidence (which persists and
+      would desync full vs. incremental, and already carries RC3's INFERRED).
+      methods[] is name-only and omits inherited/interface methods, so
+      method_match=False is a soft signal, never a reason to drop the edge.
+    Unresolvable heads (Unity API, unknown locals) get callee_class/callee_file=None
+    and method_match=None. Runs over ALL edges every build (resolution is global)."""
+    by_name = {}
+    for c in list(classes) + list(interfaces):
+        n = c.get("name")
+        if not n:
+            continue
+        methods = {m.get("name") for m in (c.get("methods") or []) if m.get("name")}
+        by_name.setdefault(n, []).append((c.get("file"), methods, _is_test_file(c.get("file"))))
+    for e in calls:
+        head, _, method = (e.get("callee") or "").partition(".")
+        e["callee_class"] = None
+        e["callee_file"] = None
+        e["method_match"] = None
+        cands = by_name.get(head)
+        if not cands:
+            continue
+        pick = cands[0] if len(cands) == 1 else None
+        if pick is None:                                   # REV4 tie-break
+            non_test = [c for c in cands if not c[2]]
+            pick = non_test[0] if len(non_test) == 1 else None
+        if pick is None:
+            continue                                       # ambiguous -> leave None
+        file, methods, _ = pick
+        e["callee_class"] = head
+        e["callee_file"] = file
+        if method and methods:                             # REV5: method_match, NOT confidence
+            e["method_match"] = method in methods          # True / False; stateless per build
+        # methods empty/absent -> method_match stays None (unknown); confidence untouched
+    return calls
 
 
 def scope_merge(retained_scopes, new_scopes, mcp_scope_parents):
@@ -933,6 +982,7 @@ def main():
     # ── Call edges
     existing_calls = (existing_graph.get("codebase", {}) or {}).get("calls", []) or []
     all_calls = merge_call_edges(existing_calls, new_partial_calls, changed_cs, args.mode)
+    all_calls = resolve_call_targets(all_calls, all_classes, all_ifaces)   # RC1
 
     # ── Validation warnings
     stale_warnings = check_path_drift(mcp_prefabs, unity_folder, repo_root, quiet)

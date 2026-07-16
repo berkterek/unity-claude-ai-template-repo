@@ -310,7 +310,11 @@
         "callee":     { "type": "string", "description": "Qualified callee — same format. May be unqualified for INFERRED edges." },
         "file":       { "type": "string", "description": "Source file containing the call site." },
         "line":       { "type": "integer" },
-        "confidence": { "$ref": "#/definitions/confidence" }
+        "confidence": { "$ref": "#/definitions/confidence" },
+        "caller_file": { "type": "string", "description": "File containing the caller (== call-site file)." },
+        "callee_file": { "type": ["string", "null"], "description": "Resolved file of callee's declaring type; null when external/unresolved." },
+        "callee_class": { "type": ["string", "null"], "description": "Resolved project type owning the callee method; null when unresolved." },
+        "method_match": { "type": ["boolean", "null"], "description": "REV5: true if callee method is in the resolved type's methods[]; false if populated but absent; null if methods[] empty/unknown. Recomputed every build; independent of confidence." }
       }
     },
     "confidence": {

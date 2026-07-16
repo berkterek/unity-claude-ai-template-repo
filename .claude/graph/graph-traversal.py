@@ -130,7 +130,8 @@ def cmd_callers(args, ctx):
         for h in hits:
             loc = f"{h['file']}:{h['line']}" if h['file'] else "(unknown)"
             conf = h['confidence'] or ""
-            print(f"  {h['caller']:<50}  {loc}  {conf}")
+            via = h.get("matched_via") or ""
+            print(f"  {h['caller']:<50}  {loc}  {conf}  {via}")
 
 
 def cmd_path(args, ctx):

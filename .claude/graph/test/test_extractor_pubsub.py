@@ -24,6 +24,7 @@ import sys
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _EXTRACTOR_PATH = os.path.join(_HERE, "..", "extractors", "csharp_extractor.py")
 _FIXTURES_DIR = os.path.join(_HERE, "fixtures", "pubsub_realworld")
+_CALL_RESOLUTION_FIXTURES_DIR = os.path.join(_HERE, "fixtures", "call_resolution")
 
 _spec = importlib.util.spec_from_file_location("csharp_extractor", _EXTRACTOR_PATH)
 csx = importlib.util.module_from_spec(_spec)
@@ -68,6 +69,15 @@ def _installer_or_scope_regs(code_str):
 
 def _extract_fixture(filename):
     path = os.path.join(_FIXTURES_DIR, filename)
+    assert os.path.isfile(path), f"fixture missing: {path}"
+    with open(path, "rb") as f:
+        src = f.read()
+    parser = _parser()
+    return csx.extract_file(parser, path, src)
+
+
+def _extract_call_resolution_fixture(filename):
+    path = os.path.join(_CALL_RESOLUTION_FIXTURES_DIR, filename)
     assert os.path.isfile(path), f"fixture missing: {path}"
     with open(path, "rb") as f:
         src = f.read()
@@ -352,6 +362,168 @@ def test_dependencies_all_three_di_styles():
     assert "ISaveLoadService" in deps, deps    # [VContainer.Inject]
     assert "int" not in deps, deps             # non-inject method param excluded
     assert len(deps) == len(set(deps)), deps   # deduped
+
+
+# ── T1/T3/T4 (PLAN_graph_call_resolution.md): call-edge extractor asserts ────
+
+def _calls_of(code_str, class_name=None):
+    """Return the `partial_calls` list for a snippet (the extractor's raw
+    per-file call-edge output — resolution into callee_class/callee_file
+    happens later in graph-builder.resolve_call_targets); if class_name
+    given, filter to edges whose caller starts with `ClassName.`."""
+    res = _extract(code_str)
+    calls = res.get("partial_calls", [])
+    if class_name:
+        calls = [c for c in calls if (c.get("caller") or "").startswith(class_name + ".")]
+    return calls
+
+
+def test_call_edge_callee_file_and_class_none_from_extractor():
+    # T1: the extractor itself never fabricates callee_file/callee_class — those
+    # are filled downstream by graph-builder.resolve_call_targets. Every emitted
+    # call edge must carry callee_file=None, callee_class=None at extraction time.
+    code = (
+        "namespace N { class S { "
+        "void M(Other o) { o.DoThing(); } "
+        "} }"
+    )
+    calls = _calls_of(code, "S")
+    assert calls, calls
+    for c in calls:
+        assert c["callee_file"] is None, c
+        assert c["callee_class"] is None, c
+        assert c["caller_file"] == "mem.cs", c  # caller_file IS the scanned file — correct
+
+
+def test_call_edge_no_parens_or_newlines_in_callee():
+    # T3 (RC2): no callee string may contain '(', ')', '=>' or a newline —
+    # regardless of whether it resolved cleanly or fell back to flattened text.
+    code = (
+        "namespace N { class S { "
+        "void M(System.Action a) { "
+        "DOTween.To(() => _value,\n"
+        "    x => _value = x,\n"
+        "    1f, 1f).SetEase(Ease.Linear).OnComplete(() => Done()); "
+        "} "
+        "void Done() {} "
+        "} }"
+    )
+    calls = _calls_of(code, "S")
+    assert calls, calls
+    for c in calls:
+        callee = c["callee"]
+        assert "(" not in callee, c
+        assert ")" not in callee, c
+        assert "=>" not in callee, c
+        assert "\n" not in callee, c
+
+
+def test_fluent_chain_callee_is_head_dot_method():
+    # T3: `.SetEase(...)` chained onto `DOTween.To(...)` must resolve to a
+    # clean single-line `head.Method` — DOTween is PascalCase so recv_type
+    # resolves directly for `To`; the chained `.SetEase` falls back to the
+    # `_receiver_head_token` walk since the inner invocation's return type is
+    # unknown (deferred per Task 3 scope note).
+    code = (
+        "namespace N { class S { "
+        "void M() { DOTween.To(() => _v, x => _v = x, 1f, 1f).SetEase(Ease.Linear); } "
+        "} }"
+    )
+    calls = _calls_of(code, "S")
+    methods = {c["callee"] for c in calls}
+    assert "DOTween.To" in methods, methods       # direct PascalCase-receiver resolution
+    assert "DOTween.SetEase" in methods, methods   # chained call falls back to head-token walk
+
+
+def test_lambda_subscribe_callee_is_head_dot_method():
+    # T3: a lambda-subscribe call (`_button.onClick.AddListener(() => Foo())`)
+    # must not leak the lambda body into the callee string.
+    code = (
+        "namespace N { class S { "
+        "Button _button; "
+        "void M() { _button.onClick.AddListener(() => DoSomething()); } "
+        "void DoSomething() {} "
+        "} }"
+    )
+    calls = _calls_of(code, "S")
+    methods = {c["callee"] for c in calls}
+    assert any(m.endswith(".AddListener") or m == "AddListener" for m in methods), methods
+    for m in methods:
+        assert "(" not in m and ")" not in m and "=>" not in m, m
+
+
+def test_type_fromjson_factory_local_type_inferred():
+    # T4 (RC3): `var asset = InputActionAsset.FromJson(json)` must type `asset`
+    # as `InputActionAsset`, so a later `asset.FindActionMap()` resolves to
+    # `InputActionAsset.FindActionMap` instead of staying unresolved.
+    code = (
+        "namespace N { class S { "
+        "void M(string json) { "
+        "var asset = InputActionAsset.FromJson(json); "
+        "asset.FindActionMap(\"gameplay\"); "
+        "} "
+        "} }"
+    )
+    calls = _calls_of(code, "S")
+    hit = next((c for c in calls if c["callee"] == "InputActionAsset.FindActionMap"), None)
+    assert hit is not None, calls
+    # RC3 heuristic-derived receiver type -> edge confidence must be INFERRED.
+    assert hit["confidence"] == "INFERRED", hit
+
+
+def test_instance_init_local_leaves_no_false_project_edge():
+    # T4 negative case: `var b = obj.Get();` (instance call, non-PascalCase
+    # receiver) must NOT be given a fabricated type — `b.Use()` stays
+    # unresolved (head token kept as-is, no false project-class edge).
+    code = (
+        "namespace N { class S { "
+        "void M(Holder obj) { "
+        "var b = obj.Get(); "
+        "b.Use(); "
+        "} "
+        "} }"
+    )
+    calls = _calls_of(code, "S")
+    use_hit = next((c for c in calls if c["callee"].endswith(".Use") or c["callee"] == "Use"), None)
+    assert use_hit is not None, calls
+    assert use_hit["callee"] != "Holder.Use", use_hit  # must not fabricate Holder as b's type
+    assert use_hit["callee"] != "obj.Use", use_hit  # obj is the wrong receiver entirely
+
+
+# ── call_resolution/ fixtures (see EXPECTED.md) ─────────────────────────────
+
+def test_fixture_soundmanager_implements_isoundservice():
+    res = _extract_call_resolution_fixture("SoundManager.cs")
+    c = res["classes"][0]
+    assert c["name"] == "SoundManager", c["name"]
+    assert c["implements"] == ["ISoundService"], c["implements"]
+
+
+def test_fixture_playercontroller_di_call_unresolved_at_extraction():
+    res = _extract_call_resolution_fixture("PlayerController.cs")
+    calls = res["partial_calls"]
+    assert calls, calls
+    hit = calls[0]
+    # DI-routed call: receiver's DECLARED type is the interface (RC4 shape) —
+    # extractor never fabricates callee_file/callee_class.
+    assert hit["callee"] == "ISoundService.Play", hit
+    assert hit["callee_file"] is None, hit
+    assert hit["callee_class"] is None, hit
+
+
+def test_fixture_scoretween_chain_no_multiline_or_parens():
+    res = _extract_call_resolution_fixture("ScoreTweenController.cs")
+    callees = {c["callee"] for c in res["partial_calls"]}
+    assert callees == {"DOTween.To", "DOTween.SetEase"}, callees
+    for c in callees:
+        assert "(" not in c and ")" not in c and "\n" not in c, c
+
+
+def test_fixture_inputmaploader_factory_local_inferred():
+    res = _extract_call_resolution_fixture("InputMapLoader.cs")
+    calls = res["partial_calls"]
+    hit = next(c for c in calls if c["callee"] == "InputActionAsset.FindActionMap")
+    assert hit["confidence"] == "INFERRED", hit
 
 
 # ── Runner ───────────────────────────────────────────────────────────────────

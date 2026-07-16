@@ -148,7 +148,42 @@ def _resolve_receiver_type(recv, src, symbols, self_class, base_types):
         if inner is not None and inner.type == "this" and nm is not None:
             return symbols.get(_node_text(nm, src))
         return None
+    if t in ("invocation_expression", "conditional_access_expression"):
+        # Fluent/lambda chain (`.AddTo(...)`, `?.Foo()`) — recurse into the inner
+        # call's own receiver head. Inner return type is unknown (deferred, see
+        # Task 3/4 scope note) so this only resolves via the symbol table when
+        # the inner receiver head is itself a known symbol/self/base; otherwise None.
+        inner_recv = recv.child_by_field_name("expression") or recv.child_by_field_name("condition")
+        return _resolve_receiver_type(inner_recv, src, symbols, self_class, base_types)
     return None
+
+
+def _receiver_head_token(func, src):
+    """Walk a call's receiver chain to its left-most identifier/this/base token.
+
+    Used as a fallback when `_resolve_receiver_type` cannot resolve a type
+    (fluent chains, lambdas) — gives a readable `head.Method` callee instead
+    of a raw multi-line node-text blob.
+    """
+    n = func.child_by_field_name("expression") or func.child_by_field_name("condition")
+    while n is not None:
+        if n.type in ("identifier", "this", "base"):
+            return _node_text(n, src).strip()
+        nxt = (n.child_by_field_name("expression") or n.child_by_field_name("condition")
+               or n.child_by_field_name("function"))
+        if nxt is None:
+            break
+        n = nxt
+    return None
+
+
+def _flatten_one_line(text):
+    """Collapse whitespace and strip from the first `(` onward.
+
+    Last-resort guard so a callee string never contains a multi-line
+    node-text blob, lambda body, or `(...)` argument list.
+    """
+    return " ".join(text.split()).split("(", 1)[0]
 
 
 def _extract_calls(cls_node, src, self_class, base_types, path):
@@ -189,8 +224,11 @@ def _extract_calls(cls_node, src, self_class, base_types, path):
         for c in member.named_children:
             if c.type in ("arrow_expression_clause", "accessor_list"):
                 bodies.append(c)
+        heuristic_syms = set()
         for b in bodies:
-            symbols.update(_local_var_symbols(b, src))
+            b_syms, b_heuristic = _local_var_symbols(b, src)
+            symbols.update(b_syms)
+            heuristic_syms.update(b_heuristic)
 
         for b in bodies:
             for inv in _walk(b, "invocation_expression"):
@@ -199,34 +237,52 @@ def _extract_calls(cls_node, src, self_class, base_types, path):
                     continue
                 recv_type = None
                 method = None
+                recv_node = None
                 if func.type == "identifier":
                     # Bare `Foo()` — intra-class call on self.
                     method = _node_text(func, src)
                     recv_type = self_class
                 elif func.type == "member_access_expression":
                     method = _call_method_name(func.child_by_field_name("name"), src)
+                    recv_node = func.child_by_field_name("expression")
                     recv_type = _resolve_receiver_type(
-                        func.child_by_field_name("expression"), src, symbols, self_class, base_types)
+                        recv_node, src, symbols, self_class, base_types)
                 elif func.type == "conditional_access_expression":
                     mbe = next((c for c in func.children if c.type == "member_binding_expression"), None)
                     if mbe is not None:
                         nm = mbe.child_by_field_name("name") or (
                             mbe.named_children[-1] if mbe.named_children else None)
                         method = _call_method_name(nm, src)
+                    recv_node = func.child_by_field_name("condition")
                     recv_type = _resolve_receiver_type(
-                        func.child_by_field_name("condition"), src, symbols, self_class, base_types)
+                        recv_node, src, symbols, self_class, base_types)
                 else:
                     continue
 
-                callee = f"{recv_type}.{method}" if (recv_type and method) else _node_text(func, src)
+                # RC3: receiver type resolved via the `var x = Type.Static()`
+                # heuristic (declaring type, not a verified return type) —
+                # mark the edge INFERRED instead of EXTRACTED.
+                confidence = "EXTRACTED"
+                if (recv_node is not None and recv_node.type == "identifier"
+                        and _node_text(recv_node, src) in heuristic_syms):
+                    confidence = "INFERRED"
+
+                if recv_type and method:
+                    callee = f"{recv_type}.{method}"
+                elif method:
+                    head = _receiver_head_token(func, src)
+                    callee = f"{head}.{method}" if head else method
+                else:
+                    callee = _flatten_one_line(_node_text(func, src))
                 calls.append({
                     "caller": caller,
                     "callee": callee,
-                    "caller_file": path,
-                    "callee_file": path,
+                    "caller_file": path,     # caller side IS this file — correct
+                    "callee_file": None,     # RC1: resolved in graph-builder.resolve_call_targets
+                    "callee_class": None,    # RC1: filled by the builder pass
                     "file": path,
                     "line": inv.start_point[0] + 1,
-                    "confidence": "EXTRACTED",
+                    "confidence": confidence,
                 })
     return calls
 
@@ -380,7 +436,20 @@ def _class_field_symbols(cls_node, src):
 
 
 def _local_var_symbols(member_body, src):
+    """Local variable symbol table for a method body.
+
+    Returns `(syms, heuristic_syms)`:
+      - `syms`: local name -> declared/inferred type name.
+      - `heuristic_syms`: subset of `syms` keys whose type came from the
+        RC3 `var x = Type.StaticMethod()` heuristic below — the declaring
+        type of the invoked member, NOT necessarily the true return type
+        (correct for factory/singleton idioms like `Type.FromJson`/
+        `Type.Create`, wrong-but-plausible for e.g. `Mathf.Abs`). Callers
+        use this set to mark downstream call-edge confidence as INFERRED
+        instead of EXTRACTED.
+    """
     syms = {}
+    heuristic_syms = set()
     for lds in _walk(member_body, "local_declaration_statement"):
         vd = next((c for c in lds.named_children if c.type == "variable_declaration"), None)
         if not vd:
@@ -392,14 +461,33 @@ def _local_var_symbols(member_body, src):
             if not nm:
                 continue
             tname = _type_name(tnode, src) if tnode and not is_var else None
+            is_heuristic = False
             if not tname and is_var:
                 init = next((c for c in decl.named_children if c.type == "object_creation_expression"), None)
                 if init:
                     itnode = next((c for c in init.named_children if c.type in _TYPE_NODES), None)
                     tname = _type_name(itnode, src)
+                else:
+                    # RC3: `var x = Type.StaticMethod()` — receiver of the
+                    # initializer invocation IS the declaring type when it's
+                    # a PascalCase identifier (heuristic, not a true return type).
+                    inv_init = next((c for c in decl.named_children
+                                      if c.type == "invocation_expression"), None)
+                    if inv_init:
+                        func = inv_init.child_by_field_name("function")
+                        if func is not None and func.type == "member_access_expression":
+                            recv = func.child_by_field_name("expression")
+                            if recv is not None and recv.type == "identifier":
+                                tok = _node_text(recv, src)
+                                if tok and tok[0].isupper():
+                                    tname = tok
+                                    is_heuristic = True
             if tname:
-                syms[_node_text(nm, src)] = tname
-    return syms
+                name_txt = _node_text(nm, src)
+                syms[name_txt] = tname
+                if is_heuristic:
+                    heuristic_syms.add(name_txt)
+    return syms, heuristic_syms
 
 
 def _detect_vcontainer(cls_node, src):
@@ -420,7 +508,8 @@ def _detect_vcontainer(cls_node, src):
                     symbols[_node_text(pn, src)] = _type_name(pt, src)
         mbody = member.child_by_field_name("body")
         if mbody:
-            symbols.update(_local_var_symbols(mbody, src))
+            mbody_syms, _mbody_heuristic = _local_var_symbols(mbody, src)
+            symbols.update(mbody_syms)
             _detect_member(mbody, src, symbols, registrations, pub_sub)
     return registrations, pub_sub
 

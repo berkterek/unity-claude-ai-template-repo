@@ -71,16 +71,19 @@ def run_consistency(g):
                 })
 
     # Dangling call edges: callee class not in graph
-    for cls in classes:
-        for call in cls.get("calls", []):
-            callee_cls = call.get("callee_class", "")
-            if callee_cls and callee_cls not in class_names:
-                issues.append({
-                    "type": "DANGLING_CALL",
-                    "class": cls["name"],
-                    "callee": callee_cls,
-                    "detail": f"{cls['name']} calls {callee_cls}.{call.get('callee_method','')} but {callee_cls} not in graph",
-                })
+    # NOTE: calls live at codebase["calls"] (top-level), not per-class — class
+    # dicts carry no "calls" key. callee_class is None for external/Unity/
+    # unresolved callees and must never trigger this check.
+    for call in codebase.get("calls", []):
+        callee_cls = call.get("callee_class")
+        if callee_cls and callee_cls not in class_names:
+            method = call.get("callee", "").split(".", 1)[-1]
+            issues.append({
+                "type": "DANGLING_CALL",
+                "caller": call.get("caller", ""),
+                "callee": callee_cls,
+                "detail": f"{call.get('caller','')} calls {callee_cls}.{method} but {callee_cls} not in graph",
+            })
 
     # Installer references non-existent class
     unresolved_registrations = 0
