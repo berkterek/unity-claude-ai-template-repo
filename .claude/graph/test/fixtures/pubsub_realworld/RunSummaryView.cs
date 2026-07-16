@@ -1,5 +1,5 @@
 // Harvested (minimized) from:
-// nile_hole_sphere_repo/HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/UI/RunSummaryView.cs
+// Assets/_GameFolders/Scripts/Games/Concretes/UI/RunSummaryView.cs
 // Real shape: null-conditional Publish with a constructor argument that is
 // itself a member access (_walletService.CommittedGold) — the event type must
 // still resolve from the `new T(...)` node regardless of the arguments passed

@@ -8,8 +8,8 @@
     "events": [
       {
         "name": "DanglingEvent",
-        "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/DanglingEvent.cs",
-        "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/DanglingEvent.cs",
+        "file": "Assets/_GameFolders/Scripts/Games/Concretes/Bad/DanglingEvent.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Concretes/Bad/DanglingEvent.cs",
         "publishers": [],
         "subscribers": [],
         "confidence": "INFERRED"

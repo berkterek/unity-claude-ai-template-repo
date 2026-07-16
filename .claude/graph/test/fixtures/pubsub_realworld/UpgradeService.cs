@@ -1,5 +1,5 @@
 // Harvested (minimized) from:
-// nile_hole_sphere_repo/HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Economy/UpgradeService.cs
+// Assets/_GameFolders/Scripts/Games/Concretes/Economy/UpgradeService.cs
 // Real shape: TWO non-generic (type-inferred) Publish call sites in the same class.
 // See EXPECTED.md for the asserted facts.
 using Game.Abstracts.Events;

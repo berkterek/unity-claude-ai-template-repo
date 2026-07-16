@@ -224,7 +224,7 @@ return sb.ToString();
 ```
 
 Parse each line as `prefab_name | component_name | field=value`. Skip this step for speed — it adds
-meaningful data (e.g. `SlingshotView._dragWorldScale=0.01`, `UpgradeButtonView._upgradeType=Speed`)
+meaningful data (e.g. `PlayerView._moveSpeed=5.0`, `ButtonView._label="Play"`)
 but takes longer and can produce noisy output for large prefab sets.
 
 ---

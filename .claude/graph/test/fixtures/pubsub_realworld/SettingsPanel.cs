@@ -1,5 +1,5 @@
 // Harvested (minimized) from:
-// nile_hole_sphere_repo/HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/UI/SettingsPanel.cs
+// Assets/_GameFolders/Scripts/Games/Concretes/UI/SettingsPanel.cs
 // Real shape: null-conditional generic Subscribe + null-conditional non-generic Publish.
 // See EXPECTED.md for the asserted facts.
 using Game.Abstracts.Events;

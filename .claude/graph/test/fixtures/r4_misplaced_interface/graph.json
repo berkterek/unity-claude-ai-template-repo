@@ -8,8 +8,8 @@
       {
         "name": "IBadlyPlaced",
         "namespace": "Game.Concretes.Bad",
-        "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/IBadlyPlaced.cs",
-        "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/IBadlyPlaced.cs",
+        "file": "Assets/_GameFolders/Scripts/Games/Concretes/Bad/IBadlyPlaced.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Concretes/Bad/IBadlyPlaced.cs",
         "line": 3,
         "implementers": [],
         "confidence": "INFERRED"

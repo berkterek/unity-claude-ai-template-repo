@@ -26,13 +26,23 @@ if [[ -z "$WATCHER" ]]; then
 fi
 
 # Project root for Unity Assets — override via GRAPH_WATCH_ROOT env var.
-# Auto-detects HoleSphere/Assets for nested project layout; falls back to Assets/.
+# Otherwise resolved from unity_project_folder in project-features.json ("." → Assets/).
+# Never hardcode a project's subfolder name — read it from config (see CLAUDE.md).
 if [[ -n "${GRAPH_WATCH_ROOT:-}" ]]; then
   WATCH_ROOT="$GRAPH_WATCH_ROOT"
-elif [[ -d "HoleSphere/Assets" ]]; then
-  WATCH_ROOT="HoleSphere/Assets"
 else
-  WATCH_ROOT="Assets"
+  _repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  _uf="$(python3 - "$_repo_root" <<'PY' 2>/dev/null || echo "."
+import json, os, sys
+p = os.path.join(sys.argv[1], ".claude", "project-features.json")
+try:
+    v = (json.load(open(p)).get("unity_project_folder", ".") or ".")
+except Exception:
+    v = "."
+print(str(v).rstrip("/") or ".")
+PY
+)"
+  if [[ "$_uf" == "." ]]; then WATCH_ROOT="Assets"; else WATCH_ROOT="${_uf}/Assets"; fi
 fi
 
 echo "graph-watch: watching ${WATCH_ROOT}/ for .cs .asmdef .prefab .unity changes (Ctrl-C to stop)"

@@ -158,7 +158,7 @@ namespace Game.Concretes.Camera
 | `static readonly` | PascalCase | `JumpHash`, `DefaultColor` |
 | IEvent implementation | PascalCase + past tense + `Event` suffix | `LevelStartedEvent`, `CoinsChangedEvent` |
 | MonoBehaviour — UI/Canvas only | PascalCase + `View` suffix | `HUDView`, `PopupView`, `SliderView` |
-| MonoBehaviour — gameplay/character/physics | PascalCase + `Controller` suffix | `BlackholeController`, `ItemController` |
+| MonoBehaviour — gameplay/character/physics | PascalCase + `Controller` suffix | `PlayerController`, `ItemController` |
 | MonoBehaviour — Unity API abstraction | PascalCase + `Provider` suffix | `AudioProvider`, `PhysicsProvider` |
 | `*Handler` (pure C# class, prefab-local) | PascalCase + `Handler` suffix | `MoveHandler`, `JumpHandler` |
 | Interface for Handler | `I` + PascalCase + `Handler` | `IMoveHandler`, `IJumpHandler` |

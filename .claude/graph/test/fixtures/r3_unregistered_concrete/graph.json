@@ -7,8 +7,8 @@
       {
         "name": "FooService",
         "namespace": "Game.Concretes.Foo",
-        "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Foo/FooService.cs",
-        "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Foo/FooService.cs",
+        "file": "Assets/_GameFolders/Scripts/Games/Concretes/Foo/FooService.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Concretes/Foo/FooService.cs",
         "line": 5,
         "base_types": [],
         "is_mono_behaviour": false,
@@ -26,8 +26,8 @@
       "installers": [
         {
           "name": "EmptyInstaller",
-          "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Foo/EmptyInstaller.cs",
-          "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Foo/EmptyInstaller.cs",
+          "file": "Assets/_GameFolders/Scripts/Games/Concretes/Foo/EmptyInstaller.cs",
+          "source_file": "Assets/_GameFolders/Scripts/Games/Concretes/Foo/EmptyInstaller.cs",
           "registrations": []
         }
       ],

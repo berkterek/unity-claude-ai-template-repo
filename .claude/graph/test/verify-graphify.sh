@@ -7,7 +7,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
-# Auto-detect Unity project source root (handles nested projects like HoleSphere/).
+# Auto-detect Unity project source root (nested projects resolved via unity_project_folder).
 # UNITY_CONCRETES — a writable Concretes/ dir for probe tests (purge_ghosts, --changed-files).
 # UNITY_HAS_CS    — 1 if real C# source exists; 0 on template/empty repos.
 _detect_unity_root() {

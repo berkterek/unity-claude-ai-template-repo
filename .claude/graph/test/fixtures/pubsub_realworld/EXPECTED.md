@@ -1,7 +1,7 @@
 # pubsub_realworld fixtures — expected extraction facts
 
 Each `.cs` file here is a minimal, self-contained snippet stripped from a real
-call shape found in `nile_hole_sphere_repo/HoleSphere/Assets/_GameFolders`
+call shape found in `Assets/_GameFolders`
 (harvested once, per Grill decision D2 — see
 `Docs/PLAN_graph_extractor_pubsub_and_viz.md`). None of these fixtures depend
 on the external repo at test run time; they are committed here and asserted

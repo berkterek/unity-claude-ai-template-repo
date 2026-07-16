@@ -236,7 +236,7 @@ def test_chained_register_single_count():
 
 # ── Task 3: real-world fixtures ──────────────────────────────────────────────
 # Each fixture below is a minimal, self-contained snippet stripped from a real
-# call shape found in the example project (nile_hole_sphere_repo), harvested
+# call shape harvested from a real project, committed as a fixture
 # once and committed here so verification never depends on that external repo
 # being present (Grill decision D2). See fixtures/pubsub_realworld/EXPECTED.md.
 

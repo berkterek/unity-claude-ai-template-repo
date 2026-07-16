@@ -297,18 +297,18 @@ when the graph is stale (> 24h), empty, or disabled.
 
 ### Nested Unity project support
 
-For Unity projects nested under a sub-folder (e.g. `HoleSphere/Assets/`):
+For Unity projects nested under a sub-folder (e.g. `MyGame/Assets/`), set `unity_project_folder` in `.claude/project-features.json` (e.g. `"MyGame"`). The builder, extractors, and watcher all read it and prefix `Assets/` accordingly — never hardcode a project path.
 
 ```bash
-# Override scan root explicitly
-bash .claude/graph/extractors/csharp-extractor.sh --root HoleSphere/Assets
-bash .claude/graph/extractors/asmdef-extractor.sh --root HoleSphere/Assets
+# Explicit override (takes precedence over config)
+bash .claude/graph/extractors/csharp-extractor.sh --root MyGame/Assets
+bash .claude/graph/extractors/asmdef-extractor.sh --root MyGame/Assets
 
 # Or set env var for graph-watch
-GRAPH_WATCH_ROOT=HoleSphere/Assets bash .claude/graph/graph-watch.sh
+GRAPH_WATCH_ROOT=MyGame/Assets bash .claude/graph/graph-watch.sh
 ```
 
-Both extractors also auto-detect `HoleSphere/Assets/` if it exists in the CWD.
+With no `--root`/env override, the scan root is resolved from `unity_project_folder` (`"."` → `Assets/`).
 
 ### C# Extractor — tree-sitter (optional)
 

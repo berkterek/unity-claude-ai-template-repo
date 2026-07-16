@@ -10,8 +10,8 @@
     "assemblies": [
       {
         "name": "Framework.Foo",
-        "file": "HoleSphere/Assets/_Framework/Foo/Framework.Foo.asmdef",
-        "source_file": "HoleSphere/Assets/_Framework/Foo/Framework.Foo.asmdef",
+        "file": "Assets/_Framework/Foo/Framework.Foo.asmdef",
+        "source_file": "Assets/_Framework/Foo/Framework.Foo.asmdef",
         "references": ["Games.Bar"],
         "platforms": { "include": [], "exclude": [] },
         "allowUnsafeCode": false,
@@ -20,8 +20,8 @@
       },
       {
         "name": "Games.Bar",
-        "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Bar/Games.Bar.asmdef",
-        "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Bar/Games.Bar.asmdef",
+        "file": "Assets/_GameFolders/Scripts/Games/Bar/Games.Bar.asmdef",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Bar/Games.Bar.asmdef",
         "references": [],
         "platforms": { "include": [], "exclude": [] },
         "allowUnsafeCode": false,

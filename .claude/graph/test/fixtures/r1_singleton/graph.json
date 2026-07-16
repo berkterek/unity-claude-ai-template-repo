@@ -7,8 +7,8 @@
       {
         "name": "BadSingleton",
         "namespace": "Game.Concretes.Bad",
-        "file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/BadSingleton.cs",
-        "source_file": "HoleSphere/Assets/_GameFolders/Scripts/Games/Concretes/Bad/BadSingleton.cs",
+        "file": "Assets/_GameFolders/Scripts/Games/Concretes/Bad/BadSingleton.cs",
+        "source_file": "Assets/_GameFolders/Scripts/Games/Concretes/Bad/BadSingleton.cs",
         "line": 5,
         "base_types": [],
         "is_mono_behaviour": false,

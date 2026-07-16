@@ -39,13 +39,23 @@ if [[ -n "$CHANGED_FILES" ]]; then
     [[ "$f" == *.cs ]] && FILES+=("$f")
   done
 else
-  # Resolve root prefix: --root arg > auto-detect HoleSphere/ > fallback Assets/
+  # Resolve root prefix: --root arg > unity_project_folder (project-features.json) > Assets/.
+  # Never hardcode a project's subfolder name — read it from config (see CLAUDE.md).
   if [[ -n "$CS_ROOT" ]]; then
     _prefix="$CS_ROOT"
-  elif [[ -d "HoleSphere/Assets" ]]; then
-    _prefix="HoleSphere/Assets"
   else
-    _prefix="Assets"
+    _repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+    _uf="$(python3 - "$_repo_root" <<'PY' 2>/dev/null || echo "."
+import json, os, sys
+p = os.path.join(sys.argv[1], ".claude", "project-features.json")
+try:
+    v = (json.load(open(p)).get("unity_project_folder", ".") or ".")
+except Exception:
+    v = "."
+print(str(v).rstrip("/") or ".")
+PY
+)"
+    if [[ "$_uf" == "." ]]; then _prefix="Assets"; else _prefix="${_uf}/Assets"; fi
   fi
   FIND_OPTS=( "${_prefix}/_Framework" "${_prefix}/_GameFolders/Scripts" )
   [[ -d "${_prefix}/../Packages" ]] && FIND_OPTS+=( "${_prefix}/../Packages" )

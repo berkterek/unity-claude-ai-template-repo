@@ -57,7 +57,7 @@ Selected during `/setup-project`. Choices are saved to `.claude/project-features
 | **NSubstitute** | Manual DLL install | `testing` | Test folders, asmdefs, test hooks skipped |
 | **Unity ECS DOTS** | Package Manager (optional) | `ecs` | ECS folder, asmdef, ECS hooks skipped |
 | **Unity Knowledge Graph** | Built-in (`.claude/graph/`) | `graph` | Skip extractors and hooks. All graph-aware commands (planning, implementation, fix/debug, investigation, migration, and audit/review pipelines) fall back to direct file-scan. |
-| **Unity project subfolder** | — | `unity_project_folder` | Set to `"."` (default) when `Assets/` is at repo root. Set to e.g. `"HoleSphere"` when the Unity project lives in a subfolder. `graph-builder.py` reads this and prefixes all `Assets/` paths accordingly. Set once in `project-features.json` — never hardcode paths in scripts. |
+| **Unity project subfolder** | — | `unity_project_folder` | Set to `"."` (default) when `Assets/` is at repo root. Set to e.g. `"MyGame"` when the Unity project lives in a subfolder. `graph-builder.py` reads this and prefixes all `Assets/` paths accordingly. Set once in `project-features.json` — never hardcode paths in scripts. |
 
 ## Optional Plugins
 
@@ -93,7 +93,7 @@ When starting a new conversation on this project, read these files first:
 
 **Graph query cheatsheet (use before touching any existing system):**
 - "What interfaces exist?" → `/knowledge-graph implementers IAudioService`
-- "Who publishes/subscribes to an event?" → `/knowledge-graph publishers RunStartedEvent`
+- "Who publishes/subscribes to an event?" → `/knowledge-graph publishers LevelStartedEvent`
 - "What does an installer register?" → `/knowledge-graph registrations AudioService`
 - "VContainer scope hierarchy?" → `/knowledge-graph scope-tree`
 - "Any architecture violations?" → `/knowledge-graph violations`
