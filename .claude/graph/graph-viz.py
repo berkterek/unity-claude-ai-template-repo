@@ -499,9 +499,50 @@ __DATA__
 
   var network = new vis.Network(container, { nodes: nodesDS, edges: edgesDS }, options);
 
-  // Freeze the layout once it settles — no perpetual motion.
+  // Once the force layout settles, run a deterministic de-overlap pass so no
+  // node stays hidden underneath another (low-degree nodes pulled into a dense
+  // shared-hub cluster would otherwise stack), THEN freeze — no perpetual motion.
   network.once("stabilizationIterationsDone", function () {
+    var pos = network.getPositions();
+    var ids = nodesDS.getIds();
+    var PAD = 6;
+    for (var iter = 0; iter < 80; iter++) {
+      var moved = false;
+      for (var i = 0; i < ids.length; i++) {
+        var A = pos[ids[i]];
+        if (!A) continue;
+        for (var j = i + 1; j < ids.length; j++) {
+          var B = pos[ids[j]];
+          if (!B) continue;
+          var dx = B.x - A.x, dy = B.y - A.y;
+          var d = Math.sqrt(dx * dx + dy * dy);
+          if (d < 0.01) {
+            // exact overlap → deterministic tiny nudge (index-derived, not random)
+            dx = ((i % 7) - 3) || 1; dy = ((j % 7) - 3) || 1;
+            d = Math.sqrt(dx * dx + dy * dy);
+          }
+          var ra = (nodeById[ids[i]] && nodeById[ids[i]].size) || 10;
+          var rb = (nodeById[ids[j]] && nodeById[ids[j]].size) || 10;
+          var minD = ra + rb + PAD;
+          if (d < minD) {
+            var push = (minD - d) / 2;
+            var ux = dx / d, uy = dy / d;
+            A.x -= ux * push; A.y -= uy * push;
+            B.x += ux * push; B.y += uy * push;
+            moved = true;
+          }
+        }
+      }
+      if (!moved) break;
+    }
+    var updates = [];
+    for (var k = 0; k < ids.length; k++) {
+      var p = pos[ids[k]];
+      if (p) updates.push({ id: ids[k], x: p.x, y: p.y });
+    }
+    nodesDS.update(updates);
     network.setOptions({ physics: { enabled: false } });
+    network.fit();
   });
 
   // ── Stats: visible node/edge counts read from the live DataSets ─────────────
