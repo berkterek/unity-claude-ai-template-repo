@@ -650,6 +650,13 @@ run_viz_smoke_tests() {
   viz_out="$SCRIPT_DIR/.work/graph_viz_sample.html"
   mkdir -p "$(dirname "$viz_out")"
 
+  # The vis-network viz refuses to run unless the vendored vis-network.min.js
+  # sits next to the output (it emits <script src="vis-network.min.js">, never a
+  # CDN URL). Stage the vendored copy beside the temp output for the smoke test.
+  if [[ -f "$GRAPH_DIR/vis-network.min.js" ]]; then
+    cp "$GRAPH_DIR/vis-network.min.js" "$(dirname "$viz_out")/vis-network.min.js"
+  fi
+
   if ! python3 "$GRAPH_DIR/graph-viz.py" --graph "$sample_graph" --out "$viz_out" >/dev/null 2>&1; then
     fail "T11: graph-viz.py exited non-zero against sample fixture"
     return
@@ -662,10 +669,13 @@ run_viz_smoke_tests() {
     return
   fi
 
-  if grep -q "<canvas" "$viz_out" && grep -q 'id="graph-data"' "$viz_out"; then
-    pass "T11: output contains <canvas> and the inline data island"
+  # vis-network renders into the id="graph" container (it creates its own canvas
+  # at runtime — there is no static <canvas> tag) and reads the inline
+  # id="graph-data" JSON island. Both must be present.
+  if grep -q 'id="graph"' "$viz_out" && grep -q 'id="graph-data"' "$viz_out"; then
+    pass "T11: output contains the vis-network container and inline data island"
   else
-    fail "T11: output missing <canvas> or data island"
+    fail "T11: output missing id=\"graph\" container or data island"
   fi
 
   # No external resource URL — strict: any match fails (favicon/comment text mentioning
