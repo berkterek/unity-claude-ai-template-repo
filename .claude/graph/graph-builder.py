@@ -434,8 +434,22 @@ def resolve_call_targets(calls, classes, interfaces):
       would desync full vs. incremental, and already carries RC3's INFERRED).
       methods[] is name-only and omits inherited/interface methods, so
       method_match=False is a soft signal, never a reason to drop the edge.
-    Unresolvable heads (Unity API, unknown locals) get callee_class/callee_file=None
-    and method_match=None. Runs over ALL edges every build (resolution is global)."""
+    - Lever 0: every edge gets `callee_kind` in {internal, external, unresolved}:
+      internal = linked to a project type; external = a resolved-but-non-project
+      type (Unity/BCL/3rd-party, e.g. Transform/List/IContainerBuilder) which is
+      a CORRECT null; unresolved = a bare variable head we could not type, or an
+      ambiguous same-name project type -- the genuine miss. Lets reporting tell
+      "correctly external" apart from "actually missed" instead of lumping both
+      into a null callee_class.
+    - Lever 1: inherited-field second-chance. When the head is a variable name
+      (not a type), resolve it through the caller class's own + inherited
+      `field_types` map (walking base_types across files -- only possible in this
+      global pass), and link ONLY when the resolved PROJECT type actually
+      declares the method (method_match True). The method guard stops fluent
+      chain tails (e.g. `_playerController.Obs.Subscribe()` -> head
+      `_playerController`) from fabricating false `PlayerController.Subscribe`
+      edges.
+    Runs over ALL edges every build (resolution is global)."""
     by_name = {}
     for c in list(classes) + list(interfaces):
         n = c.get("name")
@@ -443,26 +457,102 @@ def resolve_call_targets(calls, classes, interfaces):
             continue
         methods = {m.get("name") for m in (c.get("methods") or []) if m.get("name")}
         by_name.setdefault(n, []).append((c.get("file"), methods, _is_test_file(c.get("file"))))
+
+    # Class index for Lever 1 base-chain field walk. Prefer the non-test
+    # declaration when a simple name collides (test fakes live under /Tests/).
+    class_by_name = {}
+    for c in classes:
+        n = c.get("name")
+        if not n:
+            continue
+        prev = class_by_name.get(n)
+        if prev is None or (_is_test_file(prev.get("file")) and not _is_test_file(c.get("file"))):
+            class_by_name[n] = c
+
+    def _pick(head):
+        """REV4 tie-break: the single non-test candidate, else None (no guess)."""
+        cands = by_name.get(head)
+        if not cands:
+            return None
+        if len(cands) == 1:
+            return cands[0]
+        non_test = [c for c in cands if not c[2]]
+        return non_test[0] if len(non_test) == 1 else None
+
+    def _looks_type(tok):
+        """A head that is itself a type name is PascalCase (upper first char).
+        Fields/params/locals are _camelCase or camelCase -> not a type."""
+        return bool(tok) and tok[0].isupper()
+
+    def _field_type(caller_class, field):
+        """Resolve `field` through caller_class's own + inherited field_types.
+        Walks the base chain (first non-interface base) with a cycle/depth guard.
+        Returns the declared type name, or None."""
+        name = caller_class
+        seen = set()
+        for _ in range(8):                                 # depth cap == cycle guard
+            if not name or name in seen:
+                break
+            seen.add(name)
+            cls = class_by_name.get(name)
+            if cls is None:
+                break
+            ft = cls.get("field_types") or {}
+            if field in ft:
+                return ft[field]
+            ifaces = set(cls.get("implements") or [])
+            bases = cls.get("base_types") or []
+            name = next((b for b in bases if b not in ifaces), None)
+        return None
+
     for e in calls:
         head, _, method = (e.get("callee") or "").partition(".")
         e["callee_class"] = None
         e["callee_file"] = None
         e["method_match"] = None
-        cands = by_name.get(head)
-        if not cands:
+        e["callee_kind"] = "unresolved"
+
+        # Primary path: head is itself a project type name. Unchanged REV4/REV5
+        # behavior -- links on the type regardless of method_match.
+        if head in by_name:
+            pick = _pick(head)
+            if pick is not None:
+                file, methods, _ = pick
+                e["callee_class"] = head
+                e["callee_file"] = file
+                e["callee_kind"] = "internal"
+                if method and methods:                     # REV5: method_match, NOT confidence
+                    e["method_match"] = method in methods
+            # else: ambiguous project name -> stays unresolved (never guessed)
             continue
-        pick = cands[0] if len(cands) == 1 else None
-        if pick is None:                                   # REV4 tie-break
-            non_test = [c for c in cands if not c[2]]
-            pick = non_test[0] if len(non_test) == 1 else None
+
+        # Head is a resolved-but-non-project type (Unity/BCL/3rd-party). Correct
+        # null -- no project node exists to link.
+        if _looks_type(head):
+            e["callee_kind"] = "external"
+            continue
+
+        # Lever 1: head is a variable name. Try the caller's field_types chain.
+        caller_class = (e.get("caller") or "").partition(".")[0].lstrip("@")
+        rtype = _field_type(caller_class, head)
+        if not rtype:
+            continue                                       # unresolved (default)
+        if rtype not in by_name:
+            e["callee_kind"] = "external"                  # e.g. _transform -> Transform
+            continue
+        pick = _pick(rtype)
         if pick is None:
-            continue                                       # ambiguous -> leave None
+            continue                                       # ambiguous -> unresolved
         file, methods, _ = pick
-        e["callee_class"] = head
-        e["callee_file"] = file
-        if method and methods:                             # REV5: method_match, NOT confidence
-            e["method_match"] = method in methods          # True / False; stateless per build
-        # methods empty/absent -> method_match stays None (unknown); confidence untouched
+        # Guard: only link when the resolved type actually declares the method.
+        # A field typed to a project class whose methods[] lacks this method is
+        # almost always a fluent-chain tail -- do NOT fabricate the edge.
+        if method and methods and method in methods:
+            e["callee_class"] = rtype
+            e["callee_file"] = file
+            e["method_match"] = True
+            e["callee_kind"] = "internal"
+        # else: method absent/unknown -> leave unresolved (conservative)
     return calls
 
 

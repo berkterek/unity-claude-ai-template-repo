@@ -593,6 +593,13 @@ def extract_file(parser, path, src=None):
             "base_types": base_types,
             "is_mono_behaviour": is_mono,
             "implements": implements,
+            # field name -> declared type name (all fields, no attribute filter).
+            # Persisted for graph-builder.resolve_call_targets' inherited-field
+            # second-chance call resolution (Lever 1). Same map _extract_calls
+            # already consumes in-process; here it is kept so the global builder
+            # pass can walk base classes across files, which the per-file
+            # extractor cannot.
+            "field_types": _class_field_symbols(cls_node, src),
             "dependencies": _extract_dependencies(cls_node, src),
             "events_published": events_published,
             "events_subscribed": events_subscribed,
@@ -635,6 +642,7 @@ def extract_file(parser, path, src=None):
         if not name_node:
             continue
         name = _node_text(name_node, src)
+        iface_body = iface_node.child_by_field_name("body")
         interfaces.append({
             "name": name,
             "namespace": namespace,
@@ -642,6 +650,12 @@ def extract_file(parser, path, src=None):
             "source_file": path,
             "line": iface_node.start_point[0] + 1,
             "implementers": [],
+            # Interface members are bodyless method_declaration nodes — the same
+            # shape _extract_methods already handles. Populating this lets
+            # resolve_call_targets' method_match guard confirm interface-typed
+            # calls (e.g. `_sound.Play` -> ISoundService.Play); an empty list
+            # made the guard reject every interface-typed field call.
+            "methods": _extract_methods(iface_body, src) if iface_body else [],
             "confidence": "EXTRACTED",
         })
 

@@ -47,9 +47,14 @@ def run_consistency(g):
     codebase = g.get("codebase", {})
     classes  = codebase.get("classes", [])
     events   = codebase.get("events", [])
+    interfaces = codebase.get("interfaces", [])
 
     class_names = {c["name"] for c in classes}
     event_names = {e["name"] if isinstance(e, dict) else e for e in events}
+    # Interfaces are valid call-edge targets — a DI-routed call resolves to the
+    # interface (`ISoundService.Play`), not the concrete. Excluding them made
+    # every interface-typed callee a false DANGLING_CALL.
+    callee_node_names = class_names | {i["name"] for i in interfaces}
 
     # Orphan events: published but never declared
     for cls in classes:
@@ -76,7 +81,7 @@ def run_consistency(g):
     # unresolved callees and must never trigger this check.
     for call in codebase.get("calls", []):
         callee_cls = call.get("callee_class")
-        if callee_cls and callee_cls not in class_names:
+        if callee_cls and callee_cls not in callee_node_names:
             method = call.get("callee", "").split(".", 1)[-1]
             issues.append({
                 "type": "DANGLING_CALL",
