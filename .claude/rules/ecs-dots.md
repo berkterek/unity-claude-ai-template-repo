@@ -286,3 +286,97 @@ public enum EnemyState : byte { Idle, Moving, Attacking }
 - If more than 255 values are genuinely needed → `: ushort`
 - Enums in service classes, ScriptableObjects, or config data → no constraint (default `int` is fine)
 - The `check-enum-byte-base.sh` hook warns when a non-byte enum is found in ECS or IEvent files
+
+---
+
+## 12. ECS → VContainer Service Bridge — Push-Inject Pattern (NON-NEGOTIABLE)
+
+A `SystemBase` cannot receive `[Inject]` constructor injection — VContainer only wires MonoBehaviours and plain C# classes it registers. When an ECS system needs a Mono-side, VContainer-registered service (a visual/audio/particle service, not `IEventBus`), it is **forbidden** to reach for a static `Instance` singleton on the service itself. Use the **push-inject bridge**: a VContainer entry point resolves the service normally, then pushes it into the managed system via a `Construct(...)` setter.
+
+**WRONG:**
+```csharp
+// Static singleton on the service — the exact pattern this project removes everywhere else
+public sealed class EnemyVisualManager : MonoBehaviour, IEnemyVisualService
+{
+    public static EnemyVisualManager Instance { get; private set; }
+    private void Awake() => Instance = this;
+}
+
+public partial class EnemySetVisualSystem : SystemBase
+{
+    protected override void OnUpdate()
+    {
+        EnemyVisualManager.Instance.SetVisual(...); // singleton reach-through from ECS
+    }
+}
+```
+
+**RIGHT:**
+```csharp
+// Game.Abstracts.<Domain>/IEnemyVisualService.cs — ordinary Tier-3/4 service interface
+public interface IEnemyVisualService
+{
+    void SetVisual(Entity entity, int variantId);
+}
+
+// Game.Concretes.Ecs.Systems.Enemies/EnemySetVisualSystem.cs — managed SystemBase, Construct() setter, null-guarded
+public partial class EnemySetVisualSystem : SystemBase
+{
+    private IEnemyVisualService _enemyVisualService;
+
+    public void Construct(IEnemyVisualService service) => _enemyVisualService = service;
+
+    protected override void OnUpdate()
+    {
+        if (_enemyVisualService == null) return; // not yet wired, or scope torn down — skip safely
+
+        // ... query entities, call _enemyVisualService.SetVisual(...)
+    }
+}
+
+// Game.Concretes.Ecs.Bridges/EcsBridgeInitializer.cs — Tier 3 entry point, ordinary constructor injection
+public sealed class EcsBridgeInitializer : IStartable, IDisposable
+{
+    private readonly IEnemyVisualService _enemyVisualService;
+
+    public EcsBridgeInitializer(IEnemyVisualService enemyVisualService)
+    {
+        _enemyVisualService = enemyVisualService;
+    }
+
+    public void Start()
+    {
+        var world = World.DefaultGameObjectInjectionWorld;
+        world.GetOrCreateSystemManaged<EnemySetVisualSystem>().Construct(_enemyVisualService);
+    }
+
+    public void Dispose()
+    {
+        var world = World.DefaultGameObjectInjectionWorld;
+        if (world == null || !world.IsCreated) return;
+        world.GetExistingSystemManaged<EnemySetVisualSystem>()?.Construct(null); // scene teardown safety
+    }
+}
+
+// Game.Concretes.Ecs.Bridges/EcsBridgeModule.cs — static module, same convention as every other *Module
+public static class EcsBridgeModule
+{
+    public static void Install(IContainerBuilder builder)
+    {
+        builder.RegisterEntryPoint<EcsBridgeInitializer>();
+    }
+}
+```
+
+Wire `EcsBridgeModule.Install(builder)` from `SceneModules.InstallGame(builder)` — same place scene-lifetime services are installed (see `bootstrap-pattern.md` → SceneModules).
+
+**Rules:**
+- The receiving system must be a managed `SystemBase` — a Burst `ISystem` struct cannot hold a reference-type field, so this pattern does not apply to it.
+- The setter is always named `Construct(TService service)` — matches the project's `Construct`/`Constructor` convention for non-`[Inject]` wiring targets.
+- `OnUpdate()` always null-guards the field first and returns early — the system may run before `EcsBridgeInitializer.Start()` (world created before scope starts) or after `Dispose()` (scene unload).
+- `Dispose()` calls `Construct(null)` on every bridged system via `GetExistingSystemManaged` (not `GetOrCreateSystemManaged` — do not create a system just to tear it down) — this prevents a stale reference surviving into the next scene load if the `World` itself is reused.
+- The bridge class is named `Ecs<Purpose>Initializer` (`IStartable, IDisposable`) with a matching `Ecs<Purpose>Module` static installer, living under `Games/Concretes/<Domain>/Ecs/Bridges/` (or `Games/Ecs/Bridges/` if the project keeps all ECS code centralized per Folder Structure above).
+- **This pattern is only for Mono/VContainer service dependencies.** Cross-system pub/sub events still go through `EventBusAccessor.Instance` (see `architecture.md` → EventBusAccessor — approved exception) — do not replace that with a push-inject bridge; the two solve different problems and both are correct as-is.
+- One `EcsBridgeInitializer` can push multiple services to multiple systems in `Start()`/`Dispose()` — do not create a separate initializer per system (same one-caller-ceremony reasoning as `architecture.md` Card 5).
+
+**GOTCHA:** `world.GetOrCreateSystemManaged<T>()` creates the system if it doesn't exist yet — calling it in `Start()` is correct (systems should exist by scope start). Calling the same `GetOrCreateSystemManaged` in `Dispose()` would resurrect a system Unity already tore down just to null out a field nobody will read again; always use `GetExistingSystemManaged<T>()?.Construct(null)` there.
