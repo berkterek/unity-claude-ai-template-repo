@@ -60,10 +60,7 @@ fi
 STRIPPED=$(strip_cs_noise "$FILE_PATH")
 
 # --- Check 1: Unjustified MonoBehaviour (Card 0) ---
-HAS_SERIALIZE_FIELD=$(echo "$STRIPPED" | grep -cE "\[SerializeField\]" 2>/dev/null || true)
-HAS_UNITY_CALLBACKS=$(echo "$STRIPPED" | grep -cE "\b(Awake|Start|OnEnable|OnDisable|OnDestroy|Update|FixedUpdate|LateUpdate|OnTriggerEnter|OnTriggerExit|OnCollisionEnter|OnCollisionExit)\s*\(" 2>/dev/null || true)
-
-if [ "${HAS_SERIALIZE_FIELD:-0}" -eq 0 ] && [ "${HAS_UNITY_CALLBACKS:-0}" -eq 0 ]; then
+if ! echo "$STRIPPED" | unity_monobehaviour_is_justified; then
     # Print without exiting so Check 2 (line count) still runs
     echo "Warning: MonoBehaviour with no [SerializeField] fields and no Unity callbacks.
 File: $FILE_PATH

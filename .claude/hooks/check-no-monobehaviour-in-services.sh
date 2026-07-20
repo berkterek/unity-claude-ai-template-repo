@@ -72,13 +72,13 @@ fi
 
 # --- Check 3: UnityEngine imports in domain/service files (blocking) ---
 if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.*\.cs$"; then
-    # Skip providers, MonoBehaviours, views, handlers, editors, installers — Unity API lives here.
-    # Swappable-backend implementations (architecture.md Card 2.1) get the same exemption as
-    # *Provider — *Loader (ISceneLoader), *Dal (ISaveLoadDal), *Client (external service calls)
-    # are all Tier 4 backend implementations a Tier 3 Service depends on via interface.
-    # *Extensions: static extension classes (csharp-unity.md Card 1.1) legitimately extend
-    # UnityEngine types (Vector3Extensions, TransformExtensions) and are never pure-C# services.
-    if echo "$FILE_PATH" | grep -qiE "(Provider|View|Root|Mono|Behaviour|Inspector|Editor|Drawer|Panel|Button|Controller|Installer|Scope|Loader|Dal|Client|Extensions)\.(cs)$"; then
+    # Filename whitelist: ONLY structurally-undetectable pure-C# role categories.
+    # *Handler (constructor-ref Unity access), *Loader/*Dal/*Client (Tier 4 swappable
+    # backends, architecture.md Card 2.1), *Extensions (static extensions on Unity types),
+    # *Installer/*Scope (VContainer wiring). Everything else — Provider/View/Controller/
+    # Panel/Button/Inspector/Editor/Drawer — is now judged STRUCTURALLY (justified MB)
+    # or excluded by should_skip_path (path-based Editor folders).
+    if echo "$FILE_PATH" | grep -qiE "(Handler|Loader|Dal|Client|Extensions|Installer|Scope)\.(cs)$"; then
         exit 0
     fi
 
@@ -95,6 +95,11 @@ if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.
     fi
 
     if [ -f "$FILE_PATH" ]; then
+        # Structural justification: a real MonoBehaviour ([SerializeField] or lifecycle
+        # callback) is allowed to touch UnityEngine even in a domain folder.
+        if strip_cs_noise "$FILE_PATH" | unity_monobehaviour_is_justified; then
+            exit 0
+        fi
         UNITY_IMPORTS=$(grep -n "using UnityEngine" "$FILE_PATH" 2>/dev/null)
         if [ -n "$UNITY_IMPORTS" ]; then
             unity_hook_block "Domain/service file contains UnityEngine imports!
@@ -103,8 +108,10 @@ File: $FILE_PATH
 Violations:
 $UNITY_IMPORTS
 
-Services and abstractions must be pure C#.
-Move Unity-specific code to a Provider class in Games/Concretes/<Module>/."
+Services and abstractions must be pure C# (solid-oop.md Card 0).
+If this is genuinely a MonoBehaviour, it needs a [SerializeField] field or a Unity
+lifecycle callback. Otherwise move Unity-specific code to a Provider class in
+Games/Concretes/<Module>/."
         fi
     fi
 fi

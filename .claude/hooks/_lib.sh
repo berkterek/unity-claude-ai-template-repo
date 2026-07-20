@@ -130,6 +130,24 @@ should_skip_path() {
     return 1
 }
 
+# unity_monobehaviour_is_justified — reads ALREADY-STRIPPED C# content on stdin
+# (caller runs strip_cs_noise once). Returns 0 if the class has a legitimate reason
+# to be a MonoBehaviour / touch UnityEngine: a [SerializeField] field OR any Unity
+# lifecycle callback. Returns 1 otherwise (Card 0 candidate — should be pure C#).
+# NOTE: callback match intentionally broadens check-mono-justification.sh's historical
+# exact list to OnTrigger*/OnCollision* prefixes (Enter/Stay/Exit all count) — superset,
+# by design.
+unity_monobehaviour_is_justified() {
+    local stripped; stripped=$(cat)
+    if echo "$stripped" | grep -qE "\[SerializeField\]"; then
+        return 0
+    fi
+    if echo "$stripped" | grep -qE "\b(Awake|Start|OnEnable|OnDisable|OnDestroy|Update|FixedUpdate|LateUpdate|OnTrigger[A-Za-z]*|OnCollision[A-Za-z]*)\s*\("; then
+        return 0
+    fi
+    return 1
+}
+
 # unity_track_edit — record a file edit for session tracking
 unity_track_edit() {
     local file_path="$1"
