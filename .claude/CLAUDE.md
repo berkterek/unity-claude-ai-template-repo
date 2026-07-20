@@ -129,7 +129,7 @@ Detailed coding standards in `.claude/rules/`:
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]`→`[VFX]`), classification table, prefab/container rules, enforcement |
 | `bootstrap-pattern.md` | Code-first static Module pattern: [X]Module static class → AppModules.cs → AppScope. ConfigCatalog, SceneModules, new module addition flow. |
-| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller only, ~100 satır max); **suffix kuralı: `*View` yalnızca Canvas/UI, `*Controller` gameplay/karakter, `*Provider` Unity API soyutlaması**; SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı; 4-tier: Mono Shell (≤80 ln) / Handler (pure C#) / Service+EntryPoint / Provider |
+| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller/Manager only, ~100 satır max); **suffix kuralı: `*View` yalnızca Canvas/UI, `*Controller` gameplay/karakter, `*Provider` Unity API soyutlaması, `*Manager` tek-domain koordinatör (Register/Unregister, IEventBus yerine)**; enforcement isimden değil koddan (Card 0: `[SerializeField]`/Unity lifecycle callback) belirlenir; SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı; 4-tier: Mono Shell (≤80 ln) / Handler (pure C#) / Service+EntryPoint / Provider |
 
 ## Hooks (auto-enforced on every Write/Edit)
 

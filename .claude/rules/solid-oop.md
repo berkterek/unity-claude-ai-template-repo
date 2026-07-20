@@ -41,21 +41,42 @@ builder.RegisterEntryPoint<WaveDirectorService>().AsImplementedInterfaces();
 
 ---
 
-### Card 1: MonoBehaviour — 3 Roles Only
+### Card 1: MonoBehaviour — 4 Roles Only
 
 **WHEN:** Writing a MonoBehaviour that passed Card 0.
 
-MonoBehaviour may only take one of three roles: **View**, **Provider**, or **Controller**.
+MonoBehaviour may only take one of four roles: **View**, **Provider**, **Controller**, or **Manager**.
 
 | Role | Suffix | Where | Does | Does NOT |
 |---|---|---|---|---|
 | **View** | `*View` | **Canvas/UI scripts ONLY** (HUDView, PopupView, SliderView) | Updates UI, reads input events, triggers animations | Business logic, calculation, state management |
 | **Provider** | `*Provider` | Unity API abstraction (AudioProvider, PhysicsProvider) | Wraps a single Unity API group (AudioSource, Rigidbody, Transform) | Service coordination, event publishing, game logic |
 | **Controller** | `*Controller` | Gameplay, character, physics coordination | Caches refs, sets up Handlers, forwards lifecycle (Update → handler.Tick). ZERO branching/calculation | Holds game logic, publishes IEventBus directly |
+| **Manager** | `*Manager` | Centralized coordinator for ONE domain's collection of objects (EnemyManager, AudioManager) — used instead of pairwise IEventBus attach/detach or direct references between N same-domain instances | Register/Unregister callers via an injected interface, coordinate/query across the registered set | Coordinate more than one domain (no `GameManager`), hold unrelated cross-cutting responsibilities |
 
 **Suffix decision test:** Is the script under a Canvas?
 - Yes → `*View`
-- No → `*Controller` or `*Provider`
+- No, and it's a single instance's coordination shell → `*Controller`
+- No, and it wraps Unity API on behalf of a Service → `*Provider`
+- No, and it's a single per-domain registry coordinating N sibling instances → `*Manager`
+
+**`*Manager` constraints (NON-NEGOTIABLE):**
+- **One domain per Manager.** `EnemyManager`, `AudioManager` are fine — a catch-all `GameManager`
+  spanning unrelated domains is forbidden (same anti-pattern as `GameContext`/Service Locator,
+  see architecture.md → "NO GameContext / Service Locator").
+- **Register/Unregister over IEventBus.** Same-domain instances (e.g. 10 enemies) call
+  `Register(this)`/`Unregister(this)` on the Manager via a constructor/`[Inject]`-received
+  interface (`IEnemyManager`) instead of each instance individually subscribing/unsubscribing to
+  `IEventBus` events. `IEventBus` remains reserved for genuinely cross-module communication
+  (event-patterns.md decision tree) — a Manager is an intra-domain registry, not a replacement
+  for it.
+- **MonoBehaviour only if Card 0 applies**, exactly like every other role — a Manager needs its
+  own `[SerializeField]` field or a Unity lifecycle callback to be a MonoBehaviour; otherwise it
+  must be a pure C# Service (e.g. `EnemyDirectorService`, `ITickable`) instead. Preferring pure C#
+  is still the default — `*Manager` as a MonoBehaviour is the exception, not the norm.
+- **SRP still applies.** If a Manager grows business logic/calculation beyond
+  registration+coordination, extract that into a Handler or Service — the Manager stays a thin
+  registry.
 
 **Suffix prohibition table:**
 
@@ -64,10 +85,29 @@ MonoBehaviour may only take one of three roles: **View**, **Provider**, or **Con
 | `*View` | YES — Canvas/UI ONLY | Gameplay/physics objects must NOT use `*View` |
 | `*Controller` | YES | Gameplay or character coordination shell |
 | `*Provider` | YES | Unity API boundary |
+| `*Manager` | YES — with constraints above | One domain only; prefer pure C# Service unless Card 0 applies |
 | `*Handler` | **NO** | Handler must be pure C# — never MonoBehaviour |
 | `*Service` | **NO** | `check-no-monobehaviour-in-services.sh` blocks it |
 
 **GOTCHA:** `*Handler` is NOT a MonoBehaviour role. A class named `MoveHandler : MonoBehaviour` is a rule violation.
+
+> **Note — enforcement is structural, not name-based.** `check-no-monobehaviour-in-services.sh`
+> decides whether MonoBehaviour/`UnityEngine` usage in domain code (`Games/Abstracts/`,
+> `Games/Concretes/`, `_Framework/`) is legitimate by **code structure**, not filename: a class
+> is judged justified when it satisfies Card 0 — it has an **own** `[SerializeField]` field
+> and/or a Unity lifecycle callback (`Awake`, `OnEnable`, `Update`, `OnTriggerEnter`, etc.) —
+> regardless of whether its name ends in `View`/`Controller`/`Provider`/anything else. The
+> suffix in the table above is a **naming-convention consequence** of the role a class already
+> has (Card 0 + Card 1 together decide the role; the suffix documents it) — it is not itself
+> the mechanism the hook checks.
+>
+> This is also why `*Handler` stays exempt **by name** in the hook's filename whitelist rather
+> than by the Card 0 structural test: a Handler (Tier 2) is pure C# and legitimately receives a
+> Unity component reference (`Rigidbody`, `Transform`) **as a constructor parameter** — see
+> Handler Rules below. A constructor parameter is not an **own** `[SerializeField]` field, so a
+> Handler never passes the Card 0 structural test and would otherwise be flagged. The filename
+> exemption exists specifically to cover this structurally-undetectable, intentional exception —
+> it does not mean Handler is a fourth MonoBehaviour role; a Handler is never a MonoBehaviour.
 
 ---
 
