@@ -78,6 +78,81 @@ MonoBehaviour may only take one of four roles: **View**, **Provider**, **Control
   registration+coordination, extract that into a Handler or Service — the Manager stays a thin
   registry.
 
+**Worked example — N enemies in a scene (Controller / Handler / Event / Manager, side by side):**
+
+```csharp
+// 1. EnemyController — Mono. Card 0: [SerializeField] refs + lifecycle callbacks. Role: Controller (forward only).
+public sealed class EnemyController : MonoBehaviour
+{
+    [SerializeField] private Rigidbody _rigidbody;
+    [SerializeField] private Animator  _animator;
+
+    private IHealthHandler _healthHandler;
+    private IEnemyManager  _enemyManager;
+
+    [Inject]
+    public void Construct(Func<Animator, IEventBus, IHealthHandler> factory, IEnemyManager enemyManager)
+    {
+        _healthHandler = factory(_animator, _eventBus);
+        _enemyManager  = enemyManager;
+    }
+
+    private void OnEnable()  => _enemyManager.Register(this);   // Manager registry, not IEventBus
+    private void OnDisable() => _enemyManager.Unregister(this);
+
+    private void Update() => _healthHandler.Tick(Time.deltaTime); // forward only, zero branching
+}
+
+// 2. HealthHandler — pure C#. *Handler suffix: Unity refs via constructor, never MonoBehaviour.
+public sealed class HealthHandler : IHealthHandler
+{
+    private readonly IEventBus _eventBus;
+    private readonly int _enemyId;
+
+    public void TakeDamage(int amount)
+    {
+        _hp -= amount;
+        if (_hp <= 0)
+            _eventBus.Publish(new EnemyDiedEvent(_enemyId)); // crosses to UI/Score/Audio → IEventBus
+    }
+}
+
+// 3. EnemyManager — Mono only because it has a lifecycle-driven registry; one domain, Register/Unregister only.
+public interface IEnemyManager
+{
+    void Register(IEnemyController enemy);
+    void Unregister(IEnemyController enemy);
+    int ActiveCount { get; }
+}
+
+public sealed class EnemyManager : MonoBehaviour, IEnemyManager
+{
+    private readonly List<IEnemyController> _enemies = new();
+
+    public void Register(IEnemyController enemy)   => _enemies.Add(enemy);
+    public void Unregister(IEnemyController enemy)  => _enemies.Remove(enemy);
+    public int ActiveCount => _enemies.Count;
+
+    // Only when ALL enemies are gone does this cross into another module — via IEventBus, not a direct call.
+    private void OnEnemyCountChanged()
+    {
+        if (_enemies.Count == 0) _eventBus.Publish(new WaveClearedEvent());
+    }
+}
+```
+
+| Structure | Mono or pure C#? | Why |
+|---|---|---|
+| `EnemyController` (per instance) | Mono | Card 0: own `[SerializeField]` + lifecycle callbacks; role = Controller |
+| `HealthHandler` / `MoveHandler` (per instance's internal logic) | Pure C# | `*Handler` — Unity ref via constructor, MonoBehaviour blocked by the hook |
+| "Died" / "Damaged" event | `IEventBus` if another module listens (UI/Score/Audio); C# `event` if it stays inside the same prefab | event-patterns.md decision tree |
+| Shared registry across N enemies | `*Manager` — Mono only if it has its own lifecycle callback (e.g. `OnEnable`/`OnDisable` on itself); otherwise a pure C# Service | New Card 1 role — one domain, Register/Unregister |
+
+**GOTCHA (worked example):** `EnemyManager`'s own `MonoBehaviour`-ness came from nothing here except being
+placed in the scene — if it has no lifecycle callback and no `[SerializeField]` of its own, prefer a pure
+C# `EnemyDirectorService` (`ITickable`, `RegisterEntryPoint`) instead. A `*Manager` MonoBehaviour is the
+exception, not the default, exactly like every other role in Card 0.
+
 **Suffix prohibition table:**
 
 | Suffix | Allowed as MonoBehaviour? | Notes |
