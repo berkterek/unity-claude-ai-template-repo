@@ -55,7 +55,7 @@ public sealed class BasicAudioProvider : MonoBehaviour, IAudioProvider
 }
 ```
 
-**GOTCHA:** If your service has `using UnityEngine`, you're leaking Unity API through the service layer. Move it to a Provider. Do NOT open a Provider for prefab-local Unity access — that is Handler's job (Tier 2).
+**GOTCHA:** `using UnityEngine` in a service is a leak **only** when it pulls in real engine/scene/asset API — `Transform`, `GameObject`, `AudioSource`, `SceneManager`, `Physics`, `Input`, `Time`, `Resources`, etc. UnityEngine **math value types** (`Mathf`, `Vector2/3/4`, `Quaternion`, `Color`, `Rect`, `Bounds`, `Ray`, `Plane`, `Matrix4x4`) and **`Debug` logging** are allowed in a Tier 3 service (solid-oop.md Tier 3: *"Pure C#, NO UnityEngine API — math types allowed"*; bootstrap-pattern.md Module null-guards call `Debug.LogError`). These need `using UnityEngine;` but are **not** a leak — `check-no-monobehaviour-in-services.sh` allows them and blocks only the real engine/scene API. Move genuine Unity API to a Provider. Do NOT open a Provider for prefab-local Unity access — that is Handler's job (Tier 2).
 
 ---
 
