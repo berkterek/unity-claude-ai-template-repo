@@ -37,6 +37,7 @@
 - `/game-idea` — Refine a raw game idea into a GDD (includes assumption surfacing + "Not Doing" list)
 - `/architect` — Create a Technical Design Document from a GDD (auto-runs Phase 7 self-critique → **unity-critic** adversarial challenge → developer review)
 - `/grill-me [plan or file]` — Stress-test a plan or design decision — asks one pointed question at a time, offers a recommended answer, resolves every branch; ends with a Decision Record. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed.
+- `/debate <idea | plan-file | thesis>` — **Standalone adversarial stress-test** — 3-agent debate (**debate-proposer** steelmans → **debate-critic** refutes → **debate-moderator** triages) returns a rule-grounded verdict: **REFUTED / CONFIRMED / ESCALATE**. Single pass (no rebuttal loop — the moderator settles verifiable clashes itself and ESCALATEs genuine value calls). GROUNDED mode (plan/real code → Explore grounding pass) or UNGROUNDED (bare idea → reasoning-only, flagged). Read-only: prints the verdict, writes/commits nothing. **Unlike `unity-critic`** (one-pass Unity impl-plan review inside `/architect`) it debates any thesis; **unlike `/grill-me`** it runs unattended and only ESCALATEs genuine human trade-offs. **Next:** `/grill-me` on the ESCALATE items, or `/create-plan`.
 - `/refine-gdd` — Iterate on an existing GDD
 - `/refine-tdd` — Iterate on an existing TDD
 

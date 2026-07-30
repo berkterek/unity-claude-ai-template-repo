@@ -479,6 +479,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 | `/game-idea` | Manual — single step | Refines a raw idea into a GDD — surfaces assumptions, defines scope, creates a "Not Doing" list |
 | `/architect` | Manual — single step | Converts the GDD into a TDD — `unity-critic` adversarially challenges the design before you review |
 | `/grill-me [plan or file]` | Manual — single step | Stress-tests a plan or decision — one pointed question at a time, recommends an answer, ends with a Decision Record. Auto-delegates to Opus (heavy tier) regardless of current session model. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed. |
+| `/debate <idea \| plan-file \| thesis>` | Manual — single step | Adversarial stress-test — 3 Opus agents (`debate-proposer` steelmans → `debate-critic` refutes → `debate-moderator` triages) return a rule-grounded verdict: **REFUTED / CONFIRMED / ESCALATE**. Single pass, no rebuttal loop. GROUNDED (plan/real code) or UNGROUNDED (bare idea, flagged). Read-only — prints the verdict, writes nothing. Unattended, unlike `/grill-me`. **Next:** `/grill-me` on the ESCALATE items, or `/create-plan`. |
 
 ### Phase 2 — Planning
 
@@ -715,6 +716,7 @@ Both JSONL files are persistent (not auto-expired) and gitignored. See `.claude/
 | `/game-idea` | Manual — single step | Refine a raw idea into a GDD (assumption surfacing + "Not Doing" list) |
 | `/architect` | Manual — single step | Create a Technical Design Document from a GDD (`unity-critic` adversarial challenge included) |
 | `/grill-me [plan or file]` | Manual — single step | Stress-test a plan or decision — one pointed question at a time, produces a Decision Record on `/done`. Auto-delegates to Opus (heavy tier) regardless of current session model. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed. |
+| `/debate <idea \| plan-file \| thesis>` | Manual — single step | Adversarial stress-test — `debate-proposer` steelmans → `debate-critic` refutes → `debate-moderator` triages into **REFUTED / CONFIRMED / ESCALATE** (rule-grounded, single pass). Runs unattended (unlike `/grill-me`); debates any thesis (unlike `unity-critic`, which reviews a Unity impl-plan). Read-only. **Next:** `/grill-me` on the ESCALATE items. |
 | `/refine-gdd` | Manual — single step | Iterate on an existing GDD |
 | `/refine-tdd` | Manual — single step | Iterate on an existing TDD |
 | `/roadmap` | Manual — single step | Read GDD + TDD + existing modules → produce `docs/ROADMAP.md` module table with gap analysis. Run once after TDD is approved. |
@@ -816,6 +818,9 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `silent-failure-hunter` | Swallowed exception audit — empty catch, `.Forget()` without handler, dangerous fallbacks |
 | `package-analyzer` | Read-only analyst — walks `Packages/manifest.json` and resolved package directories, emits multi-file skill drafts under `.claude/skills/third-party/<pkg>/`. Detects prefabs, maps them to `_GameFolders/Prefabs/<Category>/` destinations, and scans for architecture violations. For singletons (all variants: `Instance`, `_instance`, `Current`/`Shared`/`Main`/`Default`, `GetInstance()`, `DontDestroyOnLoad`), generates Adapter pattern boilerplate + NSubstitute mock lines instead of generic fix notes. |
 | `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |
+| `debate-proposer` | Opus debate advocate — builds the strongest steelman case FOR a thesis/idea/plan (used by `/debate`) |
+| `debate-critic` | Opus debate adversary — refutes a thesis, tagging each objection FACT/OPINION (used by `/debate`; distinct from `unity-critic`, which one-pass-reviews a Unity implementation plan) |
+| `debate-moderator` | Opus debate judge — triages each objection into REFUTED / CONFIRMED / ESCALATE in a single pass, settling verifiable clashes with its own tools (used by `/debate`) |
 | `unity-shader-dev` | URP shader authoring — complexity router: simple effects use HLSL (.shader), complex/visual effects use ShaderGraph (.shadergraph JSON output + material assigned via MCP) |
 | `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy |
 | `unity-ui-toolkit-builder` | Editor UI Toolkit specialist — UXML layouts, USS stylesheets, custom inspectors, EditorWindows, SerializedObject data binding (Editor-only; runtime UI uses UGUI) |

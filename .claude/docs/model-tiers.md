@@ -30,7 +30,7 @@ Each agent's `model:` frontmatter follows **role level**, not domain. Orchestrat
 
 | Level | Role | Model | Agents |
 |-------|------|-------|--------|
-| **Lead** | Decides, reviews, critiques, plans architecture | **Opus** | `unity-critic`, `debugger`, `unity-developer`, `reviewer`, `unity-reviewer` |
+| **Lead** | Decides, reviews, critiques, plans architecture | **Opus** | `unity-critic`, `debugger`, `unity-developer`, `reviewer`, `unity-reviewer`, `debate-proposer`, `debate-critic`, `debate-moderator` |
 | **Worker** | Executes a defined task (write code/test, build, set up, migrate, fix, lean plan) | **Sonnet** | all others, incl. `coder`, `unity-coder`, `lean-planner`, `tester`, `migrator`, … |
 | **Scanner** | Mechanical read-only scan (lint, locate files, pattern-match) | **Haiku** | `unity-scout`, `unity-linter` |
 

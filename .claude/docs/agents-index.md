@@ -8,7 +8,7 @@
 
 Each agent's `model:` frontmatter follows **role level**, not domain (full rule: `docs/model-tiers.md`):
 
-- **Lead (Opus)** — decides / reviews / critiques / plans: `unity-critic`, `debugger`, `unity-developer`, `reviewer`, `unity-reviewer`
+- **Lead (Opus)** — decides / reviews / critiques / plans: `unity-critic`, `debugger`, `unity-developer`, `reviewer`, `unity-reviewer`, `debate-proposer`, `debate-critic`, `debate-moderator`
 - **Scanner (Haiku)** — mechanical read-only scan: `unity-scout`, `unity-linter`
 - **Worker (Sonnet)** — everything else (writers, testers, setup, fixers, builders, including `lean-planner` and `coder`)
 
@@ -26,6 +26,9 @@ This table is the source of truth — keep each `.md` frontmatter in sync with t
 | `migrator` | `migrator` | Pattern migration |
 | `lean-planner` | `lean-planner` | Compact plan writer (Sonnet) — used by `/create-plan --lean`. Produces a 3-5 task table (name, files, one-line note). No code skeletons, no acceptance criteria. Implementer auto-spawn disabled. |
 | `unity-critic` | `unity-critic` | Opus adversarial plan challenger — stress-tests architecture decisions before implementation |
+| `debate-proposer` | `debate-proposer` | Opus debate advocate — builds the strongest steelman case FOR a thesis/idea/plan. Used by `/debate`; pairs with `debate-critic` + `debate-moderator` |
+| `debate-critic` | `debate-critic` | Opus debate adversary — refutes a thesis, tagging each objection FACT/OPINION. Used by `/debate`. **Distinct from `unity-critic`:** debates an arbitrary thesis in an ensemble; `unity-critic` one-pass-reviews a Unity implementation plan |
+| `debate-moderator` | `debate-moderator` | Opus debate judge — triages each objection into REFUTED / CONFIRMED / ESCALATE in a single pass, settling verifiable clashes with its own tools. Used by `/debate` |
 | `unity-shader-dev` | `unity-shader-dev` | URP shader authoring — complexity router: simple effects use HLSL, complex/visual effects use ShaderGraph (generates .shadergraph JSON + assigns material via MCP) |
 | `unity-ui-builder` | `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy |
 | `unity-ui-toolkit-builder` | `unity-ui-toolkit-builder` | Editor UI Toolkit specialist — UXML layouts, USS stylesheets, custom inspectors, EditorWindows, SerializedObject data binding (Editor-only; runtime UI uses UGUI) |
