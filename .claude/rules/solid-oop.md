@@ -183,6 +183,16 @@ exception, not the default, exactly like every other role in Card 0.
 > Handler never passes the Card 0 structural test and would otherwise be flagged. The filename
 > exemption exists specifically to cover this structurally-undetectable, intentional exception —
 > it does not mean Handler is a fourth MonoBehaviour role; a Handler is never a MonoBehaviour.
+>
+> **`using UnityEngine` in a pure-C# file is not automatically a leak.** The hook does not block
+> on the import itself — it blocks on the actual API surface. A file whose only `UnityEngine`
+> usage is **math value types** (`Mathf`, `Vector2/3/4`, `Quaternion`, `Color`, `Rect`, `Bounds`,
+> `Ray`, `Plane`, `Matrix4x4`) or **`Debug` logging** is allowed (this Tier 3 "math types allowed"
+> rule; Module null-guards call `Debug.LogError`). It is blocked only when the file references
+> real engine/scene/asset/input/time API — `SceneManager`, `Transform`, `GameObject`,
+> `AudioSource`, `Physics`, `Input`, `Time`, `Resources`, etc. — which must move to a Provider
+> (`*Provider`) or a swappable backend (`*Loader`/`*Dal`/`*Client`). Matching runs against
+> comment/string-stripped source, so an API name inside a comment or string literal is ignored.
 
 ---
 
