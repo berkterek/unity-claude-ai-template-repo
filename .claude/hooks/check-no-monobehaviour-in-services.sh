@@ -21,7 +21,12 @@ _hook_log() {
 }
 trap '_hook_log $?' EXIT
 # --- End Hook Audit Logging ---
-# Hook: Validates that service/domain C# files don't import UnityEngine.
+# Hook: Validates that service/domain C# files don't leak real Unity engine/scene API.
+# A `using UnityEngine` import is allowed when the file's only UnityEngine surface is the
+# benign Tier 3 allow-list — math value types (Mathf, Vector3, Quaternion, Color...) and
+# Debug logging (solid-oop.md Tier 3 "math types allowed"). It is BLOCKED when the file
+# references engine/scene/asset/input/time API (SceneManager, Transform, AudioSource,
+# Physics, Input, Time...) — that belongs in a Provider / *Loader / *Dal / *Client.
 # Also blocks *Handler : MonoBehaviour and *Module : ScriptableObject violations.
 # Checks: _Framework/, Games/Abstracts/, Games/Concretes/ (excluding providers)
 # Receives JSON on stdin with tool_input.file_path
@@ -95,23 +100,35 @@ if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.
     fi
 
     if [ -f "$FILE_PATH" ]; then
+        STRIPPED=$(strip_cs_noise "$FILE_PATH")
         # Structural justification: a real MonoBehaviour ([SerializeField] or lifecycle
         # callback) is allowed to touch UnityEngine even in a domain folder.
-        if strip_cs_noise "$FILE_PATH" | unity_monobehaviour_is_justified; then
+        if echo "$STRIPPED" | unity_monobehaviour_is_justified; then
             exit 0
         fi
         UNITY_IMPORTS=$(grep -n "using UnityEngine" "$FILE_PATH" 2>/dev/null)
         if [ -n "$UNITY_IMPORTS" ]; then
-            unity_hook_block "Domain/service file contains UnityEngine imports!
+            # `using UnityEngine` is present and this is NOT a justified MonoBehaviour.
+            # It is a LEAK only if the file references real engine/scene/asset/input/time API.
+            # The benign Tier 3 surface — math value types (Mathf, Vector3, Quaternion,
+            # Color...) and Debug logging — is allowed (solid-oop.md Tier 3 "math types
+            # allowed"; bootstrap-pattern.md Module null-guards use Debug.LogError).
+            LEAK=$(echo "$STRIPPED" | grep -noE "$UNITY_ENGINE_LEAK_RE" | head -5)
+            if [ -n "$LEAK" ]; then
+                unity_hook_block "Domain/service file leaks real Unity engine/scene API!
 File: $FILE_PATH
 
-Violations:
-$UNITY_IMPORTS
+Offending Unity API usage (strippedLine:symbol):
+$LEAK
 
-Services and abstractions must be pure C# (solid-oop.md Card 0).
+Tier 3 services may use UnityEngine MATH value types (Mathf, Vector2/3/4, Quaternion,
+Color, Rect, Bounds, Ray, Plane, Matrix4x4) and Debug logging ONLY. Move Scene/GameObject/
+Physics/Audio/Input/Time/Resources API to a Provider (*Provider) or a swappable backend
+(*Loader / *Dal / *Client). Rules: solid-oop.md Tier 3, architecture.md Card 2 / 2.1.
 If this is genuinely a MonoBehaviour, it needs a [SerializeField] field or a Unity
-lifecycle callback. Otherwise move Unity-specific code to a Provider class in
-Games/Concretes/<Module>/."
+lifecycle callback."
+            fi
+            # else: only math + Debug remain — benign; fall through to exit 0.
         fi
     fi
 fi

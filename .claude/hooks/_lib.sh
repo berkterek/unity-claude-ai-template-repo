@@ -148,6 +148,22 @@ unity_monobehaviour_is_justified() {
     return 1
 }
 
+# UNITY_ENGINE_LEAK_RE — word-boundary regex of real Unity engine/scene/asset/input/time API
+# symbols that must NOT appear in a pure-C# Tier 3 service/domain file. Presence of ANY one
+# means a `using UnityEngine` import is a genuine leak (move to a Provider / *Loader / *Dal /
+# *Client). Its ABSENCE means the only UnityEngine surface left is the benign allow-list that
+# Tier 3 permits: math value types (Mathf, Vector2/3/4, Quaternion, Color, Rect, Bounds, Ray,
+# Plane, Matrix4x4 ...) and Debug logging (solid-oop.md Tier 3 "math types allowed";
+# bootstrap-pattern.md Module null-guards legitimately call Debug.LogError).
+# Implemented as a forbidden block-list (not a positive allow-list) because bash cannot resolve
+# whether a bare identifier belongs to UnityEngine without a compiler — absence of every
+# forbidden symbol is the tractable proxy for "only math + Debug remain".
+# NOTE: '\bSceneManager\b' does NOT match the namespace 'SceneManagement' (no substring), so a
+# service importing 'using UnityEngine.SceneManagement;' purely for the 'Scene' handle type
+# (bootstrap-pattern.md Card 6 SceneService) passes; an actual 'SceneManager.LoadScene' call
+# is caught. Case-sensitive: type 'Input'/'Camera' matches, local vars 'input'/'_camera' do not.
+UNITY_ENGINE_LEAK_RE='\b(SceneManager|Addressables|GameObject|MonoBehaviour|Transform|GetComponent|AddComponent|Instantiate|Destroy|DontDestroyOnLoad|FindObjectOfType|FindFirstObjectByType|FindAnyObjectByType|FindObjectsByType|Physics|Physics2D|Rigidbody|Rigidbody2D|Collider|CharacterController|Raycast|MeshRenderer|SkinnedMeshRenderer|SpriteRenderer|Renderer|Animator|Camera|Material|Shader|ParticleSystem|AudioSource|AudioClip|AudioListener|InputSystem)\b|\b(Time|Application|Screen|Input|Resources|Gizmos)\.'
+
 # unity_track_edit — record a file edit for session tracking
 unity_track_edit() {
     local file_path="$1"
