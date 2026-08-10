@@ -396,7 +396,7 @@ The **only** valid top-level folders under `Scripts/` are: `Games/`, `Tests/`, `
 | `Scripts/Concretes/` | Must be inside `Games/` → `Scripts/Games/Concretes/` |
 | `Scripts/Services/` | Services → `Scripts/Games/Concretes/<Domain>/` |
 
-**Games/Concretes/ subfolder naming:** use domain/feature names (`Players/`, `Enemies/`, `UI/`, `Audio/`, `Handlers/`, `Controllers/`) — never layer names like `Services/`, `Views/`, `Providers/`.
+**Games/Abstracts/ and Games/Concretes/ first-segment naming:** the first folder under either must be a **domain** (`Players/`, `Enemies/`, `Inputs/`, `Audio/`, `UI/`, `VFX/`, `Infrastructure/`) — never a layer (`Service(s)/`, `Provider(s)/`, `Controller(s)/`, `View(s)/`, `Manager(s)/`, `Interface(s)/`, `Config(s)/`) and never a catch-all (`Core/`, `General(s)/`). Below the domain folder you are free — `Players/Handlers/` and `Players/Services/` are both fine. Full rule and rationale: **Domain Folder Convention** under Module Structure below; enforced by `check-domain-folder-structure.sh`.
 
 **Rule:** `_Framework` never references `_GameFolders` or any other project folder. `_GameFolders` may reference `_Framework`.
 
@@ -444,6 +444,60 @@ _GameFolders/Scripts/Games/Concretes/Players/
 ├── PlayerModule.cs            ← static install method
 └── PlayerEvents.cs            ← IEvent structs
 ```
+
+### Domain Folder Convention (NON-NEGOTIABLE)
+
+**Hard rule.** The **first** folder under `Games/Abstracts/` or `Games/Concretes/` is a **domain**, never a layer and never a catch-all. `Abstracts/<Domain>/` and `Concretes/<Domain>/` mirror each other with identical domain names. Banned in that first position, case-insensitive, singular and plural — enforced by `check-domain-folder-structure.sh` (exit 2):
+
+| Banned first segment | Why | Correct location |
+|---|---|---|
+| `Service(s)/`, `Provider(s)/`, `Controller(s)/`, `View(s)/`, `Manager(s)/`, `Config(s)/` | layer name | `Concretes/<Domain>/` |
+| `Interface(s)/` | layer name; `Abstracts/` already means "interfaces" | `Abstracts/<Domain>/` |
+| `Core/`, `General(s)/` | catch-all — a name that cannot refuse a file | a real domain, or `_Framework/` / `Concretes/Infrastructure/` |
+
+A `.cs` file sitting directly at `Games/Concretes/Foo.cs` with no domain folder is the same violation.
+
+**Why `Core/` is hook-enforced and not merely discouraged:** in the voxel-blast project `Core/` grew to 85 files and 7692 lines spanning five unrelated concerns (DI, bootstrap, game flow, services, pooling). Prose did not stop it. Once a catch-all exists, everything drains into it.
+
+> **Known, accepted gap:** `Common/`, `Shared/`, `Utils/`, `Helpers/`, `Misc/` are equally poor domain names and are deliberately **not** enforced. Catch-all names substitute for one another, so banning a subset only redirects the problem; the list is kept short to hold false positives near zero. Revisit if one of these shows up in practice.
+
+**Below the domain folder you are free.** The hook never looks past the first segment. `Concretes/Players/Services/`, `Players/Handlers/`, `Players/Inputs/`, `Players/Types/`, or everything flat — all legal.
+
+> **Advisory, never enforced:** keep a domain flat while it is small; open subfolders when the file count starts to hurt readability; if you do subdivide, using the same shape on the `Abstracts/` and `Concretes/` side makes navigation easier. There is deliberately **no file-count threshold and no mirror check** — a hook fires once per single-file write, so a folder gated on "must already contain N files" can never be populated at all. Do not add one.
+
+**Naming.** Plural for countable domains (`Players/`, `Enemies/`, `Inputs/`); singular for mass nouns (`Audio/`, `UI/`, `VFX/`). DI and bootstrap wiring → `Concretes/Infrastructure/`. Domain-agnostic infrastructure → `_Framework/`.
+
+### ARCHITECTURE.md — one per Concretes domain
+
+Every `Concretes/<Domain>/` carries an `ARCHITECTURE.md`. Never under `Abstracts/` — interface files document themselves. Written in **English**, like the rest of this repo. One H1, then exactly these four `##` headings, in this order:
+
+```
+## Purpose          ← one sentence; if it needs "AND", the domain is two domains
+## Boundary         ← what this domain never does, and which domain owns that instead
+## How to extend    ← the SHAPE of an extension: layer, folder, wiring method
+## Gotchas          ← the mistake people actually make here
+```
+
+**Hard cap 40 lines. No class-name-like symbols anywhere** — including `## How to extend`. Detected by `\b[A-Z][A-Za-z0-9]*(Service|Manager|Controller|Handler|Provider|View|Event|Config|Configuration|Scope|Installer)\b`. Identifiers ending in `Module` are exempt **by design**: module names are convention-fixed by `bootstrap-pattern.md` and never renamed, so naming one cannot rot.
+
+Describe shape, not names:
+
+```markdown
+## How to extend
+New ability: contract interface in Abstracts/<domain>/ → pure C# handler in
+Concretes/<domain>/ → register in this domain's Module.Install. The controller
+creates it in Awake, or via a Func<> factory if it needs a container dependency.
+```
+
+Concrete type names come from `/knowledge-graph implementers <interface>`, not from this file.
+
+**No domain is exempt, `Infrastructure/` included.** It hosts the project's most frequently confused boundary (app-lifetime vs. scene-lifetime registration; scope vs. module), so it needs a boundary statement more than most. Its doc is a short **pointer** — state the boundary, then delegate detail to `rules/bootstrap-pattern.md` rather than restating six cards.
+
+**Why intent only.** voxel-blast applied a fat version of this convention with real discipline — 25 docs, 8031 lines — and 15 of the 25 are factually wrong today, because a `Car` → `Turret` rename never propagated (0 `Car*.cs` on disk, 29 `Turret*.cs`). Every rotted line contained a class name; no intent line rotted. `/knowledge-graph` already owns the inventory half of documentation, so these docs carry only the half that survives refactoring.
+
+Missing doc → warning (`check-architecture-doc.sh`, exit 0). Malformed doc → block (exit 2). The reading side of this convention — which agents and commands consult these docs — is tracked in `docs/PLAN_architecture_doc_consumption.md`.
+
+---
 
 **`[Module]Events.cs` must live inside `Concretes/<Domain>/`. NEVER outside `Concretes/` — do not create a top-level `Scripts/Games/Events/` or `Scripts/Events/` folder.**
 

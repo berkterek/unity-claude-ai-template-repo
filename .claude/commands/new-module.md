@@ -136,6 +136,41 @@ Generate all files in this order:
 7. Edit `AppModules.cs` — add one line
 8. Edit `ConfigCatalog.cs` — add field, property, and null check in `Validate()`
 
+### Step 4.5 — Write `Concretes/[X]/ARCHITECTURE.md`
+
+Write `_GameFolders/Scripts/Games/Concretes/[X]/ARCHITECTURE.md`. **Never** under `Abstracts/` — interface files document themselves.
+
+Hard constraints, enforced by `check-architecture-doc.sh` on save:
+
+- **English**, max **40 lines**, intent only
+- **Exactly these four `##` headings, in this order**
+- **No class names anywhere — `## How to extend` included.** Blocked pattern: `\b[A-Z]\w*(Service|Manager|Controller|Handler|Provider|View|Event|Config|Configuration|Scope|Installer)\b`. `[X]Module` is the one allowed exception (module names are convention-fixed and never renamed). Concrete type names come from `/knowledge-graph implementers`, not from this file.
+
+```markdown
+# [X]
+
+## Purpose
+<one sentence. If it needs "AND", this is two domains — go back to Step 1.>
+
+## Boundary
+<what this domain never does, and which domain owns that instead. This is the
+ section that earns the file: /knowledge-graph can tell you which dependencies
+ exist, but never which ones were supposed to exist.>
+
+## How to extend
+<the SHAPE of an extension, not type names — e.g. "contract interface in
+ Abstracts/[X]/ → pure C# handler in Concretes/[X]/ → register in
+ [X]Module.Install; the controller creates it in Awake, or via a Func<> factory
+ if it needs a container dependency.">
+
+## Gotchas
+<the mistake people actually make in this domain>
+```
+
+**If the module is `Infrastructure`**, write a pointer doc rather than restating the wiring rules: put the boundary in `## Boundary` (app-lifetime registrations vs. scene-lifetime; scope registers scene components only) and delegate the detail to `.claude/rules/bootstrap-pattern.md` in `## How to extend`. There is **no exemption** — `Infrastructure/` needs a doc like every other domain.
+
+A malformed doc is blocked *after* it lands on disk (the hook is PostToolUse), so fix it before moving on to Step 5.
+
 ### Step 5 — Cleanup and checklist
 
 After all files written:
@@ -371,6 +406,7 @@ After generating, always print:
 [ ] All public methods have a corresponding interface declaration
 [ ] AppModules.cs updated — one new line after EventBusModule.Install()
 [ ] ConfigCatalog.cs updated — field, property, and Validate() null check added
+[ ] ARCHITECTURE.md present at Concretes/[X]/ — English, <= 40 lines, four required headings, no class names
 
 ## One-time Editor action required
 
