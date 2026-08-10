@@ -86,7 +86,7 @@ Three layers: session model (launch alias), subagent model (agent `.md` frontmat
 
 When starting a new conversation on this project, read these files first:
 - `.claude/CLAUDE.md` (this file — already loaded)
-- `.claude/rules/architecture.md` — module structure, VContainer, IEventBus patterns; same prefab hierarchy (root/child/grandchild) uses SerializeField not VContainer
+- `.claude/rules/architecture.md` — module structure, VContainer, IEventBus patterns; same prefab hierarchy (root/child/grandchild) uses SerializeField not VContainer; domain folder convention (first folder under `Games/Abstracts|Concretes/` is a domain, never a layer or catch-all) and the `Concretes/<Domain>/ARCHITECTURE.md` intent contract
 - `.claude/rules/solid-oop.md` — SOLID & OOP kuralları (MonoBehaviour rol sınırları, SRP, OCP, DIP)
 - `docs/CATCH_UP.md` if it exists — human-readable codebase guide
 - If `.claude/graph/graph.json` exists and `graph` feature is enabled: run `/knowledge-graph summary` — **this is the primary source of truth** for classes, interfaces, events, installers, scopes, prefabs, methods, and call edges. Do NOT manually scan source folders if the graph is available and fresh (< 24h).
@@ -115,7 +115,7 @@ Detailed coding standards in `.claude/rules/`:
 
 | File | Covers |
 |------|--------|
-| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope; one-caller overfitting rule; GameScope vs ModuleInstaller wiring boundary; same-prefab scripts wire via `[SerializeField]` not VContainer |
+| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope; one-caller overfitting rule; GameScope vs ModuleInstaller wiring boundary; same-prefab scripts wire via `[SerializeField]` not VContainer; **domain folder convention** (first segment under `Games/Abstracts\|Concretes/` is a domain — never a layer or catch-all; free below it); **`Concretes/<Domain>/ARCHITECTURE.md` intent contract** (English, 4 headings, ≤40 lines, no class names) |
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; interface contract documentation (precondition/postcondition/side-effect); namespace collision rule (`Game.Concretes.<Domain>` vs UnityEngine type aliases) |
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; **material folder structure** (`Arts/Materials/<Domain>/`); **shader file structure** (`.shader`/`.shadergraph` → `_GameFolders/Arts/Shaders/`); shader authoring → `unity-shader-dev` agent (HLSL or ShaderGraph complexity router); particle VFX → `unity-particle-designer` agent |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
@@ -139,18 +139,20 @@ Detailed coding standards in `.claude/rules/`:
 
 @.claude/docs/hooks-warning.md
 
-### Subagent Lifecycle Hooks (SubagentStart / SubagentStop / TaskCompleted)
+### Subagent Lifecycle Hooks (agent spawn / agent stop / TaskCompleted)
 
 Three hooks produce persistent JSONL audit files in `.claude/state/` — they fire automatically when multi-agent pipelines run (`/implement`, `/fix`, `/orchestrate`):
 
-| Hook | Event | Output |
-|------|-------|--------|
-| `agent-start-log.sh` | SubagentStart | `.claude/state/subagent-log.jsonl` — spawn record |
-| `agent-stop-log.sh` | SubagentStop | `.claude/state/subagent-log.jsonl` — stop record + `duration_approx_s` |
-| `task-completed-log.sh` | TaskCompleted | `.claude/state/task-log.jsonl` — success record |
+| Hook | Event (as actually registered in `settings.json`) | Output |
+|------|--------------------------------------------------|--------|
+| `agent-start-log.sh` | `PreToolUse` matcher `Agent` | `.claude/state/subagent-log.jsonl` — spawn record; increments `subagent-depth` |
+| `agent-stop-log.sh` | `PostToolUse` matcher `Agent` | `.claude/state/subagent-log.jsonl` — stop record + `duration_approx_s`; decrements `subagent-depth` |
+| `task-completed-log.sh` | `TaskCompleted` | `.claude/state/task-log.jsonl` — success record |
+
+> **Why not the native `SubagentStart` / `SubagentStop` events:** both scripts state it in their header — those events do not fire consistently in Claude Code, so spawn and stop are observed by matching the `Agent` tool on `PreToolUse` / `PostToolUse` instead. This is a deliberate workaround, not an oversight. Note the JSONL records still carry `"event": "SubagentStart"` / `"SubagentStop"` as their **field value** — that is the record label, not the hook event. Searching `settings.json` for those event names will find nothing.
 
 `session-save.sh` embeds all-time totals on every Stop: `session.json → subagent_summary.{spawned, stopped, tasks_completed}`.
-Payload note: SubagentStop carries **no `exit_code`**; TaskCompleted carries **no `status`** field — all three hooks are pure audit trail (exit 0 always).
+Payload note: the stop record carries **no `exit_code`**; TaskCompleted carries **no `status`** field — all three hooks are pure audit trail (exit 0 always).
 Full field reference and jq queries: `.claude/docs/hooks-warning.md → ## Subagent Audit Trail`.
 
 ## Commands (slash commands)

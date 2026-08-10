@@ -30,6 +30,11 @@ npm install -g bats
 | `check-vcontainer-singleton.bats` | `check-vcontainer-singleton.sh` |
 | `check-unity-event.bats` | `check-unity-event.sh` |
 | `check-legacy-input.bats` | `check-input-system.sh` |
+| `check-domain-folder-structure.bats` | `check-domain-folder-structure.sh` |
+| `check-architecture-doc.bats` | `check-architecture-doc.sh` |
+| `check-no-throwaway-editor-script.bats` | `check-no-throwaway-editor-script.sh` |
+| `check-mono-justification.bats` | `check-mono-justification.sh` |
+| `check-test-scene-exists.bats` | `check-test-scene-exists.sh` — includes the `project-features.json` `testing:false` gate |
 | `session-save.bats` | `session-save.sh` — gate expiry |
 | `graph-auto-update.bats` | `graph-auto-update.sh` — empty graph warning |
 | `hook-profile.bats` | `_lib.sh` — profile gating, `DISABLE_UNITY_HOOKS`, `UNITY_HOOK_MODE` |

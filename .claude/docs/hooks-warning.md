@@ -2,6 +2,8 @@
 
 | Hook | Warns |
 |------|-------|
+| `check-architecture-doc.sh` | A `.cs` file written into a `Concretes/<Domain>/` that has no `ARCHITECTURE.md` — no domain is exempt, `Infrastructure/` included. Same script also has a **blocking** branch for malformed docs, see `hooks-blocking.md` |
+| `check-mono-justification.sh` | **PostToolUse.** Two checks on `_GameFolders/Scripts/Games/` MonoBehaviours: (1) Card 0 — no own `[SerializeField]` and no Unity lifecycle callback → the class probably should be pure C# (`ITickable` if it needs a frame tick); (2) shell over 150 lines → extract logic to a Handler. This is the hook `solid-oop.md` promises as "warns at 150 lines". Both checks can fire on one file. Disable: `DISABLE_HOOK_CHECK_MONO_JUSTIFICATION=1` |
 | `check-no-linq-hotpath.sh` | LINQ in Update/FixedUpdate/LateUpdate |
 | `check-no-hotpath-expensive-calls.sh` | `GetComponent`, `Camera.main`, `FindObjectOfType`, bare `transform.`, `tag ==`, `SendMessage` inside Update/FixedUpdate/LateUpdate/Tick/FixedTick/LateTick — suppressed if `_transform` field is cached |
 | `check-getcomponent-in-awake.sh` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment for all components including `Transform`; only acceptable when component is added dynamically at runtime |
@@ -19,24 +21,26 @@
 | `session-restore.sh` (SessionStart) | Restores session state from `.claude/state/` on session start |
 | `session-save.sh` (Stop) | Saves current session state to `.claude/state/` on stop. Auto-expires ephemeral gate files (`gate-cleared`, `sparc-approved`, `codex-reviewed`, `graph-empty-warned`, etc.) so they never leak into the next session. |
 | `stop-verify.sh` (Stop) | Drains the edit accumulator (`session-edits.txt`) at session end and runs batch verifiers — shell syntax check for `.sh`, JSON validity for `.json`, one `dotnet build` for all accumulated `.cs` files. Must be listed **after** `session-save.sh` in the Stop array. Implements the ECC pattern: catches subagent writes whose PostToolUse hooks never fired in the main session. |
-| `notify.sh` (Notification) | OS-level notification when Claude finishes — macOS via `osascript`, Linux via `notify-send`. Silent fallback on other platforms. Persists last notification to `.claude/state/last-notify.json`. **[MANUAL: add to settings.json]** |
-| `pre-compact.sh` (PreCompact) | Snapshots branch, last 5 commits, edited files, and workflow phase to `.claude/state/precompact-state.md` before `/compact` discards history. Consumed by `session-restore.sh` and `/catch-up`. **[MANUAL: add to settings.json]** |
+| `notify.sh` (Notification) | OS-level notification when Claude finishes — macOS via `osascript`, Linux via `notify-send`. Silent fallback on other platforms. Persists last notification to `.claude/state/last-notify.json`. |
+| `pre-compact.sh` (PreCompact) | Snapshots branch, last 5 commits, edited files, and workflow phase to `.claude/state/precompact-state.md` before `/compact` discards history. Consumed by `session-restore.sh` and `/catch-up`. |
 | `graph-auto-update.sh` (PostToolUse Write\|Edit) | Triggers incremental graph rebuild in background — never blocks. Respects `project-features.json.graph` flag. Warns once per session when `scanned_files == 0` (empty graph). |
 | UserPromptSubmit inline hook | Injects skill-check reminder into every user prompt — enforces `using-superpowers` skill invocation before any action |
 | `enforce-skill-for-keywords.sh` (UserPromptSubmit) | Detects third-party package keywords in the user's prompt (cinemachine, vcam, dotween, primetween, dreamteck, feel, odin, textmeshpro…). If the relevant skill has not been invoked yet this session, injects a blocking `additionalContext` message demanding `Skill` tool invocation before any code, advice, or MCP operation. Pairs with `track-skill-invocations.sh`. |
 | `track-skill-invocations.sh` (PostToolUse Skill) | Records every `Skill` tool invocation to `${UNITY_HOOK_STATE_DIR}/skills-invoked.txt` — one skill name per line. Required by `enforce-skill-for-keywords.sh` to know which skills were already loaded so the enforcement message does not fire again for the same skill. Also injects `additionalContext` after every Skill invocation to force Claude to read and follow the skill content before proceeding. |
-| `agent-start-log.sh` (SubagentStart) | Logs agent spawn (`agent_type`, `agent_id`, `session_id`) to `subagent-log.jsonl`. Advisory only — exit 2 is not honoured on SubagentStart. **[MANUAL: add to settings.json]** |
-| `agent-stop-log.sh` (SubagentStop) | Logs agent stop with approximate duration to `subagent-log.jsonl`. No `exit_code` in payload — pure audit trail, no blocking. **[MANUAL: add to settings.json]** |
-| `task-completed-log.sh` (TaskCompleted) | Logs successful task completion (`task_id`, `task_title`, `task_subject`) to `task-log.jsonl`. Event fires on success only — no `status` field. **[MANUAL: add to settings.json]** |
+| `agent-start-log.sh` (**PreToolUse** matcher `Agent`) | Logs agent spawn (`agent_type`, `agent_id`, `session_id`) to `subagent-log.jsonl` with `"event": "SubagentStart"` as the record label. Registered on `PreToolUse`/`Agent`, **not** the native `SubagentStart` event — that event does not fire consistently in Claude Code (see the script header). Advisory only. |
+| `agent-stop-log.sh` (**PostToolUse** matcher `Agent`) | Logs agent stop with approximate duration to `subagent-log.jsonl` with `"event": "SubagentStop"` as the record label. Registered on `PostToolUse`/`Agent` for the same reason. No `exit_code` in payload — pure audit trail, no blocking. |
+| `task-completed-log.sh` (TaskCompleted) | Logs successful task completion (`task_id`, `task_title`, `task_subject`) to `task-log.jsonl`. Event fires on success only — no `status` field. |
 
 ## Subagent Audit Trail
 
 Three hooks produce two persistent JSONL audit files in `.claude/state/`:
 
-| File | Written by | Event |
-|------|-----------|-------|
-| `subagent-log.jsonl` | `agent-start-log.sh`, `agent-stop-log.sh` | SubagentStart, SubagentStop |
-| `task-log.jsonl` | `task-completed-log.sh` | TaskCompleted |
+| File | Written by | Hook event it is registered on | `event` field value in the record |
+|------|-----------|-------------------------------|----------------------------------|
+| `subagent-log.jsonl` | `agent-start-log.sh`, `agent-stop-log.sh` | `PreToolUse` / `PostToolUse`, matcher `Agent` | `SubagentStart`, `SubagentStop` |
+| `task-log.jsonl` | `task-completed-log.sh` | `TaskCompleted` | `TaskCompleted` |
+
+> The two columns differ on purpose for `subagent-log.jsonl`: the native `SubagentStart`/`SubagentStop` events fire unreliably in Claude Code, so the hooks watch the `Agent` tool instead while keeping the original names as record labels. Every `jq` query below filters on the **field value**, so they are unaffected.
 
 **Fields — SubagentStart entry:**
 ```json

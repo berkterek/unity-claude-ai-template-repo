@@ -195,7 +195,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 | File | Covers |
 |------|--------|
-| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope |
+| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope; **domain folder convention** (the first folder under `Games/Abstracts\|Concretes/` is a domain — never a layer like `Services/`, never a catch-all like `Core/`; free below it); **`Concretes/<Domain>/ARCHITECTURE.md` intent contract** (English, ≤40 lines, four fixed headings, no class names) |
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; namespace collision rule (`Game.Concretes.<Domain>` vs UnityEngine aliases) |
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; material folder structure (`Arts/Materials/<Domain>/`); shader file structure (`_GameFolders/Arts/Shaders/`); URP shader rule (Standard forbidden) |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
@@ -457,6 +457,8 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 | `check-time-scale` | `Time.timeScale =` assignment | Use IEventBus + PauseService pattern |
 | `check-no-monobehaviour-in-services` | `class FooService : MonoBehaviour/ScriptableObject` in `_Framework/` / `Games/Abstracts/` / `Games/Concretes/` | Make it a Provider, View, Controller, or Manager instead (needs an own `[SerializeField]` or a Unity lifecycle callback) — `using UnityEngine` for math value types (`Mathf`/`Vector3`/`Quaternion`/`Color`...) and `Debug` logging is allowed; only real engine/scene/input/time API (`SceneManager`/`Transform`/`AudioSource`/`Physics`/`Input`/`Time`) is blocked |
 | `guard-editor-runtime` | Unguarded `UnityEditor` in runtime code | Wrap with `#if UNITY_EDITOR` |
+| `check-domain-folder-structure` | Any write into a layer-named or catch-all first folder under `Games/Abstracts\|Concretes/` — e.g. an existing `Concretes/Core/`, `Concretes/Services/`, `Concretes/Managers/` | **This is the hook legacy projects hit hardest**: if the folder already exists, *every* write into it is blocked, including edits to untouched files. Either split the folder into real domains (`Core/` → `Players/`, `Enemies/`, `Infrastructure/`…) before migrating, or set `DISABLE_HOOK_CHECK_DOMAIN_FOLDER_STRUCTURE=1` until you do. Note `Common/`, `Shared/`, `Utils/`, `Helpers/`, `Misc/` are deliberately **not** blocked |
+| `check-architecture-doc` | Nothing at first — a domain with no `ARCHITECTURE.md` only warns. It blocks once a doc exists but is malformed | Write the doc when you next touch the domain, or accept the warning. To silence it project-wide: `DISABLE_HOOK_CHECK_ARCHITECTURE_DOC=1` |
 
 ### Recommended migration approach
 
@@ -632,6 +634,9 @@ npm install -g bats      # Linux
 | `check-no-runtime-instantiate` | `new GameObject()` — blocked everywhere in runtime code; use `Instantiate(prefab)` or `Addressables.InstantiateAsync()` |
 | `check-enum-byte-base` | `enum` without `: byte` base inside `IComponentData` or `IEvent` structs — use `: ushort` if 255+ values needed |
 | `block-graph-direct-read` (PreToolUse Read) | Direct `Read` of `graph.json`, `scenes.json`, or `prefabs.json` when `hybrid_graph: true` — use `/knowledge-graph` subcommands or `mcp__graph_mcp__*` tools instead |
+| `check-domain-folder-structure` (PreToolUse Edit\|Write) | Layer names (`Service(s)/`, `Provider(s)/`, `Controller(s)/`, `View(s)/`, `Manager(s)/`, `Interface(s)/`, `Config(s)/`) and catch-alls (`Core/`, `General(s)/`) as the **first** folder under `Games/Abstracts\|Concretes/`; also a `.cs` file with no domain folder at all. Never inspects below the domain — `Players/Services/` is legal. `Games/Ecs/`, `Tests/`, `Editor/` are out of scope |
+| `check-no-throwaway-editor-script` (PreToolUse Edit\|Write) | One-shot Editor C# scripts: a `.cs` path under `Editor/(Temp\|Tmp\|Scratch\|OneShot\|Throwaway)/`, or content marked disposable (`delete this file once…`, `throwaway`, `temporary wiring helper`, `EditorTemp`). Do the work through MCP (`manage_gameobject`, `manage_components`, `manage_asset`) instead. Genuine bulk `AssetImporter` work belongs in a **permanent** tool under `Assets/Editor/`. Escape valve: one-line reason in `.claude/state/editor-script-override` |
+| `check-architecture-doc` (PostToolUse Edit\|Write) | A **malformed** `Concretes/<Domain>/ARCHITECTURE.md`: over 40 lines, missing/reordered/extra `##` headings against `## Purpose` / `## Boundary` / `## How to extend` / `## Gotchas`, no H1, any class-name symbol (`Module` suffix exempt), or the file placed under `Abstracts/` or directly under `Concretes/`. **PostToolUse — the file is already on disk; exit 2 is corrective feedback, not prevention.** The *missing*-doc case only warns, see below |
 
 ### Warnings (exit 0 — logged to stderr, does not block)
 
@@ -647,6 +652,8 @@ npm install -g bats      # Linux
 | `check-unitask-cancellation` | `async UniTask` methods missing `CancellationToken` parameter |
 | `check-null-propagation` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
 | `check-test-scene-exists` (PostToolUse) | PlayMode test file references a scene not found in `_Scenes/TestScenes/` — suggests `/create-test` |
+| `check-mono-justification` (PostToolUse) | Two checks on `_GameFolders/Scripts/Games/` MonoBehaviours: (1) Card 0 — no own `[SerializeField]` **and** no Unity lifecycle callback, so the class probably should not be a MonoBehaviour; (2) shell over 150 lines — extract logic to a Handler. This is the hook `solid-oop.md` refers to as "warns at 150 lines" |
+| `check-architecture-doc` (PostToolUse) | A `.cs` file written into a `Concretes/<Domain>/` that has no `ARCHITECTURE.md`. No domain is exempt, `Infrastructure/` included. `/new-module` writes the doc at Step 4.5, so this warning normally never fires in that flow. Same script also **blocks** a malformed doc, see above |
 | `track-read` (PostToolUse Read) | Records every `Read` tool call into `gateguard-reads.txt` — required for `gateguard.sh` Stage 1 (`unity_was_read()`) to pass. Without this, every edit is blocked even after reading the file. |
 | `track-codex-review` (PostToolUse) | Creates `.claude/state/codex-reviewed` when `codex:codex-rescue` completes |
 | `track-skill-invocations` (PostToolUse Skill) | Records every `Skill` tool invocation to `skills-invoked.txt` — required by `enforce-skill-for-keywords.sh` to know which skills are already loaded this session. Also injects `additionalContext` after every invocation to force Claude to read and follow the skill content before proceeding. |
@@ -661,7 +668,7 @@ npm install -g bats      # Linux
 | `stop-verify` (Stop) | Drains the edit accumulator at session end — runs batch verifiers (shell syntax, JSON validity, one `dotnet build` for all `.cs` files written this session). ECC pattern: catches subagent writes whose PostToolUse hooks never fired in the main session. Must be listed after `session-save` in the Stop array. |
 | `notify` (Notification) | OS-level notification when Claude finishes a task — macOS via `osascript`, Linux via `notify-send`. Persists last notification to `.claude/state/last-notify.json` for `/catch-up` |
 | `pre-compact` (PreCompact) | Snapshots branch, recent commits, and edited files to `.claude/state/precompact-state.md` before `/compact` discards conversation history — consumed by `session-restore.sh` and `/catch-up` |
-| `block-projectsettings` (PreToolUse Edit\|Write) | Blocks direct edits to `ProjectSettings/*.asset`, `Packages/manifest.json`, and `packages-lock.json` — these files must be changed through the Unity Editor or Package Manager, not raw text edits **[MANUAL: add to settings.json]** |
+| `block-projectsettings` (PreToolUse Edit\|Write) | Blocks direct edits to `ProjectSettings/*.asset`, `Packages/manifest.json`, and `packages-lock.json` — these files must be changed through the Unity Editor or Package Manager, not raw text edits |
 | `check-ls-grep` (PreToolUse Bash) | Blocks `ls \| grep/awk/sed` patterns used for directory listing — forces use of `tree` instead |
 | `graph-auto-update` (PostToolUse Write\|Edit) | Incremental graph rebuild in background on file change — never blocks. Warns once per session when `scanned_files == 0` (empty graph) |
 | `verify-after-write` (PostToolUse Write\|Edit) | Runs `dotnet build` after each `.cs` write — prints WARNING to stderr if compile errors found; never blocks (exit 0). Reads `unity_project_folder` from `project-features.json` to locate `.sln`. MCP unavailable in bash hooks — dotnet CLI only. |
