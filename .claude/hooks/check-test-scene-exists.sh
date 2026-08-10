@@ -35,7 +35,10 @@ fi
 # Skip if testing feature is disabled in project-features.json
 _CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 if [ -n "$_CWD" ] && [ -f "$_CWD/.claude/project-features.json" ]; then
-    _TESTING=$(jq -r '.testing // "true"' "$_CWD/.claude/project-features.json" 2>/dev/null)
+    # NOT `.testing // "true"` — jq's // falls through on `false` as well as null, so an
+    # explicit "testing": false would read back as "true" and the flag could never disable
+    # this hook. Only a MISSING key may default to enabled.
+    _TESTING=$(jq -r '.testing | if . == null then "true" else tostring end' "$_CWD/.claude/project-features.json" 2>/dev/null)
     if [ "$_TESTING" = "false" ]; then exit 0; fi
 fi
 
