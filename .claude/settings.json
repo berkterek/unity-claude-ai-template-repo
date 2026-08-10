@@ -230,6 +230,28 @@
             "timeout": 5000
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-domain-folder-structure.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking domain folder structure..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-no-throwaway-editor-script.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking for throwaway Editor scripts..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -436,6 +458,39 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/agent-stop-log.sh",
             "timeout": 3000,
             "statusMessage": "Logging agent stop..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-architecture-doc.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking ARCHITECTURE.md..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-test-scene-exists.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking PlayMode test scene..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-mono-justification.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking MonoBehaviour justification..."
           }
         ]
       }
