@@ -247,7 +247,7 @@ that used to be smooth and now has a visible seam.
 
 **WHEN:** Rendering, deleting, or reordering rows in an editable collection (course segments, spawn points, any list a user adds to and removes from).
 
-> **Advisory:** No research bullet in `docs/superpowers/research/2026-08-13-web-tool-research.md` covers list-item identity in any of its three sections. This card is grounded in working code and in a live-test gap (an agent given only these rule files still produced an index-based delete), not in a cited source. The enforceable residue is narrow: an array index must never be the only handle on a row that survives a re-render.
+> **Advisory:** No research bullet in `docs/superpowers/research/2026-08-13-web-tool-research.md` covers list-item identity in any of its three sections. This card is grounded in working code and in a live-test gap (an agent given only these rule files still produced an index-based delete), not in a cited source. The enforceable residue is narrow: an array index must never be the only handle on a row that survives a re-render, and an id — once assigned at row creation — is never reused or reassigned for the lifetime of the model.
 
 **WRONG:**
 ```js
@@ -270,6 +270,12 @@ function addRow(fields) {
   renderRows();
 }
 
+// After hydrating a restored draft, reseed the counter or the next row collides with a restored id
+// (see web-tool-design-system.md Card 10: In-Progress Work Survives a Reload).
+function reseedNextId() {
+  _nextId = model.rows.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0) + 1;
+}
+
 function renderRows() {
   host.innerHTML = "";
   model.rows.forEach((row) => {
@@ -279,14 +285,23 @@ function renderRows() {
   });
 }
 
+// Reorder is an array move keyed on nothing but position — every row's id travels with it untouched.
+function moveRow(fromIndex, toIndex) {
+  const [moved] = model.rows.splice(fromIndex, 1);
+  model.rows.splice(toIndex, 0, moved);
+  renderRows();
+}
+
 host.addEventListener("click", (e) => {
   const card = e.target.closest("[data-row-id]");
   if (!card) return;
-  const id = Number(card.dataset.rowId);
-  model.rows = model.rows.filter((r) => r.id !== id); // filtered by id, not spliced by index
+  const id = card.dataset.rowId; // dataset values are always strings — compare as strings, not Number()
+  model.rows = model.rows.filter((r) => String(r.id) !== id); // filtered by id, not spliced by index
   renderRows();
 });
 ```
+`Number(card.dataset.rowId)` would work for the integer counter but silently break the moment `nextId()` switches to `crypto.randomUUID()`: a UUID coerces to `NaN`, `NaN !== r.id` is true for every row, and the filter removes nothing — the delete button does nothing, with no error anywhere. Comparing as strings is correct for both id schemes.
+
 An undo snapshot taken before the delete (`web-tool-design-system.md Card 9: Authoring Work Is Recoverable`) restores rows with these same `id`s intact, so a redo after a delete lands on the identical rows it started from — not on whatever happens to occupy those array slots afterward.
 
 **GOTCHA:** The user deletes row 3 while row 5's number input still has focus. The re-render renumbers every remaining row's `data-index`, the pending `change` event on that still-focused input fires a beat later with `dataset.index === "4"`, and the value the user typed for the old row 5 is silently written into what is now a different row. Nothing throws, the table still looks plausible on screen, and the corruption is only discovered when the exported data is loaded by the consuming system and a value shows up on the wrong entity.
