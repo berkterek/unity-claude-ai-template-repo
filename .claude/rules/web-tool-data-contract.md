@@ -10,6 +10,8 @@
 
 **WHEN:** The tool exports data another system reads.
 
+> **Advisory:** No supporting research bullet — this rule generalizes from reference-tool code (web-level-editor/editor.js), not from an external source.
+
 **WRONG:**
 ```js
 // key names typed by hand on the writing side...
@@ -31,13 +33,15 @@ const SCHEMA = [
 const exportModel = (m) => Object.fromEntries(SCHEMA.map(f => [f.key, m[f.key]]));
 ```
 
-**GOTCHA:** `wallHeigth` (typo) deserializes to C#'s default `0f` for `wallHeight` — no exception, no console warning. The level loads with zero-height walls; a designer only notices when a playtester walks straight off the course edge, and by then the typo has already shipped in every exported level file that copied the field list by hand.
+**GOTCHA:** `wallHeigth` (typo) deserializes to C#'s default `0f` for `wallHeight` — no exception, no console warning. The level loads with zero-height walls; a designer only notices when a playtester walks straight off the course edge, and by then the mistyped field has already shipped in the exported level file.
 
 ---
 
 ### Card 2: Enum Map in One Constant Block
 
 **WHEN:** The web tool writes an integer that the C# side reads back as an enum.
+
+> **Advisory:** No supporting research bullet — this rule generalizes from reference-tool code (web-level-editor/editor.js), not from an external source.
 
 **WRONG:**
 ```js
@@ -104,6 +108,8 @@ switch (dto.version)
 ### Card 4: Units and Scale Are Written Down
 
 **WHEN:** A field is a raw number with no unit implied by its name (a height, a length, a distance).
+
+> **Advisory:** No supporting research bullet — this rule generalizes from reference-tool code (web-level-editor/editor.js), not from an external source.
 
 **WRONG:**
 ```js
