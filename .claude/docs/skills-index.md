@@ -46,6 +46,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `dump` | Save current session notes and decisions to `.claude/logs/` as markdown |
 | `five` | 5 Whys root cause analysis — drill down to true cause of a bug or architectural problem |
 | `mermaid` | Generate a Mermaid architecture diagram for a module, system, or the full project |
+| `web-tooling` | Browser-based authoring/editor tools — routes to the three web-tool rule files, file skeleton, new-tool checklist |
 
 ## Platform (`skills/platform/`)
 
