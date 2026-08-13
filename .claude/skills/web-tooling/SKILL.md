@@ -22,6 +22,10 @@ Does NOT apply to runtime game UI. That is UGUI — see `skills/core/unity-ugui.
 3. `.claude/rules/web-tool-design-system.md` — how it looks and feels. Last, because it
    is the cheapest to change later.
 
+## Applicability note — preview/simulation cards
+
+Three cards assume the tool previews or simulates the data it edits: `web-tool-design-system.md Card 4: The Viewport Is First-Class`, `web-tool-design-system.md Card 5: Every Numeric Field Shows Unit and Real Scale`, and `web-tool-data-contract.md Card 5: Replicated Logic Is Locked by a Parity Fixture`. A pure data-authoring tool — a table or list editor with no visual preview — has nothing for these three to apply to and skips them.
+
 ## File skeleton
 
 ```

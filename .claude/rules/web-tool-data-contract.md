@@ -195,6 +195,59 @@ void Import(LevelDto dto)
 
 ---
 
+### Card 7: The Tool Validates What It Imports
+
+**WHEN:** The web tool itself parses a user-chosen JSON file back into its model (an "Import" / "Load" control, not the C# importer).
+
+> **Advisory:** No supporting research bullet in `docs/superpowers/research/2026-08-13-web-tool-research.md` covers the tool's own import path — this card is a gap identified by inspection of `web-level-editor/editor.js`'s `hydrateFromJson` (line 333) and its call site (the `importFile` change handler, `editor.js:596-606`), not a documented finding from Task 1.
+
+`web-tool-data-contract.md Card 3: Every Export Carries a Version` requires every export to carry a `version` field, and `web-tool-data-contract.md Card 6: Importer Errors on Missing Fields` requires the C# side's importer to error on a missing required field. Nothing holds the *tool's own* import path to that same standard — and in the reference tool it visibly isn't: the `importFile` handler at `editor.js:596-606` does wrap the call in `try { hydrateFromJson(...) } catch (err) { alert(...) }`, so a malformed-JSON parse failure is caught. But `hydrateFromJson` itself (`editor.js:333`) never reads or checks a `version` field, and every value it pulls off the parsed object is defaulted through `num(...)`/`|| {}`/`| 0` fallbacks rather than validated — a field that is missing or the wrong shape does not throw, it just silently becomes `0`, `""`, or an empty array. The tool is held to a *lower* standard than the C# code it exports to: the C# importer (Card 6) is required to abort on a missing field, while the tool's own importer silently absorbs the same gap.
+
+**WRONG:**
+```js
+// editor.js:333 — no version check, and every field silently defaults through num()/|| {} rather than being validated
+function hydrateFromJson(json) {
+  const data = JSON.parse(json);
+  const cfg = data._terrainGenConfig || {};
+  model.levelIndex = data._levelIndex | 0;
+  model.wallHeight = num(cfg._wallHeight);
+  // ...remaining fields follow the same pattern; body truncated here, see editor.js:333-350 for the rest
+  model.spawns = (data._spawnData || []).map((sp) => ({ /* ... */ }));
+  renderAll();
+}
+```
+
+**RIGHT:**
+```js
+const KNOWN_VERSION = 3;
+const REQUIRED_FIELDS = ["_spawnData", "_terrainGenConfig"];
+
+function hydrateFromJson(json) {
+  let data;
+  try {
+    data = JSON.parse(json);
+  } catch (err) {
+    throw new Error("Not valid JSON: " + err.message); // caller's catch turns this into a visible alert
+  }
+
+  if (data.version !== KNOWN_VERSION) {
+    throw new Error(`Unknown schema version ${data.version} — expected ${KNOWN_VERSION}. Import aborted.`);
+  }
+
+  for (const field of REQUIRED_FIELDS) {
+    if (data[field] == null) {
+      throw new Error(`Missing required field "${field}" — import aborted.`);
+    }
+  }
+
+  // ...proceed to hydrate the model only once version and required fields are confirmed present
+}
+```
+
+**GOTCHA:** A hand-edited or partially-exported JSON file is missing `_spawnData` entirely. The WRONG version's `(data._spawnData || []).map(...)` swallows this without complaint — the model hydrates with zero spawns, `renderAll()` runs, and the screen shows a perfectly normal-looking course with an empty spawn list. A half-hydrated model that *looks* complete is worse than a refused import: the designer has no on-screen signal that anything went wrong, keeps editing on top of a silently incomplete model, and only discovers the missing spawns after re-exporting and having the level fail review — or not at all, if nobody checks.
+
+---
+
 ## Why the Contract Is the First Rule
 
 The web tool and the Unity importer are two independent programs that never share a compiler — nothing stops a field rename, an enum reorder, or a unit change on one side from silently going unnoticed on the other until a level fails to load correctly at runtime. Treating the exported JSON shape as a first-class, explicitly-versioned, explicitly-typed contract — rather than "whatever object literal the exporter happens to produce today" — is the only thing standing between a schema drift and a level that loads wrong with no error anywhere in the pipeline.
@@ -217,5 +270,6 @@ When two independent implementations (a JS preview, a C# runtime generator) must
 | A bare number field with no comment stating its unit (fraction, meters, degrees) | State the unit in a comment at the point of definition, and in the field's schema entry (Card 4) |
 | Two implementations of the same math tested only in isolation from each other | A shared parity fixture asserted against by both test suites (Card 5) |
 | Importer defaults a missing/null field to zero and proceeds | Guard-check required fields; `Debug.LogError` + abort on any missing field (Card 6) |
+| The tool's own JSON import silently defaults missing/malformed fields instead of validating them | Check `version` and required fields before hydrating; throw and refuse rather than half-hydrate (Card 7) |
 | Defining an explicit support window that rejects old schema versions outright | Never delete old migration entries — the registry only grows (Versioning Strategy) |
 | Regenerating the parity fixture to make a failing test pass | Regenerate only when both implementations are intentionally changed together, with new values reviewed (Parity Fixture Pattern) |

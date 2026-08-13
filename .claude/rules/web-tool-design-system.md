@@ -260,6 +260,91 @@ button:focus-visible {
 
 ---
 
+### Card 9: Authoring Work Is Recoverable
+
+**WHEN:** Any mutation to the model that a user might reasonably want to reverse — a delete, a wholesale replace, a batch operation like "roll layout."
+
+> **Advisory:** No supporting research bullet in `docs/superpowers/research/2026-08-13-web-tool-research.md` covers undo/redo — this card is a gap identified by inspection of the reference tool (it has no history mechanism anywhere in `editor.js`) plus general editor-design practice, not a documented finding from Task 1. This card exists because Card 6's title was corrected from "Destructive Actions Confirm; Actions Are Undoable" to "Destructive Actions Confirm" — dropping the undo claim precisely because nothing backed it. An undo stack is the PRIMARY recovery mechanism; `confirm()` (Card 6) is the fallback for the narrow set of actions an undo stack cannot reach (e.g. a destructive action that also triggers an irreversible external side effect).
+
+**WRONG:**
+```js
+// web-level-editor/editor.js:581 — "Roll Layout" mutates the model in place with zero history
+$("rollLayout").addEventListener("click", () => { rollLayout(model); renderCourse(); renderTopFields(); redraw(); });
+```
+
+**RIGHT:**
+```js
+// Bounded history stack — a snapshot pushed before every mutation, popped on Ctrl+Z
+const MAX_HISTORY = 50; // unbounded growth leaks memory for the life of the tab; 50 covers realistic backtracking depth
+const history = [];
+
+function mutate(fn) {
+  history.push(structuredClone(model)); // deep snapshot — model per web-tool-architecture.md Card 2: One Model, One Source of Truth
+  if (history.length > MAX_HISTORY) history.shift();
+  fn(model);
+  renderAll(); // idempotent per web-tool-architecture.md Card 6: Render Is Idempotent — safe to call after every mutation
+}
+
+function undo() {
+  if (history.length === 0) return;
+  model = history.pop();
+  renderAll();
+}
+
+$("rollLayout").addEventListener("click", () => mutate((m) => rollLayout(m)));
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); undo(); }
+});
+```
+
+**GOTCHA:** A designer spends an hour placing spawns by hand, then fat-fingers "Roll Layout" while reaching for an adjacent button — `rollLayout(model)` at `editor.js:581` overwrites the entire course layout in a single synchronous call, with nothing between the click and the overwrite. There is no confirmation on this button and, until this card, no undo anywhere in the tool — the hour of placed spawns is gone, unrecoverable except by re-entering every value from memory or a stale export.
+
+---
+
+### Card 10: In-Progress Work Survives a Reload
+
+**WHEN:** The model changes, in any tool that opens via `file://` with no server backing it.
+
+> **Advisory:** No supporting research bullet in `docs/superpowers/research/2026-08-13-web-tool-research.md` covers autosave/draft persistence — this card is a gap identified by inspection (the reference tool has no `localStorage` usage anywhere in `editor.js`) plus general practice for offline-first authoring tools, not a documented finding from Task 1.
+
+A `file://` tool has no server to persist to — a browser crash, an accidental tab close, or a refresh discards the entire in-memory model with no prompt, because there is nothing running to intercept the unload. `web-tool-design-system.md Card 8: State Must Be Visible` tells you to SHOW that the model has unsaved edits; this card tells you not to NEED that indicator to matter — the edits survive the reload that would otherwise lose them. Card 8 is about telling the user; Card 10 is about the user never having to find out the hard way.
+
+**WRONG:**
+```js
+// Model lives only in memory. Refresh, crash, or accidental tab close discards it with no trace.
+let model = { wallHeight: 0.30, spawns: [] };
+```
+
+**RIGHT:**
+```js
+// Debounced draft write, namespaced per tool, restored on load — never overwrites an explicitly opened file.
+const DRAFT_KEY = "web-level-editor:draft:v1"; // namespaced: tool name + purpose + schema version
+let saveTimer = null;
+
+function scheduleAutosave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: Date.now(), model }));
+  }, 400); // debounced — not on every keystroke
+}
+
+function restoreDraftOnLoad(openedFromFile) {
+  if (openedFromFile) return; // precedence rule: a file the user just opened always wins, never silently replaced
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (!raw) return;
+  const { savedAt, model: draft } = JSON.parse(raw);
+  if (!confirm(`Recovered a draft from ${new Date(savedAt).toLocaleString()}. Restore it?`)) return;
+  model = draft;
+  renderAll();
+}
+```
+
+The one hazard this pattern must not create: a restored draft must never silently replace a file the user deliberately just opened via the tool's own import control. The precedence rule is fixed — an explicit file open always wins over a stored draft; the draft is offered only when the session starts with no file opened at all, and only with an explicit, visible confirmation naming when it was saved.
+
+**GOTCHA:** A designer places twenty spawn points, gets pulled into a meeting, and the laptop sleeps and Chrome reclaims the tab. On return, the tab reloads to a blank model — every spawn is gone, with no draft to recover, because the tool never wrote anything outside its own in-memory `model` variable. The only trace of the hour of work is whatever was exported before the tab died, if anything was.
+
+---
+
 ## Token Layers
 
 Tokens separate into two layers, primitive first: raw values (`--accent: #5b9dff`, `--space-4: 16px`) carry no meaning about where they're used; semantic tokens (`color.danger`, `space.section-gap`) sit on top and reference the primitives by role, so a re-theme changes the primitive once and every semantic consumer follows without a find-and-replace across the CSS. `web-level-editor/styles.css`'s `:root` block (Card 1) is primitive-only — `--accent`, `--danger`, `--warn` name colors, not roles — which is adequate for a single-tool stylesheet with no re-theming requirement; a tool shared across multiple projects with different brand colors is the point at which adding a semantic layer on top becomes worth the indirection.
@@ -289,3 +374,5 @@ None of these three keyboard contracts are implemented anywhere in `web-level-ed
 | `<div onclick=...>` standing in for a real interactive element | Use the real semantic element (`<button>`, etc.) — it is focusable and keyboard-operable for free (Card 7) |
 | `outline: none` with no replacement focus style | Replace with a `:focus-visible` style at ≥ 3:1 contrast — never remove outright (Card 7) |
 | No indication that the model has unsaved edits, a field is invalid, or a list is empty | Show all three states explicitly in the UI (Card 8) |
+| Relying on `confirm()` alone, with no way to reverse a mutation once it's confirmed | A bounded undo stack as the primary recovery path; confirmation is only the fallback (Card 9) |
+| Model lives only in memory in a `file://` tool — a refresh or crash discards it | Debounced draft write to `localStorage`, restored on load with explicit confirmation (Card 10) |
