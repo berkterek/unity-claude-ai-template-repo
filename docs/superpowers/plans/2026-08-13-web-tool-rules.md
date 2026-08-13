@@ -992,21 +992,21 @@ git commit -m "rules(web-tool): resolve Card 6 / Card 9 delete-confirm vs undo o
 
 **Why this is a wording pass and not its own rule change.** The tension is real: a segmented control is a custom listbox-shaped widget with no native HTML equivalent, so recommending it triggers the Accessibility Floor obligation, which closes with *"The contracts above apply the moment a tool builds a **custom** version of any of these three widgets instead of using the native element."* `<select>` inherits that contract for free. But Card 3's own Advisory at line 80 **already** flags this exact row as one of five *"conventional UI judgment calls with no supporting research bullet"*, so the row is already non-binding — which is why this is folded in here rather than given its own task and its own review gate.
 
-- [ ] **Step 1: Rewrite the segmented-control row to state its cost inline**
+- [x] **Step 1: Rewrite the segmented-control row to state its cost inline**
 
 The row must no longer read as a bare recommendation. It must carry the price: a segmented control is a custom listbox and therefore owes the full Accessibility Floor keyboard contract — arrow-key roving focus, `role="listbox"`/`role="option"`, `aria-selected`, and a single tab stop for the group. `<select>` is the default and satisfies the contract with no work. Choose the segmented control only when the options must be visible simultaneously (a mode switch the author toggles constantly), and then implement the contract.
 
-- [ ] **Step 2: Sweep the remaining rows for the same failure mode**
+- [x] **Step 2: Sweep the remaining rows for the same failure mode**
 
 Read every row of the table and check each against the same question: does the recommended control require custom keyboard work that the card does not mention? The `Bounded numeric → Range slider paired with a numeric readout` row is the other candidate — a native `<input type="range">` is fine, a custom-drawn slider is not, and the Accessibility Floor names slider as one of its three widgets. State that distinction in the row rather than leaving it to the reader.
 
-- [ ] **Step 3: Update Card 3's Advisory to keep provenance honest**
+- [x] **Step 3: Update Card 3's Advisory to keep provenance honest**
 
 The Advisory at line ~80 currently names five judgment calls with no supporting research bullet. After Steps 1–2 the accessibility consequence **is** grounded — it derives from the Accessibility Floor, which cites WAI-ARIA APG. The Advisory must be reworded to keep the two apart: the *mapping* from data type to control remains an unsourced convention; the *keyboard contract owed by a custom widget* is sourced and is not advisory. Do not delete the Advisory — the mapping is still unsourced.
 
 **Quote integrity check:** if the reworded Advisory quotes the Accessibility Floor's closing sentence, quote it in full — *"The contracts above apply the moment a tool builds a **custom** version of any of these three widgets instead of using the native element."* — or paraphrase without quotation marks. A truncated quote presented as complete has already drawn two Critical findings on this project.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 ```bash
@@ -1027,7 +1027,7 @@ rg -A2 '^### Card 3: Control Type Derives from Data Type' .claude/rules/web-tool
 ```
 Expected: `ADVISORY_RETAINED`
 
-- [ ] **Step 5: Stage and commit**
+- [x] **Step 5: Stage and commit**
 
 ```bash
 cd /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo

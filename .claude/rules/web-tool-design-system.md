@@ -77,7 +77,7 @@
 
 **WHEN:** Choosing which HTML control to bind to a model field.
 
-> **Advisory:** Only the first decision-table row (bounded numeric → slider paired with a numeric readout) is backed by a research bullet, sourced from the reference tool's own `#exag` slider treatment. The remaining five rows (unbounded numeric → unit suffix, enum ≤4 → segmented, enum >4 → select, boolean → toggle, free text → text input) are conventional UI judgment calls with no supporting research bullet. The enforceable part of this card is that control type is derived from data type, not chosen ad hoc — not the specific control assigned to each of the five unsourced rows.
+> **Advisory:** Two separate claims live in this card, with two separate provenances — do not conflate them. The **mapping** from data type to a specific control (bounded numeric → slider, unbounded numeric → unit suffix, enum ≤4 → segmented, enum >4 → select, boolean → toggle, free text → text input) is a conventional UI judgment call with no supporting research bullet, except the first row, which is backed by the reference tool's own `#exag` slider treatment. The enforceable part of the mapping is that control type is derived from data type, not chosen ad hoc — not the specific control assigned to each unsourced row. Separately, the **keyboard contract a custom widget owes once chosen** is not advisory — it derives from the Accessibility Floor below, which cites the WAI-ARIA Authoring Practices 1.2. Paraphrased, not quoted verbatim here: the Accessibility Floor states those contracts apply the moment a tool builds a custom version of a slider, dialog, or listbox instead of using the native element — see that section for the exact wording.
 
 **WRONG:**
 ```html
@@ -89,9 +89,9 @@
 
 | Data | Control |
 |---|---|
-| Bounded numeric (min and max known) | Range slider **paired with** a numeric readout |
+| Bounded numeric (min and max known) | Native `<input type="range">` **paired with** a numeric readout — a custom-drawn slider owes the Accessibility Floor's slider keyboard contract (Right/Up increase, Left/Down decrease, Home/End to min/max); the native element gets it for free |
 | Unbounded numeric | Number input with unit suffix |
-| Enum, ≤ 4 options | Segmented control |
+| Enum, ≤ 4 options | Segmented control **only if** the options must all be visible at once (a mode switch the author toggles constantly) — it is a **custom listbox** and owes the Accessibility Floor's full listbox contract itself (arrow-key roving focus, `role="listbox"`/`role="option"`, `aria-selected`, one tab stop for the group). `<select>` is the default: it satisfies the same contract with no work, so use it unless the always-visible requirement is real |
 | Enum, > 4 options | Select |
 | Boolean | Toggle |
 | Free text | Text input |
