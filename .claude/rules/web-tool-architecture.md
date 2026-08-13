@@ -61,6 +61,8 @@ $("wallHeight").addEventListener("input", (e) => {
 
 **WHEN:** Any calculation — model transforms, section-derivation math, serialization — runs inside the tool.
 
+> **Advisory:** No supporting research bullet on this exact rule — it generalizes from reference-tool code, specifically the contrast between `web-level-editor/preview-core.js` (138 lines, DOM-free, tested) and `editor.js` (619 lines, everything interleaved). The enforceable residue is the split itself — pure calculation in one file, DOM in another — not any external authority for "pure core" as a named pattern.
+
 **WRONG:**
 This claim is about the shape and size of a real file, not a code construct, so it is
 stated in prose rather than a fabricated code fence:
@@ -125,6 +127,8 @@ split — the cost of ignoring the smoke alarm compounds, it doesn't stay flat.
 ### Card 5: Event Delegation, Not Per-Row Listeners
 
 **WHEN:** Rendering a dynamic list of rows/cards (course segments, spawn points) where each row has its own inputs and buttons.
+
+> Research: event delegation (one listener on a stable parent container) should be preferred over binding a listener to every dynamically-created row — dev.to/mackmoneymaker, https://dev.to/mackmoneymaker/how-to-build-a-zero-dependency-web-tool-with-vanilla-javascript-69a (secondary), independently spot-checked against javascript.plainenglish.io, https://javascript.plainenglish.io/mastering-event-delegation-for-large-scale-javascript-applications-fd2b52c06afd (secondary).
 
 **WRONG:**
 ```js
@@ -195,6 +199,8 @@ function renderSpawns() {
 
 **WHEN:** The pure core module (Card 3) has any logic worth trusting — derivation math, serialization, partitioning.
 
+> **Advisory:** No supporting research bullet on this exact rule — it generalizes from reference-tool code, specifically `preview-core.js` + `preview-core.test.js` (a real pure-core module that is actually tested, run via `node --test`, zero framework). The enforceable residue is "untested pure-core logic has no technical excuse once Card 3 is applied" — not any external authority for testing-without-a-runner as a named practice.
+
 **WRONG:**
 ```js
 // tool-core.js has real math, but the only place it's exercised is by opening the browser
@@ -203,23 +209,28 @@ function renderSpawns() {
 
 **RIGHT:**
 ```js
-/* run: node tool-core.test.js — exits non-zero on failure, no runner, no install.
+/* run: node --test tool-core.test.js — exits non-zero on any failing assertion,
+ * no runner install, ships with the Node >= 18 runtime.
  * CommonJS (require/module.exports), not ESM `import` — plain .js with top-level
  * `import` fails on Node without `.mjs` or `"type": "module"`. CommonJS runs
  * unmodified on any Node >= 18 with zero package.json, matching preview-core.js. */
+const test = require("node:test");
+const assert = require("node:assert");
 const { deriveSections } = require("./tool-core.js");
-let failures = 0;
-const eq = (label, got, want) => {
-  const ok = JSON.stringify(got) === JSON.stringify(want);
-  if (!ok) { failures++; console.error(`FAIL ${label}\n  got  ${JSON.stringify(got)}\n  want ${JSON.stringify(want)}`); }
-};
-eq("empty input yields empty output", deriveSections([]), []);
-process.exit(failures ? 1 : 0);
+
+test("empty input yields empty output", () => {
+  assert.deepStrictEqual(deriveSections([]), []);
+});
 ```
-Modeled on `web-level-editor/preview-core.test.js`, which asserts `preview-core.js`'s
-output against a frozen fixture with `node --test`, no `npm install`, no framework —
-see `web-tool-data-contract.md Card 5: Replicated Logic Is Locked by a Parity Fixture`
-for the fixture pattern this test file also implements.
+Modeled directly on `web-level-editor/preview-core.test.js`, which asserts
+`preview-core.js`'s output against a frozen fixture using `node:test`/`node:assert`,
+invoked with `node --test`, no `npm install`, no framework — see
+`web-tool-data-contract.md Card 5: Replicated Logic Is Locked by a Parity Fixture`
+for the fixture pattern this test file also implements. `node --test` is preferred
+over a hand-rolled `process.exit(failures?1:0)` runner: it is the exact invocation the
+reference tool uses, and a hand-rolled runner can report success (exit 0) even when an
+assertion inside it silently fails to execute — `node --test` cannot pass unless every
+registered test actually ran and asserted true.
 
 **GOTCHA:** Because Card 3 already separates the core from the DOM, the core has no
 technical excuse left for being untested — "it needs a browser" stopped being true the
@@ -240,7 +251,7 @@ The boundary is the one Card 3 draws: `<tool>-core.js` holds every transform, de
 
 ## Testing Without a Runner
 
-There is no framework, no `npm test`, no CI runner assumed for these tools — the test file is a plain script that imports the core, runs assertions with hand-rolled `if`/`console.error` checks (or Node's built-in `node:test`/`node:assert`, which ships with the runtime and needs no install), and exits non-zero on any failure. `node <tool>-core.test.js` (or `node --test <tool>-core.test.js`) is the entire contract — anyone who can run `node` can verify the core still behaves, without ever installing a test framework the tool doesn't otherwise depend on.
+There is no framework, no `npm test`, no CI runner assumed for these tools — the test file imports the core and asserts against it using Node's built-in `node:test`/`node:assert`, which ships with the runtime and needs no install. `node --test <tool>-core.test.js` is the entire contract — anyone who can run `node` can verify the core still behaves, without ever installing a test framework the tool doesn't otherwise depend on. Prefer `node --test` over a hand-rolled `if`/`console.error`/`process.exit` runner: it matches the reference tool's actual invocation, and a hand-rolled runner can silently report success when an assertion inside it never actually executes.
 
 ## Common Mistakes
 

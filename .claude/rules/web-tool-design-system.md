@@ -110,7 +110,7 @@
 
 **WHEN:** Laying out a tool that previews the thing it edits (a 3D scene, a level, a composited image).
 
-> Research: "A creative/editing tool's viewport should occupy the majority of the window, with auxiliary panels (properties, outliner/hierarchy, tool options) docked to the sides rather than competing for center space" — Blender Manual, https://docs.blender.org/manual/en/2.79/interface/window_system/introduction.html
+> Research: the Blender Manual's window-system introduction describes a creative/editing tool's viewport as occupying the majority of the window, with auxiliary panels (properties, outliner/hierarchy, tool options) docked to the sides rather than competing for center space — paraphrased; the page returned a 403 on re-fetch and the exact wording could not be re-verified verbatim. Blender Manual, https://docs.blender.org/manual/en/2.79/interface/window_system/introduction.html
 
 **WRONG:**
 ```html
@@ -136,7 +136,7 @@
 <main class="layout"> <!-- form columns start below, never compete with the preview for width; body deliberately truncated here -->
 ```
 ```css
-/* web-level-editor/styles.css:220-233 */
+/* web-level-editor/styles.css:222-224 — excerpt; the rule's background, border and shadow declarations (styles.css:225-232) are omitted */
 canvas { width: 100%; height: 400px; }
 ```
 
@@ -169,7 +169,7 @@ canvas { width: 100%; height: 400px; }
 
 ---
 
-### Card 6: Destructive Actions Confirm; Actions Are Undoable
+### Card 6: Destructive Actions Confirm
 
 **WHEN:** An action deletes data, replaces existing data wholesale, or cannot be trivially redone by re-entering the same input.
 
@@ -202,7 +202,7 @@ deleteBtn.addEventListener("click", () => {
 
 **WHEN:** Any interactive element — button, toggle, list item — is added to the tool.
 
-> Research: "Keyboard focus must remain visible at all times; removing the default outline without supplying a replacement indicator is an accessibility failure (WCAG 2.4.7 Focus Visible, Level A)" and "Where a custom focus style is needed, use `:focus-visible`... rather than removing it outright" — MDN, https://developer.mozilla.org/en-US/docs/Web/CSS/:focus-visible. Contrast floor: "A visible focus indicator must have at least 3:1 contrast against its adjacent background when focused (WCAG 2.1 SC 1.4.11 Non-text Contrast)" — W3C WAI, https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html.
+> Research: MDN notes that removing focus styles makes keyboard navigation inaccessible for sighted users, and recommends `:focus-visible` over removing the outline (https://developer.mozilla.org/en-US/docs/Web/CSS/:focus-visible). WCAG 2.1 SC 2.4.7 Focus Visible (Level AA) and SC 1.4.11 Non-text Contrast (Level AA, ≥3:1) are the conformance floor.
 
 **WRONG:**
 ```html

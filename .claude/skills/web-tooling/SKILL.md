@@ -30,7 +30,7 @@ tools/<tool-name>/
 ├── styles.css            ← :root token block first (design-system Card 1 + Card 2)
 ├── <tool>-core.js        ← pure: model, derivation, serialization. Zero DOM.
 ├── <tool>.js             ← shell: element queries, event delegation, render
-├── <tool>-core.test.js   ← plain assertions, `node <tool>-core.test.js`, no runner
+├── <tool>-core.test.js   ← node:test/node:assert, `node --test <tool>-core.test.js`, no install
 ├── <tool>-fixture.json   ← parity fixture, if the tool replicates target-system logic
 └── README.md             ← what it exports, where the consuming importer lives
 ```
@@ -52,7 +52,7 @@ tools/<tool-name>/
 ## Confirm before shipping
 
 - Opens from `file://` with no build step — architecture Card 1: Zero Build, Runs from file://.
-- `node <tool>-core.test.js` exits 0.
+- `node --test <tool>-core.test.js` exits 0.
 - No raw hex outside `:root`; no off-scale spacing values.
 - Every interactive element is reachable and visibly focusable by keyboard —
   design-system Card 7: Keyboard Access and Visible Focus.

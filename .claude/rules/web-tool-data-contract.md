@@ -67,6 +67,8 @@ const BLOCKER_OPTS = [["None", 0], ["Rock", 1], ["Sign", 2], ["Barrier", 3]];
 
 **WHEN:** Defining the export format for any authoring tool.
 
+> Research: "The foundational pattern for JSON document migration is embedding a `schemaVersion` integer in every document at creation time" — jsonic.io, https://jsonic.io/guides/json-migrations (secondary, spot-checked character-exact against the cited page).
+
 **WRONG:**
 ```js
 function buildExport(m) {
@@ -163,6 +165,8 @@ test("typed heightmap samples match the frozen contract (full surface, no noise)
 ### Card 6: Importer Errors on Missing Fields
 
 **WHEN:** The C# importer deserializes a JSON export.
+
+> **Advisory:** No supporting research bullet on this exact rule — it generalizes from the failure mode `JsonUtility` produces on the C# side of the reference tool's contract (missing/null fields silently deserialize to defaults), not from an external source. The enforceable residue is "guard required fields and abort" — not any particular error-reporting mechanism.
 
 **WRONG:**
 ```csharp
