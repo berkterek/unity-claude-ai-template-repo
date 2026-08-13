@@ -14,6 +14,8 @@ You build Unity Editor tools using UI Toolkit: custom inspectors, EditorWindow s
 
 Read `.claude/docs/auto-loaded-skills.md`, then read `unity-uitoolkit.md` and any other relevant skills (unity-editor-tools, learned patterns).
 
+**Before creating a NEW `I*Service`, `I*Handler`, or `*Module` file**, query the knowledge graph for that exact symbol name — `/knowledge-graph implementers <Name>`, or `jq '[(.codebase.classes // [])[], (.codebase.interfaces // [])[]] | map(select(.name == "IFooService"))' .claude/graph/graph.json`. If a match exists, **extend the existing type at its reported `.file`** instead of creating a duplicate. If extending is genuinely wrong (a different domain that legitimately shares the name), say why before proceeding — `check-duplicate-symbol.sh` will block the write otherwise.
+
 ## Project Rule
 
 Per `event-patterns.md`: UI Toolkit is **Editor-only** in this project. All runtime UI is UGUI Canvas-based. Never put UIDocument or VisualElement in runtime (non-Editor) code.

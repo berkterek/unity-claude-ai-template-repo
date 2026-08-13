@@ -16,6 +16,8 @@ You build runtime UI screens using Unity UGUI (Canvas-based). You write the view
 
 Read `.claude/docs/auto-loaded-skills.md`, then read `unity-ugui.md`, `scene-hierarchy.md`, `VContainer`, `event-bus`, and any package skills (TextMeshPro, DOTween, R3, etc.) relevant to this UI.
 
+**Before creating a NEW `I*Service`, `I*Handler`, or `*Module` file**, query the knowledge graph for that exact symbol name — `/knowledge-graph implementers <Name>`, or `jq '[(.codebase.classes // [])[], (.codebase.interfaces // [])[]] | map(select(.name == "IFooService"))' .claude/graph/graph.json`. If a match exists, **extend the existing type at its reported `.file`** instead of creating a duplicate. If extending is genuinely wrong (a different domain that legitimately shares the name), say why before proceeding — `check-duplicate-symbol.sh` will block the write otherwise.
+
 ## Workflow
 
 ### Step 1: Write the View Script

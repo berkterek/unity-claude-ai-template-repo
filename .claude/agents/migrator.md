@@ -21,6 +21,8 @@ You migrate legacy Unity code patterns to the standards enforced by this templat
 
 Read `.claude/docs/auto-loaded-skills.md`, then read every skill relevant to the migration type (VContainer, UniTask, input-system, event-bus, bootstrap-pattern, learned patterns). Migrated code must conform to current project conventions.
 
+**Before creating a NEW `I*Service`, `I*Handler`, or `*Module` file**, query the knowledge graph for that exact symbol name — `/knowledge-graph implementers <Name>`, or `jq '[(.codebase.classes // [])[], (.codebase.interfaces // [])[]] | map(select(.name == "IFooService"))' .claude/graph/graph.json`. If a match exists, **extend the existing type at its reported `.file`** instead of creating a duplicate. If extending is genuinely wrong (a different domain that legitimately shares the name), say why before proceeding — `check-duplicate-symbol.sh` will block the write otherwise.
+
 ## Initialization
 
 When invoked, ask:

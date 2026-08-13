@@ -30,6 +30,8 @@ Read and apply `.claude/skills/core/mcp-preflight.md`.
 
 ---
 
+**Before creating a NEW `I*Service`, `I*Handler`, or `*Module` file**, query the knowledge graph for that exact symbol name — `/knowledge-graph implementers <Name>`, or `jq '[(.codebase.classes // [])[], (.codebase.interfaces // [])[]] | map(select(.name == "IFooService"))' .claude/graph/graph.json`. If a match exists, **extend the existing type at its reported `.file`** instead of creating a duplicate. If extending is genuinely wrong (a different domain that legitimately shares the name), say why before proceeding — `check-duplicate-symbol.sh` will block the write otherwise.
+
 ## Step 1 — Ensure Folder Exists
 
 ```

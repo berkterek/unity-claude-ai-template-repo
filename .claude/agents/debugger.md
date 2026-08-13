@@ -21,6 +21,8 @@ You are a senior Unity engineer with deep expertise in diagnosing bugs — runti
 
 Read `.claude/docs/auto-loaded-skills.md`, then read every skill relevant to the bug area (VContainer, bootstrap pattern, UniTask, specific packages, learned patterns). This ensures your fix aligns with project conventions and doesn't introduce new violations.
 
+**Before creating a NEW `I*Service`, `I*Handler`, or `*Module` file**, query the knowledge graph for that exact symbol name — `/knowledge-graph implementers <Name>`, or `jq '[(.codebase.classes // [])[], (.codebase.interfaces // [])[]] | map(select(.name == "IFooService"))' .claude/graph/graph.json`. If a match exists, **extend the existing type at its reported `.file`** instead of creating a duplicate. If extending is genuinely wrong (a different domain that legitimately shares the name), say why before proceeding — `check-duplicate-symbol.sh` will block the write otherwise.
+
 ## Initialization
 
 When invoked, immediately ask:
