@@ -241,6 +241,56 @@ that used to be smooth and now has a visible seam.
 
 ---
 
+### Card 8: Every List Row Has a Stable Identity
+
+**WHEN:** Rendering, deleting, or reordering rows in an editable collection (course segments, spawn points, any list a user adds to and removes from).
+
+> **Advisory:** No research bullet in `docs/superpowers/research/2026-08-13-web-tool-research.md` covers list-item identity in any of its three sections. This card is grounded in working code and in a live-test gap (an agent given only these rule files still produced an index-based delete), not in a cited source. The enforceable residue is narrow: an array index must never be the only handle on a row that survives a re-render.
+
+**WRONG:**
+```js
+// Delete handler resolves the row by its current array index...
+deleteBtn.addEventListener("click", (e) => {
+  const card = e.target.closest("[data-index]");
+  model.rows.splice(Number(card.dataset.index), 1);
+  renderRows(); // ...which re-derives every remaining card's data-index from its NEW array position
+});
+```
+
+**RIGHT:**
+```js
+// Rows carry a stable id, assigned once at creation and never reused or reassigned.
+let _nextId = 1;
+const nextId = () => _nextId++; // or crypto.randomUUID() if collision-proof ids matter more than readability
+
+function addRow(fields) {
+  model.rows.push({ id: nextId(), ...fields });
+  renderRows();
+}
+
+function renderRows() {
+  host.innerHTML = "";
+  model.rows.forEach((row) => {
+    const card = document.createElement("div");
+    card.dataset.rowId = row.id; // DOM carries the id only to map an event back to a row
+    host.appendChild(card);
+  });
+}
+
+host.addEventListener("click", (e) => {
+  const card = e.target.closest("[data-row-id]");
+  if (!card) return;
+  const id = Number(card.dataset.rowId);
+  model.rows = model.rows.filter((r) => r.id !== id); // filtered by id, not spliced by index
+  renderRows();
+});
+```
+An undo snapshot taken before the delete (`web-tool-design-system.md Card 9: Authoring Work Is Recoverable`) restores rows with these same `id`s intact, so a redo after a delete lands on the identical rows it started from — not on whatever happens to occupy those array slots afterward.
+
+**GOTCHA:** The user deletes row 3 while row 5's number input still has focus. The re-render renumbers every remaining row's `data-index`, the pending `change` event on that still-focused input fires a beat later with `dataset.index === "4"`, and the value the user typed for the old row 5 is silently written into what is now a different row. Nothing throws, the table still looks plausible on screen, and the corruption is only discovered when the exported data is loaded by the consuming system and a value shows up on the wrong entity.
+
+---
+
 ## Why Zero Build
 
 The tool outlives the project — it gets opened again eighteen months from now by someone who does not have the original `node_modules` — and a build pipeline is the part that rots first: dependency versions drift, the bundler config stops resolving, and the tool that "just needs `npm run build`" becomes the tool nobody can open. Two `<script>` tags and a `file://` URL have no toolchain to rot.
@@ -264,3 +314,4 @@ There is no framework, no `npm test`, no CI runner assumed for these tools — t
 | Binding a fresh listener to every row on every re-render | One delegated listener on the stable parent container (Card 5) |
 | Appending newly rendered rows without clearing the previous render first | Clear the container, then rebuild in full, every time (Card 6) |
 | Leaving the pure core untested because "the tool needs a browser to test" | The core has no DOM dependency after Card 3 — test it with plain `node` (Card 7) |
+| Identifying a list row by its array index or its DOM position instead of a stable key | Give every row an `id` at creation time; delete/reorder by `id`, never by index (Card 8) |

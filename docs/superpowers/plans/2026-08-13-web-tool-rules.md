@@ -711,7 +711,7 @@ git add docs/superpowers/reports/2026-08-13-web-level-editor-violations.md
 - **No renumbering, no retitling, no editing of Cards 1–7.** Every existing `architecture Card N` reference in the repo — `.claude/skills/web-tooling/SKILL.md` (Cards 1, 3, 6, 7), `web-tool-data-contract.md`, `web-tool-design-system.md`, wherever any of them name an architecture card by number — continues to resolve to the same title it always did and needs no edit. Verified: only six live `architecture Card N` references exist repo-wide (`web-tool-design-system.md` lines 13, 282, 285; `SKILL.md` lines 49, 50, 58), resolving to Cards 1, 2, 3 and 6 — all untouched by an append.
 - **Rows that do change:** `.claude/CLAUDE.md` line ~134 and `README.md` line ~214 — the per-file description rows enumerating architecture's topics — each gain the new topic. They must stay byte-identical to each other, as they are today.
 
-- [ ] **Step 1: Snapshot existing architecture card references as a baseline**
+- [x] **Step 1: Snapshot existing architecture card references as a baseline**
 
 Run:
 ```bash
@@ -720,7 +720,7 @@ rg -n 'architecture(\.md)? Card ([0-9]+)' .claude/rules .claude/skills .claude/C
 ```
 Expected: a non-empty list, every match resolving to Cards 1–7 (Card 8 does not exist yet). Record the output — Step 4 re-runs the identical command and expects every line outside `.claude/CLAUDE.md`/`README.md` to be byte-for-byte unchanged, since appending Card 8 must not alter a single existing reference. The query is scoped to `.claude/rules .claude/skills .claude/CLAUDE.md README.md` rather than the whole repo — at repo root the widened `architecture(\.md)? Card N` pattern also matches unrelated Unity `architecture.md Card 2.1` hits under `.claude/hooks/` and `docs/PLAN_monobehaviour_hook_structural_detection.md`, which belong to a different rule file entirely and must not be swept into this task.
 
-- [ ] **Step 2: Write the new card as `### Card 8: Every List Row Has a Stable Identity`**
+- [x] **Step 2: Write the new card as `### Card 8: Every List Row Has a Stable Identity`**
 
 Append it directly after Card 7. It must carry all four parts.
 
@@ -734,7 +734,7 @@ Append it directly after Card 7. It must carry all four parts.
 
 **Advisory — required.** No research bullet in `docs/superpowers/research/2026-08-13-web-tool-research.md` covers list-item identity in any of its three sections. The card is grounded in working code and in the F1 live-test gap, not in a cited source, so it opens with `> **Advisory:**` stating exactly that: the stable-key requirement is a judgment call with no external citation; the enforceable residue is that array index must never be the only handle on a row that survives a re-render.
 
-- [ ] **Step 3: Verify the append preserved Cards 1–7 unchanged**
+- [x] **Step 3: Verify the append preserved Cards 1–7 unchanged**
 
 Run:
 ```bash
@@ -743,7 +743,7 @@ rg -n '^### Card ' .claude/rules/web-tool-architecture.md
 ```
 Expected: exactly 8 lines, numbered 1–8 with no gaps and no duplicates, in the order: `Zero Build, Runs from file://`, `One Model, One Source of Truth`, `Pure Core, DOM Shell`, `File Line Limit ~400`, `Event Delegation, Not Per-Row Listeners`, `Render Is Idempotent`, `The Pure Core Has Tests, With No Test Runner`, `Every List Row Has a Stable Identity`. Cards 1–7 keep exactly their original numbers and titles — only `8` is new.
 
-- [ ] **Step 4: Update the two live description rows; guard that nothing else needed a fix**
+- [x] **Step 4: Update the two live description rows; guard that nothing else needed a fix**
 
 Update only `.claude/CLAUDE.md` line ~134 and `README.md` line ~214 — append `stable row identity (never array index)` to the existing topic list in **both**, keeping the two rows byte-identical to each other as they are today.
 
@@ -768,7 +768,7 @@ rg -n 'stable row identity' .claude/CLAUDE.md README.md
 ```
 Expected: exactly 2 lines, one per file.
 
-- [ ] **Step 5: Verify the card is structurally complete and no reference dangles**
+- [x] **Step 5: Verify the card is structurally complete and no reference dangles**
 
 Run:
 ```bash
@@ -791,7 +791,7 @@ rg -q '^> \*\*Advisory:\*\*' .claude/rules/web-tool-architecture.md && rg -A3 '^
 ```
 Expected: `ADVISORY_ON_CARD8`
 
-- [ ] **Step 6: Stage and commit**
+- [x] **Step 6: Stage and commit**
 
 ```bash
 cd /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo
