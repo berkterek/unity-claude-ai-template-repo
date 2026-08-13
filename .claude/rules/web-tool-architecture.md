@@ -46,7 +46,9 @@ function getWallHeight() {
 **RIGHT:**
 ```js
 // model is the single source of truth; the DOM element only ever displays it
-const model = { wallHeight: 0.30 };
+// `let`, not `const`: web-tool-design-system.md Card 9 (undo) and Card 10 (draft
+// restore) both REPLACE the model object wholesale — `const` makes those throw.
+let model = { wallHeight: 0.30 };
 $("wallHeight").addEventListener("input", (e) => {
   model.wallHeight = num(e.target.value); // write model, not just the input's own value
   redraw();
