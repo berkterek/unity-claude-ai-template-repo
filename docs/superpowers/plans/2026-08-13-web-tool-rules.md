@@ -914,7 +914,7 @@ git commit -m "docs(plan): correct web-tool card counts, add v2 errata note"
 
 **The conflict, stated precisely.** Card 6's WHEN is unconditional: *"An action deletes data, replaces existing data wholesale, or cannot be trivially redone by re-entering the same input."* Card 9's WHEN covers *"a delete, a wholesale replace, a batch operation"*, and Card 9's Advisory says: *"An undo stack is the PRIMARY recovery mechanism; `confirm()` (Card 6) is the fallback for the narrow set of actions an undo stack cannot reach (e.g. a destructive action that also triggers an irreversible external side effect)."* Undefined: whether an ordinary in-model row delete — which undo **can** reach — still needs a `confirm()`. Card 6's WHEN was never amended to carve that out, and its WRONG/RIGHT show a plain `confirm()` on a row delete with no mention of undo. A literal reading of Card 6 alone still demands a confirm on every delete, which is why the live-test agent had to guess.
 
-- [ ] **Step 1: Amend Card 6's WHEN with the carve-out**
+- [x] **Step 1: Amend Card 6's WHEN with the carve-out**
 
 The new WHEN must state the decision rule as a test the agent applies, in this shape: an action requires `confirm()` when it is destructive **and** at least one of — it is not covered by the undo stack; it escapes the model (writes a file, calls a network endpoint, clears persisted storage); or it discards more than a single row's worth of work in one gesture. An in-model single-row delete that the undo stack captures does **not** get a `confirm()` — it gets an undo entry and, if the tool has one, a transient "Deleted — Undo" affordance.
 
@@ -922,7 +922,7 @@ Keep Card 6's existing bold `**WRONG:**`/`**RIGHT:**` markers and their fenced e
 
 Card 6's GOTCHA must be extended or replaced so it names an observable failure of over-confirming, not just of under-confirming: an author editing a 40-row table dismisses a modal on every single delete, learns to hit Enter reflexively, and then blows through the one dialog that guarded the irreversible "Clear all and re-import" — the dialog stopped carrying information the moment it fired on everything.
 
-- [ ] **Step 2: State the rule operationally in Card 9, and add its cross-reference to architecture Card 8**
+- [x] **Step 2: State the rule operationally in Card 9, and add its cross-reference to architecture Card 8**
 
 Card 9's Advisory already establishes the precedence. Add, adjacent to it, the same decision rule expressed from the undo side so a reader arriving at Card 9 first reaches the identical conclusion: every model mutation pushes a snapshot; `confirm()` is added **only** when the mutation fails the Card 6 test above. Cross-reference Card 6 by its exact title, `Card 6: Destructive Actions Confirm`.
 
@@ -930,11 +930,11 @@ Re-check the existing Card 9 → Card 6 cross-reference still reads correctly af
 
 Also add, in this step, the one cross-reference this plan gives Card 9 to architecture's new `Card 8: Every List Row Has a Stable Identity` (Task 8) — this replaces the design-system-side edit Task 8 originally proposed and never landed, since Card 9 is the only design-system card that actually needs it. Add the sentence: *"An undo snapshot is only meaningful if it restores the same row identity it captured — see `web-tool-architecture.md Card 8: Every List Row Has a Stable Identity`."* State why row identity is load-bearing here: Card 9's undo stack stores snapshots to replay; if a row is identified by its position in the array rather than a stable key, a delete that shifts every later row's position means an undo snapshot taken before the delete no longer maps onto the same rows after a redo — it restores whatever row now happens to sit at that index, not the row the snapshot actually captured.
 
-- [ ] **Step 3: Advisory treatment**
+- [x] **Step 3: Advisory treatment**
 
 No research bullet in any of the three sections of the research notes bears on confirm-vs-undo precedence. The carve-out is therefore unsourced and must be marked. Card 6 gains a `> **Advisory:**` stating specifically that the *boundary* between confirm-worthy and undo-only actions is a judgment call with no external citation, and that the enforceable residue is: a destructive action is never silent — it is either undoable **or** confirmed, and the tool must be able to say which for every destructive action it offers.
 
-- [ ] **Step 4: Reconcile the Common Mistakes rows**
+- [x] **Step 4: Reconcile the Common Mistakes rows**
 
 Read lines ~373 and ~377 of `web-tool-design-system.md`. One row currently pairs with Card 6 and one with Card 9. Both must now be consistent with the decision rule — in particular, no row may state or imply "every delete confirms". If a row does, restate it as the failure the rule actually prevents.
 
@@ -945,7 +945,7 @@ rg -n -i 'confirm' .claude/rules/web-tool-design-system.md
 ```
 Expected: every hit is either inside Card 6, inside Card 9's precedence text, or a Common Mistakes row that is consistent with the decision rule. Read each hit; a hit that says a delete always confirms is a defect this task must fix.
 
-- [ ] **Step 5: Verify counts and structure are untouched**
+- [x] **Step 5: Verify counts and structure are untouched**
 
 Run:
 ```bash
@@ -968,7 +968,7 @@ rg -n '^### Card (6|9): ' .claude/rules/web-tool-design-system.md
 ```
 Expected: exactly `### Card 6: Destructive Actions Confirm` and `### Card 9: Authoring Work Is Recoverable` — titles unchanged.
 
-- [ ] **Step 6: Stage and commit**
+- [x] **Step 6: Stage and commit**
 
 ```bash
 cd /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo

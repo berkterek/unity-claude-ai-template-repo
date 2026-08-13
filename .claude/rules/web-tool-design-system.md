@@ -171,9 +171,9 @@ canvas { width: 100%; height: 400px; }
 
 ### Card 6: Destructive Actions Confirm
 
-**WHEN:** An action deletes data, replaces existing data wholesale, or cannot be trivially redone by re-entering the same input.
+**WHEN:** An action is destructive **and** at least one of the following also holds: it is not covered by the undo stack (`Card 9: Authoring Work Is Recoverable`); it escapes the model (writes a file, calls a network endpoint, clears persisted storage); or it discards more than a single row's worth of work in one gesture. An in-model single-row delete that the undo stack captures does **not** get a `confirm()` — it gets an undo entry and, if the tool has one, a transient "Deleted — Undo" affordance.
 
-> **Advisory:** No supporting research bullet covers destructive-action confirmation directly — the reference tool has no confirmation dialog anywhere in `index.html`/`styles.css`, so there is nothing to quote. This card is a gap identified by inspection, not a documented finding from Task 1.
+> **Advisory:** No supporting research bullet covers destructive-action confirmation directly — the reference tool has no confirmation dialog anywhere in `index.html`/`styles.css`, so there is nothing to quote. This card is a gap identified by inspection, not a documented finding from Task 1. The *boundary* stated in WHEN — which actions are confirm-worthy versus undo-only — is itself a judgment call with no external citation; the enforceable residue is that a destructive action is never silent: it is either undoable **or** confirmed, and the tool must be able to say which for every destructive action it offers.
 
 **WRONG:**
 ```js
@@ -183,18 +183,32 @@ deleteBtn.addEventListener("click", () => {
   renderSpawns();
 });
 ```
+```js
+// confirm() on an in-model single-row delete the undo stack already covers — over-confirming, not the fix
+deleteBtn.addEventListener("click", () => {
+  if (!confirm(`Delete spawn ${index}? This cannot be undone.`)) return; // wrong claim: it CAN be undone, via Card 9
+  model.spawns.splice(index, 1);
+  renderSpawns();
+});
+```
 
 **RIGHT:**
 ```js
-// Confirms before an irreversible removal; a non-destructive action needs no confirmation
+// Escapes the model / has no undo path — confirm before an irreversible removal
 deleteBtn.addEventListener("click", () => {
   if (!confirm(`Delete spawn ${index}? This cannot be undone.`)) return;
   model.spawns.splice(index, 1);
   renderSpawns();
 });
 ```
+```js
+// In-model single-row delete the undo stack captures — no dialog, push a snapshot instead
+deleteBtn.addEventListener("click", () => {
+  mutate((m) => m.spawns.splice(index, 1)); // mutate() per Card 9: pushes a history snapshot before mutating
+});
+```
 
-**GOTCHA:** A designer double-clicking through a long list of spawn rows to tweak values fat-fingers the adjacent delete icon instead of the edit field — with no confirmation, the row is gone before the mouse button is released, and because the tool has no undo, the only recovery is re-entering every field by hand from memory or from a stale exported file, if one still exists on disk.
+**GOTCHA:** Two failure modes, not one. Under-confirming: a designer double-clicking through a long list of spawn rows to tweak values fat-fingers the adjacent delete icon instead of the edit field — with no confirmation and no undo, the row is gone before the mouse button is released, and the only recovery is re-entering every field by hand from memory or from a stale exported file, if one still exists on disk. Over-confirming: the same designer, editing a 40-row table where every single-row delete pops a modal, dismisses each one and learns to hit Enter reflexively — then blows straight through the one dialog that actually guarded an irreversible "Clear all and re-import," because the dialog stopped carrying information the moment it fired on everything.
 
 ---
 
@@ -264,7 +278,11 @@ button:focus-visible {
 
 **WHEN:** Any mutation to the model that a user might reasonably want to reverse — a delete, a wholesale replace, a batch operation like "roll layout."
 
-> **Advisory:** No supporting research bullet in `docs/superpowers/research/2026-08-13-web-tool-research.md` covers undo/redo — this card is a gap identified by inspection of the reference tool (it has no history mechanism anywhere in `editor.js`) plus general editor-design practice, not a documented finding from Task 1. This card exists because Card 6's title was corrected from "Destructive Actions Confirm; Actions Are Undoable" to "Destructive Actions Confirm" — dropping the undo claim precisely because nothing backed it. An undo stack is the PRIMARY recovery mechanism; `confirm()` (Card 6) is the fallback for the narrow set of actions an undo stack cannot reach (e.g. a destructive action that also triggers an irreversible external side effect).
+> **Advisory:** No supporting research bullet in `docs/superpowers/research/2026-08-13-web-tool-research.md` covers undo/redo — this card is a gap identified by inspection of the reference tool (it has no history mechanism anywhere in `editor.js`) plus general editor-design practice, not a documented finding from Task 1. This card exists because Card 6's title was corrected from "Destructive Actions Confirm; Actions Are Undoable" to "Destructive Actions Confirm" — dropping the undo claim precisely because nothing backed it. An undo stack is the PRIMARY recovery mechanism; `confirm()` (`Card 6: Destructive Actions Confirm`) is the fallback for the narrow set of actions an undo stack cannot reach (e.g. a destructive action that also triggers an irreversible external side effect).
+
+**The same rule, stated from the undo side:** every model mutation pushes a snapshot via `mutate()`; `confirm()` is added **only** when the mutation fails the `Card 6: Destructive Actions Confirm` test — it is not covered by the undo stack, it escapes the model, or it discards more than a single row's worth of work in one gesture. A reader arriving at this card first should reach the identical conclusion Card 6 states from the confirm side; this is one decision rule, not two.
+
+**Row identity dependency:** an undo snapshot is only meaningful if it restores the same row identity it captured — see `web-tool-architecture.md Card 8: Every List Row Has a Stable Identity`. This is load-bearing, not decorative: this card's undo stack stores snapshots to replay, and if a row is identified by its position in the array rather than a stable key, a delete that shifts every later row's position means an undo snapshot taken before the delete no longer maps onto the same rows after a redo — it restores whatever row now happens to sit at that index, not the row the snapshot actually captured.
 
 **WRONG:**
 ```js
@@ -370,7 +388,7 @@ None of these three keyboard contracts are implemented anywhere in `web-level-ed
 | Binding a bounded numeric value to a plain text/number input | Slider + numeric readout for bounded ranges; see the decision table (Card 3) |
 | Squeezing the preview/viewport into a small side panel | Give the viewport the majority of the window; dock panels to the sides (Card 4) |
 | A numeric field or slider with no unit or scale annotation on screen | State the unit and real-scale meaning next to the control, always (Card 5) |
-| Deleting/overwriting data with a single click, no confirmation | Confirm before any irreversible action (Card 6) |
+| A destructive action that is neither undoable nor confirmed — silent data loss | Confirm only when undo can't reach it: escapes the model, or discards more than one row (Card 6) |
 | `<div onclick=...>` standing in for a real interactive element | Use the real semantic element (`<button>`, etc.) — it is focusable and keyboard-operable for free (Card 7) |
 | `outline: none` with no replacement focus style | Replace with a `:focus-visible` style at ≥ 3:1 contrast — never remove outright (Card 7) |
 | No indication that the model has unsaved edits, a field is invalid, or a list is empty | Show all three states explicitly in the UI (Card 8) |
