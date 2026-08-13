@@ -24,7 +24,9 @@ Does NOT apply to runtime game UI. That is UGUI — see `skills/core/unity-ugui.
 
 ## Applicability note — preview/simulation cards
 
-Three cards assume the tool previews or simulates the data it edits: `web-tool-design-system.md Card 4: The Viewport Is First-Class`, `web-tool-design-system.md Card 5: Every Numeric Field Shows Unit and Real Scale`, and `web-tool-data-contract.md Card 5: Replicated Logic Is Locked by a Parity Fixture`. A pure data-authoring tool — a table or list editor with no visual preview — has nothing for these three to apply to and skips them.
+Two cards are fully skipped by a tool with no visual preview: `web-tool-design-system.md Card 4: The Viewport Is First-Class` and `web-tool-data-contract.md Card 5: Replicated Logic Is Locked by a Parity Fixture`. A pure data-authoring tool — a table or list editor with no visual preview — has nothing for either to apply to.
+
+`web-tool-design-system.md Card 5: Every Numeric Field Shows Unit and Real Scale` is only **partially** skipped — do not skip the whole card. It splits in two: the real-scale/exaggeration requirement (comparing an on-screen preview value against the true exported scale) needs a preview and does not apply to a preview-less tool. The unit-suffix requirement applies to **every** numeric field in **every** tool, preview or not — a field holding seconds shows `sec`, a field holding a fraction shows `×` or `%`. A preview-less table editor still shows units on every field.
 
 ## File skeleton
 
@@ -60,3 +62,6 @@ tools/<tool-name>/
 - No raw hex outside `:root`; no off-scale spacing values.
 - Every interactive element is reachable and visibly focusable by keyboard —
   design-system Card 7: Keyboard Access and Visible Focus.
+- If the tool has no preview, confirm the applicability note's exclusions were applied at the
+  half-card granularity, not skipped wholesale — a preview-less tool still shows units on every
+  numeric field (design-system Card 5's unit-suffix half is never excluded).

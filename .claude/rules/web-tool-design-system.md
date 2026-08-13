@@ -146,7 +146,7 @@ canvas { width: 100%; height: 400px; }
 
 ### Card 5: Every Numeric Field Shows Unit and Real Scale
 
-**WHEN:** A numeric field or preview control represents a value that could be misread as a different unit or a different scale than it actually is.
+**WHEN:** This card has two parts, and they apply under different conditions — do not treat it as all-or-nothing. The unit-suffix requirement is unconditional: any numeric field whose unit is not already stated in its label needs one, in every tool, preview or not. The real-scale requirement applies only when the tool renders a preview of the value — a field or preview control representing a value that could be misread as a different scale than what will actually be exported.
 
 > **Advisory:** No supporting research bullet on this exact rule — it generalizes from reference-tool code (`web-level-editor/index.html`'s `1.0× = true Unity scale` caption), not from an external source. The related "state the unit in a schema/comment" rule for exported data lives in `web-tool-data-contract.md Card 4: Units and Scale Are Written Down` — this card covers the same concern at the UI-surface level, not the export schema.
 
@@ -158,14 +158,20 @@ canvas { width: 100%; height: 400px; }
 
 **RIGHT:**
 ```html
-<!-- excerpt from web-level-editor/index.html — the real "1.0× = true Unity scale" treatment -->
+<!-- excerpt from web-level-editor/index.html — the real "1.0× = true Unity scale" treatment (real-scale half — needs a preview) -->
 <input type="range" id="exag" min="1" max="8" step="0.1" value="1" />
 <span class="note" id="exagVal">1.0×</span>
 <!-- … legend-scale and spacer spans omitted … -->
 <span class="hero-note"><b>1.0× = true Unity scale</b> — the preview matches the imported terrain exactly. Raise exaggeration only to inspect small bumps (visual only, never exported).</span>
 ```
+```html
+<!-- unit-suffix half — applies unconditionally, preview or not -->
+<label for="duration">Spawn delay</label>
+<input type="number" id="duration" step="1" />
+<span class="unit-suffix">sec</span> <!-- unit stated once, next to the field, not relying on the label alone -->
+```
 
-**GOTCHA:** Without the "1.0× = true Unity scale" caption, a designer who cranks the height-exaggeration slider to `4` to make a subtle hill easier to see has no on-screen cue that they are now looking at a 4x-exaggerated preview, not the real terrain — they judge the hill's steepness against what's on screen, export at what looks right, and the imported level is one-quarter as steep as what they approved.
+**GOTCHA:** Without the "1.0× = true Unity scale" caption, a designer who cranks the height-exaggeration slider to `4` to make a subtle hill easier to see has no on-screen cue that they are now looking at a 4x-exaggerated preview, not the real terrain — they judge the hill's steepness against what's on screen, export at what looks right, and the imported level is one-quarter as steep as what they approved. The unit half fails differently and needs no preview to fail: the author types `500` into a duration field believing it is milliseconds, the tool stores seconds, the exported wave takes eight minutes to spawn, and nothing in the tool or the importer flags it, because `500` is a valid number in both units.
 
 ---
 

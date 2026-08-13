@@ -1051,17 +1051,17 @@ git commit -m "rules(web-tool): Card 3 control-table wording pass — name the c
 
 **The defect, quoted in full.** `SKILL.md` line 27 reads verbatim: *"Three cards assume the tool previews or simulates the data it edits: `web-tool-design-system.md Card 4: The Viewport Is First-Class`, `web-tool-design-system.md Card 5: Every Numeric Field Shows Unit and Real Scale`, and `web-tool-data-contract.md Card 5: Replicated Logic Is Locked by a Parity Fixture`. A pure data-authoring tool — a table or list editor with no visual preview — has nothing for these three to apply to and skips them."* But Card 5's WHEN says *"A numeric field **or** preview control…"*, and the card splits in two: the real-scale/exaggeration half (the RIGHT example at 159–166 and the GOTCHA at 168) is genuinely preview-specific, while the unit-suffix half applies to **any** numeric field with an implicit unit — Card 5's own Advisory at line 151 already says it *"covers the same concern at the **UI-surface level**, not the export schema."* The live-test agent added a `sec` suffix on its own judgment precisely because the note had told it to skip the whole card.
 
-- [ ] **Step 1: Split the note's treatment of design-system Card 5**
+- [x] **Step 1: Split the note's treatment of design-system Card 5**
 
 The note must now say: two cards are fully skipped by a preview-less tool — `web-tool-design-system.md Card 4: The Viewport Is First-Class` and `web-tool-data-contract.md Card 5: Replicated Logic Is Locked by a Parity Fixture`. `web-tool-design-system.md Card 5` is **partially** skipped: its real-scale/exaggeration requirement needs a preview and does not apply, but its unit-suffix requirement applies to every numeric field in every tool, preview or not — a field holding seconds shows `sec`, a field holding a fraction shows `×` or `%`. Name the halves explicitly so an agent can act on the note without opening the card.
 
-- [ ] **Step 2: Make Card 5 self-describing so it survives the note being wrong again**
+- [x] **Step 2: Make Card 5 self-describing so it survives the note being wrong again**
 
 Amend Card 5's WHEN to state its own two-part structure rather than relying on `SKILL.md` to split it: the unit-suffix requirement is unconditional for any numeric field whose unit is not in its label; the real-scale requirement applies only when the tool renders a preview of the value. Leave the existing bold `**RIGHT:**` marker at 159–166 and the existing `**GOTCHA:**` at 168 in place exactly as they are — they are the real-scale half and are correct — and add the unit-suffix half as a second fenced code block placed directly underneath the existing `**RIGHT:**` marker — not as a new bold marker: a number input with a unit suffix element and a label that does not repeat the unit. The file's marker count must stay exactly one `**RIGHT:**` per card — Task 9's design-system count of 10 depends on this.
 
 Card 5's GOTCHA already names a real-scale failure. Add or extend so the unit half has one too, naming an observable failure: the author types `500` into a duration field believing it is milliseconds, the tool stores seconds, the exported wave takes eight minutes to spawn, and nothing in the tool or the importer flags it because `500` is a valid number in both units.
 
-- [ ] **Step 3: Add the missing verification — nobody checks the note's accuracy**
+- [x] **Step 3: Add the missing verification — nobody checks the note's accuracy**
 
 Task 5 Step 3 only checks that referenced cards **exist**; nothing checks that the applicability note's claims about them are true. Add this check to the tool's shipping routine in `SKILL.md`'s `## Confirm before shipping` list, phrased as a reviewer instruction: *if the tool has no preview, confirm the note's exclusions were applied at the half-card granularity — a preview-less tool still shows units.*
 
@@ -1078,7 +1078,7 @@ rg -q 'partially|partial' .claude/skills/web-tooling/SKILL.md && echo NOTE_SPLIT
 ```
 Expected: `NOTE_SPLIT`
 
-- [ ] **Step 4: Verify every card reference in SKILL.md still resolves after Task 8's append**
+- [x] **Step 4: Verify every card reference in SKILL.md still resolves after Task 8's append**
 
 Run:
 ```bash
@@ -1100,7 +1100,7 @@ Expected: `10` cards, and `10` for each of the four markers.
 
 The marker loop is not redundant with Task 10 Step 5. Step 2 of this task adds a second fenced block under Card 5's existing `**RIGHT:**` marker — the exact edit whose failure mode is an extra marker — and Tasks 10–13 may run in any order after Task 9. If Task 10 ran first, its marker assertion cannot catch a botched edit made here. Each task that touches a card body asserts the marker counts itself.
 
-- [ ] **Step 5: Stage and commit**
+- [x] **Step 5: Stage and commit**
 
 ```bash
 cd /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo
