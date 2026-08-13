@@ -22,7 +22,7 @@
 
 **RIGHT:**
 ```css
-/* web-level-editor/styles.css:4-28 — this :root block already complies */
+/* excerpt from web-level-editor/styles.css's :root block — already complies */
 :root {
   --bg: #0f1420;
   --surface: #171d2b;
@@ -35,6 +35,9 @@
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.38);
+  /* … additional tokens omitted: --bg-grad-1, --bg-grad-2, --surface-2, --surface-3,
+     --border-solid, --border-strong, --faint, --accent-ink, --accent-2, --accent-2-ink,
+     --shadow-sm, --ring … */
 }
 .disclaimer {
   color: var(--warn);
@@ -73,6 +76,8 @@
 ### Card 3: Control Type Derives from Data Type
 
 **WHEN:** Choosing which HTML control to bind to a model field.
+
+> **Advisory:** Only the first decision-table row (bounded numeric → slider paired with a numeric readout) is backed by a research bullet, sourced from the reference tool's own `#exag` slider treatment. The remaining five rows (unbounded numeric → unit suffix, enum ≤4 → segmented, enum >4 → select, boolean → toggle, free text → text input) are conventional UI judgment calls with no supporting research bullet. The enforceable part of this card is that control type is derived from data type, not chosen ad hoc — not the specific control assigned to each of the five unsourced rows.
 
 **WRONG:**
 ```html
@@ -118,15 +123,17 @@
 
 **RIGHT:**
 ```html
-<!-- web-level-editor/index.html:22-39 — full-width sticky hero above the two-column form -->
+<!-- excerpt from web-level-editor/index.html — full-width sticky hero above the two-column form -->
 <section class="preview-hero">
   <div class="hero-inner">
     <div class="canvas-wrap">
       <canvas id="preview"></canvas>
+      <!-- … canvas-hint overlay omitted … -->
     </div>
+    <!-- … preview-toolbar (reset view, exaggeration slider, legend, hero-note) omitted — see Card 5 … -->
   </div>
 </section>
-<main class="layout"> <!-- form columns start below, never compete with the preview for width -->
+<main class="layout"> <!-- form columns start below, never compete with the preview for width; body deliberately truncated here -->
 ```
 ```css
 /* web-level-editor/styles.css:220-233 */
@@ -151,9 +158,10 @@ canvas { width: 100%; height: 400px; }
 
 **RIGHT:**
 ```html
-<!-- web-level-editor/index.html:32-36 — the real "1.0× = true Unity scale" treatment -->
+<!-- excerpt from web-level-editor/index.html — the real "1.0× = true Unity scale" treatment -->
 <input type="range" id="exag" min="1" max="8" step="0.1" value="1" />
 <span class="note" id="exagVal">1.0×</span>
+<!-- … legend-scale and spacer spans omitted … -->
 <span class="hero-note"><b>1.0× = true Unity scale</b> — the preview matches the imported terrain exactly. Raise exaggeration only to inspect small bumps (visual only, never exported).</span>
 ```
 
