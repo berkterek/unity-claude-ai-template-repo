@@ -175,7 +175,7 @@ canvas { width: 100%; height: 400px; }
 
 ---
 
-### Card 6: Destructive Actions Confirm
+### Card 6: Destructive Actions Are Undoable or Confirmed
 
 **WHEN:** An action is destructive **and** at least one of the following also holds: it is not covered by the undo stack (`Card 9: Authoring Work Is Recoverable`); it escapes the model (writes a file, calls a network endpoint, clears persisted storage); or it discards more than a single row's worth of work in one gesture. An in-model single-row delete that the undo stack captures does **not** get a `confirm()` — it gets an undo entry and, if the tool has one, a transient "Deleted — Undo" affordance.
 
@@ -284,9 +284,9 @@ button:focus-visible {
 
 **WHEN:** Any mutation to the model that a user might reasonably want to reverse — a delete, a wholesale replace, a batch operation like "roll layout."
 
-> **Advisory:** No supporting research bullet in `docs/superpowers/research/2026-08-13-web-tool-research.md` covers undo/redo — this card is a gap identified by inspection of the reference tool (it has no history mechanism anywhere in `editor.js`) plus general editor-design practice, not a documented finding from Task 1. This card exists because Card 6's title was corrected from "Destructive Actions Confirm; Actions Are Undoable" to "Destructive Actions Confirm" — dropping the undo claim precisely because nothing backed it. An undo stack is the PRIMARY recovery mechanism; `confirm()` (`Card 6: Destructive Actions Confirm`) is the fallback for the narrow set of actions an undo stack cannot reach (e.g. a destructive action that also triggers an irreversible external side effect).
+> **Advisory:** No supporting research bullet in `docs/superpowers/research/2026-08-13-web-tool-research.md` covers undo/redo — this card is a gap identified by inspection of the reference tool (it has no history mechanism anywhere in `editor.js`) plus general editor-design practice, not a documented finding from Task 1. This card exists because Card 6 originally claimed "Actions Are Undoable" with nothing behind it — the undo half was split out here and given a real mechanism, and Card 6 was retitled twice to track what it actually enforces (see its own title for the current wording). An undo stack is the PRIMARY recovery mechanism; `confirm()` (`Card 6: Destructive Actions Are Undoable or Confirmed`) is the fallback for the narrow set of actions an undo stack cannot reach (e.g. a destructive action that also triggers an irreversible external side effect).
 
-**The same rule, stated from the undo side:** every model mutation pushes a snapshot via `mutate()`; `confirm()` is added **only** when the mutation fails the `Card 6: Destructive Actions Confirm` test — it is not covered by the undo stack, it escapes the model, or it discards more than a single row's worth of work in one gesture. A reader arriving at this card first should reach the identical conclusion Card 6 states from the confirm side; this is one decision rule, not two.
+**The same rule, stated from the undo side:** every model mutation pushes a snapshot via `mutate()`; `confirm()` is added **only** when the mutation fails the `Card 6: Destructive Actions Are Undoable or Confirmed` test — it is not covered by the undo stack, it escapes the model, or it discards more than a single row's worth of work in one gesture. A reader arriving at this card first should reach the identical conclusion Card 6 states from the confirm side; this is one decision rule, not two.
 
 **Row identity dependency:** an undo snapshot is only meaningful if it restores the same row identity it captured — see `web-tool-architecture.md Card 8: Every List Row Has a Stable Identity`. This is load-bearing, not decorative: this card's undo stack stores snapshots to replay, and if a row is identified by its position in the array rather than a stable key, a delete that shifts every later row's position means an undo snapshot taken before the delete no longer maps onto the same rows after a redo — it restores whatever row now happens to sit at that index, not the row the snapshot actually captured.
 
@@ -362,6 +362,23 @@ function restoreDraftOnLoad(openedFromFile) {
   renderAll();
 }
 ```
+
+**Where `openedFromFile` comes from.** A `file://` page load can never arrive carrying a file — the browser gives the page no access to the filesystem, so the only way a file enters the tool is the user picking it in the import control, which cannot have happened before load. `openedFromFile` is therefore always `false` at load time, and the flag exists for the second call, not the first: the import handler sets it, and once set the tool stops offering the draft for the rest of the session.
+
+```js
+let openedFromFile = false;
+
+// the tool's own import control (per web-tool-data-contract.md Card 7: The Tool Validates What It Imports)
+importInput.addEventListener("change", async (e) => {
+  hydrateFromJson(await e.target.files[0].text()); // throws and aborts on a bad file — flag stays false
+  openedFromFile = true;                            // only set AFTER a successful hydrate
+  renderAll();
+});
+
+restoreDraftOnLoad(openedFromFile); // false at load; the offer happens here or never
+```
+
+Set the flag only after `hydrateFromJson` returns without throwing. Setting it before means a rejected import — wrong version, missing required field — leaves the tool believing a file was opened, and the draft that could still have rescued the session is never offered.
 
 The one hazard this pattern must not create: a restored draft must never silently replace a file the user deliberately just opened via the tool's own import control. The precedence rule is fixed — an explicit file open always wins over a stored draft; the draft is offered only when the session starts with no file opened at all, and only with an explicit, visible confirmation naming when it was saved.
 
