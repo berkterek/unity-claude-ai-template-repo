@@ -1124,21 +1124,21 @@ git commit -m "skill(web-tooling): narrow preview-applicability note; split desi
 
 **The defect, precisely.** Card 2's Advisory at line ~36 states the rule as *"the direction of data flow: model → render, never DOM → model **except to locate an event-delegation target**"* — a carve-out phrased around **locating a target**, not around **reading the value** that triggered the event. Yet Card 2's own RIGHT example at lines 46–54 does `model.wallHeight = num(e.target.value)`, which is reading a value, not locating a target. Its WRONG at 38–44 is a `getWallHeight()` that reads `document.getElementById(...).value` at an arbitrary later time. So the card's stated rule forbids what its own RIGHT example does. The real distinction is: **an event-time read that writes into the model is correct; reading state back out of the DOM independently of an event, as if the DOM were the source, is the violation.**
 
-- [ ] **Step 1: Rewrite the Advisory's carve-out to match the RIGHT example**
+- [x] **Step 1: Rewrite the Advisory's carve-out to match the RIGHT example**
 
 State the distinction as time-and-direction, not as target-location: inside an event handler, reading `e.target.value` (or the target's `dataset`) to write into the model is the one legitimate DOM → model flow, because it is the only moment the DOM holds information the model does not yet have. Outside an event handler, any read of a DOM node's value as a source of truth is a violation, however innocuous it looks.
 
-- [ ] **Step 2: Add one clarifying sentence tying WRONG and RIGHT together**
+- [x] **Step 2: Add one clarifying sentence tying WRONG and RIGHT together**
 
 The card must explicitly say why its WRONG and RIGHT are not the same operation, since both read `.value`. The RIGHT read happens once, at event time, and its result is immediately written into the model; the WRONG read happens at an arbitrary later time and its result is used *instead of* the model. Same API call, opposite role.
 
-- [ ] **Step 3: Keep the Advisory honest about provenance**
+- [x] **Step 3: Keep the Advisory honest about provenance**
 
 The research bullet in `## Vanilla architecture` (line ~43) carries the **identical narrow carve-out** — phrased around locating a delegation target. Extending it to cover event-time value reads is this project's judgment, not the source's. The Advisory must say so specifically: the sourced part is event delegation and the model-owns-state direction; the event-time-value-read carve-out is an extension made here, and the enforceable residue is that no function outside an event handler may read a DOM node to answer a question the model can answer.
 
 Do not restate the research bullet as though the source made this distinction. Quote it in full or paraphrase it unquoted.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 ```bash
@@ -1167,7 +1167,7 @@ done
 ```
 Expected: `8` for each.
 
-- [ ] **Step 5: Stage and commit**
+- [x] **Step 5: Stage and commit**
 
 ```bash
 cd /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo

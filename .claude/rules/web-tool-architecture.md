@@ -33,7 +33,7 @@
 
 **WHEN:** Any UI element (a slider, a `<select>`, a text field) needs to reflect or change tool state.
 
-> **Advisory:** No supporting research bullet cites this exact rule by name — the underlying research bullet ("state should be the single source of truth that render() reads from, not derived by reading back from the DOM") is `(secondary, unverified against a second source)`. The enforceable part is the direction of data flow: model → render, never DOM → model except to locate an event-delegation target.
+> **Advisory:** No supporting research bullet cites this exact rule by name — the underlying research bullet is `(secondary, unverified against a second source)` and, paraphrased rather than quoted here, says: application state should not be derived by reading it back from the DOM, with a narrow carve-out for locating an event-delegation target — render() should read from a single source of truth instead. That source's carve-out is scoped only to **locating** a delegation target; this card extends the carve-out to also cover **reading the value** that triggered the event, which the source itself does not say — that extension is this project's judgment, not the source's. The enforceable part, restated as time-and-direction rather than target-location: inside an event handler, reading `e.target.value` (or the target's `dataset`) to write into the model is the one legitimate DOM → model flow, because it is the only moment the DOM holds information the model does not yet have. Outside an event handler, any read of a DOM node's value as a source of truth is a violation, however innocuous it looks. The enforceable residue beyond the sourced part (event delegation, model-owns-state direction) is: no function outside an event handler may read a DOM node to answer a question the model can answer.
 
 **WRONG:**
 ```js
@@ -52,6 +52,8 @@ $("wallHeight").addEventListener("input", (e) => {
   redraw();
 });
 ```
+
+WRONG and RIGHT both call `.value` — the difference is not the API, it's the time and the role of the read. RIGHT's read happens once, at event time, inside the handler that just fired, and its result is written into the model immediately. WRONG's read happens at an arbitrary later time — whenever something calls `getWallHeight()` — and its result is used *instead of* the model, as if the DOM element, not `model.wallHeight`, were the source of truth. Same `.value` call, opposite role: one is the model catching up to an event that already happened, the other is the DOM standing in for state the model should already hold.
 
 **GOTCHA:** Once two code paths both claim to know "the current wall height" — one reading `model.wallHeight`, another reading `input.value` — they inevitably desync the moment a value is set programmatically (e.g. on import, or by a "reset to default" button) without also touching the input. The export then serializes whichever one nobody remembered to update, and the mismatch is invisible until the exported file doesn't match what the screen showed.
 
