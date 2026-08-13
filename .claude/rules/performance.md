@@ -84,7 +84,7 @@ private void Update() => _transform.position += Vector3.forward;
 
 ## Object Lifecycle
 
-- Pool frequently instantiated objects — `ObjectPool<T>` or custom pool
+- Pool frequently instantiated objects — `UnityEngine.Pool.ObjectPool<T>` (see csharp-unity.md Card 6)
 - `SetActive(false)` to return to pool, not `Destroy`
 - `DontDestroyOnLoad` sparingly — prefer bootstrapper scene pattern
 

@@ -116,7 +116,7 @@ Detailed coding standards in `.claude/rules/`:
 | File | Covers |
 |------|--------|
 | `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope; one-caller overfitting rule; GameScope vs ModuleInstaller wiring boundary; same-prefab scripts wire via `[SerializeField]` not VContainer; **domain folder convention** (first segment under `Games/Abstracts\|Concretes/` is a domain — never a layer or catch-all; free below it); **`Concretes/<Domain>/ARCHITECTURE.md` intent contract** (English, 4 headings, ≤40 lines, no class names) |
-| `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; interface contract documentation (precondition/postcondition/side-effect); namespace collision rule (`Game.Concretes.<Domain>` vs UnityEngine type aliases) |
+| `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; interface contract documentation (precondition/postcondition/side-effect); namespace collision rule (`Game.Concretes.<Domain>` vs UnityEngine type aliases); reuse-first (built-in over hand-rolled) |
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; **material folder structure** (`Arts/Materials/<Domain>/`); **shader file structure** (`.shader`/`.shadergraph` → `_GameFolders/Arts/Shaders/`); shader authoring → `unity-shader-dev` agent (HLSL or ShaderGraph complexity router); particle VFX → `unity-particle-designer` agent |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |

@@ -148,6 +148,61 @@ namespace Game.Concretes.Camera
 
 **GOTCHA:** Check domain name against UnityEngine types before creating the folder. Consult the full collision table in `### Namespace Collision Rule`. Add the alias to every `.cs` file in that domain.
 
+---
+
+### Card 6: Reuse Before You Hand-Roll
+
+**WHEN:** You are about to write a pool, timer, parser, smoothing helper, or registry.
+
+**WRONG:**
+```csharp
+// Hand-rolled pool — 40 lines that Unity already ships
+public sealed class BulletPool
+{
+    private readonly Queue<GameObject> _available = new();
+
+    public GameObject Get()
+    {
+        var go = _available.Count > 0 ? _available.Dequeue() : Object.Instantiate(_prefab);
+        go.SetActive(true);
+        return go;
+    }
+
+    public void Return(GameObject go)
+    {
+        go.SetActive(false);
+        _available.Enqueue(go);
+    }
+}
+```
+
+**RIGHT:**
+```csharp
+// UnityEngine.Pool.ObjectPool<T> — capacity limits, leak detection, Dispose all built in
+private readonly ObjectPool<GameObject> _pool;
+
+public BulletPool(GameObject prefab)
+{
+    _pool = new ObjectPool<GameObject>(
+        createFunc:       () => Object.Instantiate(prefab),
+        actionOnGet:      go => go.SetActive(true),
+        actionOnRelease:  go => go.SetActive(false),
+        actionOnDestroy:  Object.Destroy,
+        defaultCapacity:  20,
+        maxSize:          100);
+}
+```
+
+| Instead of hand-rolling | Use |
+|---|---|
+| `Queue<GameObject>` pool | `UnityEngine.Pool.ObjectPool<T>` |
+| manual timer field / `WaitForSeconds` coroutine | `UniTask.Delay` |
+| string-splitting JSON parser | `JsonUtility` |
+| custom lerp / damping smoothing | `Mathf.SmoothDamp` |
+| custom registry, service locator, static instance dictionary | VContainer |
+
+**GOTCHA:** Hand-rolling is permitted only when the built-in **demonstrably** cannot meet a measured requirement — not when it merely feels heavy. When you do hand-roll, the reason goes in a code comment or an ADR; silence is not a justification. A reviewer finding a hand-rolled equivalent with no stated reason returns CHANGES NEEDED.
+
 ## Naming Summary
 
 | Construct | Style | Example |
