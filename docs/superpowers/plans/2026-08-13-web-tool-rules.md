@@ -28,13 +28,26 @@
 | Path | Responsibility |
 |---|---|
 | `docs/superpowers/research/2026-08-13-web-tool-research.md` | Working notes from the three research queries. Source of citations for the rule files. Committed so future edits can trace a rule back to its origin. |
-| `.claude/rules/web-tool-data-contract.md` | 6 cards. The contract between the tool's export and the consuming system. Read first — most expensive to get wrong. |
-| `.claude/rules/web-tool-architecture.md` | 7 cards. Zero-build constraint, model/DOM separation, file limits, render contract, testing. |
-| `.claude/rules/web-tool-design-system.md` | 8 cards. Tokens, spacing scale, control-type mapping, viewport primacy, units, destructive actions, keyboard access, state visibility. |
+| `.claude/rules/web-tool-data-contract.md` | 7 cards. The contract between the tool's export and the consuming system, plus tool-side import validation. Read first — most expensive to get wrong. |
+| `.claude/rules/web-tool-architecture.md` | 8 cards. Zero-build constraint, model/DOM separation, file limits, render contract, testing, stable row identity. |
+| `.claude/rules/web-tool-design-system.md` | 10 cards. Tokens, spacing scale, control-type mapping, viewport primacy, units, destructive actions, keyboard access, state visibility, bounded undo/redo history, localStorage draft persistence. |
 | `.claude/skills/web-tooling/SKILL.md` | Router + skeleton + 6-step new-tool checklist. No normative content of its own. |
 | `.claude/CLAUDE.md` | 3 rows appended to the `## Rules (auto-loaded)` table. |
 | `.claude/docs/skills-index.md` | 1 row for `web-tooling`. |
 | `docs/superpowers/reports/2026-08-13-web-level-editor-violations.md` | Output of the bite test. Proves the rules constrain something. |
+
+> **ERRATA (v2, 2026-08-13) — card counts in Tasks 2–5 are superseded.**
+> Tasks 2, 3, 4 and 5 each contain an inline `rg -c '^### Card '` assertion expecting
+> `6` (data-contract), `7` (architecture) and `8` (design-system). Those files have
+> since grown. **Current, authoritative counts: data-contract 7, architecture 8,
+> design-system 10.** Task 5 Step 3's combined check expecting `6`, `7`, `8` is
+> likewise superseded and should be read as `7`, `8`, `10`. The shipped `## Done When`
+> line "Three rule files exist with 6 / 7 / 8 complete cards" is superseded the same
+> way and should be read as `7 / 8 / 10`. The task text itself is deliberately left
+> unedited — it is a record of what shipped, not a live checklist. Architecture's new
+> Card 8 was **appended**, not inserted — Cards 1–7 keep their original numbers and
+> titles, so this note does not need (and must not add) any "architecture Card N means
+> N+1" clause. When resuming this plan, use the counts in this note.
 
 Task order follows dependency: research → the three rule files (data-contract first, since the skill's reading order mirrors it) → skill → integration → bite test.
 
@@ -817,7 +830,7 @@ Commit locally only. Do not push.
 
 **Why a new task rather than an edit:** Tasks 2, 3, 4 and 5 contain inline `rg -c '^### Card '` assertions expecting `6`, `7`, `8`; the shipped `## Done When` line "Three rule files exist with 6 / 7 / 8 complete cards" (line 665) makes the same now-stale claim. Those numbers are now wrong, so the plan fails its own verification if resumed. The house rule forbids editing shipped task text, so the fix is a clearly-marked errata block that supersedes all of them, plus a correction to the File Structure table, which is descriptive rather than task text and is safe to correct in place.
 
-- [ ] **Step 1: Read the true counts, do not assume them**
+- [x] **Step 1: Read the true counts, do not assume them**
 
 Run:
 ```bash
@@ -826,7 +839,7 @@ rg -c '^### Card ' .claude/rules/web-tool-data-contract.md .claude/rules/web-too
 ```
 Expected after Task 8: `7`, `8`, `10` respectively. If any number differs, stop — Task 8 did not land cleanly and Steps 2–3 would enshrine another wrong number.
 
-- [ ] **Step 2: Correct the File Structure table**
+- [x] **Step 2: Correct the File Structure table**
 
 Rewrite only the leading card count and the topic list in the three rule-file rows, leaving every other row untouched:
 
@@ -834,7 +847,7 @@ Rewrite only the leading card count and the topic list in the three rule-file ro
 - `web-tool-architecture.md` → `8 cards.` and the topic list gains stable row identity.
 - `web-tool-design-system.md` → `10 cards.` and the topic list gains bounded undo/redo history and localStorage draft persistence.
 
-- [ ] **Step 3: Add the errata block immediately below the File Structure table**
+- [x] **Step 3: Add the errata block immediately below the File Structure table**
 
 It must be visually unmissable and must name the superseded assertions precisely rather than gesturing at them:
 
@@ -853,7 +866,7 @@ It must be visually unmissable and must name the superseded assertions precisely
 > N+1" clause. When resuming this plan, use the counts in this note.
 ```
 
-- [ ] **Step 4: Verify the errata is present and the table agrees with reality**
+- [x] **Step 4: Verify the errata is present and the table agrees with reality**
 
 Run:
 ```bash
@@ -868,7 +881,7 @@ rg -n '^\| `\.claude/rules/web-tool-(data-contract|architecture|design-system)\.
 ```
 Expected: 3 lines reading `7 cards.`, `8 cards.`, `10 cards.` respectively — matching Step 1's output exactly.
 
-- [ ] **Step 5: Confirm no shipped task text was edited**
+- [x] **Step 5: Confirm no shipped task text was edited**
 
 Run:
 ```bash
@@ -877,7 +890,7 @@ git diff docs/superpowers/plans/2026-08-13-web-tool-rules.md | rg '^-' | rg -v '
 ```
 Expected: `OK - shipped task text intact`
 
-- [ ] **Step 6: Stage and commit**
+- [x] **Step 6: Stage and commit**
 
 ```bash
 cd /Users/berkterek/Desktop/Github/unity-claude-ai-template-repo
