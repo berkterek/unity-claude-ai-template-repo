@@ -210,6 +210,9 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]` → `[Services]` → `[UI]` → `[Environment]` → `[Characters]` → `[VFX]`), classification table, prefab/container rules |
 | `bootstrap-pattern.md` | Code-first static Module pattern: `[X]Module` static class → `AppModules.cs` → `AppScope`. ConfigCatalog, SceneModules, new module addition flow (one line in AppModules, no Editor asset) |
 | `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller only, ~100 satır max); **suffix kuralı: `*View` yalnızca Canvas/UI, `*Controller` gameplay/karakter, `*Provider` Unity API soyutlaması**; SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
+| `web-tool-data-contract.md` | **Web authoring tools only** — export schema single-source, enum int map, version field, unit/scale contract, parity fixture lock, importer error-on-missing, tool-side import validation (version + required-field checks before hydrating) |
+| `web-tool-architecture.md` | **Web authoring tools only** — zero-build `file://` constraint, single model source of truth, pure-core/DOM-shell split, ~400 line limit, event delegation, idempotent render, runner-less tests |
+| `web-tool-design-system.md` | **Web authoring tools only** — design tokens, fixed spacing scale, control-type decision table, viewport primacy, unit display, destructive-action confirmation, keyboard access, visible state, bounded undo/redo history, localStorage draft persistence across reloads |
 
 ### `.claude/docs/` — Key reference docs (not loaded at startup)
 
@@ -1082,6 +1085,12 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `srp-batcher-mcp` | SRP Batcher enable/verify, UI Raycast Target audit, post-processing Volume cleanup via MCP |
 | `particle-vfx` | ParticleSystem module config, URP particle shaders, VFX pool, VContainer wiring, event-driven playback |
 | `urp-volume` | URP Volume MCP skill — `manage_graphics` volume_* actions, global/local Volume setup, VolumeProfile, effect overrides |
+
+### Tooling (`skills/web-tooling/`)
+
+| Skill | Covers |
+|-------|--------|
+| `web-tooling` | Browser-based authoring/editor tools — routes to the three web-tool rule files, file skeleton, new-tool checklist |
 
 ### Third-Party (`skills/third-party/` and `skills/plugins/`)
 
