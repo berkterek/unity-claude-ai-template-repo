@@ -62,6 +62,8 @@ $("wallHeight").addEventListener("input", (e) => {
 **WHEN:** Any calculation — model transforms, section-derivation math, serialization — runs inside the tool.
 
 **WRONG:**
+This claim is about the shape and size of a real file, not a code construct, so it is
+stated in prose rather than a fabricated code fence:
 `web-level-editor/editor.js` is 619 lines holding the model, the section-derivation
 math, the 3D preview wiring, every DOM listener, and the export serializer. Nothing in
 it can be tested without a browser, and the derivation math cannot be reused.
@@ -89,16 +91,28 @@ to it yet.
 > you would describe with an "and", split it. Line count is just the cheapest smoke alarm.
 
 **WRONG:**
-`web-level-editor/editor.js` (619 lines) holds the model, the section-derivation math,
-the 3D preview camera/canvas wiring, every DOM event listener, and the JSON export/import
-serializer — five responsibilities in one file, none of it separable without a rewrite.
+```js
+/* editor.js — one file, five responsibilities, 619 lines:
+ *   - the model (segments, spawns, wall settings)
+ *   - section-derivation math (partition, chain start heights)
+ *   - 3D preview camera/canvas wiring
+ *   - every DOM event listener (inputs, buttons, drag, import/export UI)
+ *   - the JSON export/import serializer
+ * None of this is separable without a rewrite — everything reads/writes shared closures.
+ */
+```
 
 **RIGHT:**
+```
+<tool>-core.js       ← model transforms + section-derivation math. Zero DOM.
+<tool>-preview.js    ← 3D preview camera/canvas wiring only.
+<tool>.js            ← DOM shell: listeners, reads/writes model, calls core + preview.
+<tool>-core.test.js  ← plain assertions over the pure core, runs under `node`.
+```
 Split along the responsibility boundary the moment a second "and" appears in the file's
-description: model+derivation into `<tool>-core.js` (see Card 3), 3D preview wiring into
-its own module, DOM binding into the shell. `web-level-editor/preview-core.js` (138 lines)
-stayed under the line by staying to one responsibility — the preview math — not because
-138 was a deliberately chosen target.
+description. `web-level-editor/preview-core.js` (138 lines) stayed under the line by
+staying to one responsibility — the preview math — not because 138 was a deliberately
+chosen target.
 
 **GOTCHA:** `editor.js` crossing 400 lines happened gradually, one `addEventListener` and
 one new field at a time, with no single commit that looks alarming in review. By the time
@@ -145,6 +159,8 @@ host.addEventListener("input", (e) => {
 
 **WHEN:** Writing the function that rebuilds a list container's DOM from the model.
 
+> **Advisory:** No supporting research bullet cites this exact rule by name — the underlying research bullet ("prefer an idempotent, full-rebuild render function... over incremental/manual DOM patching") is `(secondary, unverified against a second source)`. Being demonstrated in working reference-tool code does not exempt it. The enforceable part is "clear before rebuild, every time" — the general "render must be idempotent" framing rests on a single secondary source.
+
 **WRONG:**
 ```js
 // Called once per model change — but nothing clears the previous render first
@@ -187,8 +203,11 @@ function renderSpawns() {
 
 **RIGHT:**
 ```js
-/* run: node tool-core.test.js  — exits non-zero on failure, no runner, no install */
-import { deriveSections } from "./tool-core.js";
+/* run: node tool-core.test.js — exits non-zero on failure, no runner, no install.
+ * CommonJS (require/module.exports), not ESM `import` — plain .js with top-level
+ * `import` fails on Node without `.mjs` or `"type": "module"`. CommonJS runs
+ * unmodified on any Node >= 18 with zero package.json, matching preview-core.js. */
+const { deriveSections } = require("./tool-core.js");
 let failures = 0;
 const eq = (label, got, want) => {
   const ok = JSON.stringify(got) === JSON.stringify(want);
