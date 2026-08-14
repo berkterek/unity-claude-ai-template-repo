@@ -53,6 +53,33 @@ fi
 
 CURRENT_DEPTH=$(cat "$DEPTH_FILE" 2>/dev/null || echo 0)
 
+# Staleness guard. The depth counter leaks (see agent-start-log.sh): any spawn
+# whose PostToolUse Stop never fires leaves the count permanently high, and a high
+# count makes the check below exit 0 forever — this blocking hook silently
+# downgraded to a no-op. session-restore.sh bounds the leak to one session; this
+# bounds it further, within a session.
+#
+# The file's mtime is rewritten on every increment AND decrement, so it tracks the
+# last agent lifecycle event. Nothing touches it while an agent merely runs, so a
+# long-running agent eventually looks stale here — and that is the SAFE direction
+# for this hook specifically: reading a stale count as 0 makes it enforce, and the
+# worst case is a direct edit blocked while a genuine subagent is mid-run, which
+# the pipeline-override valve already covers.
+#
+# gateguard.sh and check-config-protection.sh deliberately do NOT copy this: there
+# a 0 means "Director", which lets a retry PASS, so downgrading on staleness would
+# hand a long-running subagent the exact bypass those hooks exist to prevent. Same
+# counter, opposite resolution, because each must fail toward enforcing ITS rule.
+STALE_AFTER=900   # 15 min without any spawn/stop event
+
+if [ "$CURRENT_DEPTH" -gt 0 ] 2>/dev/null && [ -f "$DEPTH_FILE" ]; then
+    _mtime=$(stat -f %m "$DEPTH_FILE" 2>/dev/null || stat -c %Y "$DEPTH_FILE" 2>/dev/null || echo 0)
+    _age=$(( $(date +%s) - _mtime ))
+    if [ "$_age" -gt "$STALE_AFTER" ]; then
+        CURRENT_DEPTH=0
+    fi
+fi
+
 # A subagent is actively running — this call belongs to it, not the Director
 [ "$CURRENT_DEPTH" -gt 0 ] 2>/dev/null && exit 0
 

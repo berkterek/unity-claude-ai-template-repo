@@ -31,8 +31,34 @@ for _hook in "${SCRIPT_DIR}"/*.sh; do
 done
 unset _hook
 
+# ── Reset the subagent depth counter ────────────────────────────────────────
+# A new session has no subagent running, by definition, so 0 is the only correct
+# value here. The counter is incremented in agent-start-log.sh (PreToolUse/Agent)
+# and decremented in agent-stop-log.sh (PostToolUse/Agent); any spawn whose Stop
+# never fires — an agent that errors, is interrupted, or is still running when the
+# session ends — leaves the count permanently high. It is monotonic, not
+# self-healing (see agent-start-log.sh for the measurement). A leaked count makes
+# guard-pipeline-direct-work.sh exit 0 forever: a blocking hook downgraded to a
+# no-op with nothing on screen to say so. Resetting here bounds the leak to one
+# session.
+echo 0 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
+
 # Clear stale gateguard state from previous sessions
 rm -f "$UNITY_READS_FILE" "$UNITY_EDITS_FILE" "$UNITY_COST_FILE" "$UNITY_LEARNING_FILE"
+
+# ── Expire every deny-then-allow grant ──────────────────────────────────────
+# gateguard.sh, guard-critical-files.sh and check-config-protection.sh all block
+# a path once and let the retry through, recording the grant in a *-passed.txt
+# file. Nothing expired those files, so a grant survived every later session:
+# a file waved through once was waved through forever, and the gate silently
+# became one-per-file-per-lifetime instead of one-per-session. Scope them to the
+# session that granted them, exactly like gate-cleared below.
+rm -f "${UNITY_HOOK_STATE_DIR}/gateguard-facts-passed.txt" \
+      "${UNITY_HOOK_STATE_DIR}/gateguard-facts-denied.txt" \
+      "${UNITY_HOOK_STATE_DIR}/guard-critical-passed.txt" \
+      "${UNITY_HOOK_STATE_DIR}/guard-critical-denied.txt" \
+      "${UNITY_HOOK_STATE_DIR}/config-asmdef-passed.txt" \
+      "${UNITY_HOOK_STATE_DIR}/config-asmdef-denied.txt"
 
 # Expire the Director Gate from the previous session. Gate is scoped to exactly
 # one session: written on user approval, deleted by agent-stop-log.sh when the

@@ -17,6 +17,12 @@
 .claude/state/gateguard-reads.txt
 .claude/state/guard-critical-denied.txt
 .claude/state/guard-critical-passed.txt
+.claude/state/config-asmdef-denied.txt
+.claude/state/config-asmdef-passed.txt
+# Leaks by design (see agent-start-log.sh) and is session-scoped — committing it
+# ships a stale count that silently disables guard-pipeline-direct-work.sh in
+# every clone until the first SessionStart resets it.
+.claude/state/subagent-depth
 .claude/state/session-warnings.txt
 .claude/state/search-findings.md
 .claude/state/sparc-approved

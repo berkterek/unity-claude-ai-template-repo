@@ -164,6 +164,32 @@ unity_monobehaviour_is_justified() {
 # is caught. Case-sensitive: type 'Input'/'Camera' matches, local vars 'input'/'_camera' do not.
 UNITY_ENGINE_LEAK_RE='\b(SceneManager|Addressables|GameObject|MonoBehaviour|Transform|GetComponent|AddComponent|Instantiate|Destroy|DontDestroyOnLoad|FindObjectOfType|FindFirstObjectByType|FindAnyObjectByType|FindObjectsByType|Physics|Physics2D|Rigidbody|Rigidbody2D|Collider|CharacterController|Raycast|MeshRenderer|SkinnedMeshRenderer|SpriteRenderer|Renderer|Animator|Camera|Material|Shader|ParticleSystem|AudioSource|AudioClip|AudioListener|InputSystem)\b|\b(Time|Application|Screen|Input|Resources|Gizmos)\.'
 
+# unity_subagent_depth — how many subagents are currently on the stack.
+#
+# Echoes a sanitized integer: 0 when the file is missing, empty, or non-numeric.
+# The counter is written by agent-start-log.sh / agent-stop-log.sh and it LEAKS
+# (see agent-start-log.sh for the measurement) — treat the value as a hint, never
+# as fact.
+#
+# Deliberately does NOT apply a staleness rule, because the safe direction is not
+# the same for every caller:
+#   * A caller that ALLOWS on depth > 0 (guard-pipeline-direct-work.sh) must
+#     downgrade a stale count to 0 — that makes it enforce.
+#   * A caller that BLOCKS on depth > 0 (gateguard.sh, check-config-protection.sh)
+#     must NOT downgrade — doing so would hand a long-running subagent the exact
+#     retry-bypass those gates exist to prevent. Nothing touches the depth file
+#     while an agent merely runs, so any agent outliving the timeout would look
+#     like the Director.
+# Each caller layers its own direction on top of this value.
+unity_subagent_depth() {
+    local depth
+    depth=$(cat "${UNITY_HOOK_STATE_DIR}/subagent-depth" 2>/dev/null || echo 0)
+    case "$depth" in
+        ''|*[!0-9]*) depth=0 ;;
+    esac
+    echo "$depth"
+}
+
 # unity_track_edit — record a file edit for session tracking
 unity_track_edit() {
     local file_path="$1"

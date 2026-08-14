@@ -33,11 +33,26 @@ jq -nc \
     '{event:$event, agent_type:$agent_type, description:$description, session_id:$session_id, started_at:$started_at, logged_at:$logged_at}' \
     >> "$SUBAGENT_LOG"
 
-# Depth counter — consumed by guard-pipeline-direct-work.sh to tell whether the
-# CURRENT tool call is happening inside a spawned subagent (depth > 0) or in the
-# main session directly (depth == 0). Incremented here, decremented in
-# agent-stop-log.sh. Not session-scoped by design: only one pipeline runs at a
-# time in practice, and a stale >0 count self-heals to 0 once agents complete.
+# Depth counter — read by guard-pipeline-direct-work.sh, gateguard.sh and
+# check-config-protection.sh to tell whether the CURRENT tool call is happening
+# inside a spawned subagent (depth > 0) or in the main session directly
+# (depth == 0). Incremented here, decremented in agent-stop-log.sh.
+#
+# This comment previously claimed "a stale >0 count self-heals to 0 once agents
+# complete". It does not. The pair only balances when every increment gets a
+# matching PostToolUse Stop; an agent that errors, is interrupted, or is still
+# running when the session ends leaves the count permanently high, and nothing
+# ever brings it back down. Measured in a derived project: 340 Start records
+# against 319 Stop records, with the counter sitting at 12 while no agent ran.
+#
+# A leaked count is not merely noisy — it silently disables
+# guard-pipeline-direct-work.sh, which reads depth > 0 as "a subagent owns this
+# call" and exits 0. Two guards bound the damage: session-restore.sh resets the
+# counter at SessionStart, and each consumer resolves an implausible count in
+# whichever direction ENFORCES its own rule (see the staleness notes in
+# guard-pipeline-direct-work.sh and gateguard.sh — the two directions are
+# deliberately opposite). Do not restore the self-healing claim without evidence
+# that Stop fires on every path.
 DEPTH_FILE="${UNITY_HOOK_STATE_DIR}/subagent-depth"
 CURRENT_DEPTH=$(cat "$DEPTH_FILE" 2>/dev/null || echo 0)
 echo $(( CURRENT_DEPTH + 1 )) > "$DEPTH_FILE"
