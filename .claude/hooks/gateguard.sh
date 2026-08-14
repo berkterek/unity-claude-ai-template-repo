@@ -64,10 +64,32 @@ if [ "$IS_WRITE" = "false" ]; then
 fi
 
 # --- Guard 2: Fact-gate (first edit per file emits fact demands) ---
+#
+# The gate is deny-then-allow: block once, pass on retry. Nothing in it verifies
+# that the demanded facts were ever presented — a caller that simply retries walks
+# straight through. That is tolerable for the Director, whose retry is preceded by
+# actually printing the facts where the user can read them. It is NOT tolerable for
+# a subagent: a subagent's output goes to the Director, not to the human, so a
+# subagent that self-satisfies this gate cancels the one thing it exists to do —
+# move a decision in front of a person. Observed in a derived project: a subagent
+# hit the gate, retried on its own, landed the file, and never mentioned the block
+# in its report.
+#
+# So the retry pass is restricted to depth 0 (the Director). Inside a subagent the
+# demand repeats every time, which leaves reporting upward as the only way forward.
+#
+# No staleness downgrade here, unlike guard-pipeline-direct-work.sh: there a stale
+# count read as 0 makes the hook ENFORCE, here it would make it PASS. Nothing
+# touches the depth file while an agent merely runs, so any subagent outliving a
+# timeout would be handed exactly the bypass this restriction removes. A leaked
+# count therefore costs the Director an extra report cycle — the direction that
+# fails safe. session-restore.sh clears the counter each session.
+GATEGUARD_DEPTH=$(unity_subagent_depth)
+
 if ! grep -qxF "$FILE_PATH" "$FACTS_PASSED_FILE" 2>/dev/null; then
     # Has this file been denied once already?
-    if grep -qxF "$FILE_PATH" "$FACTS_DENIED_FILE" 2>/dev/null; then
-        # Second attempt — mark as passed and allow through
+    if grep -qxF "$FILE_PATH" "$FACTS_DENIED_FILE" 2>/dev/null && [ "$GATEGUARD_DEPTH" -eq 0 ]; then
+        # Second attempt, from the Director — mark as passed and allow through
         echo "$FILE_PATH" >> "$FACTS_PASSED_FILE"
     else
         # First attempt — DENY and demand facts
@@ -118,7 +140,24 @@ if ! grep -qxF "$FILE_PATH" "$FACTS_PASSED_FILE" 2>/dev/null; then
             echo "  5. Quote the user's current instruction verbatim." >&2
         fi
         echo "" >&2
-        echo "  After presenting these facts, retry the same edit — it will pass." >&2
+        if [ "$GATEGUARD_DEPTH" -gt 0 ]; then
+            echo "  You are a SUBAGENT — retrying will NOT clear this gate." >&2
+            echo "  Your output goes to the Director, not to the user, so satisfying this" >&2
+            echo "  yourself would cancel the only thing the gate does: put a decision in" >&2
+            echo "  front of a person. Report BLOCKED with this message verbatim and stop." >&2
+            echo "  The Director presents the facts and retries." >&2
+            echo "" >&2
+            echo "  DIRECTOR, if no subagent is actually running, the depth counter has" >&2
+            echo "  leaked (agent-start-log.sh). Reset it deliberately and visibly:" >&2
+            echo "    echo 0 > \"\$CLAUDE_PROJECT_DIR\"/.claude/state/subagent-depth" >&2
+            echo "  A new session resets it too. This is a human-visible act on purpose —" >&2
+            echo "  no timeout does it silently, because a timeout would also release a" >&2
+            echo "  genuinely long-running subagent." >&2
+        else
+            echo "  After presenting these facts to the user, retry the same edit — it will pass." >&2
+            echo "  Presenting them means printing them where the user can read them, not" >&2
+            echo "  satisfying yourself that you know them." >&2
+        fi
         echo "" >&2
         unity_hook_block "GateGuard: present facts above, then retry the edit."
     fi

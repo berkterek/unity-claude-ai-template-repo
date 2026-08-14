@@ -85,6 +85,44 @@ if [ "$FILENAME" = "packages-lock.json" ]; then
 fi
 
 if [ "$BLOCKED" = true ]; then
+    # Deny-then-allow gate for .asmdef EDITS only — the same mechanism
+    # guard-critical-files.sh already applies to Installer/EventBus/AppModules.
+    # Without it there is no path at all to land a legitimate, approved reference
+    # change (e.g. adding a Framework logging assembly so an Editor tool can use
+    # it): the write blocks identically forever, which is what pushes agents into
+    # `cat >` workarounds (see check-write-via-bash.sh). Blocking once still
+    # forces the investigation this hook exists to demand; blocking twice only
+    # forces a bypass.
+    #
+    # settings.json, .inputactions, manifest.json and packages-lock.json keep the
+    # hard block — those are not architecture decisions an agent should land on a
+    # retry, and settings.json in particular must stay human-only.
+    if [ "$EXT" = "asmdef" ]; then
+        # Restricted to the Director (depth 0), same reasoning as gateguard.sh:
+        # deny-then-allow verifies nothing, so a subagent that merely retries would
+        # pass a gate whose purpose is to surface an assembly-boundary change to a
+        # human — and a subagent reports to the Director, not to the user. Inside a
+        # subagent the block repeats, leaving "report upward" as the only route.
+        # No staleness downgrade, for the reason spelled out in gateguard.sh: here
+        # a 0 PASSES, so downgrading would restore the bypass.
+        CFG_DEPTH=$(unity_subagent_depth)
+
+        DENIED_FILE="${UNITY_HOOK_STATE_DIR}/config-asmdef-denied.txt"
+        PASSED_FILE="${UNITY_HOOK_STATE_DIR}/config-asmdef-passed.txt"
+        touch "$DENIED_FILE" "$PASSED_FILE"
+
+        if [ "$CFG_DEPTH" -eq 0 ] && grep -qxF "$FILE_PATH" "$PASSED_FILE" 2>/dev/null; then
+            exit 0
+        fi
+
+        if [ "$CFG_DEPTH" -eq 0 ] && grep -qxF "$FILE_PATH" "$DENIED_FILE" 2>/dev/null; then
+            echo "$FILE_PATH" >> "$PASSED_FILE"
+            exit 0
+        fi
+
+        [ "$CFG_DEPTH" -eq 0 ] && echo "$FILE_PATH" >> "$DENIED_FILE"
+    fi
+
     echo "BLOCKED: Configuration file is protected from direct modification."
     echo ""
     echo "File: $FILE_PATH"
@@ -95,6 +133,19 @@ if [ "$BLOCKED" = true ]; then
     echo "  → Do NOT relax config constraints to make errors go away"
     echo ""
     echo "If this change is intentional and you understand the impact, confirm with the developer."
+    if [ "$EXT" = "asmdef" ]; then
+        echo ""
+        if [ "${CFG_DEPTH:-0}" -gt 0 ]; then
+            echo "You are a SUBAGENT — retrying will NOT clear this block. Report BLOCKED"
+            echo "with this message verbatim and let the Director decide."
+            echo ""
+            echo "DIRECTOR, if no subagent is running the depth counter has leaked:"
+            echo "  echo 0 > \"\$CLAUDE_PROJECT_DIR\"/.claude/state/subagent-depth"
+        else
+            echo "Once you have confirmed the change is intentional and scoped, re-attempt"
+            echo "the edit — it will pass this time. Do NOT route around this via Bash."
+        fi
+    fi
     exit 2
 fi
 
