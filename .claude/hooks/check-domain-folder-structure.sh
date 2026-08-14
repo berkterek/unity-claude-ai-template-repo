@@ -2,6 +2,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
 source "${SCRIPT_DIR}/_lib.sh"
+source "${SCRIPT_DIR}/lib-path-rules.sh"
 
 # --- Hook Audit Logging ---
 _hook_log() {
@@ -21,12 +22,19 @@ _hook_log() {
 }
 trap '_hook_log $?' EXIT
 # --- End Hook Audit Logging ---
-# Hook: Blocks layer names and catch-all names as the FIRST folder under
-#       Games/Abstracts/ or Games/Concretes/, and .cs files with no domain
-#       folder at all. Everything BELOW the domain folder is unconstrained.
+# Hook: Enforces the Unity script path rules at WRITE time. All rule logic lives
+#       in lib-path-rules.sh — this file is only the hook plumbing (stdin, block).
+#       The SAME library is called at PLAN time by
+#       .claude/scripts/validate-plan-paths.sh, which is the check that actually
+#       prevents the mistake; this hook is the backstop for whatever the plan
+#       never wrote down.
 # Event: PreToolUse (pure path check — needs no file content, so it can and
 #        must stop the bad path before the file is ever created).
 # Receives JSON on stdin with tool_input.file_path
+#
+# NOTE — non-.cs writes are NOT skipped any more. An .asmdef is exactly how an
+# illegal top-level folder gets created, and the old .cs-only gate meant a module
+# whose whole output was folders + asmdefs passed without a single check running.
 
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
@@ -35,63 +43,10 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-# Non-.cs writes are never this hook's business. This is also what lets an
-# ARCHITECTURE.md land in a brand-new domain folder without being flagged here.
-case "$FILE_PATH" in *.cs) ;; *) exit 0 ;; esac
-
 should_skip_path "$FILE_PATH" && exit 0
 
-# NO `sed -E` HERE — and do not "helpfully" reintroduce it. Both of these are
-# broken on BSD sed and turn this hook into a SILENT NO-OP that never blocks
-# and never errors:
-#   sed -E 's|.*Games/(Abstracts|Concretes)/.*|\1|'    -> parentheses not balanced, empty output
-#   sed -E 's|.*Games/\(Abstracts\|Concretes\)/.*|\1|' -> \1 not defined in the RE
-# Empty SIDE would make the prefix strip fail, FIRST would be "", and both
-# checks below would fall through. Use pure shell.
-case "$FILE_PATH" in
-    *Games/Abstracts/*) SIDE=Abstracts ;;
-    *Games/Concretes/*) SIDE=Concretes ;;
-    *) exit 0 ;;
-esac
-
-# Defensive guards: fail loud, never fall through into the silent-no-op mode.
-[ -z "$SIDE" ] && exit 0
-
-TAIL=${FILE_PATH#*Games/$SIDE/}
-[ "$TAIL" = "$FILE_PATH" ] && exit 0    # prefix strip failed — refuse to guess
-
-FIRST=${TAIL%%/*}
-
-# --- Check 1: no domain folder at all ---
-if [ "$FIRST" = "$TAIL" ]; then
-    unity_hook_block "No domain folder: '$FILE_PATH'
-.cs files may not sit directly under Games/$SIDE/.
-Put it in a domain folder: Games/$SIDE/<Domain>/$FIRST
-Plural for countable domains (Players/, Enemies/, Inputs/), singular for mass
-nouns (Audio/, UI/, VFX/). DI and bootstrap wiring -> Concretes/Infrastructure/."
+if MSG=$(unity_validate_script_path "$FILE_PATH"); then
+    exit 0
+else
+    unity_hook_block "$MSG"
 fi
-
-# --- Check 2: banned first segment (17 forms, two families) ---
-case "$(printf '%s' "$FIRST" | tr '[:upper:]' '[:lower:]')" in
-    service|services|provider|providers|controller|controllers|view|views|\
-manager|managers|interface|interfaces|config|configs)
-        unity_hook_block "Layer name in the domain position: 'Games/$SIDE/$FIRST/'
-The first folder under Games/$SIDE/ must be a DOMAIN — Players/, Enemies/,
-Inputs/, Audio/, UI/, VFX/, Infrastructure/ — never a layer.
-Layer names are free BELOW the domain: Games/$SIDE/<Domain>/$FIRST/ is legal.
-Kill switch: DISABLE_HOOK_CHECK_DOMAIN_FOLDER_STRUCTURE=1"
-        ;;
-    core|general|generals)
-        unity_hook_block "Catch-all folder: 'Games/$SIDE/$FIRST/'
-'$FIRST' is not a domain — it is a name that cannot refuse a file, so everything
-drains into it. (In the voxel-blast project, Core/ reached 85 files and 7692
-lines spanning five unrelated concerns.)
-Pick a real domain instead. For code that genuinely has no domain:
-  _Framework/                  -> domain-agnostic infrastructure
-  Concretes/Infrastructure/    -> DI, bootstrap, scope and config wiring
-Kill switch: DISABLE_HOOK_CHECK_DOMAIN_FOLDER_STRUCTURE=1"
-        ;;
-esac
-
-# Nothing below FIRST is ever inspected — by design.
-exit 0

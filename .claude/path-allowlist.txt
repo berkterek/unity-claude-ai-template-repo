@@ -1,0 +1,24 @@
+# path-allowlist.txt — DECLARED exceptions to the Scripts/ folder rules.
+#
+# Read by .claude/hooks/lib-path-rules.sh (write-time hook + plan-time validator).
+#
+# A rule with no escape hatch does not bend — it gets broken silently by the
+# next plan that has a real reason to break it, and nobody notices. This file
+# is that hatch: an exception here is deliberate, greppable and reviewable.
+#
+# Format (one per line, first field is the path prefix, rest is a comment):
+#     Scripts/<Folder>            # reason: <one line>
+#     Scripts/Games/<Folder>      # reason: <one line>
+#
+# Rules for adding an entry:
+#   1. There must be a STRUCTURAL reason, not a preference. The usual valid one:
+#      the folder needs its own .asmdef because assembly flags
+#      (noEngineReferences, platform filters) are per-assembly, and an assembly
+#      boundary is a folder boundary in Unity.
+#   2. The same folder must also be added to the table in
+#      rules/architecture.md -> Scripts/ Folder Rules. An entry here without
+#      that edit means the rule file still says the opposite.
+#   3. "The hook did not complain" is never a reason. Silence is not approval.
+#
+# Example (commented out — delete or replace when a real one is needed):
+# Scripts/Simulation    # reason: engine-free deterministic sim, own asmdef with noEngineReferences
