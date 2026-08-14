@@ -192,3 +192,47 @@ run_hook() {
     run bash -c "DISABLE_HOOK_CHECK_DOMAIN_FOLDER_STRUCTURE=1 bash -c \"echo '{\\\"tool_input\\\":{\\\"file_path\\\":\\\"$ROOT/Concretes/Services/A.cs\\\"}}' | bash $HOOK\""
     [ "$status" -eq 0 ]
 }
+
+# ============================================================================
+# Fail-closed coverage — added after a plan authored Games/Simulation/ and the
+# hook exited 0 on it, which the plan then recorded as "verified compliant".
+# ROOT is .../Scripts/Games, so SCRIPTS is its parent.
+# ============================================================================
+
+@test "blocks an unknown first segment under Games/ (Simulation)" {
+    run_hook "$ROOT/Simulation/WormSim.cs"
+    [ "$status" -eq 2 ]
+}
+
+@test "blocks an unknown first segment under Scripts/ (Simulation)" {
+    run_hook "$TMPDIR_TEST/proj/_GameFolders/Scripts/Simulation/WormSim.cs"
+    [ "$status" -eq 2 ]
+}
+
+@test "blocks a NON-.cs write that creates an illegal folder (.asmdef)" {
+    run_hook "$ROOT/Simulation/Sim.asmdef"
+    [ "$status" -eq 2 ]
+}
+
+@test "blocks a .cs file sitting directly at the root of Scripts/" {
+    run_hook "$TMPDIR_TEST/proj/_GameFolders/Scripts/Loose.cs"
+    [ "$status" -eq 2 ]
+}
+
+@test "allows Ecs/ under Games/" {
+    run_hook "$ROOT/Ecs/Systems/EnemyMoveSystem.cs"
+    [ "$status" -eq 0 ]
+}
+
+@test "allows a legal domain path (control)" {
+    run_hook "$ROOT/Concretes/Players/PlayerController.cs"
+    [ "$status" -eq 0 ]
+}
+
+@test "path-allowlist.txt entry turns a block into a pass" {
+    ALLOW="$TMPDIR_TEST/allow/.claude/path-allowlist.txt"
+    mkdir -p "$(dirname "$ALLOW")"
+    echo "Scripts/Games/Simulation   # reason: engine-free sim assembly" > "$ALLOW"
+    run bash -c "cd '$TMPDIR_TEST/allow' && git init -q . && cp -R '$PWD/.claude/hooks' .claude/hooks 2>/dev/null; echo '{\"tool_input\":{\"file_path\":\"$ROOT/Simulation/WormSim.cs\"}}' | bash '$PWD/$HOOK'"
+    [ "$status" -eq 0 ]
+}
