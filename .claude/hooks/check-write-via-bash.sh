@@ -63,9 +63,23 @@ if [ -z "$VIOLATION" ] && echo "$CMD" | grep -qE "\btee\b([[:space:]]+-[a-zA-Z]+
 fi
 
 # --- 3. In-place edit:  sed -i   perl -i ---
-if [ -z "$VIOLATION" ] && echo "$CMD" | grep -qE "\b(sed|perl)\b[^|;&]*[[:space:]]-i([[:space:]]|')" \
-   && echo "$CMD" | grep -qE "\.($EXT_RE)([[:space:]]|['\"]|$)"; then
-    VIOLATION="in-place edit (sed -i / perl -i)"
+# The extension must appear in the SAME command segment as the -i flag. Testing
+# the two independently against the whole string misfires on compound commands:
+#     sed -i '' 's/x/y/' notes.md && echo '{"title":"Create Foo.asmdef"}' >> log.jsonl
+# has `sed -i` in one segment and ".asmdef" in an unrelated string literal in
+# another, and was blocked even though sed only ever touched a .md file. Split on
+# ; && || | first, then require both in one piece.
+if [ -z "$VIOLATION" ]; then
+    _segments=$(echo "$CMD" | tr ';|&' '\n')
+    while IFS= read -r _seg; do
+        echo "$_seg" | grep -qE "\b(sed|perl)\b.*[[:space:]]-i([[:space:]]|')" || continue
+        echo "$_seg" | grep -qE "\.($EXT_RE)([[:space:]]|['\"]|$)" || continue
+        echo "$_seg" | grep -qE "$TMP_RE" && continue
+        VIOLATION="in-place edit (sed -i / perl -i)"
+        break
+    done <<EOF
+$_segments
+EOF
 fi
 
 # --- 4. cp / mv INTO a project file (last argument is the destination) ---

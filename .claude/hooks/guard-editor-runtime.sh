@@ -44,9 +44,17 @@ case "$FILE_PATH" in
     *) exit 0 ;;
 esac
 
-# Skip files already in Editor folders — editor code is fine there
+# Skip files already in Editor folders — editor code is fine there.
+# Both spellings are recognised: Unity's own special-folder name is the singular
+# `Editor/`, but this project's documented layout uses the plural `Editors/`
+# (rules/architecture.md → "Scripts/ Folder Rules" and the _Framework table:
+# `Scripts/Editors/`, `_Framework/Editors/`, both compiled by an .asmdef with
+# includePlatforms: ["Editor"]). Matching only the singular made the hook refuse
+# the project's own Editor folder — it blocked a file under Scripts/Editors/ that
+# could not reach a player build, and _Framework/Editors/ had been sitting on the
+# wrong side of the same gap since the hook was written.
 case "$FILE_PATH" in
-    */Editor/*|*/editor/*) exit 0 ;;
+    */Editor/*|*/editor/*|*/Editors/*|*/editors/*) exit 0 ;;
 esac
 
 # Skip if no content to check
