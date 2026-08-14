@@ -9,10 +9,12 @@ on:
     branches: [main]
     paths:
       - '.claude/hooks/**'
+      - '.claude/scripts/**'
       - '.github/workflows/hook-tests.yml'
   pull_request:
     paths:
       - '.claude/hooks/**'
+      - '.claude/scripts/**'
       - '.github/workflows/hook-tests.yml'
   workflow_dispatch: {}
 
@@ -42,4 +44,4 @@ jobs:
         run: bash .claude/hooks/tests/run-tests.sh
 
       - name: Shellcheck hooks (fail on new errors)
-        run: shellcheck --severity=error .claude/hooks/*.sh
+        run: shellcheck --severity=error .claude/hooks/*.sh .claude/scripts/*.sh

@@ -92,7 +92,6 @@ extract_paths() {
 
 VIOLATIONS=0
 CHECKED=0
-declare -a SEEN=()
 
 while IFS= read -r p; do
     [ -z "$p" ] && continue
