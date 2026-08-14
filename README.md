@@ -584,7 +584,7 @@ Control which hooks are active via `UNITY_HOOK_PROFILE`:
 
 | Profile | What runs | When to use |
 |---------|-----------|-------------|
-| `minimal` | Only 5 critical safety hooks (`block-git-push`, `block-scene-edit`, `block-projectsettings`, `check-config-protection`, `guard-critical-files`) | Prototypes, game jams, legacy migration |
+| `minimal` | Only the critical safety hooks (`block-git-push`, `check-write-via-bash`, `block-scene-edit`, `block-projectsettings`, `check-config-protection`, `guard-critical-files`) | Prototypes, game jams, legacy migration |
 | `standard` | All hooks except strict-only enforcement hooks (default) | Regular development |
 | `strict` | All hooks, including heavy enforcement (gate guards, skill enforcer, codex review order) | Team projects, CI, shared repos |
 
@@ -624,6 +624,7 @@ npm install -g bats      # Linux
 | Hook | What it blocks |
 |------|---------------|
 | `block-git-push` | `git push` — Claude cannot push; user always pushes manually |
+| `check-write-via-bash` | Writing a project file through Bash (`>`, `>>`, `tee`, `sed -i`, `cp`/`mv`). The content hooks all match `Edit\|Write` and never see a Bash command — this closes that bypass. `/tmp` is exempt |
 | `block-scene-edit` | Direct editing of `.unity`, `.prefab`, `.asset` YAML |
 | `guard-editor-runtime` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `check-no-monobehaviour-in-services` | `class FooHandler : MonoBehaviour` and `class FooModule : ScriptableObject` blocked by inheritance (always). For `using UnityEngine` in service/domain files: legitimacy is judged **structurally** — a class satisfying Card 0 (own `[SerializeField]` field and/or a Unity lifecycle callback) passes regardless of name (covers `*Provider`/`*View`/`*Controller`/`*Manager`); name-exempt for structurally-undetectable pure-C# categories (`*Handler`, `*Loader`/`*Dal`/`*Client`, `*Extensions`, `*Installer`/`*Scope`), `*Events` files, and ScriptableObject configs (`*Configuration`/`*Config`/`*Catalog`/`*Definition`). Even without Card 0 structure, a file whose only `UnityEngine` surface is math value types (`Mathf`/`Vector3`/`Quaternion`/`Color`...) or `Debug` logging passes; only real engine/scene/asset/input/time API is blocked. Path-based Editor/third-party/test exclusion via `should_skip_path()` |
@@ -632,7 +633,7 @@ npm install -g bats      # Linux
 | `check-time-scale` | `Time.timeScale =` assignment |
 | `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
 | `guard-critical-files` | Edits to `AppScope`, `InputService`, `*Installer`, `EventBus`, `AppModules`, `ConfigCatalog`, `.asmdef` — deny-then-allow gate: first edit attempt per file blocks and demands investigation, retry passes; creating a brand-new file is never blocked |
-| `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exception: test assemblies |
+| `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exceptions: test assemblies, and creating a new `.asmdef` (edits to existing ones still block) |
 | `guard-gate-cleared` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 | `guard-pipeline-direct-work` (PreToolUse Edit\|MultiEdit\|Write\|Bash) | Blocks direct `Edit`/`Write` to `_GameFolders/Scripts/**/*.cs` and direct `git commit` while a Director Gate is open (`gate-cleared` exists) but no subagent is currently running (`subagent-depth` == 0) — closes the "gate was shown but pipeline agent was never spawned" loophole. Escape valve: `.claude/state/pipeline-override` for explicit user-approved bypasses |
 | `guard-reviewer-order` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass |

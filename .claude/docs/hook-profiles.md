@@ -22,9 +22,10 @@ in `.claude/settings.json` under `env`. The default is `standard`.
 | Hook | Purpose |
 |------|---------|
 | `block-git-push.sh` | Prevents Claude from running `git push` |
+| `check-write-via-bash.sh` | Blocks writing project files through Bash, so the `Edit\|Write` content hooks cannot be bypassed |
 | `block-scene-edit.sh` | Blocks direct edits to `.unity`, `.prefab`, `.asset` |
 | `block-projectsettings.sh` | Blocks edits to `ProjectSettings/*.asset`, `Packages/manifest.json` |
-| `check-config-protection.sh` | Protects `.asmdef`, `settings.json`, `.inputactions`, `manifest.json` |
+| `check-config-protection.sh` | Protects `.asmdef` (edits only — creation allowed), `settings.json`, `.inputactions`, `manifest.json` |
 | `guard-critical-files.sh` | Requires investigation before editing AppScope, InputService, Installers, EventBus, AppModules, ConfigCatalog (deny-then-allow: first attempt blocks, retry passes) |
 | `check-ls-grep.sh` | **PreToolUse (all tools).** Blocks `ls \| grep/awk/sed` used for directory listing — use `tree`. Listed here because it declares **no** `HOOK_PROFILE_LEVEL`, so unlike every other quality hook it runs at *every* profile, `minimal` included. Disable: `DISABLE_HOOK_CHECK_LS_GREP=1` |
 
