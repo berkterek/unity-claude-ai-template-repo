@@ -633,7 +633,7 @@ npm install -g bats      # Linux
 | `check-time-scale` | `Time.timeScale =` assignment |
 | `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
 | `guard-critical-files` | Edits to `AppScope`, `InputService`, `*Installer`, `EventBus`, `AppModules`, `ConfigCatalog`, `.asmdef` — deny-then-allow gate: first edit attempt per file blocks and demands investigation, retry passes; creating a brand-new file is never blocked |
-| `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exceptions: test assemblies, and creating a new `.asmdef` (edits to existing ones still block) |
+| `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exceptions: test assemblies, and creating a new `.asmdef`. Editing an existing `.asmdef` blocks once and passes on the Director's retry; inside a subagent it blocks every time. `settings.json` / `manifest.json` / `.inputactions` stay hard-blocked on every attempt |
 | `guard-gate-cleared` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 | `guard-pipeline-direct-work` (PreToolUse Edit\|MultiEdit\|Write\|Bash) | Blocks direct `Edit`/`Write` to `_GameFolders/Scripts/**/*.cs` and direct `git commit` while a Director Gate is open (`gate-cleared` exists) but no subagent is currently running (`subagent-depth` == 0) — closes the "gate was shown but pipeline agent was never spawned" loophole. Escape valve: `.claude/state/pipeline-override` for explicit user-approved bypasses |
 | `guard-reviewer-order` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass |
