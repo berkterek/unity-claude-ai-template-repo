@@ -400,6 +400,26 @@ The **only** valid top-level folders under `Scripts/` are: `Games/`, `Tests/`, `
 
 **Rule:** `_Framework` never references `_GameFolders` or any other project folder. `_GameFolders` may reference `_Framework`.
 
+### Adding a Top-Level Folder (the declared exception)
+
+The three-folder list above is enforced fail-closed by `lib-path-rules.sh` — an unrecognized first segment under `Scripts/`, or under `Scripts/Games/`, is a **block**, not a fall-through. That is deliberate: the earlier version exited 0 on anything it did not recognize, and a plan recorded that silence as "verified compliant" before building an illegal tree.
+
+A rule with no escape hatch does not bend, it gets broken silently. There is exactly one legitimate reason to add a fourth folder, and one way to do it.
+
+**The reason:** in Unity an assembly boundary *is* a folder boundary. Assembly flags (`noEngineReferences`, platform filters, `defineConstraints`) are per-`.asmdef`, never per-file. Code that must live in its own assembly — e.g. an engine-free deterministic simulation that must not be able to reference `UnityEngine` — therefore must live in its own folder. Putting it under `Concretes/<Domain>/` drops it into the game assembly and the flag becomes unenforceable.
+
+**The procedure — both steps, or neither:**
+
+1. Add a line to `.claude/path-allowlist.txt`:
+   ```
+   Scripts/Simulation    # reason: engine-free deterministic sim, own asmdef with noEngineReferences
+   ```
+2. Add the folder to the table in this file, so the prose and the validator agree.
+
+An allowlist entry without step 2 leaves this rule file asserting the opposite of what the validator permits — which is the same drift, one layer down.
+
+**Never valid as a reason:** "the hook did not complain", "the plan said so", "it felt cleaner". Silence is not approval; a plan is not a rule. If a plan and this file disagree, the disagreement is a decision for the human at SCOPE_GATE / ARCHITECTURE_GATE — surfaced by `.claude/scripts/validate-plan-paths.sh`, which runs at plan time precisely because the write-time hook fires too late to prevent an approved-but-wrong tree.
+
 ### _Framework Assembly Definition Rules (NON-NEGOTIABLE)
 
 - Every subfolder under `_Framework/` has its **own** `.asmdef` file
