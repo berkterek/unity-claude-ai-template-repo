@@ -122,6 +122,24 @@ Graph confidence: [EXTRACTED | mostly_INFERRED | N/A (file-scan mode)]
 
 If a tasks.md output file already exists and is correctly implemented, mark that task as a candidate to skip and ask the developer: "Task [X] output already exists and looks correct — skip or re-implement?"
 
+**Step 0b.4b — Plan Path Validation (BLOCKING — never skip)**
+
+The Pre-Scan above looks at what **already exists**. This step looks at what the plan is about to **create** — the folder tree in `design.md`/`tasks.md` — and validates it against `rules/architecture.md` before a single agent spawns.
+
+Run, on the module's plan directory:
+
+```bash
+.claude/scripts/validate-plan-paths.sh <plan-dir-or-files>
+```
+
+Then paste the tool's full output into the SCOPE_GATE block. Rules for reading it:
+
+- **exit 2** → the plan contradicts `rules/architecture.md`. Do NOT proceed silently and do NOT "fix" it by inventing a folder. Present the conflict at SCOPE_GATE with the three options: (a) change the plan, (b) declare a real exception in `.claude/path-allowlist.txt` + `rules/architecture.md`, (c) stop. **The human picks.**
+- **`NO PATHS FOUND`** → this is **not** a pass. Verify by hand that the plan really declares no script paths.
+- **exit 0 with N paths checked** → this is the only green.
+
+A hook exiting 0 is never evidence a rule was checked — only the printed `checked:` line is. Do not write "verified compliant" into any spec/AC on the basis of a hook staying silent.
+
 **Step 0b.5 — SCOPE_GATE**
 
 Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.

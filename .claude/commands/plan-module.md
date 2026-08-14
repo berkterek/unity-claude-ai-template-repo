@@ -97,6 +97,14 @@ diyerek dur.
 
 ### Step 2 — ARCHITECTURE_GATE
 
+**Önce (BLOCKING):** spec/design/tasks yazıldıktan sonra, gate'i göstermeden önce çalıştır:
+
+```bash
+.claude/scripts/validate-plan-paths.sh <modül plan klasörü>
+```
+
+exit 2 → plan `rules/architecture.md` ile çelişiyor. Sessizce devam etme, klasörü de kendi kafana göre uydurma: çelişkiyi ARCHITECTURE_GATE bloğunun içinde göster, üç seçenekle (planı değiştir / `.claude/path-allowlist.txt` + `rules/architecture.md`'ye istisnayı yaz / dur). Kararı kullanıcı verir. `NO PATHS FOUND` pass değildir. Hook'un susması hiçbir zaman "doğrulandı" demek değildir — spec'e AC olarak "uyumlu, doğrulandı" yazmak için `checked:` satırı şart.
+
 Kullanıcıya şu bilgileri göster ve onay iste:
 
 ```
