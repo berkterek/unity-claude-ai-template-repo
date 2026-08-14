@@ -130,20 +130,32 @@ if [ "$CRITICAL" = true ]; then
     # investigation, then let the (presumably now-informed) retry through. Without
     # this, editing an EXISTING critical file (not just creating a new one) would
     # block identically forever — there was no way to ever land a real edit.
+    #
+    # The pass is restricted to the Director (depth 0), same reasoning as
+    # gateguard.sh and check-config-protection.sh: nothing here verifies the
+    # investigation actually happened, so a caller that merely retries walks
+    # through. That is acceptable for the Director, whose retry follows reporting
+    # the findings where the user can read them — a subagent reports to the
+    # Director, not the user, so self-satisfying this gate cancels its purpose.
+    # Inside a subagent the block repeats, leaving "report upward" as the only
+    # route. No staleness downgrade: here 0 is the value that PASSES, so a timeout
+    # would release a long-running subagent (see gateguard.sh for the full note).
+    GCF_DEPTH=$(unity_subagent_depth)
+
     DENIED_FILE="${UNITY_HOOK_STATE_DIR}/guard-critical-denied.txt"
     PASSED_FILE="${UNITY_HOOK_STATE_DIR}/guard-critical-passed.txt"
     touch "$DENIED_FILE" "$PASSED_FILE"
 
-    if grep -qxF "$FILE_PATH" "$PASSED_FILE" 2>/dev/null; then
+    if [ "$GCF_DEPTH" -eq 0 ] && grep -qxF "$FILE_PATH" "$PASSED_FILE" 2>/dev/null; then
         exit 0
     fi
 
-    if grep -qxF "$FILE_PATH" "$DENIED_FILE" 2>/dev/null; then
+    if [ "$GCF_DEPTH" -eq 0 ] && grep -qxF "$FILE_PATH" "$DENIED_FILE" 2>/dev/null; then
         echo "$FILE_PATH" >> "$PASSED_FILE"
         exit 0
     fi
 
-    echo "$FILE_PATH" >> "$DENIED_FILE"
+    [ "$GCF_DEPTH" -eq 0 ] && echo "$FILE_PATH" >> "$DENIED_FILE"
     echo "BLOCKED: Critical architecture file requires investigation before editing."
     echo ""
     echo "File: $FILE_PATH"
@@ -155,7 +167,18 @@ if [ "$CRITICAL" = true ]; then
     echo "  3. Understand what breaks if the public API changes"
     echo "  4. Confirm the change is intentional and scoped"
     echo ""
-    echo "Once you have investigated, re-attempt the edit — it will pass this time."
+    echo ""
+    if [ "$GCF_DEPTH" -gt 0 ]; then
+        echo "You are a SUBAGENT — retrying will NOT clear this block. Your output goes"
+        echo "to the Director, not to the user, so satisfying this gate yourself would"
+        echo "cancel the only thing it does. Report BLOCKED with this message verbatim."
+        echo ""
+        echo "DIRECTOR, if no subagent is running the depth counter has leaked:"
+        echo "  echo 0 > \"\$CLAUDE_PROJECT_DIR\"/.claude/state/subagent-depth"
+    else
+        echo "Once you have investigated, re-attempt the edit — it will pass this time."
+        echo "Do NOT route around this via Bash."
+    fi
     exit 2
 fi
 

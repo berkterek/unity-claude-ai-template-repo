@@ -51,6 +51,42 @@ teardown() {
     [ "$status" -eq 0 ]
 }
 
+@test "critical edit passes on the Director's SECOND attempt" {
+    local f="$TMPDIR_TEST/AppModules.cs"
+    echo "// existing" > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
+@test "critical edit NEVER passes on retry inside a subagent" {
+    # Same reasoning as gateguard.sh and check-config-protection.sh: deny-then-allow
+    # verifies nothing, and a subagent reports to the Director rather than the user,
+    # so letting it clear the gate itself cancels the gate's only purpose.
+    echo 2 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    local f="$TMPDIR_TEST/EventBus.cs"
+    echo "// existing" > "$f"
+    for _ in 1 2 3; do
+        run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+        [ "$status" -eq 2 ]
+    done
+}
+
+@test "a STALE depth count still blocks — no timeout releases this gate" {
+    # Opposite of guard-pipeline-direct-work.sh on purpose: there 0 means ENFORCE,
+    # here 0 means PASS, so a timeout would release a long-running subagent.
+    local depth="${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    echo 5 > "$depth"
+    touch -t 200001010000 "$depth"
+    local f="$TMPDIR_TEST/AppScope.cs"
+    echo "// existing" > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
 @test "allows a normal non-critical file" {
     run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/EnemyModel.cs\"}}' | bash $HOOK"
     [ "$status" -eq 0 ]
