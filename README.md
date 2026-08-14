@@ -1209,10 +1209,20 @@ The log is capped at 500 lines and rotates automatically. It is global across al
 3. Create `Assets/_GameFolders/Input/[ProjectName]Controls.inputactions`
 4. Enable "Generate C# Class" in the `.inputactions` inspector
 
-**settings.json hook entries** — Claude cannot edit `settings.json` (blocked by `check-config-protection.sh`). Add manually — see `.claude/docs/setup-checklist.md` for the exact JSON blocks:
-- `check-test-scene-exists.sh` (PostToolUse, Write|Edit matcher)
-- `guard-reviewer-order.sh` (PreToolUse, Agent matcher)
-- `track-codex-review.sh` (PostToolUse, Agent matcher)
+**settings.json hook entries** — Claude cannot edit `settings.json` (blocked by `check-config-protection.sh`), so any newly created hook has to be registered by hand. `settings.json` is tracked in git, so a project derived from this template inherits every registration already in it — this list only ever holds hooks that ship unregistered.
+
+Currently pending: **`check-write-via-bash.sh`**. Add it to the existing `"matcher": "Bash"` block under `hooks.PreToolUse`:
+
+```json
+{
+  "type": "command",
+  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-write-via-bash.sh",
+  "timeout": 3000,
+  "statusMessage": "Checking for hook-bypassing file writes..."
+}
+```
+
+Until that entry exists the hook sits on disk and never runs, leaving `cat > Foo.cs` free to skip every `Edit|Write` content hook.
 
 > **MCP unavailable?** If Unity Editor is not open or MCP is disconnected when `/setup-project` runs, Step 5d is skipped and a manual checklist is printed for scene creation, AppScope wiring, and Build Settings.
 

@@ -16,30 +16,18 @@ These are NOT manual — `/setup-project` Step 5d handles them via `manage_scene
 - [ ] **NSubstitute DLL** — Download from [NuGet](https://www.nuget.org/packages/NSubstitute): click "Download package", rename `.nupkg` to `.zip`, extract, take `NSubstitute.dll` from the `lib/` folder, place in `Assets/Plugins/NSubstitute/`
 - [ ] **New Input System — Project Settings** — After package install: Edit → Project Settings → Player → Active Input Handling → "Input System Package (New)" (Unity restarts; this cannot be set via MCP)
 - [ ] **Input Actions file** — Create `Assets/_GameFolders/Input/[ProjectName]Controls.inputactions`, enable "Generate C# Class" in Inspector
-- [ ] **`check-test-scene-exists.sh` hook** — Add to `.claude/settings.json` PostToolUse section (Claude cannot edit settings.json due to config-protection hook):
-  ```json
-  {
-    "matcher": "Write|Edit",
-    "hooks": [{ "type": "command", "command": ".claude/hooks/check-test-scene-exists.sh", "timeout": 5000, "statusMessage": "Checking test scene exists..." }]
-  }
-  ```
-- [ ] **`guard-reviewer-order.sh` hook** — Add to `.claude/settings.json` **PreToolUse** `Agent` matcher (alongside `guard-gate-cleared.sh`):
+- [ ] **`check-write-via-bash.sh` hook** — Add to the existing `"matcher": "Bash"` block under `hooks.PreToolUse` in `.claude/settings.json` (Claude cannot edit settings.json — the config-protection hook blocks it):
   ```json
   {
     "type": "command",
-    "command": ".claude/hooks/guard-reviewer-order.sh",
+    "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-write-via-bash.sh",
     "timeout": 3000,
-    "statusMessage": "Checking reviewer order (Codex first)..."
+    "statusMessage": "Checking for hook-bypassing file writes..."
   }
   ```
-  Full entry in `hooks.PreToolUse` where `"matcher": "Agent"` already exists — add as a second hook in that hooks array.
-- [ ] **`track-codex-review.sh` hook** — Add to `.claude/settings.json` **PostToolUse** section as a new entry:
-  ```json
-  {
-    "matcher": "Agent",
-    "hooks": [{ "type": "command", "command": ".claude/hooks/track-codex-review.sh", "timeout": 3000, "statusMessage": "Tracking Codex review..." }]
-  }
-  ```
+  Until this entry exists the hook sits on disk and never runs, so `cat > Foo.cs` still skips every `Edit|Write` content hook.
+
+> `check-test-scene-exists.sh`, `guard-reviewer-order.sh` and `track-codex-review.sh` used to be listed here. They are registered in the tracked `.claude/settings.json` and are inherited by any project derived from this template — nothing to do.
 
 # Testing Infrastructure
 
