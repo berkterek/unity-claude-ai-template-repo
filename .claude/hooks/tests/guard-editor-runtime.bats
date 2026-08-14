@@ -25,6 +25,20 @@ teardown() {
     [ "$status" -eq 0 ]
 }
 
+@test "allows files inside the project's plural Editors/ folder" {
+    # rules/architecture.md documents Scripts/Editors/ and _Framework/Editors/,
+    # both compiled by an .asmdef with includePlatforms: ["Editor"]. Matching only
+    # the singular Editor/ made this hook reject the project's own Editor folder.
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/_GameFolders/Scripts/Editors/AsmdefSetup/Tool.cs\",\"new_string\":\"using UnityEditor; class Tool {}\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
+@test "still blocks unguarded UnityEditor in a folder merely named Editorial" {
+    # Guards against the plural fix widening into a substring match.
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/Editorial/Foo.cs\",\"new_string\":\"using UnityEditor; class Foo { void F(){ EditorUtility.SetDirty(this); } }\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
 @test "allows runtime code with no UnityEditor usage" {
     run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/Foo.cs\",\"new_string\":\"using UnityEngine; class Foo : MonoBehaviour {}\"}}' | bash $HOOK"
     [ "$status" -eq 0 ]

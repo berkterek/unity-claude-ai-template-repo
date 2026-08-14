@@ -56,6 +56,25 @@ EOF"
     [ "$status" -eq 2 ]
 }
 
+@test "allows sed -i on a .md file even when another segment mentions .asmdef" {
+    # Regression: the rule used to test "has sed -i" and "mentions a project
+    # extension" independently against the whole command, so a compound command
+    # whose SECOND segment merely contained the string ".asmdef" was blocked even
+    # though sed only ever touched a .md file.
+    run_cmd "sed -i '' 's/x/y/' docs/tasks.md && echo '{\"title\":\"Create Foo.asmdef\"}' >> docs/EVENTS.jsonl"
+    [ "$status" -eq 0 ]
+}
+
+@test "still blocks sed -i when the .cs target is in a later segment" {
+    run_cmd "echo hello && sed -i '' 's/a/b/' Assets/Scripts/Foo.cs"
+    [ "$status" -eq 2 ]
+}
+
+@test "allows sed -i on a project file under /tmp" {
+    run_cmd "sed -i '' 's/a/b/' /tmp/scratch/Foo.cs"
+    [ "$status" -eq 0 ]
+}
+
 @test "blocks sed -i on a project file" {
     run_cmd "sed -i '' 's/a/b/' Assets/Scripts/Foo.cs"
     [ "$status" -eq 2 ]
