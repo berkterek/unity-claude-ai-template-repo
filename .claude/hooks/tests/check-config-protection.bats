@@ -15,9 +15,16 @@ teardown() {
     [ "$status" -eq 2 ]
 }
 
-@test "blocks edits to .asmdef files outside test folders" {
-    run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/Games/GameAssembly.asmdef\"}}' | bash $HOOK"
+@test "blocks edits to EXISTING .asmdef files outside test folders" {
+    EXISTING="${UNITY_HOOK_STATE_DIR}/GameAssembly.asmdef"
+    echo '{}' > "$EXISTING"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$EXISTING\"}}' | bash $HOOK"
     [ "$status" -eq 2 ]
+}
+
+@test "allows CREATING a new .asmdef — no existing boundary to break" {
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"${UNITY_HOOK_STATE_DIR}/Brand.New.asmdef\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
 }
 
 @test "allows edits to test assembly .asmdef files" {

@@ -44,6 +44,16 @@ REASON=""
 if [ "$EXT" = "asmdef" ]; then
     if echo "$FILE_PATH" | grep -qiE "(EditModeTest|PlayModeTest)"; then
         : # test assembly — allowed
+    elif [ ! -f "$FILE_PATH" ]; then
+        # New file — safe to create. This hook's stated reason ("modifying them to
+        # fix a compile error usually means the architecture is wrong") is about
+        # EDITING existing wiring; creating a new assembly boundary is a plan-time
+        # architectural decision, already gated by validate-plan-paths.sh +
+        # ARCHITECTURE_GATE. Blocking creation here made an approved plan
+        # unexecutable and pushed agents into `cat >` workarounds
+        # (see check-write-via-bash.sh). Matches the create/edit split
+        # guard-critical-files.sh already uses for Installer/EventBus/AppModules.
+        :
     else
         BLOCKED=true
         REASON=".asmdef files define assembly boundaries and reference rules. Modifying them to fix a compile error usually means the architecture is wrong, not the config."

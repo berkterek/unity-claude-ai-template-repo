@@ -20,9 +20,16 @@ teardown() {
     [ "$status" -eq 2 ]
 }
 
-@test "blocks editing an .asmdef" {
-    run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/Game.asmdef\"}}' | bash $HOOK"
+@test "blocks editing an EXISTING .asmdef" {
+    local f="$TMPDIR_TEST/Game.asmdef"
+    echo '{}' > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
     [ "$status" -eq 2 ]
+}
+
+@test "allows creating a NEW .asmdef" {
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$TMPDIR_TEST/Brand.New.asmdef\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
 }
 
 @test "blocks editing an EXISTING EventBus" {

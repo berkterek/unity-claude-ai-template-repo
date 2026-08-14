@@ -90,9 +90,16 @@ if echo "$FILENAME_NO_EXT" | grep -qiE "^(IEventBus|EventBus|EventBusAccessor)$"
 fi
 
 # Assembly definition files
+# Exception: creating a brand-new .asmdef is safe — there is no existing
+# assembly boundary to break, and the decision to open a new one is made (and
+# gated) at plan time. Same create/edit split as every other rule above.
 if [ "$EXT" = "asmdef" ]; then
-    CRITICAL=true
-    REASON=".asmdef files control assembly boundaries and references — incorrect changes cause compile errors across the project."
+    if [ ! -f "$FILE_PATH" ]; then
+        : # new file — safe to create
+    else
+        CRITICAL=true
+        REASON=".asmdef files control assembly boundaries and references — incorrect changes cause compile errors across the project."
+    fi
 fi
 
 # AppModules — lists every registered module, changes affect entire app DI graph
