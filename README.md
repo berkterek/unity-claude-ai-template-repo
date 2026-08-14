@@ -87,6 +87,8 @@ your-unity-project/
     ├── hooks/
     ├── commands/
     ├── agents/
+    ├── scripts/            ← plan-time validators (run by commands, not hooks)
+    ├── path-allowlist.txt  ← declared exceptions to the Scripts/ folder rules
     └── settings.json
 ```
 
@@ -195,7 +197,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 | File | Covers |
 |------|--------|
-| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope; **domain folder convention** (the first folder under `Games/Abstracts\|Concretes/` is a domain — never a layer like `Services/`, never a catch-all like `Core/`; free below it); **`Concretes/<Domain>/ARCHITECTURE.md` intent contract** (English, ≤40 lines, four fixed headings, no class names) |
+| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope; **Scripts/ folder rules** (only `Games/`, `Tests/`, `Editors/` at the top level; only `Abstracts/`, `Concretes/`, `Ecs/` under `Games/` — enforced fail-closed, with declared exceptions in `.claude/path-allowlist.txt`); **domain folder convention** (the first folder under `Games/Abstracts\|Concretes/` is a domain — never a layer like `Services/`, never a catch-all like `Core/`; free below it); **`Concretes/<Domain>/ARCHITECTURE.md` intent contract** (English, ≤40 lines, four fixed headings, no class names) |
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; namespace collision rule (`Game.Concretes.<Domain>` vs UnityEngine aliases) |
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; material folder structure (`Arts/Materials/<Domain>/`); shader file structure (`_GameFolders/Arts/Shaders/`); URP shader rule (Standard forbidden) |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
@@ -460,7 +462,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 | `check-time-scale` | `Time.timeScale =` assignment | Use IEventBus + PauseService pattern |
 | `check-no-monobehaviour-in-services` | `class FooService : MonoBehaviour/ScriptableObject` in `_Framework/` / `Games/Abstracts/` / `Games/Concretes/` | Make it a Provider, View, Controller, or Manager instead (needs an own `[SerializeField]` or a Unity lifecycle callback) — `using UnityEngine` for math value types (`Mathf`/`Vector3`/`Quaternion`/`Color`...) and `Debug` logging is allowed; only real engine/scene/input/time API (`SceneManager`/`Transform`/`AudioSource`/`Physics`/`Input`/`Time`) is blocked |
 | `guard-editor-runtime` | Unguarded `UnityEditor` in runtime code | Wrap with `#if UNITY_EDITOR` |
-| `check-domain-folder-structure` | Any write into a layer-named or catch-all first folder under `Games/Abstracts\|Concretes/` — e.g. an existing `Concretes/Core/`, `Concretes/Services/`, `Concretes/Managers/` | **This is the hook legacy projects hit hardest**: if the folder already exists, *every* write into it is blocked, including edits to untouched files. Either split the folder into real domains (`Core/` → `Players/`, `Enemies/`, `Infrastructure/`…) before migrating, or set `DISABLE_HOOK_CHECK_DOMAIN_FOLDER_STRUCTURE=1` until you do. Note `Common/`, `Shared/`, `Utils/`, `Helpers/`, `Misc/` are deliberately **not** blocked |
+| `check-domain-folder-structure` | Any write into a layer-named or catch-all first folder under `Games/Abstracts\|Concretes/` — e.g. an existing `Concretes/Core/`, `Concretes/Services/`, `Concretes/Managers/` — **and, since the rule is fail-closed, any write into a top-level folder outside `Games\|Tests\|Editors` (e.g. a legacy `Scripts/Config/`)** | **This is the hook legacy projects hit hardest**: if the folder already exists, *every* write into it is blocked, including edits to untouched files. Either split the folder into real domains (`Core/` → `Players/`, `Enemies/`, `Infrastructure/`…) before migrating, or set `DISABLE_HOOK_CHECK_DOMAIN_FOLDER_STRUCTURE=1` until you do. Note `Common/`, `Shared/`, `Utils/`, `Helpers/`, `Misc/` are deliberately **not** blocked |
 | `check-architecture-doc` | Nothing at first — a domain with no `ARCHITECTURE.md` only warns. It blocks once a doc exists but is malformed | Write the doc when you next touch the domain, or accept the warning. To silence it project-wide: `DISABLE_HOOK_CHECK_ARCHITECTURE_DOC=1` |
 
 ### Recommended migration approach
@@ -637,7 +639,7 @@ npm install -g bats      # Linux
 | `check-no-runtime-instantiate` | `new GameObject()` — blocked everywhere in runtime code; use `Instantiate(prefab)` or `Addressables.InstantiateAsync()` |
 | `check-enum-byte-base` | `enum` without `: byte` base inside `IComponentData` or `IEvent` structs — use `: ushort` if 255+ values needed |
 | `block-graph-direct-read` (PreToolUse Read) | Direct `Read` of `graph.json`, `scenes.json`, or `prefabs.json` when `hybrid_graph: true` — use `/knowledge-graph` subcommands or `mcp__graph_mcp__*` tools instead |
-| `check-domain-folder-structure` (PreToolUse Edit\|Write) | Layer names (`Service(s)/`, `Provider(s)/`, `Controller(s)/`, `View(s)/`, `Manager(s)/`, `Interface(s)/`, `Config(s)/`) and catch-alls (`Core/`, `General(s)/`) as the **first** folder under `Games/Abstracts\|Concretes/`; also a `.cs` file with no domain folder at all. Never inspects below the domain — `Players/Services/` is legal. `Games/Ecs/`, `Tests/`, `Editor/` are out of scope |
+| `check-domain-folder-structure` (PreToolUse Edit\|Write) | **Fail-closed, all file types** (an `.asmdef` is how an illegal folder is born). Any first segment under `Scripts/` outside `Games\|Tests\|Editors`; any first segment under `Scripts/Games/` outside `Abstracts\|Concretes\|Ecs`; a file at the root of `Scripts/`; layer names (`Service(s)/`, `Provider(s)/`, `Controller(s)/`, `View(s)/`, `Manager(s)/`, `Interface(s)/`, `Config(s)/`) and catch-alls (`Core/`, `General(s)/`) as the **first** folder under `Games/Abstracts\|Concretes/`; a `.cs` file with no domain folder at all. Never inspects below the domain — `Players/Services/` is legal. Rule logic lives in `hooks/lib-path-rules.sh`, shared with the plan-time `scripts/validate-plan-paths.sh`; exceptions are declared in `.claude/path-allowlist.txt`. `Tests/`, `Editor/` are out of scope |
 | `check-no-throwaway-editor-script` (PreToolUse Edit\|Write) | One-shot Editor C# scripts: a `.cs` path under `Editor/(Temp\|Tmp\|Scratch\|OneShot\|Throwaway)/`, or content marked disposable (`delete this file once…`, `throwaway`, `temporary wiring helper`, `EditorTemp`). Do the work through MCP (`manage_gameobject`, `manage_components`, `manage_asset`) instead. Genuine bulk `AssetImporter` work belongs in a **permanent** tool under `Assets/Editor/`. Escape valve: one-line reason in `.claude/state/editor-script-override` |
 | `check-architecture-doc` (PostToolUse Edit\|Write) | A **malformed** `Concretes/<Domain>/ARCHITECTURE.md`: over 40 lines, missing/reordered/extra `##` headings against `## Purpose` / `## Boundary` / `## How to extend` / `## Gotchas`, no H1, any class-name symbol (`Module` suffix exempt), or the file placed under `Abstracts/` or directly under `Concretes/`. **PostToolUse — the file is already on disk; exit 2 is corrective feedback, not prevention.** The *missing*-doc case only warns, see below |
 
@@ -1265,7 +1267,7 @@ Arts/
 - Every scene GO is a prefab instance; root=logic components, `Body` child=visual components
 - `Games/Abstracts/` = interfaces and abstract base classes ONLY — no concrete implementations
 - `Games/Concretes/` = ALL concrete classes, both pure C# (MoveHandler, DamageHandler) and MonoBehaviours — organized by domain (Players/, Enemies/, Audio/…), never by layer
-- Only valid top-level folders under `Scripts/`: `Games/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/` or other folders alongside `Games/`
+- Only valid top-level folders under `Scripts/`: `Games/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/` or other folders alongside `Games/`. A fourth folder is legitimate only when it needs its own `.asmdef` (assembly flags are per-assembly, so an assembly boundary is a folder boundary); it must then be declared in `.claude/path-allowlist.txt` **and** added to the table in `rules/architecture.md`. "The hook did not complain" is never a reason — the rule is fail-closed and validated at plan time by `.claude/scripts/validate-plan-paths.sh` before SCOPE_GATE/ARCHITECTURE_GATE
 - Every `_Framework` subfolder has its own `.asmdef` — never a single root-level assembly covering all subfolders
 - All prefabs under `_GameFolders/Prefabs/<Domain>/` (`Bootstrap/`, `CoreObjects/`, `Enemies/`, `UI/Canvases/`, `VFX/`, `Environment/`…); shared-base objects use Prefab Variants; all Canvas prefabs are Prefab Variants of `BaseCanvas`
 - All material assets (.mat) under `Arts/Materials/<Domain>/` — never inside `Prefabs/`; shader files (.shader / .shadergraph) under `_GameFolders/Arts/Shaders/`; never use Built-in Standard shader in a URP project — use the `unity-shader-dev` agent for shader authoring (automatically routes to HLSL or ShaderGraph based on complexity); use the `unity-particle-designer` agent for particle VFX (`Arts/Materials/VFX/` + `_GameFolders/Prefabs/VFX/` + pooling)
@@ -1306,7 +1308,7 @@ The reviewer checks architecture rules (VContainer DI, no singletons, IEventBus 
 
 ### hook-tests.yml — hook regression gate
 
-Runs the bats-core suite (`.claude/hooks/tests/`) plus `shellcheck` on every change under `.claude/hooks/` (and on changes to its own YAML; `workflow_dispatch` for manual runs). Installs bats with `sudo npm install -g bats` — the runner's `/usr/local` global prefix is not writable by the unprivileged `runner` user, so a plain `npm install -g` fails with `EACCES` (exit 243). A broken or over-broad hook turns the check red instead of silently shipping.
+Runs the bats-core suite (`.claude/hooks/tests/`) plus `shellcheck` on every change under `.claude/hooks/` or `.claude/scripts/` (and on changes to its own YAML; `workflow_dispatch` for manual runs). Installs bats with `sudo npm install -g bats` — the runner's `/usr/local` global prefix is not writable by the unprivileged `runner` user, so a plain `npm install -g` fails with `EACCES` (exit 243). A broken or over-broad hook turns the check red instead of silently shipping.
 
 ### graph-tests.yml — knowledge-graph harness
 
