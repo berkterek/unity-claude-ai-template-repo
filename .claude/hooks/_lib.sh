@@ -323,3 +323,33 @@ unity_gate_cleared_valid() {
     [ "$age" -le "$UNITY_GATE_TTL" ] || return 3
     return 0
 }
+
+# unity_plan_covers <script-path>
+#
+# 0 = a human-approved plan declares this path. Non-zero = it does not.
+#
+# Two conditions, both required:
+#   1. a Director Gate is open and fresh  (unity_gate_cleared_valid == 0)
+#   2. some docs/**/tasks.md declares this path
+#
+# gateguard.sh layers a third check (the facts block must validate) on top.
+# guard-critical-files.sh and check-config-protection.sh consult coverage only:
+# their demand is "investigate and confirm the change is intentional", which a
+# task declared in the plan and approved at SCOPE_GATE already satisfies.
+#
+# Runs in a subshell with `set +e` so that ANY failure inside — an unreadable
+# plan root, a missing library, a broken awk — surfaces as non-zero rather than
+# killing the calling hook with status 1, which the harness does NOT treat as
+# blocking. No uncertainty may ever produce a pass.
+unity_plan_covers() {
+    local target="$1"
+    (
+        set +e
+        # shellcheck source=lib-gateguard-facts.sh
+        . "${UNITY_HOOK_DIR:-$(dirname "${BASH_SOURCE[0]}")}/lib-gateguard-facts.sh" 2>/dev/null || exit 1
+        unity_gate_cleared_valid >/dev/null
+        [ $? -eq 0 ] || exit 1
+        [ -n "$(unity_find_task_line "$target")" ] || exit 1
+        exit 0
+    )
+}

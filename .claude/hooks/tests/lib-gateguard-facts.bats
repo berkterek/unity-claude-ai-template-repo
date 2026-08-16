@@ -181,3 +181,33 @@ EOF
     run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '$TMPDIR_TEST/dom/Foo.cs' edit"
     [ "$status" -eq 0 ]
 }
+
+@test "plan_covers: false with no gate-cleared, even for a declared path" {
+    run bash -c "source .claude/hooks/_lib.sh; unity_plan_covers '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
+    [ "$status" -ne 0 ]
+}
+
+@test "plan_covers: true with a fresh gate and a declared path" {
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    run bash -c "source .claude/hooks/_lib.sh; unity_plan_covers '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
+    [ "$status" -eq 0 ]
+}
+
+@test "plan_covers: false when the gate is stale" {
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    python3 -c "import os,time; p='${UNITY_HOOK_STATE_DIR}/gate-cleared'; os.utime(p,(time.time()-3000,time.time()-3000))"
+    run bash -c "source .claude/hooks/_lib.sh; unity_plan_covers '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
+    [ "$status" -ne 0 ]
+}
+
+@test "plan_covers: false for an undeclared path even with a fresh gate" {
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    run bash -c "source .claude/hooks/_lib.sh; unity_plan_covers '_GameFolders/Scripts/Games/Concretes/Enemies/EnemyService.cs'"
+    [ "$status" -ne 0 ]
+}
+
+@test "plan_covers: false when the plan root is unreadable — no fail-open" {
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    run bash -c "export UNITY_PLAN_ROOT=/nonexistent-plan-root; source .claude/hooks/_lib.sh; unity_plan_covers '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
+    [ "$status" -ne 0 ]
+}
