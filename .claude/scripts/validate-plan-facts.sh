@@ -268,9 +268,19 @@ ${p}"
                 # (b) that same module exists on disk — matched on basename,
                 # not substring, so an unrelated on-disk module (a different
                 # domain, or AppModules.cs) can never satisfy a different name.
+                # /Tests/ is skipped here for exactly the reason it is skipped
+                # in branch (a): a test stub is itself exempt from every check
+                # in this script, so it can never be the evidence that a
+                # production service is wired. Whether that stub is a plan task
+                # or already on disk is not a semantic difference, and the
+                # on-disk case is the likelier one in any repo that already has
+                # test assemblies. The glob is textually identical to the
+                # task-exempt glob at the top of the loop, deliberately — the
+                # two must never drift apart.
                 if [ "$SVC_WIRING_OK" -ne 1 ]; then
                     while IFS= read -r mdf; do
                         [ -z "$mdf" ] && continue
+                        case "$mdf" in */Tests/*) continue ;; esac
                         if [ "$(basename "$mdf" .cs)" = "$MODULE_ID" ]; then
                             SVC_WIRING_OK=1
                             break

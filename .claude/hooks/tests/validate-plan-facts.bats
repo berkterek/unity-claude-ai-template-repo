@@ -479,3 +479,32 @@ EOF
     [ "$status" -eq 0 ]
     assert_output_contains "cross-verified : callers 0, wiring 1 service task(s)"
 }
+
+@test "an on-disk /Tests/ module does NOT satisfy a production service (Round 5)" {
+    # Branch (b)'s counterpart to attack 3. The ONLY GhostModule.cs anywhere
+    # is an on-disk test stub under a /Tests/ segment; nothing in the plan
+    # declares one. Before Round 5 this printed "wiring 1 service task(s)"
+    # and passed — a production service reading as cross-verified on the
+    # strength of a test stub. The /Tests/ glob here is textually identical
+    # to the task-exempt glob at the top of the main loop, so the two cannot
+    # drift. MyTests/, Tests.Extra/ and lowercase tests/ deliberately do NOT
+    # match either glob — those modules are fully validated, not a gap.
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef"
+
+    FAKE_ROOT="$TMPDIR_TEST/fakerepo"
+    mkdir -p "$FAKE_ROOT/_GameFolders/Scripts/Tests/GhostPlayModeTest"
+    touch "$FAKE_ROOT/_GameFolders/Scripts/Tests/GhostPlayModeTest/GhostModule.cs"
+    export UNITY_FACTS_REPO_ROOT="$FAKE_ROOT"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T700 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
+  - Callers: none
+  - Wiring: registered in \`GhostModule.cs\`
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 2 ]
+    assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
+    assert_output_contains "Wiring: names GhostModule.cs — no such module exists"
+    refute_output_contains "wiring 1 service task(s)"
+}
