@@ -10,6 +10,11 @@ setup() {
 }
 
 teardown() {
+    # chmod before rm: a test that leaves a mode-000 file under TMPDIR_TEST
+    # (the unreadable-lib probe) must not survive as an unreadable leftover if
+    # rm itself fails partway — restore write/read/exec on everything first,
+    # then remove. Bats runs teardown() even when the test body fails/aborts.
+    chmod -R u+rwx "$UNITY_HOOK_STATE_DIR" "$TMPDIR_TEST" 2>/dev/null || true
     rm -rf "$UNITY_HOOK_STATE_DIR" "$TMPDIR_TEST"
 }
 
@@ -157,5 +162,35 @@ EOF
     rm -f "$UNITY_PLAN_ROOT/modules/02/tasks.md"
 
     UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
+@test "lib-gateguard-facts.sh present but unreadable (mode 000) fails closed with exit 2" {
+    local isolated="$TMPDIR_TEST/isolated-hook-unreadable"
+    mkdir -p "$isolated"
+    cp .claude/hooks/gateguard.sh "$isolated/gateguard.sh"
+    cp .claude/hooks/_lib.sh "$isolated/_lib.sh"
+    cp .claude/hooks/lib-gateguard-facts.sh "$isolated/lib-gateguard-facts.sh"
+    chmod 000 "$isolated/lib-gateguard-facts.sh"
+
+    # Belt-and-braces: even if the test body fails before this line runs again,
+    # teardown() below always restores permissions so the repo is never left
+    # with an unreadable file (this copy lives under TMPDIR_TEST, which
+    # teardown() already rm -rf's, but chmod 000 must not survive to block
+    # that removal or a stray leftover on a filesystem where rm honors mode).
+    local f="$TMPDIR_TEST/NewSystem.cs"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $isolated/gateguard.sh"
+    chmod 755 "$isolated/lib-gateguard-facts.sh"
+    [ "$status" -eq 2 ]
+}
+
+@test "lib-gateguard-facts.sh path replaced by a directory fails closed with exit 2" {
+    local isolated="$TMPDIR_TEST/isolated-hook-dir"
+    mkdir -p "$isolated"
+    cp .claude/hooks/gateguard.sh "$isolated/gateguard.sh"
+    cp .claude/hooks/_lib.sh "$isolated/_lib.sh"
+    mkdir -p "$isolated/lib-gateguard-facts.sh"  # a directory, not a file, at that path
+    local f="$TMPDIR_TEST/NewSystem.cs"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $isolated/gateguard.sh"
     [ "$status" -eq 2 ]
 }

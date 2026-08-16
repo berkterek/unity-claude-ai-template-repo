@@ -29,9 +29,14 @@ source "${SCRIPT_DIR}/_lib.sh"
 # `source missing.sh || { exit 2; }` under `set -e` still exits 1). Status 1
 # is not blocking in this harness, so that shape would silently fail open.
 # An explicit existence check avoids the builtin's special-cased error path.
+#
+# Both -f and -r are required, not -r alone: [ -r ] is true for a readable
+# DIRECTORY too, and sourcing a directory dies with exit 1 — the exact
+# fail-open this guard exists to close, just reintroduced through a different
+# path state (missing/unreadable/directory all covered by requiring both).
 GATEGUARD_FACTS_LIB="${SCRIPT_DIR}/lib-gateguard-facts.sh"
-if [ ! -f "$GATEGUARD_FACTS_LIB" ]; then
-    echo "BLOCKED: gateguard cannot load lib-gateguard-facts.sh — refusing to gate blind." >&2
+if [ ! -f "$GATEGUARD_FACTS_LIB" ] || [ ! -r "$GATEGUARD_FACTS_LIB" ]; then
+    echo "BLOCKED: gateguard cannot load lib-gateguard-facts.sh (missing, unreadable, or not a regular file) — refusing to gate blind." >&2
     exit 2
 fi
 source "$GATEGUARD_FACTS_LIB"
