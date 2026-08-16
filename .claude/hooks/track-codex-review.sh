@@ -13,8 +13,9 @@ source "${SCRIPT_DIR}/_lib.sh"
 # or the next pipeline start should clean it up. This prevents stale state
 # from accidentally blocking unity-reviewer across unrelated pipeline runs.
 #
-# Cleanup: add `rm -f .claude/state/codex-reviewed` at the end of any
-# pipeline command that uses the Codex → unity-reviewer review sequence.
+# Cleanup: add `rm -f "$(git rev-parse --show-toplevel)"/.claude/state/codex-reviewed`
+# at the end of any pipeline command that uses the Codex → unity-reviewer
+# review sequence. The path is absolute for the reason given at the write below.
 # ============================================================================
 # Trigger: PostToolUse on Agent
 # Exit:    0 always (tracking only — never blocks)
@@ -36,7 +37,14 @@ if [ "$SUBAGENT_TYPE" != "codex:codex-rescue" ]; then
     exit 0
 fi
 
-mkdir -p .claude/state
-touch .claude/state/codex-reviewed
+# $UNITY_HOOK_STATE_DIR (resolved absolutely by _lib.sh), never a relative
+# `.claude/state`. A hook's cwd is whatever the tool call ran in — for a
+# subagent that is not the repo root, so a relative write drops the marker in
+# some arbitrary subtree while guard-reviewer-order.sh reads the absolute path.
+# The observable failure is not a stray folder: it is that Codex demonstrably
+# ran and the next unity-reviewer spawn is blocked anyway, because the writer
+# and the reader are looking at two different places.
+mkdir -p "$UNITY_HOOK_STATE_DIR"
+touch "${UNITY_HOOK_STATE_DIR}/codex-reviewed"
 
 exit 0
