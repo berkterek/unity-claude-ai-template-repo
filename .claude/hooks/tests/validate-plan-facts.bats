@@ -1,5 +1,22 @@
 #!/usr/bin/env bats
 
+# NOTE ON ASSERTION STYLE: bare `[[ "$output" == *"..."* ]]` does NOT reliably
+# fail a Bats 1.13 test unless it is the LAST statement in the @test body —
+# confirmed by direct probe (a failing `[[ ]]` mid-test silently reports
+# "ok" while a failing `[ ]` or a failing simple command at the same
+# position correctly reports "not ok"). Likely the same class of bash
+# `errexit` exemption that applies to negated (`!`) pipelines. To make every
+# assertion in this file actually load-bearing regardless of its position,
+# substring checks go through the two helpers below — both are ordinary
+# simple-command function calls, which DO propagate failure at any position.
+assert_output_contains() {
+    printf '%s' "$output" | grep -qF -- "$1"
+}
+
+refute_output_contains() {
+    [ -z "$(printf '%s' "$output" | grep -F -- "$1")" ]
+}
+
 setup() {
     export UNITY_HOOK_STATE_DIR="$(mktemp -d)"
     TMPDIR_TEST="$(mktemp -d)"
@@ -21,8 +38,8 @@ teardown() {
 @test "finding no tasks is NOT a pass" {
     echo '# Tasks: empty' > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
-    [[ "$output" == *"NO TASKS FOUND"* ]]
-    [[ "$output" == *"NOT a pass"* ]]
+    assert_output_contains "NO TASKS FOUND"
+    assert_output_contains "NOT a pass"
 }
 
 @test "a complete plan passes and prints the presence-only line" {
@@ -44,9 +61,20 @@ teardown() {
   - Callers: AppModules.cs
   - Wiring: AppModules.Install one line
 EOF
+    # Assertions pinned to the EXACT receipt numbers this fixture produces
+    # (re-derived independently, not merely trusted): T004 (*Service) resolves
+    # its one backticked Callers: token against T005's declared path (1
+    # cross-verified caller) and finds T006's declared PlayerModule.cs task
+    # (1 cross-verified service wiring). T005 and T006 each declare a
+    # non-backticked Callers: (a task ID, then bare prose) and non-*Service
+    # Wiring: — 2 presence-only callers, 2 presence-only wiring. A loose
+    # substring check (Open 3 in the review) is unconditionally printed on
+    # every path including NO-TASKS-FOUND and cannot fail; exact counts can.
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"presence-only"* ]]
+    assert_output_contains "cross-verified : callers 1, wiring 1 service task(s)"
+    assert_output_contains "presence-only  : callers 2 "
+    assert_output_contains "presence-only  : wiring 2 "
 }
 
 @test "a missing Wiring field is exit 2 and names the task" {
@@ -60,8 +88,8 @@ EOF
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 2 ]
-    [[ "$output" == *"VIOLATION"* ]]
-    [[ "$output" == *"Wiring:"* ]]
+    assert_output_contains "VIOLATION"
+    assert_output_contains "Wiring:"
 }
 
 @test "an invented caller is a violation" {
@@ -81,7 +109,7 @@ EOF
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 2 ]
-    [[ "$output" == *"exists neither on disk nor as a task in this plan"* ]]
+    assert_output_contains "exists neither on disk nor as a task in this plan"
 }
 
 @test "a Service with no Module.Install task in the plan is a violation" {
@@ -102,7 +130,7 @@ EOF
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 2 ]
-    [[ "$output" == *"Module.Install task anywhere in this plan"* ]]
+    assert_output_contains "Module.Install task anywhere in this plan"
 }
 
 @test "no asmdef anywhere — disk or plan — is a violation (Ruling 1 pinned)" {
@@ -118,7 +146,7 @@ EOF
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 2 ]
-    [[ "$output" == *"no .asmdef owns this location"* ]]
+    assert_output_contains "no .asmdef owns this location"
 }
 
 @test "an asmdef declared by another task in the plan satisfies the check (Ruling 2)" {
@@ -136,7 +164,7 @@ EOF
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 0 ]
-    [[ "$output" != *"VIOLATION"* ]]
+    refute_output_contains "VIOLATION"
 }
 
 @test "a prose-only asmdef mention does not satisfy the check — still a violation (Critical 3)" {
@@ -155,7 +183,7 @@ Note: no task in this plan creates \`$TMPDIR_TEST/Concretes/Wraiths/Wraiths.asmd
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 2 ]
-    [[ "$output" == *"no .asmdef owns this location"* ]]
+    assert_output_contains "no .asmdef owns this location"
 }
 
 @test "receipt counters: unverifiable Callers/Wiring are presence-only, never cross-verified (required)" {
@@ -176,6 +204,75 @@ EOF
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 2 ]
-    [[ "$output" == *"cross-verified : callers 0, wiring 0 service task(s)"* ]]
-    [[ "$output" == *"presence-only  : callers 1 "* ]]
+    assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
+    assert_output_contains "presence-only  : callers 1 "
+}
+
+@test "a task naming itself as its own caller is a violation (Open 1)" {
+    # ALL_TASK_PATHS includes the task's own declared path, so a Callers:
+    # entry pointing at the task's own file used to resolve against itself —
+    # the receipt claimed a caller relationship was cross-verified when the
+    # plan asserted only that the file calls itself. The task's own path must
+    # be excluded from the pool the caller loop resolves against.
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T300 \`$TMPDIR_TEST/Concretes/Ghosts/GhostController.cs\` — impl
+  - Callers: \`$TMPDIR_TEST/Concretes/Ghosts/GhostController.cs\`
+  - Wiring: none
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 2 ]
+    assert_output_contains "exists neither on disk nor as a task in this plan"
+}
+
+@test "an on-disk domain Module.cs named in Wiring: satisfies the service check (Ruling)" {
+    # Per bootstrap-pattern.md: once a domain's first module has landed,
+    # every subsequent service in that domain registers in the EXISTING
+    # [Domain]Module.cs — it is normal for such a service to have no Module
+    # task in the plan at all. UNITY_FACTS_REPO_ROOT points the on-disk
+    # search at a disposable fixture tree (never this repo's real source) so
+    # the on-disk fallback can be exercised without depending on this
+    # repository's actual (empty) _GameFolders/ tree.
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef"
+
+    FAKE_ROOT="$TMPDIR_TEST/fakerepo"
+    mkdir -p "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Ghosts"
+    touch "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Ghosts/GhostModule.cs"
+    export UNITY_FACTS_REPO_ROOT="$FAKE_ROOT"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T200 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
+  - Callers: none
+  - Wiring: GhostModule.Install
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 0 ]
+    assert_output_contains "cross-verified : callers 0, wiring 1 service task(s)"
+}
+
+@test "AppModules.cs alone does NOT satisfy the service check — still a violation (Ruling exemption pinned)" {
+    # AppModules.cs ends in "Modules.cs" (plural), not "Module.cs". Per
+    # bootstrap-pattern.md a service registers in [Domain]Module.cs, which
+    # then contributes one line to AppModules.cs — AppModules.cs itself is
+    # never the registration target. This must stay a violation even when
+    # AppModules.cs exists on disk and is named in the task's own Wiring:.
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef"
+
+    FAKE_ROOT="$TMPDIR_TEST/fakerepo"
+    mkdir -p "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Infrastructure"
+    touch "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Infrastructure/AppModules.cs"
+    export UNITY_FACTS_REPO_ROOT="$FAKE_ROOT"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T201 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
+  - Callers: none
+  - Wiring: AppModules.Install one line
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 2 ]
+    assert_output_contains "Module.Install task anywhere in this plan"
 }

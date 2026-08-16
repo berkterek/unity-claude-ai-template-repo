@@ -29,8 +29,16 @@ source "${SCRIPT_DIR}/../hooks/lib-gateguard-facts.sh"
 # paths: invoked from any directory other than the repo root, those silently
 # resolved to nothing and the check ran with zero visible effect. Anchoring
 # here means the check behaves the same regardless of where this script is
-# invoked from.
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+# invoked from. Overridable for tests only (UNITY_FACTS_REPO_ROOT), so the
+# on-disk *Module.cs fallback and the duplicate-type check can be exercised
+# against a disposable fixture tree instead of this repo's real source.
+REPO_ROOT="${UNITY_FACTS_REPO_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
+
+# Candidate .cs files under the search roots — computed once, used by both
+# the duplicate-type check's receipt line (so a human can tell "checked but
+# found nothing to compare against" apart from "actually compared") and
+# available for reuse.
+CANDIDATE_CS_COUNT=$(find "${REPO_ROOT}/Assets" "${REPO_ROOT}/_GameFolders" -type f -name '*.cs' 2>/dev/null | wc -l | tr -d ' ')
 
 if [ $# -eq 0 ]; then
     echo "usage: validate-plan-facts.sh <plan-file-or-dir> [...]" >&2
@@ -167,8 +175,12 @@ ${p}"
             [ -z "$c" ] && continue
             # Exact match only — a substring match (e.g. grep -F) would let a
             # declared task path like ".../PlayerController.cs" satisfy a
-            # caller literally written as "Controller.cs".
-            if [ ! -f "$c" ] && ! printf '%s\n' "$ALL_TASK_PATHS" | grep -qxF "$c"; then
+            # caller literally written as "Controller.cs". Excludes the
+            # task's OWN path from the pool it resolves against — without
+            # this, ALL_TASK_PATHS contains $p itself, so a task naming
+            # itself as its own caller would vacuously resolve against its
+            # own declaration instead of asserting a real caller relationship.
+            if [ ! -f "$c" ] && ! printf '%s\n' "$ALL_TASK_PATHS" | grep -vxF "$p" | grep -qxF "$c"; then
                 CALLER_BAD="$c"; break
             fi
         done <<< "$CALLER_CS_TOKENS"
@@ -180,13 +192,42 @@ ${p}"
     fi
 
     # --- Wiring: cross-verification (services only) ---
-    # Satisfied ONLY by a Module task declared on a checkbox line other than
-    # the service's own task — never by the service's own Wiring: prose text
-    # containing the word "Module", which used to let a *Service self-satisfy
-    # its own check with no Module task anywhere in the plan.
+    # Satisfied by EITHER:
+    #   (a) a Module task declared on a checkbox line other than the
+    #       service's own task, OR
+    #   (b) a *Module.cs that already EXISTS ON DISK, whose name is named in
+    #       THIS task's own Wiring: text. Per bootstrap-pattern.md, once a
+    #       domain's first module has landed, every subsequent service in
+    #       that domain registers in the EXISTING [Domain]Module.cs — it is
+    #       normal for such a service to have no Module task in the plan at
+    #       all. (b) matches only against the Wiring: line specifically —
+    #       never a blanket file-wide grep, which was the original hole
+    #       (Critical 2) this replaced.
+    # Neither is satisfied by the service's own Wiring: prose merely
+    # containing the word "Module" with nothing backing it — that was the
+    # exact self-satisfaction hole Critical 2 closed, and stays closed here.
+    # NOTE: AppModules.cs deliberately does NOT satisfy (b) — it ends in
+    # "Modules.cs" (plural), not "Module.cs"; per bootstrap-pattern.md a
+    # service registers in [Domain]Module.cs, which then contributes one
+    # line to AppModules.cs. Requiring the domain module, not AppModules.cs,
+    # is intentional.
     case "$BASE" in
         *Service)
+            SVC_WIRING_OK=0
             if printf '%s\n' "$ALL_TASK_PATHS" | grep -vxF "$p" | grep -qE 'Module\.cs$'; then
+                SVC_WIRING_OK=1
+            else
+                WIRE_LINE=$(printf '%s\n' "$BODY" | grep -E '^[[:space:]]*-[[:space:]]*Wiring:' | head -1)
+                while IFS= read -r mdf; do
+                    [ -z "$mdf" ] && continue
+                    MBASE=$(basename "$mdf" .cs)
+                    if printf '%s\n' "$WIRE_LINE" | grep -qF "$MBASE"; then
+                        SVC_WIRING_OK=1
+                        break
+                    fi
+                done < <(find "${REPO_ROOT}/Assets" "${REPO_ROOT}/_GameFolders" -type f -name '*Module.cs' 2>/dev/null)
+            fi
+            if [ "$SVC_WIRING_OK" -eq 1 ]; then
                 WIRING_SVC_OK=$((WIRING_SVC_OK + 1))
             else
                 _violation "$p" "a *Service with no Module.Install task anywhere in this plan — state where it is registered"
@@ -202,7 +243,7 @@ echo ""
 echo "--- Plan Facts Validation ---"
 echo "files scanned  : ${#FILES[@]}"
 echo "tasks checked  : $CHECKED   (new: $NEW, edit: $EDIT, test-exempt: $EXEMPT)"
-echo "duplicate-type : checked $DUP_CHECKED task(s) against ${REPO_ROOT}"
+echo "duplicate-type : checked $DUP_CHECKED task(s) against ${REPO_ROOT} (${CANDIDATE_CS_COUNT} candidate file(s) found)"
 echo "cross-verified : callers $CALLERS_OK, wiring $WIRING_SVC_OK service task(s)"
 echo "presence-only  : callers $CALLERS_PRESENCE (task-ID/prose references — NOT machine-verified)"
 echo "presence-only  : wiring $WIRING_PRESENCE (non-service — NOT machine-verified)"
