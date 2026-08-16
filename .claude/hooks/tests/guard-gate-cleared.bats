@@ -66,3 +66,21 @@ teardown() {
     run bash -c "echo '{\"tool_name\":\"Agent\",\"tool_input\":{\"subagent_type\":\"unity-coder\"}}' | bash $HOOK"
     [ "$status" -eq 0 ]
 }
+
+@test "unity_gate_cleared_valid: 1 when the gate file is absent" {
+    run bash -c "source .claude/hooks/_lib.sh; unity_gate_cleared_valid >/dev/null; echo \$?"
+    [ "$output" = "1" ]
+}
+
+@test "unity_gate_cleared_valid: 0 and echoes the age when the gate is fresh" {
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    run bash -c "source .claude/hooks/_lib.sh; unity_gate_cleared_valid; echo \"status=\$?\""
+    [[ "$output" == *"status=0"* ]]
+}
+
+@test "unity_gate_cleared_valid: 3 when the gate is older than the TTL" {
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    python3 -c "import os,time; p='${UNITY_HOOK_STATE_DIR}/gate-cleared'; os.utime(p,(time.time()-3000,time.time()-3000))"
+    run bash -c "source .claude/hooks/_lib.sh; unity_gate_cleared_valid >/dev/null; echo \$?"
+    [ "$output" = "3" ]
+}

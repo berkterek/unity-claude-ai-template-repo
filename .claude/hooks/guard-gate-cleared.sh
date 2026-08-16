@@ -37,10 +37,10 @@ if ! echo "$SUBAGENT_TYPE" | grep -qE "$PIPELINE_AGENTS"; then
 fi
 
 # UNITY_HOOK_STATE_DIR is set by _lib.sh using git rev-parse — always absolute path.
+# TTL lives in _lib.sh as UNITY_GATE_TTL (2700s / 45 min): covers slow SPARC/plan
+# phases while limiting the window during which an interrupted pipeline's gate
+# remains valid.
 GATE_FILE="${UNITY_HOOK_STATE_DIR}/gate-cleared"
-# TTL: 2700s (45 min). Covers slow SPARC/plan phases while limiting the window
-# during which an interrupted pipeline's gate remains valid.
-GATE_TTL=2700
 
 _gate_blocked() {
     local reason="$1"
@@ -60,14 +60,15 @@ _gate_blocked() {
     exit 2
 }
 
-if [ ! -f "$GATE_FILE" ]; then
-    _gate_blocked "no Director Gate has been cleared."
-fi
+set +e
+GATE_AGE=$(unity_gate_cleared_valid)
+GATE_STATUS=$?
+set -e
 
-# Reject stale gates — expired after GATE_TTL seconds
-GATE_AGE=$(python3 -c "import os,time; print(int(time.time() - os.path.getmtime('$GATE_FILE')))" 2>/dev/null || echo 0)
-if [ "$GATE_AGE" -gt "$GATE_TTL" ]; then
-    _gate_blocked "the Director Gate has expired (age ${GATE_AGE}s > ${GATE_TTL}s TTL). Re-show the gate and get a fresh 'go'."
-fi
+case "$GATE_STATUS" in
+    1) _gate_blocked "no Director Gate has been cleared." ;;
+    3) _gate_blocked "the Director Gate has expired (age ${GATE_AGE}s > ${UNITY_GATE_TTL}s TTL). Re-show the gate and get a fresh 'go'." ;;
+    2) : ;;  # age indeterminate — historical behaviour was to treat it as fresh
+esac
 
 exit 0

@@ -295,3 +295,31 @@ PYEOF
     fi
     python3 "$_helper" "$src"
 }
+
+# unity_gate_cleared_valid — is a Director Gate open and still within its TTL?
+#
+# Echoes the gate's age in seconds (empty when indeterminate) and returns:
+#   0 = present and fresh    1 = absent
+#   2 = age indeterminate    3 = stale
+#
+# Four states, not two, because callers need OPPOSITE directions on state 2 —
+# the same split unity_subagent_depth documents. guard-gate-cleared.sh treats 2
+# as valid (its historical behaviour: a failed age computation defaulted to 0).
+# unity_plan_covers treats 2 as not-covered, because there a pass would release
+# a gate on a stale approval.
+UNITY_GATE_TTL=2700
+
+unity_gate_cleared_valid() {
+    local gate_file="${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    [ -f "$gate_file" ] || return 1
+
+    local age
+    age=$(python3 -c "import os,time; print(int(time.time() - os.path.getmtime('$gate_file')))" 2>/dev/null) || return 2
+    case "$age" in
+        ''|*[!0-9]*) return 2 ;;
+    esac
+
+    echo "$age"
+    [ "$age" -le "$UNITY_GATE_TTL" ] || return 3
+    return 0
+}
