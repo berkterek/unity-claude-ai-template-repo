@@ -221,3 +221,70 @@ EOF
     run bash -c "source .claude/hooks/_lib.sh; python3() { return 1; }; unity_plan_covers '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
     [ "$status" -ne 0 ]
 }
+
+# NOTE ON ASSERTION STYLE: on bats 1.13 a bare `[[ ... ]]` that is NOT the last
+# statement of a test body does NOT fail the test. These helpers are ordinary
+# simple-command calls, which DO propagate failure at any position. Every
+# assertion added below goes through them.
+assert_output_contains() {
+    printf '%s' "$output" | grep -qF -- "$1"
+}
+
+refute_output_contains() {
+    [ -z "$(printf '%s' "$output" | grep -F -- "$1")" ]
+}
+
+# --- MUST-FIX 2: pin the settings.json layers INDIVIDUALLY --------------------
+# settings.json is protected twice over: the write-time escape sits inside the
+# .asmdef branch of the dispatch, AND unity_find_task_line's extension
+# whitelist only ever extracts `*.cs`/`*.asmdef` subjects. Either layer alone
+# still blocks, so the whole suite stayed green under either single mutation
+# and neither layer was actually pinned. These two assert the whitelist at the
+# layer that owns it; the existing hook-level test keeps pinning the dispatch.
+@test "whitelist: a backticked settings.json task subject is never matched" {
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
+# Tasks
+
+- [ ] T900 `.claude/settings.json` — register the new hook
+  - Callers: `Concretes/Players/PlayerController.cs`
+  - Wiring: none
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_find_task_line '.claude/settings.json'"
+    [ -z "$output" ]
+}
+
+@test "whitelist: a backticked .inputactions task subject is never matched" {
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
+# Tasks
+
+- [ ] T901 `Assets/Input/PlayerControls.inputactions` — add the Jump action
+  - Callers: `Concretes/Players/PlayerController.cs`
+  - Wiring: none
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_find_task_line 'Assets/Input/PlayerControls.inputactions'"
+    [ -z "$output" ]
+}
+
+# --- C1: the corpus is the caller's, when the caller supplies one -------------
+@test "corpus: UNITY_PLAN_FILES replaces the UNITY_PLAN_ROOT find entirely" {
+    local other="$TMPDIR_TEST/outside/badplan"
+    mkdir -p "$other"
+    cat > "$other/tasks.md" <<'EOF'
+# Tasks
+
+- [ ] T950 `_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs` — bare
+EOF
+    # UNITY_PLAN_ROOT still holds the fully-specified T004 from setup().
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; UNITY_PLAN_FILES='$other/tasks.md' unity_find_task_line '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
+    assert_output_contains "T950"
+    refute_output_contains "T004"
+    refute_output_contains "Wiring: PlayerModule.Install"
+}
+
+@test "corpus: unset UNITY_PLAN_FILES keeps the write-time UNITY_PLAN_ROOT search" {
+    # The three write-time hooks never set UNITY_PLAN_FILES — they get a path,
+    # not a document, so searching the whole root is correct for them.
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_find_task_line '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
+    assert_output_contains "T004"
+    assert_output_contains "Wiring: PlayerModule.Install"
+}

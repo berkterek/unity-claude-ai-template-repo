@@ -14,8 +14,30 @@
 # Root under which tasks.md files are searched. Overridable for tests only.
 UNITY_PLAN_ROOT="${UNITY_PLAN_ROOT:-docs}"
 
-# unity_plan_task_files — every plan tasks.md, templates excluded.
+# UNITY_PLAN_FILES — OPTIONAL explicit corpus, newline-separated file list.
+#
+# When non-empty it REPLACES the UNITY_PLAN_ROOT find entirely: only these
+# files are searched for declaring task lines.
+#
+# Why it exists: validate-plan-facts.sh is HANDED a document. Before this
+# existed it collected task PATHS from its argument but pulled task BODIES
+# from whatever tasks.md happened to live under UNITY_PLAN_ROOT — so a human
+# approving at the gate read a receipt sourced from a document they were not
+# looking at, and a same-path task elsewhere in the tree could silently
+# supply the Callers:/Wiring: fields the argument's own task omitted.
+#
+# The three write-time hooks deliberately do NOT set this: they receive one
+# path being written and no document, so "search every plan under the root"
+# is the correct corpus for them.
+UNITY_PLAN_FILES="${UNITY_PLAN_FILES:-}"
+
+# unity_plan_task_files — the corpus to search: the explicit list when the
+# caller supplied one, otherwise every plan tasks.md with templates excluded.
 unity_plan_task_files() {
+    if [ -n "${UNITY_PLAN_FILES:-}" ]; then
+        printf '%s\n' "$UNITY_PLAN_FILES"
+        return 0
+    fi
     find "$UNITY_PLAN_ROOT" -name 'tasks.md' -not -path '*/_templates/*' 2>/dev/null | sort
 }
 
@@ -122,7 +144,9 @@ unity_validate_task_facts() {
     return 0
 }
 
-# unity_gateguard_facts_summary — one-line provenance receipt, printed by both callers.
+# unity_gateguard_facts_summary — one-line provenance receipt.
+# Printed by validate-plan-facts.sh only. The write-time hooks compute the same
+# rules but emit their own block-message wording instead of calling this.
 unity_gateguard_facts_summary() {
     echo "rules         : lib-gateguard-facts.sh (plan root: ${UNITY_PLAN_ROOT})"
 }

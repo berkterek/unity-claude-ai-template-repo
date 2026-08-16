@@ -19,7 +19,20 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK_PROFILE_LEVEL="strict"
-source "${SCRIPT_DIR}/_lib.sh"
+
+# _lib.sh gets the SAME guard as lib-gateguard-facts.sh below, and for the same
+# reason: under `set -e` a missing/unreadable source kills the script with
+# status 1, and status 1 ALLOWS the write in this harness — a silent fail-open.
+# _lib.sh is load-bearing for the gate decision (unity_plan_covers lives there),
+# so failing to load it must block, not release. This check deliberately uses
+# only bash builtins and `echo`: it runs BEFORE _lib.sh, so it cannot call
+# anything _lib.sh defines.
+GATEGUARD_LIB="${SCRIPT_DIR}/_lib.sh"
+if [ ! -f "$GATEGUARD_LIB" ] || [ ! -r "$GATEGUARD_LIB" ]; then
+    echo "BLOCKED: gateguard cannot load _lib.sh (missing, unreadable, or not a regular file) — refusing to gate blind." >&2
+    exit 2
+fi
+source "$GATEGUARD_LIB"
 # shellcheck source=lib-gateguard-facts.sh
 #
 # NOTE: `source FILE || { ... }` looks like the right guard but does NOT work

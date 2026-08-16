@@ -508,3 +508,169 @@ EOF
     assert_output_contains "Wiring: names GhostModule.cs — no such module exists"
     refute_output_contains "wiring 1 service task(s)"
 }
+
+# =============================================================================
+# C1 — the validator must validate the document it was HANDED.
+#
+# Reproduction before the fix: task PATHS came from the argument, task BODIES
+# came from an independent `find "$UNITY_PLAN_ROOT" -name tasks.md`. A bare
+# task in the argument's document silently borrowed the Callers:/Wiring: of a
+# same-path task in an unrelated plan, and the human at the gate approved a
+# receipt describing a document they were not looking at.
+#
+# The whole existing suite structurally could not express this: every setup()
+# exports UNITY_PLAN_ROOT and every test passes an argument inside it. These
+# pass an argument OUTSIDE the root, with a conflicting same-path task inside.
+# =============================================================================
+
+@test "C1: a bare task in the ARGUMENT does not borrow facts from a same-path task under UNITY_PLAN_ROOT" {
+    local outside="$TMPDIR_TEST/outside/badplan"
+    mkdir -p "$outside"
+
+    # Fully specified, under UNITY_PLAN_ROOT — the document NOT being validated.
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
+# Tasks: unrelated plan
+
+- [ ] T004 `_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs` — implementation
+  - Callers: `_GameFolders/Scripts/Games/Concretes/Players/PlayerController.cs`
+  - Wiring: `PlayerModule.cs`
+EOF
+
+    # Bare, outside the root — the document actually handed to the validator.
+    cat > "$outside/tasks.md" <<'EOF'
+# Tasks: badplan
+
+- [ ] T950 `_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs` — implementation
+EOF
+
+    run bash "$SCRIPT" "$outside/tasks.md"
+    assert_output_contains "VIOLATION"
+    assert_output_contains "Callers"
+    refute_output_contains "OK — all"
+    [ "$status" -eq 2 ]
+}
+
+@test "C1: a complete task in the ARGUMENT is not condemned by a bare same-path task under UNITY_PLAN_ROOT" {
+    # The mirror direction. Before the fix the bodies came from whichever
+    # tasks.md `find` reached first, so this could just as easily fail on facts
+    # that ARE present in the document under review.
+    local outside="$TMPDIR_TEST/outside/goodplan"
+    local fake_root="$TMPDIR_TEST/fakerepo"
+    mkdir -p "$outside" "$fake_root/_GameFolders/Scripts/Games/Concretes/Players"
+    touch "$fake_root/_GameFolders/Scripts/Games/Concretes/Players/Players.asmdef"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
+# Tasks: unrelated plan
+
+- [ ] T004 `_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs` — bare, no fields
+EOF
+
+    cat > "$outside/tasks.md" <<EOF
+# Tasks: goodplan
+
+- [ ] T100 \`$fake_root/_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs\` — implementation
+  - Callers: \`$fake_root/_GameFolders/Scripts/Games/Concretes/Players/PlayerController.cs\`
+  - Wiring: registered in \`PlayerModule.cs\`
+- [ ] T101 \`$fake_root/_GameFolders/Scripts/Games/Concretes/Players/PlayerController.cs\` — shell
+  - Callers: scene prefab
+  - Wiring: GameScope
+- [ ] T102 \`$fake_root/_GameFolders/Scripts/Games/Concretes/Players/PlayerModule.cs\` — installer
+  - Callers: AppModules
+  - Wiring: AppModules.Install
+EOF
+
+    UNITY_FACTS_REPO_ROOT="$fake_root" run bash "$SCRIPT" "$outside/tasks.md"
+    refute_output_contains "VIOLATION"
+    assert_output_contains "OK — all"
+    [ "$status" -eq 0 ]
+}
+
+@test "C1: new-vs-edit is anchored to the repo root, not the invoking shell's cwd" {
+    # A relative task path that happens to exist under the CWD used to flip the
+    # task from "new" to "edit", and "edit" short-circuits past the
+    # Callers:/Wiring: requirement entirely — the fail-open direction.
+    local fake_root="$TMPDIR_TEST/fakerepo2"
+    local decoy="$TMPDIR_TEST/decoycwd"
+    mkdir -p "$fake_root/Concretes/Players" "$decoy/Concretes/Players"
+    touch "$fake_root/Concretes/Players/Players.asmdef"
+    # Present under the CWD, absent under the repo root.
+    touch "$decoy/Concretes/Players/PlayerService.cs"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
+# Tasks
+
+- [ ] T200 `Concretes/Players/PlayerService.cs` — implementation, no fields declared
+EOF
+
+    local abs_script="$PWD/$SCRIPT"
+    cd "$decoy"
+    UNITY_FACTS_REPO_ROOT="$fake_root" run bash "$abs_script" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    assert_output_contains "(new: 1, edit: 0"
+    assert_output_contains "VIOLATION"
+    assert_output_contains "Callers"
+    [ "$status" -eq 2 ]
+}
+
+@test "C2: checkbox lines inside a fenced code block are not enumerated as tasks" {
+    # /create-plan writes docs/superpowers/plans/<name>.md, a narrative that
+    # quotes example task lines inside ``` fences. The library suppresses
+    # fences; this script's own enumeration did not, so every fenced EXAMPLE
+    # was reported "no task in any tasks.md declares this path" and the command
+    # hard-blocked on its own output. The same pollution ran the other way too:
+    # a fenced example module could have cross-verified a real service.
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
+# Plan narrative
+
+Here is what a task looks like:
+
+```markdown
+- [ ] T004 `_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs` — example
+- [ ] T005 `_GameFolders/Scripts/Games/Concretes/Players/PlayerModule.cs` — example
+```
+
+That is the shape.
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    refute_output_contains "VIOLATION"
+    assert_output_contains "NO TASKS FOUND"
+    assert_output_contains "NOT a pass"
+    [ "$status" -eq 0 ]
+}
+
+@test "M5: the summary counts examined tasks, never crediting /Tests/ exemptions as passes" {
+    local fake_root="$TMPDIR_TEST/fakerepo3"
+    mkdir -p "$fake_root/Concretes/Players"
+    touch "$fake_root/Concretes/Players/Players.asmdef"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+# Tasks
+
+- [ ] T300 \`$fake_root/Concretes/Players/PlayerController.cs\` — shell
+  - Callers: scene prefab
+  - Wiring: GameScope
+- [ ] T301 \`$fake_root/Scripts/Tests/PlayModeTest/PlayerControllerTests.cs\` — test
+- [ ] T302 \`$fake_root/Scripts/Tests/PlayModeTest/PlayerServiceTests.cs\` — test
+EOF
+    UNITY_FACTS_REPO_ROOT="$fake_root" run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    assert_output_contains "test-exempt: 2"
+    assert_output_contains "all 1 examined task(s) pass (2 test-exempt, not examined)"
+    refute_output_contains "all 3 task(s) pass"
+    [ "$status" -eq 0 ]
+}
+
+@test "M5: a plan of nothing but /Tests/ tasks is NOT reported as a pass" {
+    local fake_root="$TMPDIR_TEST/fakerepo4"
+    mkdir -p "$fake_root/Scripts/Tests/PlayModeTest"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+# Tasks
+
+- [ ] T400 \`$fake_root/Scripts/Tests/PlayModeTest/AlphaTests.cs\` — test
+- [ ] T401 \`$fake_root/Scripts/Tests/PlayModeTest/BetaTests.cs\` — test
+EOF
+    UNITY_FACTS_REPO_ROOT="$fake_root" run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    assert_output_contains "NO TASKS EXAMINED"
+    assert_output_contains "this is NOT a pass"
+    refute_output_contains "OK — all"
+    [ "$status" -eq 0 ]
+}

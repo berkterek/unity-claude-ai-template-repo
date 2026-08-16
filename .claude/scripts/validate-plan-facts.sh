@@ -62,13 +62,63 @@ if [ ${#FILES[@]} -eq 0 ]; then
     exit 1
 fi
 
+# Pin the library's search corpus to EXACTLY the documents we were handed.
+# Without this, unity_find_task_line re-derives its own corpus by find-ing
+# UNITY_PLAN_ROOT, so task PATHS came from the argument while task BODIES came
+# from some other plan in the tree — the receipt then described a document the
+# human at the gate was not looking at. See UNITY_PLAN_FILES in the library.
+export UNITY_PLAN_FILES
+UNITY_PLAN_FILES=$(printf '%s\n' "${FILES[@]}")
+
+# Task paths in a plan are repo-relative. Any on-disk test against them must be
+# anchored to REPO_ROOT, exactly like the duplicate-type check below — resolving
+# them against the invoking shell's cwd made `unity_task_mode` flip a task from
+# "new" to "edit" whenever the relative path happened to exist under that cwd,
+# and an "edit" short-circuits past the Callers:/Wiring: requirement entirely.
+# That is the fail-open direction, so it is anchored rather than left to cwd.
+_abs_repo_path() {
+    case "$1" in
+        /*) printf '%s' "$1" ;;
+        *)  printf '%s' "${REPO_ROOT}/$1" ;;
+    esac
+}
+
+# _declared_subjects <ext-regex> — the subject path of every task-declaring
+# line in FILES, using EXACTLY unity_find_task_line's line semantics:
+#   * fenced (```) regions suppressed;
+#   * checkbox-prefixed lines only;
+#   * the FIRST backticked `*.cs`/`*.asmdef` token on the line is the subject.
+#
+# This script used to enumerate with plain greps that did neither the fence
+# suppression nor the first-token restriction, so the two halves disagreed
+# about what a task IS. Both directions were wrong. Fail-closed direction: a
+# checkbox line quoted inside a ``` example block was enumerated as a real
+# task, then immediately reported "no task declares this path" because the
+# library — correctly — could not see it; that is what made every
+# /create-plan-format document hard-block on its own narrative. Fail-OPEN
+# direction: the same fenced examples polluted ALL_TASK_PATHS/ALL_ASMDEF_PATHS,
+# so an illustrative `FooModule.cs` inside a code fence could cross-verify a
+# real service's Wiring:, and an example .asmdef could satisfy a real task's
+# owning-assembly check. One matcher, one answer.
+_declared_subjects() {
+    awk -v extre="$1" '
+      /^[[:space:]]*```/ { fence = !fence; next }
+      fence { next }
+      /^[[:space:]]*-[[:space:]]*\[[ xX]\]/ {
+          if (match($0, /`[^`]*\.(cs|asmdef)`/)) {
+              p = substr($0, RSTART + 1, RLENGTH - 2)
+              if (p ~ extre) print p
+          }
+      }
+    ' "${FILES[@]}" 2>/dev/null
+}
+
 # Restricted to checkbox-prefixed task-declaring lines, NOT the whole file —
 # a blanket file-wide grep would also match backtick .cs mentions inside a
 # Callers: sub-bullet, letting an invented caller vacuously satisfy the
 # "is this path declared as a task in this plan" check against its own
 # mention instead of a real task declaration.
-ALL_TASK_PATHS=$(grep -hoE '^[[:space:]]*-[[:space:]]*\[[ xX]\].*`[^`]*\.cs`' "${FILES[@]}" 2>/dev/null \
-                    | grep -oE '`[^`]*\.cs`' | tr -d '`' | sort -u)
+ALL_TASK_PATHS=$(_declared_subjects '\.cs$' | sort -u)
 
 # .asmdef literals declared by a checkbox task line in the scanned plan — NOT
 # a blanket file-wide grep. A prose sentence that merely MENTIONS an .asmdef
@@ -76,8 +126,7 @@ ALL_TASK_PATHS=$(grep -hoE '^[[:space:]]*-[[:space:]]*\[[ xX]\].*`[^`]*\.cs`' "$
 # create it; only a checkbox task line is. Without this restriction, an
 # incidental backtick mention anywhere in the document is a working escape
 # hatch around the owning-asmdef check below.
-ALL_ASMDEF_PATHS=$(grep -hoE '^[[:space:]]*-[[:space:]]*\[[ xX]\].*`[^`]*\.asmdef`' "${FILES[@]}" 2>/dev/null \
-                    | grep -oE '`[^`]*\.asmdef`' | tr -d '`' | sort -u)
+ALL_ASMDEF_PATHS=$(_declared_subjects '\.asmdef$' | sort -u)
 
 VIOLATIONS=0; CHECKED=0; NEW=0; EDIT=0; EXEMPT=0; DUP_CHECKED=0
 CALLERS_OK=0; CALLERS_PRESENCE=0; WIRING_SVC_OK=0; WIRING_PRESENCE=0
@@ -97,13 +146,14 @@ while IFS= read -r p; do
     CHECKED=$((CHECKED + 1))
     BODY=$(unity_find_task_line "$p")
     BASE=$(basename "$p" .cs)
+    P_ABS=$(_abs_repo_path "$p")
 
     case "$p" in
         */Tests/*) EXEMPT=$((EXEMPT + 1)); continue ;;
     esac
 
     # new vs edit: absent from disk AND not created by an earlier task
-    MODE=$(unity_task_mode "$p")
+    MODE=$(unity_task_mode "$P_ABS")
     if [ "$MODE" = "new" ] && printf '%s\n' "$SEEN_PATHS" | grep -qxF "$p"; then
         MODE="edit"
     fi
@@ -111,7 +161,11 @@ while IFS= read -r p; do
 ${p}"
     [ "$MODE" = "new" ] && NEW=$((NEW + 1)) || EDIT=$((EDIT + 1))
 
-    if ! MSG=$(unity_validate_task_facts "$p" "$MODE"); then
+    # P_ABS, not $p: the rename/[SerializeField] branch greps the target file,
+    # which is the same cwd-dependence anchored above. The two-way suffix match
+    # in unity_find_task_line resolves the absolute form against the plan's
+    # repo-relative declaration unchanged.
+    if ! MSG=$(unity_validate_task_facts "$P_ABS" "$MODE"); then
         _violation "$p" "$MSG"
         continue
     fi
@@ -180,7 +234,7 @@ ${p}"
             # this, ALL_TASK_PATHS contains $p itself, so a task naming
             # itself as its own caller would vacuously resolve against its
             # own declaration instead of asserting a real caller relationship.
-            if [ ! -f "$c" ] && ! printf '%s\n' "$ALL_TASK_PATHS" | grep -vxF "$p" | grep -qxF "$c"; then
+            if [ ! -f "$(_abs_repo_path "$c")" ] && ! printf '%s\n' "$ALL_TASK_PATHS" | grep -vxF "$p" | grep -qxF "$c"; then
                 CALLER_BAD="$c"; break
             fi
         done <<< "$CALLER_CS_TOKENS"
@@ -298,8 +352,7 @@ ${p}"
             ;;
         *) WIRING_PRESENCE=$((WIRING_PRESENCE + 1)) ;;
     esac
-done < <(grep -hoE '^[[:space:]]*-[[:space:]]*\[[ xX]\].*`[^`]*\.cs`' "${FILES[@]}" 2>/dev/null \
-            | grep -oE '`[^`]*\.cs`' | tr -d '`')
+done < <(_declared_subjects '\.cs$')
 
 echo ""
 echo "--- Plan Facts Validation ---"
@@ -325,5 +378,17 @@ if [ "$CHECKED" -eq 0 ]; then
     exit 0
 fi
 
-echo "result         : OK — all $CHECKED task(s) pass."
+# CHECKED counts every task line SEEN, including the /Tests/-exempt ones that
+# returned before a single rule ran. Reporting "all $CHECKED pass" credited
+# those exemptions as passes. Report only what was actually examined.
+EXAMINED=$((CHECKED - EXEMPT))
+
+if [ "$EXAMINED" -eq 0 ]; then
+    echo "result         : NO TASKS EXAMINED — this is NOT a pass."
+    echo "                 All $CHECKED task(s) found were /Tests/-exempt, so no"
+    echo "                 rule ran against any of them. Verify by hand."
+    exit 0
+fi
+
+echo "result         : OK — all $EXAMINED examined task(s) pass ($EXEMPT test-exempt, not examined)."
 exit 0

@@ -397,6 +397,8 @@ After APPROVED:
 - **Then run, BLOCKING:** `.claude/scripts/validate-plan-facts.sh <plan file path>`
   - exit 2 → at least one task creating a new `.cs` file is missing `Callers:`/`Wiring:`, or a declared caller/module doesn't resolve on disk or in the plan. Do not print "Plan created". Show the violation and fix the plan — the human decides.
   - `NO TASKS FOUND` is **not** a pass — the script's own words are "this is NOT a pass"; confirm by hand.
+  - `NO TASKS EXAMINED` is **not** a pass either — it means every task line found was `/Tests/`-exempt, so no rule ran against any of them.
+  - **Expect `NO TASKS FOUND` for a plan written in the `/create-plan` narrative format.** The validator enumerates task subjects with the same matcher the write-time hook uses, which suppresses fenced (```` ``` ````) regions — a plan whose only checkbox lines are quoted *examples* inside code fences declares no tasks, correctly. That is exit 0 with a visible warning, not a block. It becomes a real check the moment the plan carries unfenced checkbox task lines with a backticked `.cs`/`.asmdef` subject.
   - Paste the receipt into the output. A silent hook is not evidence.
 - Print: `Plan created: Docs/[plan file name]`
 

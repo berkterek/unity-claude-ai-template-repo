@@ -194,3 +194,48 @@ EOF
     UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $isolated/gateguard.sh"
     [ "$status" -eq 2 ]
 }
+
+# --- I3: _lib.sh was sourced unguarded ---------------------------------------
+# Probed before the fix: with _lib.sh absent the hook died at the `source` line
+# under `set -e` with status 1 — and status 1 ALLOWS the write in this harness.
+# The 20-line comment above the lib-gateguard-facts.sh guard described exactly
+# this failure mode but applied the guard to only one of the two sources.
+# _lib.sh is load-bearing for the gate decision (unity_plan_covers lives there),
+# so it must fail closed, i.e. exit 2 — never 1.
+@test "_lib.sh missing fails closed with exit 2, never the fail-open 1" {
+    local isolated="$TMPDIR_TEST/isolated-hook-nolib"
+    mkdir -p "$isolated"
+    cp .claude/hooks/gateguard.sh "$isolated/gateguard.sh"
+    cp .claude/hooks/lib-gateguard-facts.sh "$isolated/lib-gateguard-facts.sh"
+    # _lib.sh deliberately NOT copied.
+
+    local f="$TMPDIR_TEST/NewSystem.cs"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $isolated/gateguard.sh"
+    [ "$status" -ne 1 ]
+    [ "$status" -eq 2 ]
+}
+
+@test "_lib.sh present but unreadable (mode 000) fails closed with exit 2" {
+    local isolated="$TMPDIR_TEST/isolated-hook-libunread"
+    mkdir -p "$isolated"
+    cp .claude/hooks/gateguard.sh "$isolated/gateguard.sh"
+    cp .claude/hooks/_lib.sh "$isolated/_lib.sh"
+    cp .claude/hooks/lib-gateguard-facts.sh "$isolated/lib-gateguard-facts.sh"
+    chmod 000 "$isolated/_lib.sh"
+
+    local f="$TMPDIR_TEST/NewSystem.cs"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $isolated/gateguard.sh"
+    chmod 755 "$isolated/_lib.sh"
+    [ "$status" -eq 2 ]
+}
+
+@test "_lib.sh path replaced by a directory fails closed with exit 2" {
+    local isolated="$TMPDIR_TEST/isolated-hook-libdir"
+    mkdir -p "$isolated/_lib.sh"
+    cp .claude/hooks/gateguard.sh "$isolated/gateguard.sh"
+    cp .claude/hooks/lib-gateguard-facts.sh "$isolated/lib-gateguard-facts.sh"
+
+    local f="$TMPDIR_TEST/NewSystem.cs"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $isolated/gateguard.sh"
+    [ "$status" -eq 2 ]
+}
