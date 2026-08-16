@@ -29,8 +29,18 @@ case "$FILE_PATH" in
   *) exit 0 ;;
 esac
 
+# ── Project root ───────────────────────────────────────────────────────────────
+# Every path below is anchored here. A hook's cwd is whatever the tool call ran
+# in, which for a subagent is not the repo root — and every path in this file
+# used to be cwd-relative, so from any other cwd the feature file was not found
+# and the hook exited 0 without doing anything. Silent no-op, no warning: the
+# graph simply went stale while CLAUDE.md calls it the primary source of truth.
+# CLAUDE_PROJECT_DIR first (what settings.json passes); git root is the fallback,
+# and is wrong if the cwd happens to sit inside a nested repo — hence the order.
+PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo ".")}"
+
 # ── Feature flag check ─────────────────────────────────────────────────────────
-FEATURES=".claude/project-features.json"
+FEATURES="$PROJECT_ROOT/.claude/project-features.json"
 if [[ ! -f "$FEATURES" ]]; then
   exit 0
 fi
@@ -47,8 +57,8 @@ except Exception:
 [[ "$GRAPH_ENABLED" == "true" ]] || exit 0
 
 # --- Graph health warning (re-fires each session, not once-ever) ---
-GRAPH_JSON=".claude/graph/graph.json"
-_STATE_DIR="${UNITY_HOOK_STATE_DIR:-.claude/state}"
+GRAPH_JSON="$PROJECT_ROOT/.claude/graph/graph.json"
+_STATE_DIR="${UNITY_HOOK_STATE_DIR:-$PROJECT_ROOT/.claude/state}"
 # Sentinel is keyed by date so it re-fires each new calendar day / session.
 _TODAY=$(date +%Y-%m-%d 2>/dev/null || echo "unknown")
 WARN_SENTINEL="$_STATE_DIR/graph-health-warned-${_TODAY}"
@@ -60,7 +70,8 @@ try:
     cb = d.get('codebase', {})
     classes = len(cb.get('classes', []) or [])
     # Count .cs files under Assets/ as a rough project-size probe.
-    cs_count = sum(1 for _ in pathlib.Path('.').rglob('*.cs')) if os.path.isdir('.') else 0
+    root = '$PROJECT_ROOT'
+    cs_count = sum(1 for _ in pathlib.Path(root).rglob('*.cs')) if os.path.isdir(root) else 0
     print(f'{classes} {cs_count}')
 except Exception:
     print('0 0')
@@ -87,15 +98,17 @@ except Exception:
 fi
 
 # ── Builder existence check ────────────────────────────────────────────────────
-BUILDER=".claude/graph/graph-builder.py"
+BUILDER="$PROJECT_ROOT/.claude/graph/graph-builder.py"
 if [[ ! -f "$BUILDER" ]]; then
   echo "graph-auto-update: $BUILDER not found — skipping" >&2
   exit 0
 fi
 
 # ── Log trigger ───────────────────────────────────────────────────────────────
-mkdir -p .claude/state
-echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $FILE_PATH" >> .claude/state/graph-updates.log
+# $_STATE_DIR, set above — the same absolute path the health warning already
+# writes to. A relative `.claude/state` here follows the hook's cwd instead.
+mkdir -p "$_STATE_DIR"
+echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $FILE_PATH" >> "$_STATE_DIR/graph-updates.log"
 
 # ── Template-mode guard: skip builder when Assets/ does not exist ─────────────
 # Health warning and log write still happen above; only the background builder
@@ -110,19 +123,27 @@ except Exception:
 " 2>/dev/null || echo ".")
 
 if [ "$UNITY_PROJECT_FOLDER" = "." ]; then
-    ASSETS_ROOT="Assets"
+    ASSETS_ROOT="$PROJECT_ROOT/Assets"
 else
-    ASSETS_ROOT="${UNITY_PROJECT_FOLDER}/Assets"
+    ASSETS_ROOT="$PROJECT_ROOT/${UNITY_PROJECT_FOLDER}/Assets"
 fi
 
 [ -d "$ASSETS_ROOT" ] || exit 0
 
 # ── Non-blocking incremental rebuild ─────────────────────────────────────────
-nohup python3 "$BUILDER" \
-  --incremental \
-  --changed-files "$FILE_PATH" \
-  --skip-mcp \
-  --quiet \
-  >/dev/null 2>&1 &
+# Run from PROJECT_ROOT: graph-builder.py resolves its own inputs and its output
+# path relative to cwd, so launching it from the hook's cwd would write the graph
+# somewhere other than .claude/graph/ — the same defect one layer down.
+# A subshell `cd`, not `env -C`: the latter needs coreutils >= 8.28 / macOS 13,
+# and this repo already carries a portability fix for exactly that class of gap.
+(
+  cd "$PROJECT_ROOT" || exit 0
+  nohup python3 "$BUILDER" \
+    --incremental \
+    --changed-files "$FILE_PATH" \
+    --skip-mcp \
+    --quiet \
+    >/dev/null 2>&1 &
+)
 
 exit 0
