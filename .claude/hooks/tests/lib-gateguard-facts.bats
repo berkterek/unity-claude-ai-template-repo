@@ -211,3 +211,13 @@ EOF
     run bash -c "export UNITY_PLAN_ROOT=/nonexistent-plan-root; source .claude/hooks/_lib.sh; unity_plan_covers '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
     [ "$status" -ne 0 ]
 }
+
+@test "plan_covers: false when the gate age is indeterminate" {
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    # Override python3 specifically (unity_gate_cleared_valid's only age-computation
+    # dependency) rather than breaking PATH wholesale — PATH=/nonexistent would also
+    # take out `dirname` inside unity_plan_covers' own library-sourcing line, failing
+    # the call for the wrong reason before it ever reaches the age check.
+    run bash -c "source .claude/hooks/_lib.sh; python3() { return 1; }; unity_plan_covers '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
+    [ "$status" -ne 0 ]
+}

@@ -341,14 +341,20 @@ unity_gate_cleared_valid() {
 # plan root, a missing library, a broken awk — surfaces as non-zero rather than
 # killing the calling hook with status 1, which the harness does NOT treat as
 # blocking. No uncertainty may ever produce a pass.
+#
+# Fail-closed only in a condition context (`if unity_plan_covers "$f"`,
+# `unity_plan_covers "$f" && ...`, `unity_plan_covers "$f" || ...`). A bare
+# `unity_plan_covers "$f"` under `set -e` propagates the non-zero return and
+# terminates the calling hook with status 1 — which is NOT blocking in this
+# harness, i.e. a fail-open. Every caller (Tasks 6, 7, 8) must invoke this in
+# a condition context, never bare.
 unity_plan_covers() {
-    local target="$1"
+    local target="${1:-}"
     (
         set +e
         # shellcheck source=lib-gateguard-facts.sh
         . "${UNITY_HOOK_DIR:-$(dirname "${BASH_SOURCE[0]}")}/lib-gateguard-facts.sh" 2>/dev/null || exit 1
-        unity_gate_cleared_valid >/dev/null
-        [ $? -eq 0 ] || exit 1
+        unity_gate_cleared_valid >/dev/null || exit 1
         [ -n "$(unity_find_task_line "$target")" ] || exit 1
         exit 0
     )
