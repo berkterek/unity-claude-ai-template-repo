@@ -53,7 +53,7 @@ teardown() {
     cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
 - [ ] T004 \`$TMPDIR_TEST/Concretes/Players/PlayerService.cs\` — impl
   - Callers: \`$TMPDIR_TEST/Concretes/Players/PlayerController.cs\`
-  - Wiring: PlayerModule.Install
+  - Wiring: registered in \`PlayerModule.cs\`
 - [ ] T005 \`$TMPDIR_TEST/Concretes/Players/PlayerController.cs\` — shell
   - Callers: T004
   - Wiring: GameScope RegisterComponent
@@ -153,12 +153,12 @@ EOF
     cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
 - [ ] T500 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
   - Callers: none
-  - Wiring: SuperGhostModule.Install (SuperGhostModule.cs does not exist anywhere)
+  - Wiring: registered in \`SuperGhostModule.cs\`
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 2 ]
     assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
-    assert_output_contains "Module.Install task anywhere in this plan"
+    assert_output_contains "Wiring: names SuperGhostModule.cs — no such module exists"
 }
 
 @test "an unrelated domain's Module.cs task does not cross-verify a service naming a DIFFERENT module (domain-blindness closed)" {
@@ -177,7 +177,7 @@ EOF
     cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
 - [ ] T400 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
   - Callers: none
-  - Wiring: GhostModule.Install
+  - Wiring: registered in \`GhostModule.cs\`
 - [ ] T401 \`$TMPDIR_TEST/Concretes/Audio/AudioModule.cs\` — Install, unrelated domain
   - Callers: none
   - Wiring: none
@@ -185,7 +185,7 @@ EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 2 ]
     assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
-    assert_output_contains "Module.Install task anywhere in this plan"
+    assert_output_contains "Wiring: names GhostModule.cs — no such module exists"
 }
 
 @test "no asmdef anywhere — disk or plan — is a violation (Ruling 1 pinned)" {
@@ -255,7 +255,7 @@ EOF
     cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
 - [ ] T100 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
   - Callers: T999
-  - Wiring: GhostModule.Install
+  - Wiring: registered in \`GhostModule.cs\`
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 2 ]
@@ -301,7 +301,7 @@ EOF
     cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
 - [ ] T200 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
   - Callers: none
-  - Wiring: GhostModule.Install
+  - Wiring: registered in \`GhostModule.cs\`
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 0 ]
@@ -310,10 +310,12 @@ EOF
 
 @test "AppModules.cs alone does NOT satisfy the service check — presence-only, never cross-verified (Ruling exemption pinned)" {
     # AppModules.cs ends in "Modules.cs" (plural), not "Module.cs" — the
-    # bare-word extractor's \b anchor never yields "AppModule" as an
-    # identifier out of "AppModules.Install" (the trailing "s" breaks the
-    # word boundary), so this Wiring: text extracts NO module identifier at
-    # all. Per bootstrap-pattern.md a service registers in [Domain]Module.cs,
+    # token regex requires a singular "Module.cs" ending, so even a fully
+    # BACKTICKED \`AppModules.cs\` yields NO module identifier at all (this
+    # fixture deliberately uses the backticked form, the strongest shape an
+    # author could write, to prove the exclusion is structural rather than an
+    # accident of missing backticks). Per bootstrap-pattern.md a service
+    # registers in [Domain]Module.cs,
     # which then contributes one line to AppModules.cs — AppModules.cs
     # itself is never the registration target, and correctly resolves as
     # presence-only rather than either a false violation or a false
@@ -329,10 +331,151 @@ EOF
     cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
 - [ ] T201 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
   - Callers: none
-  - Wiring: AppModules.Install one line
+  - Wiring: \`AppModules.cs\` gets one line
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 0 ]
     assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
     assert_output_contains "presence-only  : wiring 1 "
+}
+
+# ---------------------------------------------------------------------------
+# Round 4 — the receipt stops parsing prose.
+#
+# A *Service earns cross-verified wiring ONLY when its Wiring: line holds
+# EXACTLY ONE backticked `<Name>Module.cs` token that resolves to another
+# checkbox task in this plan (never a /Tests/ one) or to a file on disk.
+# Every other shape is presence-only — an honest under-claim, never a
+# violation and never a false green. The three tests immediately below are
+# the three attacks that broke the previous heuristic extractor.
+# ---------------------------------------------------------------------------
+
+@test "prose naming a module with no backticks is presence-only, never cross-verified (attack 1)" {
+    # Attack 1: "modeled on AudioModule, but actually registered in GhostModule"
+    # with only AudioModule.cs on disk. The old extractor took the
+    # FIRST-mentioned token and reported cross-verified — it had no notion of
+    # which mention is the asserted target. With no backticked token at all,
+    # there is nothing unambiguous to resolve, so the honest answer is
+    # presence-only.
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef"
+
+    FAKE_ROOT="$TMPDIR_TEST/fakerepo"
+    mkdir -p "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Audio"
+    touch "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Audio/AudioModule.cs"
+    export UNITY_FACTS_REPO_ROOT="$FAKE_ROOT"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T600 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
+  - Callers: none
+  - Wiring: modeled on AudioModule, but actually registered in GhostModule
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 0 ]
+    assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
+    assert_output_contains "presence-only  : wiring 1 "
+}
+
+@test "a negation or TBD hedge mentioning a real on-disk module is presence-only (attack 2)" {
+    # Attack 2: "NOT registered in GhostModule — TBD" and
+    # "TBD (compare GhostModule)" both booked as green against a real on-disk
+    # GhostModule.cs. A hedge-word blacklist is unbounded; requiring a single
+    # backticked token makes both shapes presence-only without enumerating
+    # any English at all. Two tasks so both hedge shapes are covered.
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts" "$TMPDIR_TEST/Concretes/Wraiths"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef" "$TMPDIR_TEST/Concretes/Wraiths/Wraiths.asmdef"
+
+    FAKE_ROOT="$TMPDIR_TEST/fakerepo"
+    mkdir -p "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Ghosts"
+    touch "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Ghosts/GhostModule.cs"
+    export UNITY_FACTS_REPO_ROOT="$FAKE_ROOT"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T610 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
+  - Callers: none
+  - Wiring: NOT registered in GhostModule — TBD
+- [ ] T611 \`$TMPDIR_TEST/Concretes/Wraiths/WraithService.cs\` — impl
+  - Callers: none
+  - Wiring: TBD (compare GhostModule)
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 0 ]
+    assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
+    assert_output_contains "presence-only  : wiring 2 "
+}
+
+@test "a /Tests/ stub Module task does NOT satisfy a production service (attack 3)" {
+    # Attack 3: a /Tests/-exempt stub GhostModule.cs task cross-verified a
+    # production GhostService, because branch (a) compared basenames with no
+    # path awareness. A task that is itself exempt from every check in this
+    # script cannot be the evidence that another task is wired.
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts" "$TMPDIR_TEST/Tests/GhostPlayModeTest"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef"
+
+    FAKE_ROOT="$TMPDIR_TEST/fakerepo"
+    mkdir -p "$FAKE_ROOT/_GameFolders"
+    export UNITY_FACTS_REPO_ROOT="$FAKE_ROOT"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T620 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
+  - Callers: none
+  - Wiring: registered in \`GhostModule.cs\`
+- [ ] T621 \`$TMPDIR_TEST/Tests/GhostPlayModeTest/GhostModule.cs\` — test stub
+  - Callers: none
+  - Wiring: none
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 2 ]
+    assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
+    assert_output_contains "Wiring: names GhostModule.cs — no such module exists"
+}
+
+@test "two backticked module tokens on one Wiring: line are presence-only, not cross-verified" {
+    # Both named modules exist on disk, so under any "first token wins" or
+    # "any token resolves" rule this would report cross-verified. Two tokens
+    # means the line does not say which one is the asserted registration
+    # target, so the machine has resolved nothing and must say so.
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef"
+
+    FAKE_ROOT="$TMPDIR_TEST/fakerepo"
+    mkdir -p "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Ghosts" \
+             "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Audio"
+    touch "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Ghosts/GhostModule.cs"
+    touch "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Audio/AudioModule.cs"
+    export UNITY_FACTS_REPO_ROOT="$FAKE_ROOT"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T630 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
+  - Callers: none
+  - Wiring: \`GhostModule.cs\` or possibly \`AudioModule.cs\`
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 0 ]
+    assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
+    assert_output_contains "presence-only  : wiring 1 "
+}
+
+@test "exactly one backticked module token resolving to another checkbox task is cross-verified" {
+    # Branch (a) in isolation: nothing on disk (UNITY_FACTS_REPO_ROOT points
+    # at an empty tree), so the ONLY thing that can satisfy the check is the
+    # sibling non-/Tests/ checkbox task declaring GhostModule.cs.
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef"
+
+    FAKE_ROOT="$TMPDIR_TEST/fakerepo"
+    mkdir -p "$FAKE_ROOT/_GameFolders"
+    export UNITY_FACTS_REPO_ROOT="$FAKE_ROOT"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T640 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
+  - Callers: none
+  - Wiring: registered in \`GhostModule.cs\`
+- [ ] T641 \`$TMPDIR_TEST/Concretes/Ghosts/GhostModule.cs\` — Install
+  - Callers: none
+  - Wiring: none
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 0 ]
+    assert_output_contains "cross-verified : callers 0, wiring 1 service task(s)"
 }

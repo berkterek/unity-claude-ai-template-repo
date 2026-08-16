@@ -192,67 +192,73 @@ ${p}"
     fi
 
     # --- Wiring: cross-verification (services only) ---
-    # Both branches resolve the SPECIFIC module NAMED in this task's own
-    # Wiring: text — never a blanket "does ANY Module.cs exist anywhere"
-    # check. Unifying on a single extracted identifier closes three related
-    # holes at once (all were forms of the same "unanchored/untargeted
-    # matching" defect):
-    #   1. Substring matching let a named-but-nonexistent module (e.g.
-    #      "SuperGhostModule" when only "GhostModule.cs" exists) satisfy the
-    #      check via unrelated substring overlap.
-    #   2. Branch (a) alone let ANY *Module.cs checkbox task anywhere in the
-    #      plan — including an unrelated domain's — cross-verify EVERY
-    #      *Service in the plan, regardless of what that service's own
-    #      Wiring: text actually said.
-    #   3. Branch (b) alone let an on-disk module from a DIFFERENT domain
-    #      (e.g. AudioModule.cs) satisfy an unrelated service (e.g. a Ghosts
-    #      service) purely because some *Module.cs existed somewhere on disk.
+    # `Wiring:` is free prose. Three successive review rounds each closed one
+    # instance of the same defect class — the receipt printing "cross-verified"
+    # for a check that never resolved anything — and each time an adversarial
+    # pass found another of identical shape, because the script was trying to
+    # infer "the asserted target module" out of English by heuristic:
+    #   - "modeled on AudioModule, but actually registered in GhostModule"
+    #     resolved the FIRST-mentioned token, with no notion of which mention
+    #     is the asserted target.
+    #   - "NOT registered in GhostModule — TBD" and "TBD (compare GhostModule)"
+    #     both booked as green: an explicit negation and an explicit TBD.
+    # A hedge-word blacklist is unbounded — the next wording nobody listed
+    # would break it again. So this stops parsing prose entirely.
     #
-    # Procedure:
-    #   1. Extract ONE module identifier from the Wiring: line — either a
-    #      backticked `<Name>Module.cs` literal, or a bare <Name>Module word
-    #      token (word-boundary anchored: "AppModules" never matches, since
-    #      \b fails between "Module" and the trailing "s").
-    #   2. No identifier extractable (e.g. "TBD", "registered somewhere") →
-    #      presence-only, NOT a violation. The Wiring: text asserts nothing
-    #      a machine can check, so nothing is claimed either way.
-    #   3. An identifier WAS extracted → it must resolve, via EITHER:
-    #        (a) a *Module.cs declared by a checkbox task other than the
-    #            service's own task, whose basename equals the identifier, OR
-    #        (b) a *Module.cs that exists ON DISK whose basename equals the
-    #            identifier — normal per bootstrap-pattern.md once a domain's
-    #            first module has landed: later services in that domain
-    #            register in the EXISTING [Domain]Module.cs, with no Module
-    #            task in the plan at all.
-    #      Resolving via either is cross-verified. Naming an identifier that
-    #      resolves via NEITHER is a violation — the plan asserts a specific
-    #      registration target that provably does not exist.
+    # THE RULE: a *Service task earns cross-verified wiring ONLY when its
+    # Wiring: line contains EXACTLY ONE backticked `<Name>Module.cs` token,
+    # and that named module resolves either
+    #   (a) to a checkbox task in this plan other than the service's own
+    #       (and NOT under a /Tests/ path — a test stub is itself exempt from
+    #       every check in this script and must never satisfy a production
+    #       service), OR
+    #   (b) to a file existing on disk.
     #
-    # AppModules.cs deliberately never satisfies (a) or (b): it ends in
-    # "Modules.cs" (plural), not "Module.cs" — the bare-word extraction's
-    # \b anchor never yields "AppModule" as an identifier from "AppModules",
-    # and neither branch's basename comparison can equal "AppModules" against
-    # an identifier that (by construction) always ends in singular "Module".
+    # EVERY other shape — prose with no backticked token, more than one
+    # backticked module token, bare unbackticked identifiers, hedges,
+    # negations — is presence-only. Not a violation: presence-only. It is a
+    # legitimate declaration the machine simply did not verify, and the
+    # receipt says exactly that. This flips the default so ambiguity resolves
+    # to an honest under-claim; under-claiming is always acceptable in this
+    # receipt, over-claiming never is.
+    #
+    # Exactly one token that resolves NOWHERE is still a violation: the plan
+    # asserted one unambiguous, machine-checkable registration target and that
+    # target provably does not exist.
+    #
+    # AppModules.cs satisfies neither branch, structurally rather than by a
+    # special case: it ends in "Modules.cs" (plural), so the token regex —
+    # which requires a singular "Module.cs" ending — never extracts it, and
+    # neither branch's basename comparison can ever equal it. Per
+    # bootstrap-pattern.md a service registers in a domain [Domain]Module.cs,
+    # which then contributes one line to AppModules.cs; AppModules.cs itself
+    # is never the registration target.
     case "$BASE" in
         *Service)
             WIRE_LINE=$(printf '%s\n' "$BODY" | grep -E '^[[:space:]]*-[[:space:]]*Wiring:' | head -1)
 
-            MODULE_ID=$(printf '%s\n' "$WIRE_LINE" | grep -oE '`[A-Za-z0-9_]*Module\.cs`' | head -1 | tr -d '`')
-            MODULE_ID=${MODULE_ID%.cs}
-            if [ -z "$MODULE_ID" ]; then
-                MODULE_ID=$(printf '%s\n' "$WIRE_LINE" | grep -oE '\b[A-Za-z0-9_]*Module\b' | head -1)
+            MODULE_TOKENS=$(printf '%s\n' "$WIRE_LINE" | grep -oE '`[A-Za-z0-9_]*Module\.cs`' | tr -d '`')
+            MODULE_TOKEN_COUNT=$(printf '%s\n' "$MODULE_TOKENS" | grep -c '[^[:space:]]')
+
+            MODULE_ID=""
+            if [ "$MODULE_TOKEN_COUNT" -eq 1 ]; then
+                MODULE_ID=$(printf '%s\n' "$MODULE_TOKENS" | grep '[^[:space:]]' | head -1)
+                MODULE_ID=${MODULE_ID%.cs}
             fi
 
             if [ -z "$MODULE_ID" ]; then
-                # Wiring: names no resolvable module at all — nothing to
-                # cross-verify, but also nothing false being claimed.
+                # Zero tokens (prose/hedge/negation/bare identifier) or two or
+                # more (ambiguous which one is the asserted target) — nothing
+                # unambiguous to resolve, so nothing is claimed either way.
                 WIRING_PRESENCE=$((WIRING_PRESENCE + 1))
             else
                 SVC_WIRING_OK=0
                 # (a) a checkbox task elsewhere in the plan declaring exactly
-                # this module's path — matched on basename, not substring.
+                # this module's path — matched on basename, not substring, and
+                # never a /Tests/ path.
                 while IFS= read -r tp; do
                     [ -z "$tp" ] && continue
+                    case "$tp" in */Tests/*) continue ;; esac
                     if [ "$(basename "$tp" .cs)" = "$MODULE_ID" ]; then
                         SVC_WIRING_OK=1
                         break
@@ -275,7 +281,7 @@ ${p}"
                 if [ "$SVC_WIRING_OK" -eq 1 ]; then
                     WIRING_SVC_OK=$((WIRING_SVC_OK + 1))
                 else
-                    _violation "$p" "a *Service with no Module.Install task anywhere in this plan — state where it is registered"
+                    _violation "$p" "Wiring: names ${MODULE_ID}.cs — no such module exists as a task in this plan or on disk"
                     continue
                 fi
             fi
@@ -292,7 +298,7 @@ echo "tasks checked  : $CHECKED   (new: $NEW, edit: $EDIT, test-exempt: $EXEMPT)
 echo "duplicate-type : checked $DUP_CHECKED task(s) against ${REPO_ROOT} (${CANDIDATE_CS_COUNT} candidate file(s) found)"
 echo "cross-verified : callers $CALLERS_OK, wiring $WIRING_SVC_OK service task(s)"
 echo "presence-only  : callers $CALLERS_PRESENCE (task-ID/prose references — NOT machine-verified)"
-echo "presence-only  : wiring $WIRING_PRESENCE (non-service — NOT machine-verified)"
+echo "presence-only  : wiring $WIRING_PRESENCE (non-service, or no single backticked \`<Name>Module.cs\` — NOT machine-verified)"
 echo "$(unity_gateguard_facts_summary)"
 
 if [ "$VIOLATIONS" -gt 0 ]; then
