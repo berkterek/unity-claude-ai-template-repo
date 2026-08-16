@@ -632,9 +632,10 @@ npm install -g bats      # Linux
 | `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` |
 | `check-time-scale` | `Time.timeScale =` assignment |
 | `check-vcontainer-singleton` | Static singleton patterns outside of `EventBusAccessor` |
-| `guard-critical-files` | Edits to `AppScope`, `InputService`, `*Installer`, `EventBus`, `AppModules`, `ConfigCatalog`, `.asmdef` — deny-then-allow gate: first edit attempt per file blocks and demands investigation, the Director's retry passes; inside a subagent it blocks every time. Creating a brand-new file is never blocked |
-| `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exceptions: test assemblies, and creating a new `.asmdef`. Editing an existing `.asmdef` blocks once and passes on the Director's retry; inside a subagent it blocks every time. `settings.json` / `manifest.json` / `.inputactions` stay hard-blocked on every attempt |
+| `guard-critical-files` | Edits to `AppScope`, `InputService`, `*Installer`, `EventBus`, `AppModules`, `ConfigCatalog`, `.asmdef` — released outright when a Director Gate is open and a task in the plan names that file (`unity_plan_covers`). Otherwise a deny-then-allow gate: first edit attempt per file blocks and demands investigation, the Director's retry passes; inside a subagent it blocks every time. Creating a brand-new file is never blocked |
+| `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exceptions: test assemblies, and creating a new `.asmdef`. An existing `.asmdef` edit is released when the open plan covers it, otherwise it blocks once and passes on the Director's retry; inside a subagent it blocks every time. `settings.json` / `manifest.json` / `.inputactions` stay hard-blocked on every attempt, plan coverage or not |
 | `guard-gate-cleared` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
+| `gateguard` (PreToolUse) | Stage 1 = the unread-file check above; Guard 2 = the fact gate. Guard 2 is released when the open plan covers the file. The fact demands themselves live at plan time now: `.claude/scripts/validate-plan-facts.sh` runs BLOCKING in `/create-plan`, `/plan-module` and `/orchestrate` before their gates, sharing `hooks/lib-gateguard-facts.sh` with this hook — one library, two callers, no cache and no receipt file. This is what makes the `strict` profile usable inside `/orchestrate`; before it, `guard-pipeline-direct-work` blocked the Director while this blocked the subagent, so with a gate open nobody could write a `.cs` at all |
 | `guard-pipeline-direct-work` (PreToolUse Edit\|MultiEdit\|Write\|Bash) | Blocks direct `Edit`/`Write` to `_GameFolders/Scripts/**/*.cs` and direct `git commit` while a Director Gate is open (`gate-cleared` exists) but no subagent is currently running (`subagent-depth` == 0) — closes the "gate was shown but pipeline agent was never spawned" loophole. The depth counter leaks, so a count untouched for 15 min is read as 0 (fails toward enforcing). Escape valve: `.claude/state/pipeline-override` for explicit user-approved bypasses |
 | `guard-reviewer-order` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass |
 | `check-no-runtime-instantiate` | `new GameObject()` — blocked everywhere in runtime code; use `Instantiate(prefab)` or `Addressables.InstantiateAsync()` |
@@ -959,6 +960,19 @@ State file: `.claude/state/sparc-approved` (independent of `gate-cleared`). Writ
 ```bash
 rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"
 ```
+
+### Plan-Time Validation (runs before the gates, not after)
+
+`/create-plan`, `/plan-module` and `/orchestrate` run two BLOCKING validators against the plan document before SCOPE_GATE / ARCHITECTURE_GATE. Both follow the same shape: one library, two callers (plan time + write time), no cached state.
+
+| Script | Shares its rules with | Rejects |
+|--------|----------------------|---------|
+| `.claude/scripts/validate-plan-paths.sh` | `hooks/lib-path-rules.sh` → `check-domain-folder-structure.sh` | Illegal folder structure authored in `tasks.md` — an unknown top-level folder, a layer name or catch-all as a domain, a `.cs` with no domain folder |
+| `.claude/scripts/validate-plan-facts.sh` | `hooks/lib-gateguard-facts.sh` → `gateguard.sh` (Guard 2) | A task that names a file but declares no `Callers:` / `Wiring:`, or declares a source that resolves nowhere in the plan or on disk; a new `.cs` with no owning `.asmdef`; a duplicate type name |
+
+For both: **`NO TASKS FOUND` is not a pass.** It means the validator recognised zero tasks in the document handed to it — verify the plan's shape by hand rather than reading exit 0 as approval. Task declaration format and the two `Callers:`/`Wiring:` forms (backticked = cross-verified and *rejected* if unresolvable; plain text or a task ID = presence-only) are in `docs/modules/_templates/tasks.md`.
+
+A plan that passes `validate-plan-facts.sh` also unlocks the write-time gates for the files its tasks name — see `unity_plan_covers` in the hook table above. Design record: `docs/superpowers/specs/2026-08-16-plan-time-fact-gate-design.md`.
 
 ### Automated Check Gates
 

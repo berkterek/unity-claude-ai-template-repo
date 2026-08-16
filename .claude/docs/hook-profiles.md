@@ -26,7 +26,7 @@ in `.claude/settings.json` under `env`. The default is `standard`.
 | `block-scene-edit.sh` | Blocks direct edits to `.unity`, `.prefab`, `.asset` |
 | `block-projectsettings.sh` | Blocks edits to `ProjectSettings/*.asset`, `Packages/manifest.json` |
 | `check-config-protection.sh` | Protects `.asmdef` (edits only — creation allowed), `settings.json`, `.inputactions`, `manifest.json` |
-| `guard-critical-files.sh` | Requires investigation before editing AppScope, InputService, Installers, EventBus, AppModules, ConfigCatalog (deny-then-allow: first attempt blocks, retry passes) |
+| `guard-critical-files.sh` | Requires investigation before editing AppScope, InputService, Installers, EventBus, AppModules, ConfigCatalog — released when the open plan covers the file (`unity_plan_covers`), otherwise deny-then-allow: first attempt blocks, retry passes |
 | `check-ls-grep.sh` | **PreToolUse (all tools).** Blocks `ls \| grep/awk/sed` used for directory listing — use `tree`. Listed here because it declares **no** `HOOK_PROFILE_LEVEL`, so unlike every other quality hook it runs at *every* profile, `minimal` included. Disable: `DISABLE_HOOK_CHECK_LS_GREP=1` |
 
 ### standard (default — all minimal + quality checks)
@@ -80,7 +80,7 @@ All `standard` hooks plus:
 
 | Hook | Purpose |
 |------|---------|
-| `gateguard.sh` | Blocks Edit/Write on unread C# files |
+| `gateguard.sh` | Blocks Edit/Write on unread C# files (Stage 1), then the fact gate (Guard 2). Guard 2 is released when the open plan covers the file — the fact demands themselves moved to plan time via `.claude/scripts/validate-plan-facts.sh`, sharing `hooks/lib-gateguard-facts.sh` with this hook. This is what makes `strict` usable inside `/orchestrate`; before it, the profile and the pipeline deadlocked each other |
 | `enforce-skill-for-keywords.sh` | Blocks action until skill loaded for detected keywords |
 | `cost-tracker.sh` | Logs every tool call for cost auditing |
 | `hook-logger.sh` | Detailed hook audit log |
