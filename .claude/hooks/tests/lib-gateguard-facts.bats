@@ -61,3 +61,25 @@ teardown() {
     run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_find_task_line '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
     [ -z "$output" ]
 }
+
+@test "find_task_line: does not match on basename alone across domains" {
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
+# Tasks: Players
+
+- [ ] T010 `_GameFolders/Scripts/Games/Concretes/Players/Service.cs` — implementation
+  - Wiring: PlayerModule.Install → Register<Service>()
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_find_task_line '_GameFolders/Scripts/Games/Concretes/Enemies/Service.cs'"
+    [ -z "$output" ]
+}
+
+@test "find_task_line: does not match a suffix that lacks a path-component boundary" {
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
+# Tasks: Players
+
+- [ ] T011 `Concretes/Players/Service.cs` — implementation
+  - Wiring: PlayerModule.Install → Register<Service>()
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_find_task_line '/repo/OtherConcretes/Players/Service.cs'"
+    [ -z "$output" ]
+}

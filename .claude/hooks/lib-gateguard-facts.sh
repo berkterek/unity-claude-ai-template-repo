@@ -34,12 +34,20 @@ unity_find_task_line() {
     while IFS= read -r f; do
         [ -n "$f" ] || continue
         awk -v target="$target" '
-          function is_match(p,   t) {
+          function is_match(p) {
               if (p == target) return 1
-              # target ends with p  (plan is repo-relative, target absolute)
-              if (length(target) > length(p) && substr(target, length(target) - length(p) + 1) == p) return 1
-              # p ends with target  (plan absolute, target repo-relative)
-              if (length(p) > length(target) && substr(p, length(p) - length(target) + 1) == target) return 1
+              # target ends with p  (plan is repo-relative, target absolute) —
+              # anchored: the char before the matched suffix must be a "/",
+              # otherwise "OtherConcretes/..." would falsely match "Concretes/...".
+              if (length(target) > length(p) && substr(target, length(target) - length(p) + 1) == p) {
+                  if (substr(target, length(target) - length(p), 1) == "/") return 1
+                  return 0
+              }
+              # p ends with target  (plan absolute, target repo-relative) — same anchor.
+              if (length(p) > length(target) && substr(p, length(p) - length(target) + 1) == target) {
+                  if (substr(p, length(p) - length(target), 1) == "/") return 1
+                  return 0
+              }
               return 0
           }
           /^[[:space:]]*```/ { fence = !fence; next }
