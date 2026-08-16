@@ -136,14 +136,49 @@ fi
 # somewhere other than .claude/graph/ — the same defect one layer down.
 # A subshell `cd`, not `env -C`: the latter needs coreutils >= 8.28 / macOS 13,
 # and this repo already carries a portability fix for exactly that class of gap.
+#
+# Serialised by a lock, because this hook fires once per written file and a
+# coder writing six files launches six concurrent builders against one JSON.
+# graph-builder.py rewrites graph.json wholesale and only re-adds
+# codebase.communities[] / analysis{} in its post-pass at the very end, so
+# overlapping runs interleave write-then-post-pass and the last writer can land
+# after another run's post-pass — leaving a structurally valid graph with those
+# sections missing. There is no lock anywhere in graph-builder.py either;
+# atomic_write_json is atomic per write, which is not the same as mutual
+# exclusion between two whole rebuilds.
+#
+# Skipping (rather than queueing) a concurrent run is correct: a rebuild in
+# flight has not read this file yet only if it started before the write landed,
+# and in that case the NEXT write's hook fires another one. The final write of
+# any burst always gets a rebuild.
+LOCK="$_STATE_DIR/graph-rebuild.lock"
+# mkdir is the portable atomic test-and-set — flock is absent on stock macOS.
+# A lock older than 10 min belonged to a process that died without its trap;
+# reclaim it rather than wedging the graph until someone deletes it by hand.
+if [ -d "$LOCK" ]; then
+    _lock_mtime=$(stat -c %Y "$LOCK" 2>/dev/null || stat -f %m "$LOCK" 2>/dev/null || echo 0)
+    if [ "$_lock_mtime" -gt 0 ] && [ $(( $(date +%s) - _lock_mtime )) -gt 600 ]; then
+        rmdir "$LOCK" 2>/dev/null || true
+    fi
+fi
+
 (
   cd "$PROJECT_ROOT" || exit 0
-  nohup python3 "$BUILDER" \
+  mkdir "$LOCK" 2>/dev/null || exit 0   # another rebuild owns it — skip, don't queue
+  # `trap '' HUP` instead of nohup: it survives the hook's exit the same way,
+  # but leaves the EXIT trap below able to run, so the lock is always released.
+  trap '' HUP
+  trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+  # stderr goes to the state dir, not /dev/null. graph-builder.py reports a
+  # failing post-pass as non-fatal on stderr; discarding it is what let a
+  # missing communities[] look like a healthy rebuild. Truncated each run so
+  # the file always describes the most recent rebuild and cannot grow forever.
+  python3 "$BUILDER" \
     --incremental \
     --changed-files "$FILE_PATH" \
     --skip-mcp \
     --quiet \
-    >/dev/null 2>&1 &
-)
+    >/dev/null 2>"$_STATE_DIR/graph-rebuild.err"
+) &
 
 exit 0

@@ -118,3 +118,82 @@ teardown() {
     [ ! -e "$foreign/.claude" ]
     rm -rf "$statedir" "$proj" "$foreign"
 }
+
+# ── Concurrency + observability ──────────────────────────────────────────────
+# This hook fires once per written file, so a coder writing six files launches
+# six rebuilds against one graph.json. graph-builder.py rewrites it wholesale
+# and only re-adds communities[]/analysis{} in a post-pass at the very end,
+# so overlapping runs can leave a valid graph with those sections gone — and
+# with the background job's stderr going to /dev/null, silently.
+
+# Fake builder: records that it ran, then holds long enough to overlap.
+_mk_proj() {
+    local p="$1" hold="$2"
+    mkdir -p "$p/.claude/graph" "$p/Assets"
+    printf '{"graph":true,"unity_project_folder":"."}' > "$p/.claude/project-features.json"
+    cat > "$p/.claude/graph/graph-builder.py" <<PY
+import time, pathlib, sys
+d = pathlib.Path(__file__).resolve().parent
+with open(d / "runs.txt", "a") as f:
+    f.write("run\n")
+sys.stderr.write("graph_cluster.py failed (non-fatal): boom\n")
+time.sleep($hold)
+PY
+}
+
+_fire() {   # _fire <proj> <statedir>
+    echo '{"tool_name":"Write","tool_input":{"file_path":"Assets/T.cs"}}' \
+      | CLAUDE_PROJECT_DIR="$1" UNITY_HOOK_STATE_DIR="$2" bash "$ABS_HOOK" >/dev/null 2>&1
+}
+
+setup_conc() {
+    PROJ="$(mktemp -d)"; SDIR="$(mktemp -d)"
+    ABS_HOOK="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)/$HOOK"
+}
+
+@test "concurrent writes launch exactly one rebuild — the lock holds" {
+    setup_conc
+    _mk_proj "$PROJ" 2
+    _fire "$PROJ" "$SDIR"
+    _fire "$PROJ" "$SDIR"   # lock is held by the first — must be skipped
+    _fire "$PROJ" "$SDIR"
+    sleep 1                 # first builder still sleeping; count while it holds
+    [ "$(wc -l < "$PROJ/.claude/graph/runs.txt" | tr -d ' ')" = "1" ]
+    wait
+    rm -rf "$PROJ" "$SDIR"
+}
+
+@test "the lock is released when the rebuild finishes" {
+    setup_conc
+    _mk_proj "$PROJ" 0
+    _fire "$PROJ" "$SDIR"
+    sleep 1
+    [ ! -d "$SDIR/graph-rebuild.lock" ]
+    # A later write is therefore not blocked by the previous run's lock.
+    _fire "$PROJ" "$SDIR"
+    sleep 1
+    [ "$(wc -l < "$PROJ/.claude/graph/runs.txt" | tr -d ' ')" = "2" ]
+    rm -rf "$PROJ" "$SDIR"
+}
+
+@test "a stale lock older than 10 min is reclaimed, not wedged forever" {
+    setup_conc
+    _mk_proj "$PROJ" 0
+    mkdir -p "$SDIR/graph-rebuild.lock"
+    # 20 minutes old — the owning process died without running its EXIT trap.
+    touch -t "$(date -v-20M +%Y%m%d%H%M 2>/dev/null || date -d '20 min ago' +%Y%m%d%H%M)" "$SDIR/graph-rebuild.lock"
+    _fire "$PROJ" "$SDIR"
+    sleep 1
+    [ -f "$PROJ/.claude/graph/runs.txt" ]
+    rm -rf "$PROJ" "$SDIR"
+}
+
+@test "builder stderr is kept, not discarded to /dev/null" {
+    setup_conc
+    _mk_proj "$PROJ" 0
+    _fire "$PROJ" "$SDIR"
+    sleep 1
+    [ -f "$SDIR/graph-rebuild.err" ]
+    grep -q "graph_cluster.py failed" "$SDIR/graph-rebuild.err"
+    rm -rf "$PROJ" "$SDIR"
+}
