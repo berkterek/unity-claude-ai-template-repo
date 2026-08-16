@@ -24,6 +24,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../hooks/lib-gateguard-facts.sh
 source "${SCRIPT_DIR}/../hooks/lib-gateguard-facts.sh"
 
+# Repo root, anchored via SCRIPT_DIR — NOT the invoking shell's cwd. The
+# duplicate-type check below used to grep relative "Assets/ _GameFolders/"
+# paths: invoked from any directory other than the repo root, those silently
+# resolved to nothing and the check ran with zero visible effect. Anchoring
+# here means the check behaves the same regardless of where this script is
+# invoked from.
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
 if [ $# -eq 0 ]; then
     echo "usage: validate-plan-facts.sh <plan-file-or-dir> [...]" >&2
     exit 1
@@ -54,14 +62,17 @@ fi
 ALL_TASK_PATHS=$(grep -hoE '^[[:space:]]*-[[:space:]]*\[[ xX]\].*`[^`]*\.cs`' "${FILES[@]}" 2>/dev/null \
                     | grep -oE '`[^`]*\.cs`' | tr -d '`' | sort -u)
 
-# .asmdef literals declared anywhere by any task in the scanned plan. At plan
-# time a new assembly a task creates does not exist on disk yet — this lets
-# the owning-asmdef check (below) accept a plan-declared assembly as valid,
-# instead of only ever accepting one that already exists on disk.
-ALL_ASMDEF_PATHS=$(grep -ohE '`[^`]*\.asmdef`' "${FILES[@]}" 2>/dev/null | tr -d '`' | sort -u)
+# .asmdef literals declared by a checkbox task line in the scanned plan — NOT
+# a blanket file-wide grep. A prose sentence that merely MENTIONS an .asmdef
+# path (e.g. "no task creates Foo.asmdef yet") is not a plan commitment to
+# create it; only a checkbox task line is. Without this restriction, an
+# incidental backtick mention anywhere in the document is a working escape
+# hatch around the owning-asmdef check below.
+ALL_ASMDEF_PATHS=$(grep -hoE '^[[:space:]]*-[[:space:]]*\[[ xX]\].*`[^`]*\.asmdef`' "${FILES[@]}" 2>/dev/null \
+                    | grep -oE '`[^`]*\.asmdef`' | tr -d '`' | sort -u)
 
-VIOLATIONS=0; CHECKED=0; NEW=0; EDIT=0; EXEMPT=0
-CALLERS_OK=0; WIRING_SVC_OK=0; WIRING_PRESENCE=0
+VIOLATIONS=0; CHECKED=0; NEW=0; EDIT=0; EXEMPT=0; DUP_CHECKED=0
+CALLERS_OK=0; CALLERS_PRESENCE=0; WIRING_SVC_OK=0; WIRING_PRESENCE=0
 SEEN_PATHS=""
 
 _violation() {
@@ -100,8 +111,10 @@ ${p}"
 
     # --- automatic check #2: duplicate type ---
     # Plan-time only. At write time the file being created IS the match, so this
-    # check deliberately lives here and not in the library.
-    if DUP=$(grep -rln "class ${BASE}\b" Assets/ _GameFolders/ 2>/dev/null | grep -v "/${BASE}.cs$" | head -1); then
+    # check deliberately lives here and not in the library. Anchored to
+    # REPO_ROOT (not cwd) so it behaves the same regardless of invocation dir.
+    DUP_CHECKED=$((DUP_CHECKED + 1))
+    if DUP=$(grep -rln "class ${BASE}\b" "${REPO_ROOT}/Assets/" "${REPO_ROOT}/_GameFolders/" 2>/dev/null | grep -v "/${BASE}.cs$" | head -1); then
         if [ -n "$DUP" ]; then
             _violation "$p" "a type named ${BASE} already exists in ${DUP} — confirm no existing type serves this purpose"
             continue
@@ -120,15 +133,17 @@ ${p}"
     # doesn't exist on disk at plan time, so the disk walk above can never see
     # it. Accept it when its directory is an ancestor of (or equal to) the
     # task path's own directory — never a bypass, just the plan-time source
-    # of truth the disk walk is blind to.
+    # of truth the disk walk is blind to. Iterated line-by-line (not word
+    # splitting) so a path containing whitespace is never silently mangled.
     if [ -z "$ASMDEF" ]; then
         P_DIR=$(dirname "$p")
-        for ad in $ALL_ASMDEF_PATHS; do
+        while IFS= read -r ad; do
+            [ -z "$ad" ] && continue
             AD_DIR=$(dirname "$ad")
             case "$P_DIR" in
                 "$AD_DIR"|"$AD_DIR"/*) ASMDEF="$ad"; break ;;
             esac
-        done
+        done <<< "$ALL_ASMDEF_PATHS"
     fi
 
     if [ -z "$ASMDEF" ]; then
@@ -137,24 +152,41 @@ ${p}"
     fi
 
     # --- Callers: cross-verification ---
+    # Only a backticked .cs token that actually resolves — against disk or
+    # against another task's declared path — counts as cross-verified. A
+    # task-ID reference ("Callers: T005"), prose, or an empty value asserts
+    # nothing a machine can check, and must NOT be counted as verified —
+    # doing so is exactly the over-reporting this check exists to prevent.
     CALLER_LINE=$(printf '%s\n' "$BODY" | grep -E '^[[:space:]]*-[[:space:]]*Callers:' | head -1)
-    CALLER_BAD=""
-    for c in $(printf '%s\n' "$CALLER_LINE" | grep -oE '`[^`]*\.cs`' | tr -d '`'); do
-        if [ ! -f "$c" ] && ! printf '%s\n' "$ALL_TASK_PATHS" | grep -qF "$c"; then
-            CALLER_BAD="$c"; break
+    CALLER_CS_TOKENS=$(printf '%s\n' "$CALLER_LINE" | grep -oE '`[^`]*\.cs`' | tr -d '`')
+    if [ -z "$CALLER_CS_TOKENS" ]; then
+        CALLERS_PRESENCE=$((CALLERS_PRESENCE + 1))
+    else
+        CALLER_BAD=""
+        while IFS= read -r c; do
+            [ -z "$c" ] && continue
+            # Exact match only — a substring match (e.g. grep -F) would let a
+            # declared task path like ".../PlayerController.cs" satisfy a
+            # caller literally written as "Controller.cs".
+            if [ ! -f "$c" ] && ! printf '%s\n' "$ALL_TASK_PATHS" | grep -qxF "$c"; then
+                CALLER_BAD="$c"; break
+            fi
+        done <<< "$CALLER_CS_TOKENS"
+        if [ -n "$CALLER_BAD" ]; then
+            _violation "$p" "declared caller ${CALLER_BAD} exists neither on disk nor as a task in this plan"
+            continue
         fi
-    done
-    if [ -n "$CALLER_BAD" ]; then
-        _violation "$p" "declared caller ${CALLER_BAD} exists neither on disk nor as a task in this plan"
-        continue
+        CALLERS_OK=$((CALLERS_OK + 1))
     fi
-    CALLERS_OK=$((CALLERS_OK + 1))
 
     # --- Wiring: cross-verification (services only) ---
+    # Satisfied ONLY by a Module task declared on a checkbox line other than
+    # the service's own task — never by the service's own Wiring: prose text
+    # containing the word "Module", which used to let a *Service self-satisfy
+    # its own check with no Module task anywhere in the plan.
     case "$BASE" in
         *Service)
-            if printf '%s\n' "$ALL_TASK_PATHS" | grep -qE 'Module\.cs$' \
-               || grep -qhE 'Module\.(Install|cs)' "${FILES[@]}" 2>/dev/null; then
+            if printf '%s\n' "$ALL_TASK_PATHS" | grep -vxF "$p" | grep -qE 'Module\.cs$'; then
                 WIRING_SVC_OK=$((WIRING_SVC_OK + 1))
             else
                 _violation "$p" "a *Service with no Module.Install task anywhere in this plan — state where it is registered"
@@ -170,7 +202,9 @@ echo ""
 echo "--- Plan Facts Validation ---"
 echo "files scanned  : ${#FILES[@]}"
 echo "tasks checked  : $CHECKED   (new: $NEW, edit: $EDIT, test-exempt: $EXEMPT)"
+echo "duplicate-type : checked $DUP_CHECKED task(s) against ${REPO_ROOT}"
 echo "cross-verified : callers $CALLERS_OK, wiring $WIRING_SVC_OK service task(s)"
+echo "presence-only  : callers $CALLERS_PRESENCE (task-ID/prose references — NOT machine-verified)"
 echo "presence-only  : wiring $WIRING_PRESENCE (non-service — NOT machine-verified)"
 echo "$(unity_gateguard_facts_summary)"
 

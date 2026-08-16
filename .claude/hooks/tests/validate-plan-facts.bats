@@ -138,3 +138,44 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" != *"VIOLATION"* ]]
 }
+
+@test "a prose-only asmdef mention does not satisfy the check — still a violation (Critical 3)" {
+    # The .asmdef path appears in the document, but ONLY inside a prose
+    # sentence — no checkbox task line commits the plan to creating it. This
+    # must still violate: an incidental backtick mention is not a plan
+    # commitment, and must not be a working escape hatch around Ruling 1.
+    mkdir -p "$TMPDIR_TEST/Concretes/Wraiths"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T030 \`$TMPDIR_TEST/Concretes/Wraiths/WraithController.cs\` — impl
+  - Callers: none
+  - Wiring: none
+
+Note: no task in this plan creates \`$TMPDIR_TEST/Concretes/Wraiths/Wraiths.asmdef\` yet — someone still needs to add it later.
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"no .asmdef owns this location"* ]]
+}
+
+@test "receipt counters: unverifiable Callers/Wiring are presence-only, never cross-verified (required)" {
+    # Pins the receipt NUMBERS themselves, not just exit code / substring
+    # presence. "Callers: T999" is a task-ID reference to a task that does
+    # not exist anywhere in this plan — unverifiable, must land in the new
+    # callers presence-only counter, never in cross-verified callers. A
+    # *Service with no separate Module task must NOT be silently counted as
+    # cross-verified wiring either — it must violate, with wiring cross-verified
+    # staying at zero.
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T100 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
+  - Callers: T999
+  - Wiring: GhostModule.Install
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"cross-verified : callers 0, wiring 0 service task(s)"* ]]
+    [[ "$output" == *"presence-only  : callers 1 "* ]]
+}
