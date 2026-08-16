@@ -20,6 +20,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK_PROFILE_LEVEL="strict"
 source "${SCRIPT_DIR}/_lib.sh"
+# shellcheck source=lib-gateguard-facts.sh
+source "${SCRIPT_DIR}/lib-gateguard-facts.sh"
 
 INPUT=$(cat)
 
@@ -84,6 +86,35 @@ fi
 # timeout would be handed exactly the bypass this restriction removes. A leaked
 # count therefore costs the Director an extra report cycle — the direction that
 # fails safe. session-restore.sh clears the counter each session.
+# --- Plan coverage: the approved plan answers the fact demands, not a retry ---
+#
+# The five demands below are properties of the plan, answerable before any agent
+# spawns. Demanding them at write time made them unanswerable inside a subagent
+# (its output goes to the Director, not the human), which deadlocked every
+# pipeline: guard-pipeline-direct-work.sh blocks the Director, this blocked the
+# subagent, nobody could write. See
+# docs/superpowers/specs/2026-08-16-plan-time-fact-gate-design.md
+#
+# Coverage is recomputed live from docs/**/tasks.md on every call — there is no
+# cached receipt, so a plan edit invalidates itself immediately.
+if unity_plan_covers "$FILE_PATH"; then
+    if FACTS_MSG=$(unity_validate_task_facts "$FILE_PATH" "$(unity_task_mode "$FILE_PATH")"); then
+        echo "$FILE_PATH" >> "$FACTS_PASSED_FILE"
+        exit 0
+    fi
+    # Covered but invalid: retrying cannot help — the problem is in tasks.md.
+    # A distinct message so the Director takes the right action.
+    echo "" >&2
+    echo "  GateGuard — PLAN COVERS THIS PATH, BUT ITS FACTS BLOCK IS INVALID" >&2
+    echo "  File: $FILE_PATH" >&2
+    echo "" >&2
+    echo "  $FACTS_MSG" >&2
+    echo "" >&2
+    echo "  Retrying will not clear this. Go fix the plan, then re-run:" >&2
+    echo "    .claude/scripts/validate-plan-facts.sh <plan dir>" >&2
+    unity_hook_block "GateGuard: fix the plan's facts block for $FILE_PATH."
+fi
+
 GATEGUARD_DEPTH=$(unity_subagent_depth)
 
 if ! grep -qxF "$FILE_PATH" "$FACTS_PASSED_FILE" 2>/dev/null; then

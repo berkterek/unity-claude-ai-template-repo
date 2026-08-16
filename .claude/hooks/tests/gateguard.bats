@@ -84,3 +84,46 @@ teardown() {
     UNITY_HOOK_PROFILE=standard run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
     [ "$status" -eq 0 ]
 }
+
+@test "plan coverage lets a SUBAGENT write a declared file" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/docs"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/02"
+    echo 2 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    local f="$TMPDIR_TEST/PlayerService.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02/tasks.md" <<EOF
+- [ ] T004 \`$f\` — impl
+  - Callers: \`$TMPDIR_TEST/PlayerController.cs\`
+  - Wiring: PlayerModule.Install
+EOF
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
+@test "plan coverage without a gate does NOT let a subagent through" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/docs"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/02"
+    echo 2 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    local f="$TMPDIR_TEST/PlayerService.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02/tasks.md" <<EOF
+- [ ] T004 \`$f\` — impl
+  - Callers: x
+  - Wiring: y
+EOF
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
+@test "a covered path with an invalid facts block gets the fix-the-plan message" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/docs"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/02"
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    local f="$TMPDIR_TEST/PlayerService.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02/tasks.md" <<EOF
+- [ ] T004 \`$f\` — impl
+  - Callers: x
+EOF
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK 2>&1"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"fix the plan"* ]]
+}
