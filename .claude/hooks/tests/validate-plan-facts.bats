@@ -674,3 +674,53 @@ EOF
     refute_output_contains "OK — all"
     [ "$status" -eq 0 ]
 }
+
+# =============================================================================
+# Fence state must reset at every file boundary.
+#
+# _declared_subjects passes ALL files to a SINGLE awk. Without `FNR == 1
+# { fence = 0 }`, an odd number of ``` lines in one file leaves `fence` set
+# when awk moves to the next file, hiding every task in every following file
+# from the enumerator — which then reports a clean pass over a document it
+# never examined. Reachable only via the directory/multi-file argument, which
+# is exactly what /plan-module and /orchestrate document passing.
+# =============================================================================
+
+@test "fence: an unterminated code fence in one plan file does not hide tasks in the next" {
+    local fake_root="$TMPDIR_TEST/fenceroot"
+    mkdir -p "$fake_root/Concretes/Players"
+    touch "$fake_root/Concretes/Players/Players.asmdef"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/01-alpha" "$UNITY_PLAN_ROOT/modules/02-beta"
+
+    # Alpha: three ``` lines — an odd count, so the fence is still OPEN at EOF.
+    cat > "$UNITY_PLAN_ROOT/modules/01-alpha/tasks.md" <<EOF
+# Alpha
+
+- [ ] T500 \`$fake_root/Concretes/Players/Alpha.cs\` — shell
+  - Callers: scene prefab
+  - Wiring: GameScope
+
+\`\`\`csharp
+// illustrative only
+\`\`\`
+
+\`\`\`csharp
+// second block, never closed
+EOF
+
+    # Beta: one real task that MUST be caught — it declares no Callers:.
+    cat > "$UNITY_PLAN_ROOT/modules/02-beta/tasks.md" <<EOF
+# Beta
+
+- [ ] T501 \`$fake_root/Concretes/Players/EvilService.cs\` — service
+  - Wiring: PlayersModule
+EOF
+
+    UNITY_FACTS_REPO_ROOT="$fake_root" run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules"
+
+    [ "$status" -eq 2 ]
+    assert_output_contains "files scanned  : 2"
+    assert_output_contains "tasks checked  : 2"
+    assert_output_contains "EvilService.cs"
+    refute_output_contains "result         : OK"
+}

@@ -102,6 +102,17 @@ _abs_repo_path() {
 # owning-assembly check. One matcher, one answer.
 _declared_subjects() {
     awk -v extre="$1" '
+      # Fence state is PER FILE. The library runs one awk per file and so gets
+      # this for free; this helper passes every file to a SINGLE awk, where
+      # `fence` would otherwise carry across the file boundary. A plan file
+      # with an odd number of ``` lines (an unterminated fence, or a nested
+      # one) would then suppress every task in every FOLLOWING file — the
+      # enumerator silently reports "tasks checked: 0" for them and exits 0.
+      # That is the same silent fail-open this script exists to close, so the
+      # reset is load-bearing, not tidiness. Only reachable with a directory
+      # or multi-file argument (/plan-module, /orchestrate); /create-plan
+      # passes one file and is unaffected either way.
+      FNR == 1 { fence = 0 }
       /^[[:space:]]*```/ { fence = !fence; next }
       fence { next }
       /^[[:space:]]*-[[:space:]]*\[[ xX]\]/ {
