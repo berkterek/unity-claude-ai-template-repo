@@ -48,7 +48,17 @@ fi
 FILES=()
 for arg in "$@"; do
     if [ -d "$arg" ]; then
-        while IFS= read -r f; do FILES+=("$f"); done < <(find "$arg" -type f -name 'tasks.md' | sort)
+        # `-not -path '*/_templates/*'` mirrors unity_plan_task_files in
+        # lib-gateguard-facts.sh, and must stay in step with it. The template at
+        # docs/modules/_templates/tasks.md is a FORM, not a plan: its task lines
+        # carry `[Domain]` placeholders that resolve to no folder and no .asmdef,
+        # so scanning it yields VIOLATIONs for paths nobody ever intends to write.
+        # A validator that fails on its own template teaches the human to ignore
+        # its output — the one outcome a blocking gate cannot survive. An
+        # explicitly named template path is still honoured (the `-f` branch
+        # below): naming it is a deliberate act, walking into it is not.
+        while IFS= read -r f; do FILES+=("$f"); done \
+            < <(find "$arg" -type f -name 'tasks.md' -not -path '*/_templates/*' | sort)
     elif [ -f "$arg" ]; then
         FILES+=("$arg")
     else

@@ -724,3 +724,45 @@ EOF
     assert_output_contains "EvilService.cs"
     refute_output_contains "result         : OK"
 }
+
+# =============================================================================
+# The directory walk must skip _templates/, exactly like the library does.
+#
+# docs/modules/_templates/tasks.md is a FORM: its task lines carry `[Domain]`
+# placeholders that own no folder and no .asmdef. Walking into it produces
+# VIOLATIONs for paths nobody intends to write, and a gate that fails on its
+# own template is a gate humans learn to ignore. unity_plan_task_files in
+# lib-gateguard-facts.sh has always excluded it; this walk did not.
+# =============================================================================
+
+@test "templates: the directory walk skips _templates/, an explicit path still scans it" {
+    local fake_root="$TMPDIR_TEST/tmplroot"
+    mkdir -p "$fake_root"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/_templates" "$UNITY_PLAN_ROOT/modules/03-real"
+
+    cat > "$UNITY_PLAN_ROOT/modules/_templates/tasks.md" <<EOF
+# Template
+
+- [ ] T001 \`_GameFolders/Scripts/Games/Concretes/[Domain]/[Domain]Module.cs\` — installer
+  - Callers: AppModules
+  - Wiring: [Domain]Module
+EOF
+
+    cat > "$UNITY_PLAN_ROOT/modules/03-real/tasks.md" <<EOF
+# Real
+
+- [ ] T002 \`_GameFolders/Scripts/Games/Concretes/Players/PlayersModule.cs\` — installer
+  - Callers: AppModules
+  - Wiring: PlayersModule
+EOF
+
+    # Directory walk: the template is invisible, so only the real plan is scanned.
+    UNITY_FACTS_REPO_ROOT="$fake_root" run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules"
+    assert_output_contains "files scanned  : 1"
+    refute_output_contains "[Domain]Module.cs"
+
+    # Explicitly naming the template is a deliberate act — it is still scanned.
+    UNITY_FACTS_REPO_ROOT="$fake_root" run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/_templates/tasks.md"
+    assert_output_contains "files scanned  : 1"
+    assert_output_contains "[Domain]Module.cs"
+}
