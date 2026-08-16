@@ -11,7 +11,7 @@ for `/catch-up`, `/orchestrate` pre-scan, and `/context-prime`.
 - `/knowledge-graph <summary|implementers|publishers|subscribers|registrations|scope-tree|prefab|violations|diff|callers|impact|path|god-nodes>`
 
 **Triggers (kept in sync automatically):**
-- Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background, non-blocking)
+- Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background, non-blocking, one rebuild at a time)
 - Every `git commit` → `.git/hooks/post-commit` (incremental rebuild, background — preserves MCP cache)
 - Manual → `/build-knowledge-graph`
 
@@ -23,7 +23,7 @@ for `/catch-up`, `/orchestrate` pre-scan, and `/context-prime`.
       {
         "matcher": "Write|Edit",
         "hooks": [
-          { "type": "command", "command": "bash .claude/hooks/graph-auto-update.sh" }
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/graph-auto-update.sh" }
         ]
       }
     ]

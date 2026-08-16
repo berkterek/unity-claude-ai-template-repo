@@ -283,7 +283,7 @@ when the graph is stale (> 24h), empty, or disabled.
 
 ### Triggers (kept in sync automatically)
 
-- Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background, ~1–2s)
+- Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background, ~1–2s, serialised — one rebuild at a time)
 - Every `git commit` → post-commit hook (incremental rebuild, preserves MCP cache)
 - Manual: `/build-knowledge-graph`
 
@@ -677,7 +677,7 @@ npm install -g bats      # Linux
 | `pre-compact` (PreCompact) | Snapshots branch, recent commits, and edited files to `.claude/state/precompact-state.md` before `/compact` discards conversation history — consumed by `session-restore.sh` and `/catch-up` |
 | `block-projectsettings` (PreToolUse Edit\|Write) | Blocks direct edits to `ProjectSettings/*.asset`, `Packages/manifest.json`, and `packages-lock.json` — these files must be changed through the Unity Editor or Package Manager, not raw text edits |
 | `check-ls-grep` (PreToolUse Bash) | Blocks `ls \| grep/awk/sed` patterns used for directory listing — forces use of `tree` instead |
-| `graph-auto-update` (PostToolUse Write\|Edit) | Incremental graph rebuild in background on file change — never blocks. Warns once per session when `scanned_files == 0` (empty graph) |
+| `graph-auto-update` (PostToolUse Write\|Edit) | Incremental graph rebuild in background on file change — never blocks. Warns once per session when `scanned_files == 0` (empty graph). One rebuild at a time (lock); a write arriving mid-rebuild is logged and skipped, and the run's stderr is kept in `.claude/state/graph-rebuild.err` |
 | `verify-after-write` (PostToolUse Write\|Edit) | Runs `dotnet build` after each `.cs` write — prints WARNING to stderr if compile errors found; never blocks (exit 0). Reads `unity_project_folder` from `project-features.json` to locate `.sln`. MCP unavailable in bash hooks — dotnet CLI only. |
 | `agent-start-log` (SubagentStart) | Appends spawn record to `.claude/state/subagent-log.jsonl` — `agent_type`, `agent_id`, `session_id`, `started_at`. Advisory only (exit 2 not honoured on SubagentStart). |
 | `agent-stop-log` (SubagentStop) | Appends stop record with approximate duration to `.claude/state/subagent-log.jsonl`. Duration computed from matching SubagentStart timestamp; `-1` when no match. No `exit_code` in payload — pure audit trail. |

@@ -60,7 +60,7 @@ Check `.claude/project-features.json`: `"testing"` must be `true`. The default s
 
 ### The knowledge graph isn't updating after edits
 
-Confirm: (1) `.claude/project-features.json` has `"graph": true`; (2) `.claude/settings.json` includes a PostToolUse entry for `.claude/hooks/graph-auto-update.sh` (add manually if missing); (3) `.claude/graph/graph-builder.sh` is executable. After an edit, check `.claude/state/graph-updates.log` for a new line.
+Confirm: (1) `.claude/project-features.json` has `"graph": true`; (2) `.claude/settings.json` includes a PostToolUse entry for `.claude/hooks/graph-auto-update.sh` (add manually if missing); (3) `.claude/graph/graph-builder.py` exists (it is invoked via `python3`, so its exec bit does not matter). After an edit, check `.claude/state/graph-updates.log` for a new line — that line proves the hook fired, not that a rebuild ran: rebuilds are serialised by a lock, so a write landing while one is in flight is logged and skipped. If a rebuild ran and something in it failed, `.claude/state/graph-rebuild.err` holds that run's stderr.
 
 ### Subagent edits aren't being verified at write time
 

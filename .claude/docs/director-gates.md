@@ -232,7 +232,7 @@ These gates are enforced automatically by PreToolUse hooks — the hook exits 2 
 | **Commands** | Any pipeline command spawning a coder-class agent (`/implement`, `/orchestrate`, `/fix` when complexity ≥ 0.4) |
 | **State file** | `.claude/state/sparc-approved` (independent of `gate-cleared`) |
 | **Shows user** | Specification (what will be built) + Architecture (which files, interfaces, data flow) |
-| **Cleared by** | User types "go" → `mkdir -p .claude/state && touch .claude/state/sparc-approved` |
+| **Cleared by** | User types "go" → `mkdir -p "$(git rev-parse --show-toplevel)"/.claude/state && touch "$(git rev-parse --show-toplevel)"/.claude/state/sparc-approved` — absolute, because `guard-sparc-approved.sh` reads `${UNITY_HOOK_STATE_DIR}` and a relative path run from anywhere but the repo root creates a file the hook never checks |
 | **Deleted** | After gated coder agent completes — same pattern as `gate-cleared` (pipeline deletes before committer runs) |
 | **Guard hook** | `guard-sparc-approved.sh` (PreToolUse on Agent, exits 2 if state file absent) |
 
