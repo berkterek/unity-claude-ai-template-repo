@@ -33,7 +33,9 @@ echo "  SPARC_GATE ────────────────────�
 echo "  Cannot spawn '$SUBAGENT_TYPE' — Specification + Architecture not approved." >&2
 echo "" >&2
 echo "  Show SPARC_GATE to user, wait for 'go', then run:" >&2
-echo "    mkdir -p .claude/state && touch .claude/state/sparc-approved" >&2
-echo "  Delete .claude/state/sparc-approved after the coder agent completes." >&2
+# Resolved path, not relative — this hook checks $SPARC_STATE, so a relative
+# instruction points the human at a file the hook never reads.
+echo "    mkdir -p \"$UNITY_HOOK_STATE_DIR\" && touch \"$SPARC_STATE\"" >&2
+echo "  Delete \"$SPARC_STATE\" after the coder agent completes." >&2
 echo "  ─────────────────────────────────────────────────────────────────────" >&2
 exit 2

@@ -73,6 +73,9 @@ echo "    3. Then unity-reviewer can run as a secondary pass" >&2
 echo "" >&2
 echo "  If Codex is unreachable (no API key, network error), manually" >&2
 echo "  create the bypass:" >&2
-echo "    mkdir -p .claude/state && touch .claude/state/codex-reviewed" >&2
+# Print the resolved path, not a relative one. This hook reads $REVIEWED_FILE;
+# telling the human to touch a relative `.claude/state/codex-reviewed` sends
+# them to a path this hook never checks, so the bypass appears not to work.
+echo "    mkdir -p \"$UNITY_HOOK_STATE_DIR\" && touch \"$REVIEWED_FILE\"" >&2
 echo "  ────────────────────────────────────────────────────────────────" >&2
 exit 2
