@@ -98,6 +98,14 @@ if [ "$BLOCKED" = true ]; then
     # hard block — those are not architecture decisions an agent should land on a
     # retry, and settings.json in particular must stay human-only.
     if [ "$EXT" = "asmdef" ]; then
+        # Plan coverage releases the .asmdef gate only. settings.json,
+        # .inputactions, manifest.json and packages-lock.json are never released
+        # by coverage — disabling a hook to work around an error must stay closed,
+        # and that is the failure this whole mechanism was written in response to.
+        if unity_plan_covers "$FILE_PATH"; then
+            exit 0
+        fi
+
         # Restricted to the Director (depth 0), same reasoning as gateguard.sh:
         # deny-then-allow verifies nothing, so a subagent that merely retries would
         # pass a gate whose purpose is to surface an assembly-boundary change to a

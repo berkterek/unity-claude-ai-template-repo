@@ -118,3 +118,35 @@ EOF
     run bash -c "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash .claude/hooks/guard-critical-files.sh"
     [ "$status" -eq 2 ]
 }
+
+@test ".asmdef edit passes for a subagent when the plan declares it as its own task" {
+    # Regression for the Task 8 finding: unity_find_task_line only recognized
+    # `.cs` backticked tokens, so this coverage escape was inoperative for
+    # .asmdef edits even though guard-critical-files.sh's deny-then-allow gate
+    # was itself correct. The library was blind, not the hook.
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/docs"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/02"
+    echo 2 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    local f="$TMPDIR_TEST/Game.asmdef"
+    echo '{"name":"Game"}' > "$f"
+    cat > "$UNITY_PLAN_ROOT/modules/02/tasks.md" <<EOF
+- [ ] T031 \`$f\` — add the Players assembly reference
+  - Callers: T004
+  - Wiring: n/a
+EOF
+    run bash -c "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash .claude/hooks/guard-critical-files.sh"
+    [ "$status" -eq 0 ]
+}
+
+@test ".asmdef edit still blocks a subagent when no plan task declares it" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/docs"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/02"
+    echo '# no tasks' > "$UNITY_PLAN_ROOT/modules/02/tasks.md"
+    echo 2 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    local f="$TMPDIR_TEST/Undeclared.asmdef"
+    echo '{"name":"Undeclared"}' > "$f"
+    run bash -c "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash .claude/hooks/guard-critical-files.sh"
+    [ "$status" -eq 2 ]
+}

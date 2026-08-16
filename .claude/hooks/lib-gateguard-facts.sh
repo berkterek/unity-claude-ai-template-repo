@@ -55,7 +55,7 @@ unity_find_task_line() {
           fence { next }
           /^[[:space:]]*-[[:space:]]*\[[ xX]\]/ {
               if (capturing) exit
-              if (match($0, /`[^`]*\.cs`/)) {
+              if (match($0, /`[^`]*\.(cs|asmdef)`/)) {
                   p = substr($0, RSTART + 1, RLENGTH - 2)
                   if (is_match(p)) { capturing = 1; print; next }
               }

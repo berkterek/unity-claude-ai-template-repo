@@ -2,12 +2,14 @@
 
 setup() {
     export UNITY_HOOK_STATE_DIR="$(mktemp -d)"
+    TMPDIR_TEST="$(mktemp -d)"
     HOOK=".claude/hooks/check-config-protection.sh"
     cd "$BATS_TEST_DIRNAME/../../.." || exit 1
 }
 
 teardown() {
     rm -rf "$UNITY_HOOK_STATE_DIR"
+    rm -rf "$TMPDIR_TEST"
 }
 
 @test "blocks edits to settings.json" {
@@ -108,5 +110,36 @@ teardown() {
 
 @test "minimal profile still blocks settings.json (minimal level)" {
     UNITY_HOOK_PROFILE=minimal run bash -c "echo '{\"tool_input\":{\"file_path\":\".claude/settings.json\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
+@test "asmdef edit passes for a subagent when the plan declares it" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/docs"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/02"
+    echo 2 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    local f="$TMPDIR_TEST/Game.asmdef"
+    echo '{"name":"Game"}' > "$f"
+    cat > "$UNITY_PLAN_ROOT/modules/02/tasks.md" <<EOF
+- [ ] T031 \`$f\` — add the Players assembly reference
+  - Callers: T004
+  - Wiring: n/a
+EOF
+    run bash -c "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash .claude/hooks/check-config-protection.sh"
+    [ "$status" -eq 0 ]
+}
+
+@test "settings.json is blocked even under full plan coverage" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/docs"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/02" "$TMPDIR_TEST/.claude"
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    local f="$TMPDIR_TEST/.claude/settings.json"
+    echo '{}' > "$f"
+    cat > "$UNITY_PLAN_ROOT/modules/02/tasks.md" <<EOF
+- [ ] T099 \`$f\` — disable a hook
+  - Callers: none
+  - Wiring: none
+EOF
+    run bash -c "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash .claude/hooks/check-config-protection.sh"
     [ "$status" -eq 2 ]
 }
