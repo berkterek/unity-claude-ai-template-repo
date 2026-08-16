@@ -127,3 +127,35 @@ EOF
     [ "$status" -eq 2 ]
     [[ "$output" == *"fix the plan"* ]]
 }
+
+@test "missing lib-gateguard-facts.sh fails closed with exit 2, not 1" {
+    local isolated="$TMPDIR_TEST/isolated-hook"
+    mkdir -p "$isolated"
+    cp .claude/hooks/gateguard.sh "$isolated/gateguard.sh"
+    cp .claude/hooks/_lib.sh "$isolated/_lib.sh"
+    # Deliberately NOT copying lib-gateguard-facts.sh — the library is unavailable.
+    local f="$TMPDIR_TEST/NewSystem.cs"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $isolated/gateguard.sh"
+    [ "$status" -eq 2 ]
+}
+
+@test "plan coverage does not cache a receipt: removing the gate and tasks.md re-blocks a previously-covered path" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/docs"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/02"
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    local f="$TMPDIR_TEST/CachedReceipt.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02/tasks.md" <<EOF
+- [ ] T004 \`$f\` — impl
+  - Callers: \`$TMPDIR_TEST/Caller.cs\`
+  - Wiring: SomeModule.Install
+EOF
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+
+    # Coverage withdrawn: remove BOTH the gate and the declaring tasks.md.
+    rm -f "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    rm -f "$UNITY_PLAN_ROOT/modules/02/tasks.md"
+
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}

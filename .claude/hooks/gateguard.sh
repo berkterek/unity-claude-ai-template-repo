@@ -21,7 +21,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK_PROFILE_LEVEL="strict"
 source "${SCRIPT_DIR}/_lib.sh"
 # shellcheck source=lib-gateguard-facts.sh
-source "${SCRIPT_DIR}/lib-gateguard-facts.sh"
+#
+# NOTE: `source FILE || { ... }` looks like the right guard but does NOT work
+# here: under `set -e`, bash's `source`/`.` builtin treats "file not found" as
+# a fatal shell error, not a regular nonzero exit — it exits the script
+# immediately with status 1, bypassing the `||` handler entirely (confirmed:
+# `source missing.sh || { exit 2; }` under `set -e` still exits 1). Status 1
+# is not blocking in this harness, so that shape would silently fail open.
+# An explicit existence check avoids the builtin's special-cased error path.
+GATEGUARD_FACTS_LIB="${SCRIPT_DIR}/lib-gateguard-facts.sh"
+if [ ! -f "$GATEGUARD_FACTS_LIB" ]; then
+    echo "BLOCKED: gateguard cannot load lib-gateguard-facts.sh — refusing to gate blind." >&2
+    exit 2
+fi
+source "$GATEGUARD_FACTS_LIB"
 
 INPUT=$(cat)
 
@@ -86,6 +99,11 @@ fi
 # timeout would be handed exactly the bypass this restriction removes. A leaked
 # count therefore costs the Director an extra report cycle — the direction that
 # fails safe. session-restore.sh clears the counter each session.
+#
+# "Reporting upward" is no longer the ONLY way forward for a blocked subagent —
+# the plan-coverage branch immediately below is the other door: a path an
+# approved plan already declares (with a valid facts block) proceeds without
+# depth mattering at all.
 # --- Plan coverage: the approved plan answers the fact demands, not a retry ---
 #
 # The five demands below are properties of the plan, answerable before any agent
@@ -96,10 +114,12 @@ fi
 # docs/superpowers/specs/2026-08-16-plan-time-fact-gate-design.md
 #
 # Coverage is recomputed live from docs/**/tasks.md on every call — there is no
-# cached receipt, so a plan edit invalidates itself immediately.
+# cached receipt, so a plan edit invalidates itself immediately. This branch
+# therefore MUST NOT write to FACTS_PASSED_FILE: a written receipt would
+# outlive the plan state it was based on and let a later write to the same
+# path skip re-checking coverage even after the gate or tasks.md is gone.
 if unity_plan_covers "$FILE_PATH"; then
     if FACTS_MSG=$(unity_validate_task_facts "$FILE_PATH" "$(unity_task_mode "$FILE_PATH")"); then
-        echo "$FILE_PATH" >> "$FACTS_PASSED_FILE"
         exit 0
     fi
     # Covered but invalid: retrying cannot help — the problem is in tasks.md.
