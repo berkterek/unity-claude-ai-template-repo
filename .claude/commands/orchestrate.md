@@ -142,7 +142,8 @@ Then paste the tool's full output into the SCOPE_GATE block. Rules for reading i
 `validate-plan-facts.sh` reads the same way:
 
 - **exit 2** → at least one task creating a new `.cs` file is missing `Callers:`/`Wiring:`, or a declared caller/module doesn't resolve on disk or in the plan. Do NOT proceed silently — present the violation at SCOPE_GATE, fix the plan or stop. **The human picks.**
-- **exit 0** → this is the only green.
+- **`NO TASKS FOUND`** → this is **not** a pass — the script's own words are "this is NOT a pass". Verify by hand that the plan really declares no script paths.
+- **exit 0 with N tasks checked** → this is the only green.
 
 A hook exiting 0 is never evidence a rule was checked — only the printed `checked:` line is. Do not write "verified compliant" into any spec/AC on the basis of a hook staying silent.
 

@@ -106,7 +106,7 @@ diyerek dur.
 
 exit 2 → plan `rules/architecture.md` ile çelişiyor. Sessizce devam etme, klasörü de kendi kafana göre uydurma: çelişkiyi ARCHITECTURE_GATE bloğunun içinde göster, üç seçenekle (planı değiştir / `.claude/path-allowlist.txt` + `rules/architecture.md`'ye istisnayı yaz / dur). Kararı kullanıcı verir. `NO PATHS FOUND` pass değildir. Hook'un susması hiçbir zaman "doğrulandı" demek değildir — spec'e AC olarak "uyumlu, doğrulandı" yazmak için `checked:` satırı şart.
 
-`validate-plan-facts.sh` exit 2 → en az bir task `Callers:`/`Wiring:` eksik ya da beyan ettiği kaynak plan içinde/diskte çözülmüyor. Sessizce devam etme: ihlali ARCHITECTURE_GATE bloğunda göster, planı düzelt ya da dur — kararı kullanıcı verir.
+`validate-plan-facts.sh` exit 2 → en az bir task `Callers:`/`Wiring:` eksik ya da beyan ettiği kaynak plan içinde/diskte çözülmüyor. Sessizce devam etme: ihlali ARCHITECTURE_GATE bloğunda göster, planı düzelt ya da dur — kararı kullanıcı verir. `NO TASKS FOUND` pass değildir — script'in kendi ifadesiyle "this is NOT a pass"; elle doğrula.
 
 Kullanıcıya şu bilgileri göster ve onay iste:
 

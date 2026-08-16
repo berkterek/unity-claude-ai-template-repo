@@ -396,6 +396,7 @@ After APPROVED:
   - Paste the `checked:` receipt line into the output. A silent hook is not evidence.
 - **Then run, BLOCKING:** `.claude/scripts/validate-plan-facts.sh <plan file path>`
   - exit 2 → at least one task creating a new `.cs` file is missing `Callers:`/`Wiring:`, or a declared caller/module doesn't resolve on disk or in the plan. Do not print "Plan created". Show the violation and fix the plan — the human decides.
+  - `NO TASKS FOUND` is **not** a pass — the script's own words are "this is NOT a pass"; confirm by hand.
   - Paste the receipt into the output. A silent hook is not evidence.
 - Print: `Plan created: Docs/[plan file name]`
 

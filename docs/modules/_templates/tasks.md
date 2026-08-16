@@ -8,27 +8,38 @@
 > Validated before SCOPE_GATE by `.claude/scripts/validate-plan-facts.sh`.
 >
 > **These fields are cross-verified by a machine, not just read by a human —**
-> only specific shapes earn `cross-verified` in the validator's receipt:
-> - `Callers:` — cross-verified only for backticked `` `Path/To/File.cs` `` tokens
->   that resolve either to a file already on disk or to another checkbox task's
->   declared path in this same plan (a task may not name itself). A task-ID
->   reference like `T003` is a valid declaration, but it is only `presence-only`
->   — the validator cannot resolve a task ID to a path, so it never machine-checks it.
-> - `Wiring:` (on a `*Service` task only) — cross-verified only when the line
->   contains **exactly one** backticked `` `[Domain]Module.cs` `` token that
->   resolves the same way (disk or plan task). Prose, bare identifiers, two or
->   more module tokens, or hedges ("TBD", "compare X") are all `presence-only`
->   — still a valid declaration, just not machine-verified. Per
->   `bootstrap-pattern.md`, a service registers in a domain `[Domain]Module.cs`,
->   which then contributes one line to `AppModules.cs` — naming `AppModules.cs`
->   here never satisfies this check, since a service never registers there directly.
+> only specific shapes earn `cross-verified` in the validator's receipt, and
+> every new `.cs` also needs an `.asmdef` owning its location — either already
+> on disk, or declared as its own checkbox task whose FIRST backticked token is
+> the `.asmdef` (an `.asmdef` mentioned only as a trailing aside on a `.cs`
+> task's line does not count).
+> - `Callers:` — **two forms, pick the one that's actually true today:**
+>   - a backticked `` `Path/To/File.cs` `` token → **cross-verified**, but ONLY
+>     if it resolves to a file already on disk or to another checkbox task's
+>     declared path in this same plan (a task may not name itself). **If it
+>     resolves to neither, the plan is REJECTED — not downgraded to
+>     presence-only.** Never backtick a path you have not confirmed exists yet
+>     (a green-field module has no `AppModules.cs` on disk and no task creating
+>     one — backticking it there is a guaranteed violation, not a shortcut).
+>   - an unbackticked reference or a task ID like `T003` → accepted as a valid
+>     declaration, counted `presence-only` — the validator never machine-checks
+>     it, but it is not a violation either. This is the safe default when the
+>     caller doesn't exist as a file yet.
+> - `Wiring:` (on a `*Service` task only) — same two-form choice, scoped to
+>   exactly one backticked `` `[Domain]Module.cs` `` token: cross-verified if
+>   it resolves (disk or plan task), **rejected** if it doesn't. Prose, bare
+>   identifiers, two or more module tokens, or hedges ("TBD", "compare X") are
+>   all `presence-only`. Per `bootstrap-pattern.md`, a service registers in a
+>   domain `[Domain]Module.cs`, which then contributes one line to
+>   `AppModules.cs` — naming `AppModules.cs` here never satisfies this check,
+>   since a service never registers there directly.
 
 ## Phase 0 — Foundational (Blocking)
 
 Bu modülün gerektirdiği minimum altyapı — yoksa ekle, varsa atla.
 
 - [ ] T001 `_GameFolders/Scripts/Games/Concretes/[Domain]/[Domain]Module.cs` — static class, `Install(IContainerBuilder builder, [Domain]Configuration config)` imzası
-  - Callers: `_GameFolders/Scripts/Games/Concretes/Infrastructure/AppModules.cs` (one new line: `[Domain]Module.Install(...)`)
+  - Callers: AppModules.cs (one new line: `[Domain]Module.Install(...)`) — presence-only; do NOT backtick this path unless AppModules.cs already exists on disk or is declared by another task in THIS plan (see schema note above)
   - Wiring: n/a — this file IS the module; it is not itself wired into another module
   - Acceptance: Derleme hatası yok; AppModules.cs'e bir satır eklenerek kaydolur
 
