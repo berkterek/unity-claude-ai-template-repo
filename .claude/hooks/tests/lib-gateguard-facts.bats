@@ -66,10 +66,10 @@ teardown() {
     cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
 # Tasks: Players
 
-- [ ] T010 `_GameFolders/Scripts/Games/Concretes/Players/Service.cs` — implementation
+- [ ] T010 `_GameFolders/Scripts/Games/Concretes/AI/Service.cs` — implementation
   - Wiring: PlayerModule.Install → Register<Service>()
 EOF
-    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_find_task_line '_GameFolders/Scripts/Games/Concretes/Enemies/Service.cs'"
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_find_task_line '_GameFolders/Scripts/Games/Concretes/Players/Service.cs'"
     [ -z "$output" ]
 }
 
