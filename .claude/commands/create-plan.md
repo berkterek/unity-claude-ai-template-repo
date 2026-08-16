@@ -394,6 +394,9 @@ After APPROVED:
   - exit 2 → the plan declares a folder that contradicts `rules/architecture.md`. Do not print "Plan created". Show the violation and either fix the plan or take the declared-exception route (`.claude/path-allowlist.txt` + `rules/architecture.md`) — the human decides which.
   - `NO PATHS FOUND` is **not** a pass; confirm by hand.
   - Paste the `checked:` receipt line into the output. A silent hook is not evidence.
+- **Then run, BLOCKING:** `.claude/scripts/validate-plan-facts.sh <plan file path>`
+  - exit 2 → at least one task creating a new `.cs` file is missing `Callers:`/`Wiring:`, or a declared caller/module doesn't resolve on disk or in the plan. Do not print "Plan created". Show the violation and fix the plan — the human decides.
+  - Paste the receipt into the output. A silent hook is not evidence.
 - Print: `Plan created: Docs/[plan file name]`
 
 ---

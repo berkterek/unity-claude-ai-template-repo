@@ -130,6 +130,7 @@ Run, on the module's plan directory:
 
 ```bash
 .claude/scripts/validate-plan-paths.sh <plan-dir-or-files>
+.claude/scripts/validate-plan-facts.sh <plan-dir-or-files>
 ```
 
 Then paste the tool's full output into the SCOPE_GATE block. Rules for reading it:
@@ -137,6 +138,11 @@ Then paste the tool's full output into the SCOPE_GATE block. Rules for reading i
 - **exit 2** → the plan contradicts `rules/architecture.md`. Do NOT proceed silently and do NOT "fix" it by inventing a folder. Present the conflict at SCOPE_GATE with the three options: (a) change the plan, (b) declare a real exception in `.claude/path-allowlist.txt` + `rules/architecture.md`, (c) stop. **The human picks.**
 - **`NO PATHS FOUND`** → this is **not** a pass. Verify by hand that the plan really declares no script paths.
 - **exit 0 with N paths checked** → this is the only green.
+
+`validate-plan-facts.sh` reads the same way:
+
+- **exit 2** → at least one task creating a new `.cs` file is missing `Callers:`/`Wiring:`, or a declared caller/module doesn't resolve on disk or in the plan. Do NOT proceed silently — present the violation at SCOPE_GATE, fix the plan or stop. **The human picks.**
+- **exit 0** → this is the only green.
 
 A hook exiting 0 is never evidence a rule was checked — only the printed `checked:` line is. Do not write "verified compliant" into any spec/AC on the basis of a hook staying silent.
 
