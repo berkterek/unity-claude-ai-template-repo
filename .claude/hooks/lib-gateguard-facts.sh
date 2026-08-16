@@ -65,3 +65,64 @@ unity_find_task_line() {
         ' "$f"
     done < <(unity_plan_task_files)
 }
+
+# unity_task_mode <script-path> — "new" if the path is absent from disk, else "edit".
+#
+# Never declared in the plan: this is the same IS_WRITE test gateguard.sh already
+# performs, so there is nothing for an author to get wrong. The plan-internal
+# rule (an earlier task in the same plan created it, so a later one is an edit)
+# lives in validate-plan-facts.sh, which is the only caller that iterates tasks
+# in order.
+unity_task_mode() {
+    [ -f "$1" ] && echo "edit" || echo "new"
+}
+
+# _unity_has_field <body> <FieldName> — non-empty "- FieldName: value" sub-bullet?
+_unity_has_field() {
+    printf '%s\n' "$1" | grep -qE "^[[:space:]]*-[[:space:]]*$2:[[:space:]]*[^[:space:]]"
+}
+
+# unity_validate_task_facts <script-path> <new|edit>
+#
+# 0 = pass. 2 = fail, with a one-line reason on stdout.
+#
+# NEW  : Callers: and Wiring: are both required. Files under Tests/ are exempt —
+#        the question is structurally empty for them (no callers, no wiring).
+# EDIT : fields are not required. FormerlySerializedAs: becomes required only
+#        when the task text signals a rename AND the target file contains
+#        [SerializeField]. Known gap, documented in the spec: a rename nobody
+#        wrote into the task text is not detectable at plan time.
+unity_validate_task_facts() {
+    local target="$1" mode="$2" body
+    body=$(unity_find_task_line "$target")
+
+    if [ -z "$body" ]; then
+        echo "no task in any tasks.md declares this path"
+        return 2
+    fi
+
+    case "$target" in
+        */Tests/*) return 0 ;;
+    esac
+
+    if [ "$mode" = "new" ]; then
+        _unity_has_field "$body" "Callers" || { echo "task declares no 'Callers:' field"; return 2; }
+        _unity_has_field "$body" "Wiring"  || { echo "task declares no 'Wiring:' field";  return 2; }
+        return 0
+    fi
+
+    if printf '%s\n' "$body" | grep -qiE 'rename|yeniden adlandır|eski ad|→'; then
+        if grep -q '\[SerializeField\]' "$target" 2>/dev/null; then
+            _unity_has_field "$body" "FormerlySerializedAs" || {
+                echo "task signals a rename on a file containing [SerializeField] but declares no 'FormerlySerializedAs:' field — without it every configured value in every scene, prefab and ScriptableObject silently resets to default"
+                return 2
+            }
+        fi
+    fi
+    return 0
+}
+
+# unity_gateguard_facts_summary — one-line provenance receipt, printed by both callers.
+unity_gateguard_facts_summary() {
+    echo "rules         : lib-gateguard-facts.sh (plan root: ${UNITY_PLAN_ROOT})"
+}

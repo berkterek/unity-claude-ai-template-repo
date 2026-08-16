@@ -83,3 +83,79 @@ EOF
     run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_find_task_line '/repo/OtherConcretes/Players/Service.cs'"
     [ -z "$output" ]
 }
+
+@test "task_mode: new when the file is absent from disk" {
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_task_mode '$TMPDIR_TEST/Absent.cs'"
+    [ "$output" = "new" ]
+}
+
+@test "task_mode: edit when the file exists" {
+    touch "$TMPDIR_TEST/Present.cs"
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_task_mode '$TMPDIR_TEST/Present.cs'"
+    [ "$output" = "edit" ]
+}
+
+@test "validate: a new task carrying both fields passes" {
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs' new"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate: a new task missing Wiring is rejected with a reason" {
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
+- [ ] T009 `_GameFolders/Scripts/Games/Concretes/Players/ScoreService.cs` — impl
+  - Callers: `Concretes/Players/PlayerController.cs`
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '_GameFolders/Scripts/Games/Concretes/Players/ScoreService.cs' new"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"Wiring:"* ]]
+}
+
+@test "validate: an undeclared path is rejected" {
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '_GameFolders/Scripts/Games/Concretes/Enemies/EnemyService.cs' new"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"no task"* ]]
+}
+
+@test "validate: a test file is exempt from both fields" {
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
+- [ ] T003 `_GameFolders/Scripts/Tests/GameEditModeTest/PlayerServiceTests.cs` — EditMode test
+  - Acceptance: passes
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '_GameFolders/Scripts/Tests/GameEditModeTest/PlayerServiceTests.cs' new"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate: a signalled rename on a SerializeField file demands FormerlySerializedAs" {
+    mkdir -p "$TMPDIR_TEST/dom"
+    printf '[SerializeField] private float _speed;\n' > "$TMPDIR_TEST/dom/Mover.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T020 \`$TMPDIR_TEST/dom/Mover.cs\` — rename _speed to _moveSpeed
+  - Acceptance: compiles
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '$TMPDIR_TEST/dom/Mover.cs' edit"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"FormerlySerializedAs"* ]]
+}
+
+@test "validate: the same rename passes once FormerlySerializedAs is declared" {
+    mkdir -p "$TMPDIR_TEST/dom"
+    printf '[SerializeField] private float _speed;\n' > "$TMPDIR_TEST/dom/Mover.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T020 \`$TMPDIR_TEST/dom/Mover.cs\` — rename _speed to _moveSpeed
+  - FormerlySerializedAs: _speed -> _moveSpeed
+  - Acceptance: compiles
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '$TMPDIR_TEST/dom/Mover.cs' edit"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate: an ordinary edit with no rename signal needs no fields" {
+    mkdir -p "$TMPDIR_TEST/dom"
+    printf 'public class AppModules { }\n' > "$TMPDIR_TEST/dom/AppModules.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T030 \`$TMPDIR_TEST/dom/AppModules.cs\` — add PlayerModule.Install line
+  - Acceptance: compiles
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '$TMPDIR_TEST/dom/AppModules.cs' edit"
+    [ "$status" -eq 0 ]
+}
