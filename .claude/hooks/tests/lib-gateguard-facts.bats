@@ -159,3 +159,25 @@ EOF
     run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '$TMPDIR_TEST/dom/AppModules.cs' edit"
     [ "$status" -eq 0 ]
 }
+
+@test "validate: a new task with Wiring present but empty is rejected" {
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<'EOF'
+- [ ] T040 `_GameFolders/Scripts/Games/Concretes/Players/ScoreService.cs` — impl
+  - Callers: `Foo.cs`
+  - Wiring:
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '_GameFolders/Scripts/Games/Concretes/Players/ScoreService.cs' new"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"Wiring:"* ]]
+}
+
+@test "validate: a rename signal on a file WITHOUT SerializeField passes without FormerlySerializedAs" {
+    mkdir -p "$TMPDIR_TEST/dom"
+    printf 'public class Foo { }\n' > "$TMPDIR_TEST/dom/Foo.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T050 \`$TMPDIR_TEST/dom/Foo.cs\` — rename _speed to _moveSpeed
+  - Acceptance: compiles
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '$TMPDIR_TEST/dom/Foo.cs' edit"
+    [ "$status" -eq 0 ]
+}
