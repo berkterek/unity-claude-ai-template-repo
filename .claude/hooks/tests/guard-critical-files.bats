@@ -91,3 +91,30 @@ teardown() {
     run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/EnemyModel.cs\"}}' | bash $HOOK"
     [ "$status" -eq 0 ]
 }
+
+@test "AppModules.cs edit passes for a subagent when the plan declares it" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/docs"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/02"
+    echo 2 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    local f="$TMPDIR_TEST/AppModules.cs"
+    printf 'public static class AppModules { }\n' > "$f"
+    cat > "$UNITY_PLAN_ROOT/modules/02/tasks.md" <<EOF
+- [ ] T030 \`$f\` — add PlayerModule.Install line
+  - Acceptance: compiles
+EOF
+    run bash -c "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash .claude/hooks/guard-critical-files.sh"
+    [ "$status" -eq 0 ]
+}
+
+@test "AppModules.cs edit still blocks a subagent when no plan declares it" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/docs"
+    mkdir -p "$UNITY_PLAN_ROOT/modules/02"
+    echo '# no tasks' > "$UNITY_PLAN_ROOT/modules/02/tasks.md"
+    echo 2 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    echo '{"gate":"cleared"}' > "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    local f="$TMPDIR_TEST/AppModules.cs"
+    printf 'public static class AppModules { }\n' > "$f"
+    run bash -c "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash .claude/hooks/guard-critical-files.sh"
+    [ "$status" -eq 2 ]
+}

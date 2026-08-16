@@ -140,6 +140,19 @@ if [ "$CRITICAL" = true ]; then
     # Inside a subagent the block repeats, leaving "report upward" as the only
     # route. No staleness downgrade: here 0 is the value that PASSES, so a timeout
     # would release a long-running subagent (see gateguard.sh for the full note).
+    # Plan coverage releases this gate. This hook's demand is "investigate and
+    # confirm the change is intentional and scoped" — a task declared in the plan
+    # and approved by a human at SCOPE_GATE has already answered it. Requiring
+    # Callers:/Wiring: for a one-line AppModules.cs edit would be noise, so
+    # coverage alone is checked here; gateguard.sh layers the facts check on top.
+    #
+    # This branch is what lets a module actually register itself: every new module
+    # must edit AppModules.cs by definition, and without it a pipeline writes all
+    # its files and then deadlocks on the last line.
+    if unity_plan_covers "$FILE_PATH"; then
+        exit 0
+    fi
+
     GCF_DEPTH=$(unity_subagent_depth)
 
     DENIED_FILE="${UNITY_HOOK_STATE_DIR}/guard-critical-denied.txt"
