@@ -112,11 +112,13 @@ EOF
     assert_output_contains "exists neither on disk nor as a task in this plan"
 }
 
-@test "a Service with no Module.Install task in the plan is a violation" {
-    # Real .asmdef present so the run reaches the Wiring/Service check this
-    # test names. Assertion tightened to the distinctive violation wording —
-    # the word "Module" alone never appears in any unconditional receipt line,
-    # but the exact phrase pins the test to the real reason, not a coincidence.
+@test "a Wiring: with no extractable module identifier is presence-only, not a violation" {
+    # "registered somewhere" names no *Module identifier at all — nothing a
+    # machine can resolve, so nothing is claimed either way. This is
+    # deliberately the SAME fixture the old, pre-Ruling-round-3 version of
+    # this test used to (incorrectly) treat as a violation: under the
+    # unified extraction rule an unnamed Wiring: is presence-only, never a
+    # false violation and never a false cross-verification.
     mkdir -p "$TMPDIR_TEST/Concretes/Players"
     touch "$TMPDIR_TEST/Concretes/Players/Players.asmdef"
 
@@ -129,7 +131,60 @@ EOF
   - Wiring: GameScope
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 0 ]
+    assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
+    assert_output_contains "presence-only  : wiring 2 "
+}
+
+@test "a Wiring: naming a module that exists nowhere is a violation, never cross-verified (Open)" {
+    # Reviewer's exact probe: disk holds only GhostModule.cs; the task names
+    # SuperGhostModule, which exists neither as a plan task nor on disk.
+    # Unanchored substring matching (the pre-fix defect) would have let
+    # "GhostModule" inside "SuperGhostModule" satisfy the check via overlap;
+    # whole-identifier comparison must not.
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef"
+
+    FAKE_ROOT="$TMPDIR_TEST/fakerepo"
+    mkdir -p "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Ghosts"
+    touch "$FAKE_ROOT/_GameFolders/Scripts/Games/Concretes/Ghosts/GhostModule.cs"
+    export UNITY_FACTS_REPO_ROOT="$FAKE_ROOT"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T500 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
+  - Callers: none
+  - Wiring: SuperGhostModule.Install (SuperGhostModule.cs does not exist anywhere)
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
     [ "$status" -eq 2 ]
+    assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
+    assert_output_contains "Module.Install task anywhere in this plan"
+}
+
+@test "an unrelated domain's Module.cs task does not cross-verify a service naming a DIFFERENT module (domain-blindness closed)" {
+    # Before the ruling, branch (a) checked ALL_TASK_PATHS for ANY *Module.cs
+    # checkbox task anywhere in the plan — so an unrelated Audio domain's
+    # AudioModule.cs task would have wrongly cross-verified ANY *Service in
+    # the plan regardless of what its own Wiring: text said. This fixture
+    # deliberately extracts a REAL identifier ("GhostModule") from
+    # GhostService's own Wiring: — so branch (a)/(b) DO run — and proves
+    # they require that SPECIFIC name, not just "some *Module.cs exists
+    # somewhere": AudioModule.cs (present, unrelated) must NOT satisfy a
+    # Wiring: that names GhostModule (absent from both the plan and disk).
+    mkdir -p "$TMPDIR_TEST/Concretes/Ghosts" "$TMPDIR_TEST/Concretes/Audio"
+    touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef" "$TMPDIR_TEST/Concretes/Audio/Audio.asmdef"
+
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T400 \`$TMPDIR_TEST/Concretes/Ghosts/GhostService.cs\` — impl
+  - Callers: none
+  - Wiring: GhostModule.Install
+- [ ] T401 \`$TMPDIR_TEST/Concretes/Audio/AudioModule.cs\` — Install, unrelated domain
+  - Callers: none
+  - Wiring: none
+EOF
+    run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 2 ]
+    assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
     assert_output_contains "Module.Install task anywhere in this plan"
 }
 
@@ -253,12 +308,16 @@ EOF
     assert_output_contains "cross-verified : callers 0, wiring 1 service task(s)"
 }
 
-@test "AppModules.cs alone does NOT satisfy the service check — still a violation (Ruling exemption pinned)" {
-    # AppModules.cs ends in "Modules.cs" (plural), not "Module.cs". Per
-    # bootstrap-pattern.md a service registers in [Domain]Module.cs, which
-    # then contributes one line to AppModules.cs — AppModules.cs itself is
-    # never the registration target. This must stay a violation even when
-    # AppModules.cs exists on disk and is named in the task's own Wiring:.
+@test "AppModules.cs alone does NOT satisfy the service check — presence-only, never cross-verified (Ruling exemption pinned)" {
+    # AppModules.cs ends in "Modules.cs" (plural), not "Module.cs" — the
+    # bare-word extractor's \b anchor never yields "AppModule" as an
+    # identifier out of "AppModules.Install" (the trailing "s" breaks the
+    # word boundary), so this Wiring: text extracts NO module identifier at
+    # all. Per bootstrap-pattern.md a service registers in [Domain]Module.cs,
+    # which then contributes one line to AppModules.cs — AppModules.cs
+    # itself is never the registration target, and correctly resolves as
+    # presence-only rather than either a false violation or a false
+    # cross-verify, even when AppModules.cs exists on disk.
     mkdir -p "$TMPDIR_TEST/Concretes/Ghosts"
     touch "$TMPDIR_TEST/Concretes/Ghosts/Ghosts.asmdef"
 
@@ -273,6 +332,7 @@ EOF
   - Wiring: AppModules.Install one line
 EOF
     run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
-    [ "$status" -eq 2 ]
-    assert_output_contains "Module.Install task anywhere in this plan"
+    [ "$status" -eq 0 ]
+    assert_output_contains "cross-verified : callers 0, wiring 0 service task(s)"
+    assert_output_contains "presence-only  : wiring 1 "
 }

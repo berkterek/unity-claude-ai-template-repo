@@ -192,46 +192,92 @@ ${p}"
     fi
 
     # --- Wiring: cross-verification (services only) ---
-    # Satisfied by EITHER:
-    #   (a) a Module task declared on a checkbox line other than the
-    #       service's own task, OR
-    #   (b) a *Module.cs that already EXISTS ON DISK, whose name is named in
-    #       THIS task's own Wiring: text. Per bootstrap-pattern.md, once a
-    #       domain's first module has landed, every subsequent service in
-    #       that domain registers in the EXISTING [Domain]Module.cs — it is
-    #       normal for such a service to have no Module task in the plan at
-    #       all. (b) matches only against the Wiring: line specifically —
-    #       never a blanket file-wide grep, which was the original hole
-    #       (Critical 2) this replaced.
-    # Neither is satisfied by the service's own Wiring: prose merely
-    # containing the word "Module" with nothing backing it — that was the
-    # exact self-satisfaction hole Critical 2 closed, and stays closed here.
-    # NOTE: AppModules.cs deliberately does NOT satisfy (b) — it ends in
-    # "Modules.cs" (plural), not "Module.cs"; per bootstrap-pattern.md a
-    # service registers in [Domain]Module.cs, which then contributes one
-    # line to AppModules.cs. Requiring the domain module, not AppModules.cs,
-    # is intentional.
+    # Both branches resolve the SPECIFIC module NAMED in this task's own
+    # Wiring: text — never a blanket "does ANY Module.cs exist anywhere"
+    # check. Unifying on a single extracted identifier closes three related
+    # holes at once (all were forms of the same "unanchored/untargeted
+    # matching" defect):
+    #   1. Substring matching let a named-but-nonexistent module (e.g.
+    #      "SuperGhostModule" when only "GhostModule.cs" exists) satisfy the
+    #      check via unrelated substring overlap.
+    #   2. Branch (a) alone let ANY *Module.cs checkbox task anywhere in the
+    #      plan — including an unrelated domain's — cross-verify EVERY
+    #      *Service in the plan, regardless of what that service's own
+    #      Wiring: text actually said.
+    #   3. Branch (b) alone let an on-disk module from a DIFFERENT domain
+    #      (e.g. AudioModule.cs) satisfy an unrelated service (e.g. a Ghosts
+    #      service) purely because some *Module.cs existed somewhere on disk.
+    #
+    # Procedure:
+    #   1. Extract ONE module identifier from the Wiring: line — either a
+    #      backticked `<Name>Module.cs` literal, or a bare <Name>Module word
+    #      token (word-boundary anchored: "AppModules" never matches, since
+    #      \b fails between "Module" and the trailing "s").
+    #   2. No identifier extractable (e.g. "TBD", "registered somewhere") →
+    #      presence-only, NOT a violation. The Wiring: text asserts nothing
+    #      a machine can check, so nothing is claimed either way.
+    #   3. An identifier WAS extracted → it must resolve, via EITHER:
+    #        (a) a *Module.cs declared by a checkbox task other than the
+    #            service's own task, whose basename equals the identifier, OR
+    #        (b) a *Module.cs that exists ON DISK whose basename equals the
+    #            identifier — normal per bootstrap-pattern.md once a domain's
+    #            first module has landed: later services in that domain
+    #            register in the EXISTING [Domain]Module.cs, with no Module
+    #            task in the plan at all.
+    #      Resolving via either is cross-verified. Naming an identifier that
+    #      resolves via NEITHER is a violation — the plan asserts a specific
+    #      registration target that provably does not exist.
+    #
+    # AppModules.cs deliberately never satisfies (a) or (b): it ends in
+    # "Modules.cs" (plural), not "Module.cs" — the bare-word extraction's
+    # \b anchor never yields "AppModule" as an identifier from "AppModules",
+    # and neither branch's basename comparison can equal "AppModules" against
+    # an identifier that (by construction) always ends in singular "Module".
     case "$BASE" in
         *Service)
-            SVC_WIRING_OK=0
-            if printf '%s\n' "$ALL_TASK_PATHS" | grep -vxF "$p" | grep -qE 'Module\.cs$'; then
-                SVC_WIRING_OK=1
+            WIRE_LINE=$(printf '%s\n' "$BODY" | grep -E '^[[:space:]]*-[[:space:]]*Wiring:' | head -1)
+
+            MODULE_ID=$(printf '%s\n' "$WIRE_LINE" | grep -oE '`[A-Za-z0-9_]*Module\.cs`' | head -1 | tr -d '`')
+            MODULE_ID=${MODULE_ID%.cs}
+            if [ -z "$MODULE_ID" ]; then
+                MODULE_ID=$(printf '%s\n' "$WIRE_LINE" | grep -oE '\b[A-Za-z0-9_]*Module\b' | head -1)
+            fi
+
+            if [ -z "$MODULE_ID" ]; then
+                # Wiring: names no resolvable module at all — nothing to
+                # cross-verify, but also nothing false being claimed.
+                WIRING_PRESENCE=$((WIRING_PRESENCE + 1))
             else
-                WIRE_LINE=$(printf '%s\n' "$BODY" | grep -E '^[[:space:]]*-[[:space:]]*Wiring:' | head -1)
-                while IFS= read -r mdf; do
-                    [ -z "$mdf" ] && continue
-                    MBASE=$(basename "$mdf" .cs)
-                    if printf '%s\n' "$WIRE_LINE" | grep -qF "$MBASE"; then
+                SVC_WIRING_OK=0
+                # (a) a checkbox task elsewhere in the plan declaring exactly
+                # this module's path — matched on basename, not substring.
+                while IFS= read -r tp; do
+                    [ -z "$tp" ] && continue
+                    if [ "$(basename "$tp" .cs)" = "$MODULE_ID" ]; then
                         SVC_WIRING_OK=1
                         break
                     fi
-                done < <(find "${REPO_ROOT}/Assets" "${REPO_ROOT}/_GameFolders" -type f -name '*Module.cs' 2>/dev/null)
-            fi
-            if [ "$SVC_WIRING_OK" -eq 1 ]; then
-                WIRING_SVC_OK=$((WIRING_SVC_OK + 1))
-            else
-                _violation "$p" "a *Service with no Module.Install task anywhere in this plan — state where it is registered"
-                continue
+                done < <(printf '%s\n' "$ALL_TASK_PATHS" | grep -vxF "$p")
+
+                # (b) that same module exists on disk — matched on basename,
+                # not substring, so an unrelated on-disk module (a different
+                # domain, or AppModules.cs) can never satisfy a different name.
+                if [ "$SVC_WIRING_OK" -ne 1 ]; then
+                    while IFS= read -r mdf; do
+                        [ -z "$mdf" ] && continue
+                        if [ "$(basename "$mdf" .cs)" = "$MODULE_ID" ]; then
+                            SVC_WIRING_OK=1
+                            break
+                        fi
+                    done < <(find "${REPO_ROOT}/Assets" "${REPO_ROOT}/_GameFolders" -type f -name '*Module.cs' 2>/dev/null)
+                fi
+
+                if [ "$SVC_WIRING_OK" -eq 1 ]; then
+                    WIRING_SVC_OK=$((WIRING_SVC_OK + 1))
+                else
+                    _violation "$p" "a *Service with no Module.Install task anywhere in this plan — state where it is registered"
+                    continue
+                fi
             fi
             ;;
         *) WIRING_PRESENCE=$((WIRING_PRESENCE + 1)) ;;
