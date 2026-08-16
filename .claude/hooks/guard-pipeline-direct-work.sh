@@ -73,7 +73,15 @@ CURRENT_DEPTH=$(cat "$DEPTH_FILE" 2>/dev/null || echo 0)
 STALE_AFTER=900   # 15 min without any spawn/stop event
 
 if [ "$CURRENT_DEPTH" -gt 0 ] 2>/dev/null && [ -f "$DEPTH_FILE" ]; then
-    _mtime=$(stat -f %m "$DEPTH_FILE" 2>/dev/null || stat -c %Y "$DEPTH_FILE" 2>/dev/null || echo 0)
+    # GNU stat: -c %Y. BSD/macOS stat: -f %m. GNU must be tried FIRST — GNU's -f
+    # means "filesystem info", so `stat -f %m` there does not fail, it prints "?"
+    # with exit 0, and the arithmetic below then dies under `set -e` (CI-only
+    # failure, invisible on macOS). The numeric guard is the second belt: any
+    # non-integer becomes 0, which reads as "very old" → enforce.
+    _mtime=$(stat -c %Y "$DEPTH_FILE" 2>/dev/null || stat -f %m "$DEPTH_FILE" 2>/dev/null || echo 0)
+    case "$_mtime" in
+        ''|*[!0-9]*) _mtime=0 ;;
+    esac
     _age=$(( $(date +%s) - _mtime ))
     if [ "$_age" -gt "$STALE_AFTER" ]; then
         CURRENT_DEPTH=0
