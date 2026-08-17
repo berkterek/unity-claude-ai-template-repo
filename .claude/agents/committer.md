@@ -68,10 +68,9 @@ Use conventional commit style:
 <body — what was built and why, referencing task IDs>
 ```
 
-**Types:** `feat`, `test`, `infra`, `config`, `docs`, `refactor`
-**Scope:** The system or module name (e.g., `event-bus`, `wallet`, `spin-system`)
+**`.claude/skills/core/unity-git.md` defines the type and scope vocabulary.** You already read it at Step 0. Do not restate the list here — the copy that used to sit on this line omitted `fix` and `chore`, and `fix` is the most-used type in this repository's history, so an agent following this file literally could not name a bug fix.
 
-Examples:
+Examples (illustrative only — the authoritative type list is the one above):
 - `infra(event-bus): add type-safe event bus with subscribe/publish API`
 - `feat(wallet): implement virtual currency wallet with persistence support`
 - `test(wallet): add unit tests for WalletSystem edge cases`
