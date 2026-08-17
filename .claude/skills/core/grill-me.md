@@ -29,8 +29,10 @@ Conduct a relentless interview about a plan, design decision, or architectural c
 Grill-me always runs on Opus (heavy tier). When this skill is invoked:
 
 1. Check the current session model from the system prompt (`model named ...` line).
-2. If the model is NOT `claude-opus-4-*`, immediately spawn an Agent with `model: "opus"` and delegate the full grill session to it. Pass the topic/plan as the prompt along with the complete grill-me protocol below.
-3. If already on Opus, proceed directly.
+2. Match on the **tier**, not a generation: if the model name contains `opus`, you are already on heavy tier — proceed directly, do **not** delegate. Spawning a subagent from Opus to reach Opus only costs a context layer.
+3. Otherwise (sonnet / haiku / fable), immediately spawn an Agent with `model: "opus"` and delegate the full grill session to it. Pass the topic/plan as the prompt along with the complete grill-me protocol below.
+
+> **Never pin a generation here** (`claude-opus-4-*`, `claude-opus-5`, …). A pinned check silently inverts on the next model bump: the running session is heavy tier, the check says otherwise, and the skill delegates away from the model it was trying to reach. Same rule as agent frontmatter — see `.claude/docs/model-tiers.md`, aliases only.
 
 ```
 Agent({
