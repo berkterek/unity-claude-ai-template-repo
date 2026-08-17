@@ -218,3 +218,53 @@ public sealed class Unjustified4 : MonoBehaviour { public void DoWork() { } }'
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
+
+# --- Regression: the callback list is the blocking hook's escape hatch --------
+# check-no-monobehaviour-in-services.sh early-exits on unity_monobehaviour_is_justified.
+# A Unity message the list omits is not stderr noise there — it is exit 2 on a legal
+# Controller. These four were measured blocked before the list was extended.
+
+@test "OnValidate alone justifies a MonoBehaviour" {
+    F="$DOMAIN/ValidateOnly.cs"
+    mk "$F" 'using UnityEngine;
+public sealed class ValidateOnly : MonoBehaviour { private void OnValidate() { transform.position = Vector3.zero; } }'
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$F\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "OnMouseDown alone justifies a MonoBehaviour" {
+    F="$DOMAIN/MouseOnly.cs"
+    mk "$F" 'using UnityEngine;
+public sealed class MouseOnly : MonoBehaviour { private void OnMouseDown() { transform.position = Vector3.zero; } }'
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$F\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "OnDrawGizmos alone justifies a MonoBehaviour" {
+    F="$DOMAIN/GizmoOnly.cs"
+    mk "$F" 'using UnityEngine;
+public sealed class GizmoOnly : MonoBehaviour { private void OnDrawGizmosSelected() { } }'
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$F\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "OnApplicationPause alone justifies a MonoBehaviour" {
+    F="$DOMAIN/AppPauseOnly.cs"
+    mk "$F" 'using UnityEngine;
+public sealed class AppPauseOnly : MonoBehaviour { private void OnApplicationPause(bool paused) { } }'
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$F\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "an ordinary On*-named handler is NOT mistaken for a Unity callback" {
+    F="$DOMAIN/OrdinaryHandler.cs"
+    mk "$F" 'using UnityEngine;
+public sealed class OrdinaryHandler : MonoBehaviour { private void OnScoreChanged(int s) { } }'
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$F\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"no [SerializeField] fields and no Unity callbacks"* ]]
+}

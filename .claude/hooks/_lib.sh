@@ -137,12 +137,27 @@ should_skip_path() {
 # NOTE: callback match intentionally broadens check-mono-justification.sh's historical
 # exact list to OnTrigger*/OnCollision* prefixes (Enter/Stay/Exit all count) — superset,
 # by design.
+#
+# The list must cover EVERY Unity message that justifies a MonoBehaviour, not just the
+# common lifecycle six, because check-no-monobehaviour-in-services.sh uses this function
+# as its early-exit escape hatch: a class this function fails to recognise falls through
+# to the UnityEngine-leak check and is BLOCKED with exit 2. A missing callback name is
+# therefore not stderr noise — it is a legal Controller that cannot be written. Measured
+# gap before this list was extended: a Controller whose only callback was OnMouseDown,
+# OnValidate, OnDrawGizmos or OnApplicationPause was blocked outright.
+#
+# Only Unity-OWNED prefixes are broadened (OnMouse*, OnApplication*, OnDrawGizmos*,
+# OnParticle*, OnAnimator*, OnTransform*Changed, OnJointBreak*). Deliberately NOT matched:
+# - bare `Reset(` — an ordinary method name (pool reset), and matching it would hand the
+#   blocking hook's escape hatch to any pure-C# class with a Reset method.
+# - a generic `On[A-Z]\w*(` wildcard — that would match `OnScoreChanged`/`OnPointerClick`,
+#   silently exempting exactly the Card 0 candidates this function exists to catch.
 unity_monobehaviour_is_justified() {
     local stripped; stripped=$(cat)
     if echo "$stripped" | grep -qE "\[SerializeField\]"; then
         return 0
     fi
-    if echo "$stripped" | grep -qE "\b(Awake|Start|OnEnable|OnDisable|OnDestroy|Update|FixedUpdate|LateUpdate|OnTrigger[A-Za-z]*|OnCollision[A-Za-z]*)\s*\("; then
+    if echo "$stripped" | grep -qE "\b(Awake|Start|OnEnable|OnDisable|OnDestroy|Update|FixedUpdate|LateUpdate|OnGUI|OnValidate|OnTrigger[A-Za-z]*|OnCollision[A-Za-z]*|OnMouse[A-Za-z]*|OnApplication[A-Za-z]*|OnDrawGizmos[A-Za-z]*|OnParticle[A-Za-z]*|OnAnimator[A-Za-z]*|OnTransform[A-Za-z]*Changed|OnJointBreak[A-Za-z0-9]*|OnBecame(Visible|Invisible)|OnControllerColliderHit|OnAudioFilterRead|OnPreCull|OnPreRender|OnPostRender|OnRenderObject|OnRenderImage|OnWillRenderObject|OnLevelWasLoaded)\s*\("; then
         return 0
     fi
     return 1
