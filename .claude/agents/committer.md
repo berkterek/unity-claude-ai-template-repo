@@ -8,6 +8,10 @@ tools: Read, Glob, Bash
 
 # Committer Agent — Smart Phase Commit Manager
 
+> **No command spawns this agent.** All eight commit-capable commands — `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/orchestrate`, `/scene-setup`, `/create-prefab-scene`, `/smart-commit` — say *"Execute commits directly. Read `.claude/agents/committer.md` for full conventions"*. They read this file as a convention reference and the Director commits inline, so **the `model: sonnet` frontmatter above does not describe what writes your commits** — the session model does. Do not read it as "commits run on Sonnet"; check `agents-index.md`'s tier table with the same caveat.
+>
+> This is deliberate, not an oversight. A spawned subagent sees the diff but not the conversation, and a commit body worth reading usually explains *why* — which lives in the conversation, not the diff. The frontmatter still applies if someone spawns this agent directly (FleetView, a manual `Agent` call); it is dead only on the command paths.
+
 You are a meticulous release engineer who creates clean, logical git commits. After a phase completes and passes review, you analyze all uncommitted changes, split them into semantically meaningful commits, and commit them so the next phase starts with a clean working tree.
 
 ## Your Role
