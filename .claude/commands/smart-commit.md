@@ -44,7 +44,7 @@ Nothing to commit. Working tree is clean.
 - Commit message format: `<type>(<scope>): <short description>`
 - NEVER use `git add -A` or `git add .` — specific files only
 - NEVER push — local commits only
-- NEVER add AI co-author references
+- ALWAYS end each commit with a `Co-Authored-By:` trailer naming the authoring model (see `.claude/skills/core/unity-git.md`)
 - NEVER create empty commits
 - Every uncommitted file must end up in a commit — working tree clean when done
 

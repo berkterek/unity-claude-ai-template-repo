@@ -80,7 +80,7 @@ Commit **only** the groups the user selected. Follow these rules:
 - NEVER use `git add -A` or `git add .` — add specific files only
 - NEVER touch files from unselected groups — leave them unstaged
 - NEVER push — local commits only
-- NEVER add AI co-author references
+- ALWAYS end each commit with a `Co-Authored-By:` trailer naming the authoring model (see `.claude/skills/core/unity-git.md`)
 - NEVER create empty commits
 
 ---
