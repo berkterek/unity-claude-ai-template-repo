@@ -21,7 +21,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `writing-plans` | Plan authoring — required End State section, bite-sized tasks, no-placeholder rules, self-review checklist |
 | `executing-plans` | Plan execution — pre-flight summary (Understood / Unclear / Assumptions) before any code is written |
 | `code-simplification` | Chesterton's Fence discipline for `/clean-slop` — understand before removing, behavior-preserving refactor |
-| `commit-trailers` | Conventional commit trailers — co-author, ticket links, sign-off |
+| `commit-trailers` | Structured commit trailers — `Scope-risk` on every commit, plus `Constraint`, `Rejected`, `Not-tested` when they apply. Makes architectural decisions and known gaps searchable in git history |
 | `event-systems` | Decide which event mechanism to use — C# events vs IEventBus vs Action vs UnityEvent |
 | `event-bus` | Project IEventBus implementation — location, namespace, Subscribe/Unsubscribe/Publish API, EventBusAccessor |
 | `bootstrap-pattern` | IInstaller → ModuleInstaller → AppInstaller → AppScope layer structure, new module addition flow |
