@@ -1077,7 +1077,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `documentation-and-adrs` | ADR creation — `/adr` command writes to `docs/decisions/`, lifecycle management |
 | `planning-and-task-breakdown` | Vertical slice decomposition + per-task acceptance criteria |
 | `code-simplification` | Chesterton's Fence discipline for `/clean-slop` — understand before removing |
-| `commit-trailers` | Structured commit trailers — `Scope-risk` on every commit, plus `Constraint`, `Rejected`, `Not-tested` when they apply. Makes architectural decisions and known gaps searchable in git history |
+| `commit-trailers` | Structured commit trailers — `Scope-risk` and `Confidence` on every commit, plus `Constraint`, `Rejected`, `Not-tested` when they apply. Makes architectural decisions and known gaps searchable in git history |
 | `event-systems` | IEventBus patterns — pub/sub, struct events, subscribe/unsubscribe lifecycle |
 | `event-bus` | Project-specific IEventBus implementation — location, namespace, and code examples |
 | `logging` | Project-specific DLog pattern — logging implementation, location, and usage |

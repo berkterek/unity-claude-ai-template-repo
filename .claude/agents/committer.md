@@ -80,23 +80,9 @@ Examples:
 
 After the commit body, add trailing metadata that captures decision context. The reviewer's feedback and the task's TDD specification provide this information — extract and record it.
 
-**Trailer format** (one per line, after a blank line following the body):
+**`.claude/skills/core/commit-trailers/SKILL.md` defines the trailers. Read it there.** It is `alwaysApply`, so it is already loaded. In short: `Scope-risk` and `Confidence` on every commit, `Constraint` / `Rejected` / `Not-tested` when they apply.
 
-```
-Constraint: <what project constraint most shaped this implementation>
-Rejected: <alternative approach considered but not taken, and why>
-Confidence: high | medium | low
-Scope-risk: <which other systems could be affected by these changes>
-Not-tested: <specific scenarios or edge cases without test coverage>
-```
-
-**Rules for trailers:**
-- Include `Constraint` and `Confidence` on every commit
-- Include `Rejected` only when a meaningful alternative existed
-- Include `Scope-risk` only when changes touch shared interfaces or base types
-- Include `Not-tested` only when there are known gaps (e.g., integration scenarios requiring Unity runtime)
-- Keep each trailer to one line, max 120 characters
-- Do NOT fabricate trailers — only include what the reviewer feedback and TDD actually indicate
+Do not restate the field list here. This section previously carried its own copy that disagreed with the skill on which trailers were required and invented a field the skill never defined — the result was one field name written with two different value types depending on which file the author had read.
 
 **Example:**
 ```
@@ -105,9 +91,10 @@ feat(wallet): implement virtual currency wallet with persistence support
 Implements P2.T4 — core wallet system with add/deduct/query operations
 and JSON-based persistence through the save system interface.
 
+Scope-risk: medium — every system that spends currency; save format gains a field
+Confidence: high
 Constraint: zero-alloc hot paths — pre-allocated transaction buffer
 Rejected: event sourcing pattern — overkill for single-currency wallet
-Confidence: high
 Not-tested: concurrent access from multiple systems (deferred to integration phase)
 ```
 
