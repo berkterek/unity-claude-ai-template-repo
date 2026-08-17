@@ -78,7 +78,7 @@ for inst in installers:
 "
 ```
 
-Bu çıktıyı `GRAPH_CONTEXT` olarak sakla ve Step 3'teki `lean-planner` subagent prompt'una göm. `GRAPH_CONTEXT` boşsa, planlama aşaması tıpkı öncesi gibi davranır — regresyon yok.
+Bu çıktıyı `GRAPH_CONTEXT` olarak sakla ve Step 3'teki `Plan` subagent prompt'una göm. `GRAPH_CONTEXT` boşsa, planlama aşaması tıpkı öncesi gibi davranır — regresyon yok.
 
 ### Step 1 — Okuma
 
@@ -127,7 +127,7 @@ Gate onaylanmadan (kullanıcı `go` yazmadan) bir sonraki adıma geçme.
 
 ### Step 3 — Planlama Subagent'ı
 
-`lean-planner` subagent'ını spawn et (`model: sonnet`). Subagent'a şunu ver:
+`Plan` subagent'ını spawn et (`subagent_type: "Plan"`, `model: opus`) — `/create-plan` Step 2 ile aynı agent. **`lean-planner` kullanma:** o agent tanımı gereği acceptance criteria, `parallel_group` annotation ve code skeleton üretmez ve çıktısı tek bir 3-5 satırlık tablodur; bu komut ise üç ayrı doküman (spec/design/tasks) ve Step 4 reviewer'ın aradığı Given/When/Then AC'leri + Step 2 `validate-plan-facts.sh`'in istediği `Callers:`/`Wiring:` satırlarını gerektirir. Subagent'a şunu ver:
 - Modülün GDD özeti
 - TDD'deki ilgili mimari kararlar
 - Mevcut codebase scan sonuçları

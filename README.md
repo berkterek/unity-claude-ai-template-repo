@@ -734,7 +734,7 @@ Both JSONL files are persistent (not auto-expired) and gitignored. See `.claude/
 | `/refine-gdd` | Manual — single step | Iterate on an existing GDD |
 | `/refine-tdd` | Manual — single step | Iterate on an existing TDD |
 | `/roadmap` | Manual — single step | Read GDD + TDD + existing modules → produce `docs/ROADMAP.md` module table with gap analysis. Run once after TDD is approved. |
-| `/plan-module <n>` | Manual — single step | Just-in-time module planner: ARCHITECTURE_GATE → lean-planner + reviewer → writes `docs/modules/<n>-<name>/spec.md`, `design.md`, `tasks.md` → updates ROADMAP.md. Run immediately before orchestrating that module. |
+| `/plan-module <n>` | Manual — single step | Just-in-time module planner: ARCHITECTURE_GATE → `Plan` (Opus) + reviewer → writes `docs/modules/<n>-<name>/spec.md`, `design.md`, `tasks.md` → updates ROADMAP.md. Run immediately before orchestrating that module. |
 
 ### Pipelines (multi-agent)
 
