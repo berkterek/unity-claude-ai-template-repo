@@ -80,20 +80,30 @@ VContainer handles construction and injection. Declare as constructor parameter 
 Rule: csharp-unity.md → Constructor injection rule."
 fi
 
-# --- Check 3: new *Handler( — only allowed inside *Controller or *View files ---
+# --- Check 3: new *Handler( — only allowed inside *Controller, *View or *Module files ---
+# *Module.cs is exempt because architecture.md → "Handler Factory — VContainer Func<>
+# Pattern" REQUIRES the handler to be constructed there when it needs a container
+# dependency:
+#     builder.RegisterFactory<Rigidbody, IMoveHandler>(
+#         c => rb => new MoveHandler(rb, c.Resolve<MoveConfiguration>()), Lifetime.Singleton);
+# The exemption is filename-wide, not factory-scoped: `new MoveHandler(` sits on its own
+# line inside the lambda, so there is no same-line marker a line-based grep could anchor
+# on. A blanket Module exemption over-permits; blocking the documented RIGHT pattern
+# would deadlock correct code, which is worse.
 HANDLER_VIOLATIONS=$(echo "$STRIPPED" | grep -nE "\bnew\s+\w+Handler\s*\(" | head -10)
 if [ -n "$HANDLER_VIOLATIONS" ]; then
     FILENAME=$(basename "$FILE_PATH")
-    # Allow inside *Controller.cs and *View.cs files
-    if ! echo "$FILENAME" | grep -qiE "(Controller|View)\.cs$"; then
-        unity_hook_block "'new *Handler()' is only allowed inside *Controller or *View files.
+    # Allow inside *Controller.cs, *View.cs and *Module.cs files
+    if ! echo "$FILENAME" | grep -qiE "(Controller|View|Module)\.cs$"; then
+        unity_hook_block "'new *Handler()' is only allowed inside *Controller, *View or *Module files.
 File: $FILE_PATH
 
 Lines:
 $HANDLER_VIOLATIONS
 
-Handlers are wired by their owning Controller shell, not from other classes.
-Rule: solid-oop.md → Handler Rules."
+Handlers are wired by their owning Controller shell (or registered as a
+VContainer factory in the domain's *Module), not from other classes.
+Rule: solid-oop.md → Handler Rules; architecture.md → Handler Factory pattern."
     fi
 fi
 
