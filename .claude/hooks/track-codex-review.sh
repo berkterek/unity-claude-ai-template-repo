@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HOOK_PROFILE_LEVEL="strict"   # minimal | standard | strict
+# MUST stay at or below guard-reviewer-order.sh's level (standard). That hook
+# blocks unity-reviewer until this one writes the marker, so a writer gated
+# higher than its reader deadlocks the Codex → unity-reviewer sequence for
+# anyone on the default profile with the codex CLI on PATH: the block runs,
+# the release never does.
+HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
 source "${SCRIPT_DIR}/_lib.sh"
 # ============================================================================
 # track-codex-review.sh — PostToolUse hook

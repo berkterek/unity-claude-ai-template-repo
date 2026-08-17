@@ -60,6 +60,7 @@ All `minimal` hooks plus:
 | `guard-editor-runtime.sh` | Blocks `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `guard-gate-cleared.sh` | Blocks agent spawns without Director Gate approval |
 | `guard-reviewer-order.sh` | Enforces Codex review before unity-reviewer |
+| `track-codex-review.sh` | Records the Codex review marker `guard-reviewer-order.sh` reads. Must stay at or below that hook's level — a writer gated higher than its reader deadlocks the sequence |
 | `guard-sparc-approved.sh` | Enforces SPARC gate before coder spawn |
 | `warn-serialization.sh` | Warns on renamed `[SerializeField]` without `[FormerlySerializedAs]` |
 | `auto-load-skills.sh` | Auto-loads skills into new session |
@@ -87,7 +88,6 @@ All `standard` hooks plus:
 | `instinct-capture.sh` | Captures tool-use observations for distillation |
 | `instinct-distill.sh` | Distills observations into confidence-scored instincts |
 | `stop-verify.sh` | Batch verifier at session end |
-| `track-codex-review.sh` | Records Codex review completion marker |
 | `install-git-hooks.sh` | Installs git hooks for pre-commit checks |
 
 ## Per-hook override
