@@ -21,7 +21,7 @@ This table is the source of truth — keep each `.md` frontmatter in sync with t
 | `reviewer` | `reviewer` | General code review |
 | `unity-developer` | `unity-developer` | Unity 6 specialist — second reviewer for complex tasks (score ≥ 0.7); checks hot paths, draw calls, ECS safety, Addressables lifecycle + prefab structure (10-point checklist) |
 | `unity-setup` | `unity-setup` | Unity Editor setup via MCP — scenes, prefabs (root=logic / Body=visual, domain folders, Prefab Variants), ScriptableObjects |
-| `committer` | `committer` | Staged changes → semantic git commit. Runs inline (not as subagent). |
+| `committer` | `committer` | Staged changes → semantic git commit. Runs inline in the nine commit-capable pipelines (session model, not `sonnet`); spawned as a subagent by `/create-plan`, `/update-plan`, `audio-clip-agent`. |
 | `debugger` | `debugger` | Root cause analysis |
 | `migrator` | `migrator` | Pattern migration |
 | `lean-planner` | `lean-planner` | Compact plan writer (Sonnet) — used by `/create-plan --lean`. Produces a 3-5 task table (name, files, one-line note). No code skeletons, no acceptance criteria. Implementer auto-spawn disabled. |
