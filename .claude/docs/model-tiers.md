@@ -75,7 +75,7 @@ Each agent's `model:` frontmatter follows **role level**, not domain. Orchestrat
 
 **Command spawn rule:** every agent spawned inside a command must carry an explicit `model` so it never silently inherits the session model. Pinned examples: `Plan` subagent → `opus`; `Explore` → `haiku`; `/search` action router → `haiku`. The `FORCE_HAIKU_TIER` / `FORCE_OPUS_TIER` flags in `/fix`, `/fix-deep`, `/implement`, `/orchestrate` override worker tier per run.
 
-> Full design: `docs/superpowers/specs/2026-06-24-agent-model-tiers-design.md`. Source-of-truth agent list: `docs/agents-index.md → ## Model Tier`.
+> Full design: `docs/superpowers/specs/2026-06-24-agent-model-tiers-design.md`. Source-of-truth agent list: `.claude/docs/agents-index.md → ## Model Tier`.
 
 Agent frontmatter uses the aliases `opus` / `sonnet` / `haiku`, never a pinned model ID — so Layer 2 tracks whatever those resolve to and needs no edit when Layer 1 moves.
 

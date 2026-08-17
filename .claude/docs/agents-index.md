@@ -6,7 +6,7 @@
 
 ## Model Tier (Lead / Worker / Scanner)
 
-Each agent's `model:` frontmatter follows **role level**, not domain (full rule: `docs/model-tiers.md`):
+Each agent's `model:` frontmatter follows **role level**, not domain (full rule: `.claude/docs/model-tiers.md`):
 
 - **Lead (Opus)** — decides / reviews / critiques / plans: `unity-critic`, `debugger`, `unity-developer`, `reviewer`, `unity-reviewer`, `debate-proposer`, `debate-critic`, `debate-moderator`
 - **Scanner (Haiku)** — mechanical read-only scan: `unity-scout`, `unity-linter`
