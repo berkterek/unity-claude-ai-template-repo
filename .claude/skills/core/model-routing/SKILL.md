@@ -35,7 +35,7 @@ When `--heavy` is passed to a command, the implementation agent is forced to opu
 **Never use for:** Writing code, modifying files, complex reasoning
 
 ### Sonnet Tier — Implementors
-**Agents:** `unity-coder`, `coder`, `unity-fixer`, `unity-verifier`, `unity-setup`, `unity-scene-builder`, `unity-optimizer`, `unity-shader-dev`, `unity-network-dev`, `unity-prototyper`, `unity-reviewer`, `unity-test-runner`, `unity-build-runner`, `unity-migrator`, `unity-security-reviewer`, `unity-git-master`
+**Agents:** `unity-coder`, `coder`, `unity-fixer`, `unity-verifier`, `unity-setup`, `unity-scene-builder`, `unity-optimizer`, `unity-shader-dev`, `unity-network-dev`, `unity-prototyper`, `unity-reviewer`, `unity-test-runner`, `unity-build-runner`, `unity-migrator`, `unity-security-reviewer`, `unity-git-master`, `lean-planner`
 **Use when:**
 - Agents that receive a spec and produce code or scene changes
 - Single-file changes with clear requirements
@@ -46,8 +46,8 @@ When `--heavy` is passed to a command, the implementation agent is forced to opu
 - Structured tasks with documented procedures (migrations, LFS setup)
 
 ### Opus Tier — Deep Reasoning
-**Agents:** `lean-planner`, `debugger`, `reviewer`, `unity-developer`, `unity-critic`
-**Description:** Planners + analyzers/reviewers. Plan authors (Plan built-in, lean-planner), root-cause analysts (debugger), code reviewers (reviewer, unity-developer, unity-critic).
+**Agents:** `Plan` (built-in), `debugger`, `reviewer`, `unity-developer`, `unity-critic`
+**Description:** Deep plan authors + analyzers/reviewers. The full plan author is the built-in `Plan` subagent, root-cause analysts (debugger), code reviewers (reviewer, unity-developer, unity-critic). `lean-planner` is deliberately **not** here — it is the Sonnet Tier fast/cheap `--lean` planner; deep planning goes to `Plan`.
 **Use when:**
 - Bug investigation requiring deep analysis
 - Architecture decisions and trade-off reasoning

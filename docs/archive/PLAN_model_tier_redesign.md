@@ -1,10 +1,12 @@
 # PLAN — Model Tier Redesign
 
-> **Version:** v3 — 2026-06-19
-> **Status:** Active
+> **Version:** v4 — 2026-08-17
+> **Status:** ✅ Completed (12/13) — Task 3 **REJECTED**, see below. Do not re-run this plan.
 > **Scope:** Agent frontmatter model fields, model-routing SKILL.md, command files (--heavy flag, --lite flag), commands.md docs, deletion of fix-lite/implement-lite commands and lite agents, reference cleanup across codebase
 
 > **Revision v2:** Added Task 10 (--lite flag for fix-lite.md) and Task 11 (--lite flag for implement-lite.md). Updated Task 9 to also add --lite row to commands.md. Updated Status table and File Map accordingly.
+
+> **Revision v4 (2026-08-17) — closure:** Tasks 1, 2, 4–13 verified applied on disk (10 agents at `model: sonnet`; all four lite files deleted; `--heavy`/`--lite` present in `implement.md`/`fix.md`/`fix-deep.md`/`orchestrate.md` and documented in `commands.md`; no residual lite references outside `.claude/state/` logs). **Task 3 is REJECTED, not pending:** `docs/superpowers/specs/2026-06-24-agent-model-tiers-design.md` later ruled the opposite — `--lean` means fast/cheap, so `lean-planner` stays **sonnet**, and deep planning belongs to the built-in Opus `Plan` subagent. This plan's Context/Goals paragraphs arguing for the opus upgrade are superseded by that spec. The drift Task 3 left behind (`model-routing/SKILL.md` listing `lean-planner` under Opus Tier while its frontmatter said sonnet) was fixed on 2026-08-17: it now sits in Sonnet Tier and Opus Tier names the built-in `Plan` agent.
 
 > **Revision v3:** Tasks 10 and 11 replaced entirely. The /fix-lite, /implement-lite commands and their lite agents (unity-fixer-lite, unity-coder-lite) are deleted rather than extended. Instead, --lite flag is added directly to fix.md and implement.md. New Task 10 deletes 4 files. New Task 11 adds --lite to fix.md. New Task 12 adds --lite to implement.md. New Task 13 cleans up all references across CLAUDE.md, agents-index.md, hooks-blocking.md, debug-session.md, scene-setup.md, orchestrate.md, create-test.md, and model-routing/SKILL.md. Task 9 scope updated to document --lite on /fix and /implement (not /fix-lite and /implement-lite), and to remove /fix-lite and /implement-lite command entries from commands.md.
 
@@ -20,32 +22,32 @@ A `--lite` escape hatch is added to `/implement` and `/fix`. When the flag is pr
 
 ## Goals
 
-- [ ] Downgrade 10 implementation agent frontmatter fields from `opus` to `sonnet`
-- [ ] Upgrade `lean-planner` frontmatter from `claude-sonnet-4-6` to `opus`
-- [ ] Update `model-routing/SKILL.md` tier tables to reflect new reality
-- [ ] Add `--heavy` flag to `/implement`, `/fix`, `/fix-deep`, `/orchestrate` commands
-- [ ] Delete `/fix-lite`, `/implement-lite` commands and `unity-fixer-lite`, `unity-coder-lite` agents
-- [ ] Add `--lite` flag to `/fix` and `/implement` (forces haiku tier on implementation agent)
-- [ ] Clean up all references to lite commands and lite agents across the codebase
-- [ ] Document `--heavy` and `--lite` flags in `commands.md`
+- [x] Downgrade 10 implementation agent frontmatter fields from `opus` to `sonnet`
+- [x] ~~Upgrade `lean-planner` frontmatter to `opus`~~ — **rejected**, stays `sonnet` (Revision v4)
+- [x] Update `model-routing/SKILL.md` tier tables to reflect new reality
+- [x] Add `--heavy` flag to `/implement`, `/fix`, `/fix-deep`, `/orchestrate` commands
+- [x] Delete `/fix-lite`, `/implement-lite` commands and `unity-fixer-lite`, `unity-coder-lite` agents
+- [x] Add `--lite` flag to `/fix` and `/implement` (forces haiku tier on implementation agent)
+- [x] Clean up all references to lite commands and lite agents across the codebase
+- [x] Document `--heavy` and `--lite` flags in `commands.md`
 
 ## Status
 
 | Phase | Task | Status | parallel_group |
 |-------|------|--------|----------------|
-| 1 | Task 1 — Downgrade implementation agents (batch A: unity-coder, coder, unity-fixer, unity-verifier, unity-setup) | Pending | A |
-| 1 | Task 2 — Downgrade implementation agents (batch B: unity-scene-builder, unity-optimizer, unity-shader-dev, unity-network-dev, unity-prototyper) | Pending | A |
-| 1 | Task 3 — Upgrade lean-planner to opus | Pending | A |
-| 1 | Task 10 — Delete fix-lite.md, implement-lite.md, unity-fixer-lite.md, unity-coder-lite.md | Pending | A |
-| 2 | Task 4 — Update model-routing/SKILL.md | Pending | B |
-| 2 | Task 5 — Add --heavy flag to implement.md | Pending | B |
-| 2 | Task 6 — Add --heavy flag to fix.md | Pending | B |
-| 2 | Task 7 — Add --heavy flag to fix-deep.md | Pending | B |
-| 2 | Task 8 — Add --heavy flag to orchestrate.md | Pending | B |
-| 2 | Task 11 — Add --lite flag to fix.md | Pending | B |
-| 2 | Task 12 — Add --lite flag to implement.md | Pending | B |
-| 2 | Task 13 — Reference cleanup (CLAUDE.md, agents-index.md, hooks-blocking.md, debug-session.md, scene-setup.md, orchestrate.md, create-test.md, model-routing/SKILL.md) | Pending | B |
-| 3 | Task 9 — Document --heavy and --lite flags in commands.md; remove /fix-lite and /implement-lite entries | Pending | C |
+| 1 | Task 1 — Downgrade implementation agents (batch A: unity-coder, coder, unity-fixer, unity-verifier, unity-setup) | ✅ Done | A |
+| 1 | Task 2 — Downgrade implementation agents (batch B: unity-scene-builder, unity-optimizer, unity-shader-dev, unity-network-dev, unity-prototyper) | ✅ Done | A |
+| 1 | Task 3 — Upgrade lean-planner to opus | ❌ **Rejected** (superseded — see Revision v4) | A |
+| 1 | Task 10 — Delete fix-lite.md, implement-lite.md, unity-fixer-lite.md, unity-coder-lite.md | ✅ Done | A |
+| 2 | Task 4 — Update model-routing/SKILL.md | ✅ Done | B |
+| 2 | Task 5 — Add --heavy flag to implement.md | ✅ Done | B |
+| 2 | Task 6 — Add --heavy flag to fix.md | ✅ Done | B |
+| 2 | Task 7 — Add --heavy flag to fix-deep.md | ✅ Done | B |
+| 2 | Task 8 — Add --heavy flag to orchestrate.md | ✅ Done | B |
+| 2 | Task 11 — Add --lite flag to fix.md | ✅ Done | B |
+| 2 | Task 12 — Add --lite flag to implement.md | ✅ Done | B |
+| 2 | Task 13 — Reference cleanup (CLAUDE.md, agents-index.md, hooks-blocking.md, debug-session.md, scene-setup.md, orchestrate.md, create-test.md, model-routing/SKILL.md) | ✅ Done | B |
+| 3 | Task 9 — Document --heavy and --lite flags in commands.md; remove /fix-lite and /implement-lite entries | ✅ Done | C |
 
 ## File Map
 
@@ -61,7 +63,7 @@ A `--lite` escape hatch is added to `/implement` and `/fix`. When the flag is pr
 | `.claude/agents/unity-shader-dev.md` | Edit | `model: opus` → `model: sonnet` |
 | `.claude/agents/unity-network-dev.md` | Edit | `model: opus` → `model: sonnet` |
 | `.claude/agents/unity-prototyper.md` | Edit | `model: opus` → `model: sonnet` |
-| `.claude/agents/lean-planner.md` | Edit | `model: claude-sonnet-4-6` → `model: opus` |
+| `.claude/agents/lean-planner.md` | ~~Edit~~ **not applied** | Task 3 rejected — stays `model: sonnet` |
 | `.claude/agents/unity-fixer-lite.md` | **Delete** | Lite agent removed; --lite flag on fix.md replaces it |
 | `.claude/agents/unity-coder-lite.md` | **Delete** | Lite agent removed; --lite flag on implement.md replaces it |
 | `.claude/commands/fix-lite.md` | **Delete** | Command removed; use `/fix --lite` instead |
@@ -131,7 +133,9 @@ A `--lite` escape hatch is added to `/implement` and `/fix`. When the flag is pr
 
 ---
 
-## Task 3 — Upgrade lean-planner to Opus
+## Task 3 — Upgrade lean-planner to Opus ❌ REJECTED — DO NOT EXECUTE
+
+> Superseded by `docs/superpowers/specs/2026-06-24-agent-model-tiers-design.md`: `lean-planner` stays **sonnet** (`--lean` = fast/cheap); the Opus plan author is the built-in `Plan` subagent. The steps below are retained only as a record of the reversed decision.
 
 **Files:**
 - `.claude/agents/lean-planner.md`
