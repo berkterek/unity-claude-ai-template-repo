@@ -884,11 +884,28 @@ Or manually:
 
 ```bash
 alias claude-light='claude --model claude-haiku-4-5'
-alias claude-normal='claude --model claude-sonnet-4-6'
-alias claude-heavy='claude --model claude-opus-4-8'
+alias claude-normal='claude --model claude-sonnet-5'
+alias claude-heavy='claude --model claude-opus-5'
 ```
 
 The alias file lives at `.claude/aliases.sh`.
+
+### When a model is unavailable
+
+There is **no automatic model fallback** — not in Claude Code, and not via the API's `fallbacks` parameter (that one fires only on safety refusals; overloads and rate limits are returned as-is). Falling back is a manual decision.
+
+| Tier | Primary | Fallback |
+|------|---------|----------|
+| **heavy** | `claude-opus-5` | `claude-opus-4-7` |
+| **normal** | `claude-sonnet-5` | `claude-sonnet-4-6` |
+
+Use `/model <id>` **inside the running session** rather than restarting — it keeps your context and any open plan or gate state. Opus 5 and Sonnet 5 draw from rate-limit buckets separate from the 4.x pool, so dropping a generation gives real headroom. Note that switching invalidates the prompt cache, so the next request pays full price for the whole prefix — switch because you're blocked, not to save money.
+
+Full guidance, including which failures a fallback does *not* fix: `.claude/docs/model-tiers.md`.
+
+### Claude Fable 5
+
+`claude-fable-5` is deliberately **not** a tier here. It costs 2× Opus 5, thinking is always on, single turns can run for minutes, and it requires 30-day data retention. Its advantage is long-horizon *autonomous* work — but every pipeline in this template stops at a Director Gate every few minutes, so that autonomy never gets used. A commented-out `claude-frontier` alias is in `.claude/aliases.sh` if you want it for a one-off architecture session.
 
 ---
 

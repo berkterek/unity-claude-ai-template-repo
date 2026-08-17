@@ -83,7 +83,11 @@ Optional Claude Code plugins. Each pipeline command checks for these at Step 0/0
 
 ## Model Tiers
 
-Three layers: session model (launch alias), subagent model (agent `.md` frontmatter — Lead=Opus / Worker=Sonnet / Scanner=Haiku by role level), and skill `model-tier`. Every agent spawned inside a command must carry an explicit `model` (never inherit the session model). Full rule and agent list:
+Three layers: session model (launch alias), subagent model (agent `.md` frontmatter — Lead=Opus / Worker=Sonnet / Scanner=Haiku by role level), and skill `model-tier`. Every agent spawned inside a command must carry an explicit `model` (never inherit the session model).
+
+Agent frontmatter uses the aliases `opus` / `sonnet` / `haiku`, **never a pinned model ID** — Layer 2 tracks whatever Layer 1 resolves to, so a model bump needs no agent edits. Do not write `model: claude-opus-5` into an agent file.
+
+**There is no automatic model fallback.** The API's `fallbacks` parameter fires only on safety refusals — overloads (529) and rate limits (429) are returned as-is. When the current-generation model is unavailable, switching is a manual call: prefer `/model claude-opus-4-7` (or `claude-sonnet-4-6`) inside the running session over restarting, since that keeps context and gate state. `claude-fable-5` is deliberately not a tier — full rationale, the fallback table, and the symptom→fix table below:
 
 @.claude/docs/model-tiers.md
 
