@@ -250,10 +250,25 @@ Reviewer priority — try in order, fall back if unavailable:
 
 Reviewer prompt:
 ```
+You are acting as a CODE REVIEWER, not a fixer. Do not modify any file. Your only
+output is a review verdict.
+
 Review this code migration.
 
 ## Migration
 [INSERT HERE: the migration description from the /migrate argument]
+
+## Scope lock (MANDATORY)
+Review ONLY the files listed under "Files Changed". Read each one in full before
+judging it. Never run a bare `git diff` — scope every diff with explicit paths
+(`git diff -- <path> <path>`). The orchestration ledger is NOT part of any migration
+and must never be reported as a scope violation: `.claude/**`, `docs/**`, `*.json`,
+`*.jsonl`, `*.md` (unless a `.md` is itself listed under "Files Changed").
+
+> Criterion 3 (completeness) is the one exception that legitimately looks OUTSIDE the
+> changed files: to prove no instance of the old pattern is left behind you must search
+> the whole `Assets/` tree. Report such a leftover as an INCOMPLETE MIGRATION, never as
+> a scope violation.
 
 ## Files Changed
 [INSERT HERE: the list of files modified by the Migrator agent]
@@ -266,9 +281,25 @@ Review this code migration.
 5. UniTask rules — no async void, CancellationToken on every async method
 6. Unity null safety — no ?. or is null on UnityEngine objects
 
-## Output Format
-APPROVED or CHANGES NEEDED with file:line issues.
+## Output contract (MANDATORY — a verdict that violates this is invalid)
+Emit one line per item, for every one of the 6 review criteria above. No item may be
+omitted, merged, or answered "n/a" without a stated reason. Format:
+
+  <N> | CONFIRMED or GAP | <file>:<line> | <one sentence of evidence you actually read>
+
+A CONFIRMED with no `file:line` is invalid. Restating the criterion back is not
+evidence — cite what is actually in the file. Criterion 3 (completeness) must cite the
+tree-wide search you ran and its result count, not an assumption.
+
+Then a final line:
+
+  Verdict: APPROVED (only if zero GAP) or CHANGES NEEDED
 ```
+
+> **Why this prompt is shaped this way — do not simplify it.** See the measurement
+> note in `orchestrate.md` Step 3: without the scope lock and the per-item output
+> contract, the Codex reviewer made 1 tool call, answered 3 of 12 criteria, returned a
+> reasonless APPROVED, and reported the orchestration ledger as a scope violation.
 
 ### Review Loop
 
@@ -306,10 +337,20 @@ Repeat until APPROVED or stopped (max 3 passes):
 If complexity score ≥ 0.7 and review mode is `lean` or `full`: after reviewer reports APPROVED, spawn a **unity-developer** subagent with this prompt:
 
 ```
+You are acting as a CODE REVIEWER, not a fixer. Do not modify any file. Your only
+output is a review verdict.
+
 Review this migration for Unity-specific correctness.
 
 ## Migration Task
 [INSERT HERE: the migration description from the /migrate argument]
+
+## Scope lock (MANDATORY)
+Review ONLY the files listed under "Files Changed". Read each one in full before
+judging it. Never run a bare `git diff` — scope every diff with explicit paths
+(`git diff -- <path> <path>`). The orchestration ledger is NOT part of any migration
+and must never be reported as a scope violation: `.claude/**`, `docs/**`, `*.json`,
+`*.jsonl`, `*.md`.
 
 ## Files Changed
 [INSERT HERE: the list of files modified by the Migrator agent]
@@ -322,12 +363,27 @@ Review this migration for Unity-specific correctness.
 - Prefab structure intact (root=logic / Body=visual)?
 - UniTask cancellation tokens present on all async methods?
 
-## Output Format
-APPROVED — migration is correct.
+## Output contract (MANDATORY — a verdict that violates this is invalid)
+Emit one line per item, for every one of the 6 review criteria above, in the order
+listed. No item may be omitted, merged, or answered "n/a" without a stated reason —
+"this migration does not touch ECS" is a stated reason, silence is not. Format:
 
-CHANGES NEEDED:
-- [file:line] Issue and fix.
+  <criterion> | CONFIRMED, GAP, or N/A (+reason) | <file>:<line> | <evidence you read>
+
+A CONFIRMED with no `file:line` is invalid. Restating the criterion back is not
+evidence — cite what is actually in the file. Presence of a symbol is not evidence that
+its usage is correct: an `Addressables` handle field is not proof the handle is
+released, and a `CancellationToken` parameter is not proof it is passed downstream.
+
+Then a final line:
+
+  Verdict: APPROVED (only if zero GAP) or CHANGES NEEDED
 ```
+
+> **Why this prompt is shaped this way — do not simplify it.** See the measurement
+> note in `orchestrate.md` Step 3. This pass runs `unity-developer`, not Codex, but the
+> defect it guards against is the same one measured there: a reviewer that answers a
+> checklist with a bare APPROVED has not been shown to have read anything.
 
 If CHANGES NEEDED → spawn **unity-migrator** to fix, then re-run unity-developer (max 2 passes).
 

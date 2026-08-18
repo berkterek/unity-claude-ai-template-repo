@@ -517,6 +517,9 @@ Reviewer priority — try in order, fall back if unavailable:
 2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 ```
+You are acting as a CODE REVIEWER, not a fixer. Do not modify any file. Your only
+output is a review verdict.
+
 Review this evidence-proven bug fix.
 
 ## Bug
@@ -527,6 +530,13 @@ Review this evidence-proven bug fix.
 
 ## Evidence That Proved It
 [INSERT HERE: the EVIDENCE LOGS and STATIC_EVIDENCE from Step 3]
+
+## Scope lock (MANDATORY)
+Review ONLY the files listed under "Files Changed". Read each one in full before
+judging it. Never run a bare `git diff` — scope every diff with explicit paths
+(`git diff -- <path> <path>`). The orchestration ledger is NOT part of any fix and
+must never be reported as a scope violation: `.claude/**`, `docs/**`, `*.json`,
+`*.jsonl`, `*.md` (unless a `.md` is itself listed under "Files Changed").
 
 ## Files Changed
 [INSERT HERE: the list of files modified by the Coder agent]
@@ -540,12 +550,25 @@ Review this evidence-proven bug fix.
 6. Unity null safety — no ?. or is null on UnityEngine objects
 7. Performance — no allocations in Update/FixedUpdate
 
-## Output Format
-APPROVED
+## Output contract (MANDATORY — a verdict that violates this is invalid)
+Emit one line per item, for every one of the 7 review criteria above. No item may be
+omitted, merged, or answered "n/a" without a stated reason. Format:
 
-CHANGES NEEDED:
-- [file:line] Issue and fix.
+  <N> | CONFIRMED or GAP | <file>:<line> | <one sentence of evidence you actually read>
+
+A CONFIRMED with no `file:line` is invalid. Restating the criterion back is not
+evidence — cite what is actually in the file. Criterion 2 (no `[FIX-DEEP]` logs
+remain) must cite the search you ran, not an assumption.
+
+Then a final line:
+
+  Verdict: APPROVED (only if zero GAP) or CHANGES NEEDED
 ```
+
+> **Why this prompt is shaped this way — do not simplify it.** See the measurement
+> note in `orchestrate.md` Step 3: without the scope lock and the per-item output
+> contract, the Codex reviewer made 1 tool call, answered 3 of 12 criteria, returned a
+> reasonless APPROVED, and reported the orchestration ledger as a scope violation.
 
 Review loop: max 3 passes (same as `/fix`).
 

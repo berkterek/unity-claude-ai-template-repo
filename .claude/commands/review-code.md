@@ -75,7 +75,17 @@ Reviewer priority — try in order, fall back if unavailable:
 1. Spawn Agent with `subagent_type: "codex:codex-rescue"` — primary reviewer
 2. Spawn Agent with `subagent_type: "unity-reviewer"` — fallback if Codex unavailable
 
-Both use the review checklist below.
+Both use the review checklist below. Both are **reviewers, not fixers** — the reviewer
+subagent must not modify a single file; its only output is the verdict format below.
+
+## Scope lock (MANDATORY)
+
+Review ONLY the files in the review target (the `$ARGUMENTS` path, or the changed files
+named by the caller). Read each one in full before judging it. Never run a bare
+`git diff` — scope every diff with explicit paths (`git diff -- <path> <path>`). The
+orchestration ledger is NOT under review and must never be reported as an issue:
+`.claude/**`, `docs/**`, `*.json`, `*.jsonl`, `*.md` (unless a `.md` is itself the
+review target).
 
 ## Knowledge Graph (class/interface/event/installer inventory — query this BEFORE scanning source files)
 
@@ -137,6 +147,23 @@ For each file reviewed, provide:
 - [non-blocking improvements]
 ```
 
+**Per-file coverage is mandatory.** For each file, state a line for every one of the
+four Review Scope sections above — Architecture Compliance, Performance, C# Quality,
+Test Quality — even when the verdict is PASS:
+
+```
+**Coverage:**
+- Architecture Compliance | CONFIRMED or GAP | line X | [evidence you actually read]
+- Performance            | CONFIRMED or GAP | line X | [evidence]
+- C# Quality             | CONFIRMED or GAP | line X | [evidence]
+- Test Quality           | CONFIRMED, GAP, or N/A (not a test file) | line X | [evidence]
+```
+
+A section answered without a line reference is invalid. Restating the checklist back is
+not evidence — cite what is actually in the file. Presence of a symbol is not evidence
+that its contract is correct. A silently skipped section reads as "reviewed and clean"
+when it was never looked at.
+
 At the end, provide a summary:
 ```
 ## Review Summary
@@ -145,6 +172,11 @@ At the end, provide a summary:
 - Failed: Y
 - Critical issues: Z
 ```
+
+> **Why the scope lock and the coverage block exist — do not simplify them.** See the
+> measurement note in `orchestrate.md` Step 3: without them, the Codex reviewer made 1
+> tool call, answered 3 of 12 criteria, returned a reasonless approval, and reported the
+> orchestration ledger as a scope violation.
 
 ## Rules
 - Be thorough but fair — flag real issues, not style preferences

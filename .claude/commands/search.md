@@ -220,7 +220,9 @@ Reviewer priority — try in order, fall back if unavailable:
 Spawn the reviewer with this prompt:
 
 ```
-You are a completeness reviewer for a codebase investigation.
+You are a completeness reviewer for a codebase investigation. You are a REVIEWER, not a
+researcher and not a fixer — do not modify the findings file or any other file, and do
+not run the investigation yourself. Your only output is the verdict format below.
 
 Read the findings file at: .claude/state/search-findings.md
 
@@ -245,6 +247,11 @@ ORIGINAL_QUERY: $QUERY
 VERDICT: COMPLETE | INCOMPLETE | REJECT
 
 REASON: [one sentence]
+
+EVIDENCE: [COMPLETE only — cite the file:line the findings rest on for each of the six
+architecture rules above, or state which rules the query does not touch and why. A
+COMPLETE with no file:line is invalid: it certifies an answer nobody checked. Restating
+the finding back is not evidence.]
 
 GAP: [INCOMPLETE/REJECT only — exact gap or violation the next research iteration must address]
 ```

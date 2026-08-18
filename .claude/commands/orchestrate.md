@@ -422,11 +422,21 @@ Reviewer priority — try in order, fall back if unavailable:
 
 **Reviewer prompt:**
 ```
+You are acting as a CODE REVIEWER, not a fixer. Do not modify any file. Your only
+output is a review verdict.
+
 Review the following Unity C# implementation.
 
 ## Task
 ID: [task id]
 Title: [task title]
+
+## Scope lock (MANDATORY)
+Review ONLY the files listed under "Files Changed". Read each one in full before
+judging it. Never run a bare `git diff` — scope every diff with explicit paths
+(`git diff -- <path> <path>`). The orchestration ledger is NOT part of any task and
+must never be reported as a scope violation: `.claude/**`, `docs/**`, `*.json`,
+`*.jsonl`, `*.md` (unless a `.md` is itself listed under "Files Changed").
 
 ## Files Changed
 [coder output — list of files with summaries]
@@ -446,13 +456,32 @@ Title: [task title]
 9. Serialization — FormerlySerializedAs on any renamed [SerializeField]
 10. **Architecture drift (BLOCKING)** — implementation must match the TDD: no new singletons, no `ServiceLocator`, no `FindObjectOfType`, no new folders under `_GameFolders/Scripts/` that aren't in the TDD, and no new event structs when an existing `IEvent` covers the case. If the diff introduces any of these without a paired ADR entry, the review must return **CHANGES NEEDED** with reason "Architecture drift: `<specific drift>` — open an ADR or revert."
 
-## Output Format
-APPROVED — all criteria pass.
+## Output contract (MANDATORY — a verdict that violates this is invalid)
+Emit one line per item, for EVERY acceptance criterion AND every one of the 10 review
+criteria above. No item may be omitted, merged, or answered "n/a" without a stated
+reason. Format:
 
-CHANGES NEEDED:
-- [file:line] Issue and required fix.
-(list every issue)
+  <ID> | CONFIRMED or GAP | <file>:<line> | <one sentence of evidence you actually read>
+
+A CONFIRMED with no `file:line` is invalid. Restating the criterion back is not
+evidence — cite what is actually in the file. Presence of a symbol is not evidence
+that its contract is correct.
+
+Then a final line:
+
+  Verdict: APPROVED (only if zero GAP) or CHANGES NEEDED
 ```
+
+> **Why this prompt is shaped this way — do not simplify it.** Measured on the
+> piggy-doku module 03 T007a-d fixture (3 passes, 2026-08-18). With the old prompt
+> Codex made 1 tool call, addressed 3 of 12 criteria, returned a reasonless APPROVED,
+> and reported the orchestration ledger (`graph.json`, `EVENTS.jsonl`, `tasks.md` —
+> the dirty worktree a bare `git diff` sweeps in) as a scope violation. A seeded
+> known defect (a required field's contract doc removed) was **missed**. With the
+> scope lock + per-item output contract above, the same agent on the same seeded
+> fixture caught the defect (`GAP` with the exact line), produced 0 false positives,
+> and answered all 14 items with `file:line`. The failure was the prompt's shape, not
+> the Codex CLI.
 
 On **CHANGES NEEDED** → automatically enter the review loop (no user prompt needed):
 

@@ -188,10 +188,21 @@ Reviewer priority — try in order, fall back if unavailable:
 2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 ```
+You are acting as a CODE REVIEWER, not a fixer. Do not modify any file. Your only
+output is a review verdict.
+
 Review this Unity scene setup implementation.
 
 ## Task
 [INSERT HERE: the scene setup description from the /scene-setup argument]
+
+## Scope lock (MANDATORY)
+Review ONLY the files listed under "C# Files Created". Read each one in full before
+judging it. Never run a bare `git diff` — scope every diff with explicit paths
+(`git diff -- <path> <path>`). The orchestration ledger is NOT part of any task and
+must never be reported as a scope violation: `.claude/**`, `docs/**`, `*.json`,
+`*.jsonl`, `*.md`. Changed `.unity` / `.prefab` files are EXPECTED here — they are the
+unity-setup agent's output, not a scope violation, and cannot be reviewed as text.
 
 ## C# Files Created
 [INSERT HERE: the list of files modified by the Coder agent]
@@ -206,9 +217,25 @@ Review this Unity scene setup implementation.
 4. UniTask — no async void, CancellationToken on every async method
 5. Unity null safety — no ?. or is null on UnityEngine objects
 
-## Output Format
-APPROVED or CHANGES NEEDED with file:line issues.
+## Output contract (MANDATORY — a verdict that violates this is invalid)
+Emit one line per item, for every one of the 5 review criteria above. No item may be
+omitted, merged, or answered "n/a" without a stated reason. Format:
+
+  <N> | CONFIRMED or GAP | <file>:<line> | <one sentence of evidence you actually read>
+
+A CONFIRMED with no `file:line` is invalid. Restating the criterion back is not
+evidence — cite what is actually in the file. Presence of a symbol is not evidence
+that its contract is correct.
+
+Then a final line:
+
+  Verdict: APPROVED (only if zero GAP) or CHANGES NEEDED
 ```
+
+> **Why this prompt is shaped this way — do not simplify it.** See the measurement
+> note in `orchestrate.md` Step 3: without the scope lock and the per-item output
+> contract, the Codex reviewer made 1 tool call, answered 3 of 12 criteria, returned a
+> reasonless APPROVED, and reported the orchestration ledger as a scope violation.
 
 ### Review Loop
 

@@ -319,6 +319,10 @@ Reviewer priority — try in order, fall back if unavailable:
 
 Reviewer prompt:
 ```
+You are acting as a PLAN REVIEWER, not a fixer. Do not modify the plan file or any
+other file — do not rewrite tasks, do not "helpfully" correct a path. Your only output
+is the verdict format below; the Planner applies the fixes.
+
 Review the following NEW plan for a Unity project.
 
 ## Plan File
@@ -339,8 +343,18 @@ Review the following NEW plan for a Unity project.
 6. Format — does it follow the required plan format (Context, Goals, Status table, File Map, Task sections)?
 7. BLOCKED tasks — are risky or uncertain tasks clearly marked?
 
-## Output Format
-APPROVED — plan is ready to save.
+## Output contract (MANDATORY — a verdict that violates this is invalid)
+Emit one line per item, for every one of the 7 review criteria above. No item may be
+omitted, merged, or answered "n/a" without a stated reason. Format:
+
+  <N> | CONFIRMED or GAP | <plan section, or file:line for criterion 2> | <evidence>
+
+Criterion 2 (file paths are real) may only be CONFIRMED after you have actually
+verified each path exists on disk — state how you checked. An unverified path is the
+single most expensive defect a plan can carry, because every task downstream of it
+inherits the mistake.
+
+Then, for a plan that has any GAP:
 
 CHANGES NEEDED:
 - [section] Issue and fix.
@@ -461,10 +475,20 @@ Each parallel task subagent uses this same prompt with its specific task ID and 
 After implementer finishes → spawn the **Reviewer** using priority order (codex:codex-rescue → claude) with:
 
 ```
+You are acting as a CODE REVIEWER, not a fixer. Do not modify any file. Your only
+output is a review verdict.
+
 Review the implementation of the following plan for a Unity project.
 
 ## Plan File
 [INSERT HERE: the full plan file path e.g. Docs/PLAN_audio.md]
+
+## Scope lock (MANDATORY)
+Review ONLY the files listed under "Files Changed". Read each one in full before
+judging it. Never run a bare `git diff` — scope every diff with explicit paths
+(`git diff -- <path> <path>`). The plan document and the orchestration ledger are NOT
+under review and must never be reported as scope violations: `.claude/**`, `docs/**`,
+`Docs/**`, `*.json`, `*.jsonl`, `*.md`.
 
 ## Files Changed
 [INSERT HERE: the list of files modified by the Implementer agent]
@@ -479,12 +503,23 @@ Review the implementation of the following plan for a Unity project.
 7. Unity null safety — no ?. or is null on UnityEngine objects
 8. BLOCKED tasks were not implemented
 
-## Output Format
-APPROVED — implementation is correct, nothing to change.
+## Output contract (MANDATORY — a verdict that violates this is invalid)
+Emit one line per item, for every one of the 8 review criteria above. No item may be
+omitted, merged, or answered "n/a" without a stated reason. Format:
 
-CHANGES NEEDED:
-- [file:line] Issue and fix.
+  <N> | CONFIRMED or GAP | <file>:<line> | <one sentence of evidence you actually read>
+
+A CONFIRMED with no `file:line` is invalid. Restating the criterion back is not
+evidence — cite what is actually in the file. Criterion 8 (BLOCKED tasks were not
+implemented) must name the BLOCKED task IDs you checked.
+
+Then a final line:
+
+  Verdict: APPROVED (only if zero GAP) or CHANGES NEEDED
 ```
+
+> **Why this prompt is shaped this way — do not simplify it.** See the measurement
+> note in `orchestrate.md` Step 3.
 
 If **CHANGES NEEDED** → spawn a **coder** subagent to fix each issue, then re-run the reviewer (max 2 fix passes). After 2 failed passes → show remaining issues to the user.
 
