@@ -573,9 +573,23 @@ run_v2_module_tests() {
   python3 "$GRAPH_DIR/graph-builder.py" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
 
   # 9.1 — schema version
+  # Read the expected value from graph-builder.py itself (the single source of truth
+  # that writes this literal) rather than re-pinning a second literal here — a bare
+  # `[[ "$sv" == "1.3.0" ]]` is exactly what Task 10's additive minor bump to 1.4.0
+  # broke (harness went 31/0 -> 30/1). Semver comparison (>= expected) would also
+  # accept a regression back to an OLDER value, so equality against the builder's
+  # own literal is the correct check, not a floor.
+  # The expected version is a LITERAL owned by this test, deliberately NOT read out of
+  # graph-builder.py: deriving it from the file under test makes the assertion tautological —
+  # it would pass even if the builder regressed to a wrong version, because both sides move
+  # together. Flagged in final review. A `>=` floor is also wrong (it accepts a regression to
+  # an older value). So: an independent literal, updated by hand whenever schema_version is
+  # bumped. This line going red after a deliberate bump is the assertion WORKING, not rotting —
+  # update it together with the bump (Task 10 bumped 1.3.0 -> 1.4.0 for `extraction_version`).
+  local expected_sv="1.4.0"
   local sv; sv=$(jq -r '.schema_version // "missing"' "$WORK_GRAPH" 2>/dev/null || echo "missing")
-  [[ "$sv" == "1.3.0" ]] && pass "schema_version = 1.3.0" \
-                           || fail "schema_version is $sv (expected 1.3.0)"
+  [[ "$sv" == "$expected_sv" ]] && pass "schema_version = $expected_sv" \
+                           || fail "schema_version is $sv (expected $expected_sv — if this bump was deliberate, update the literal here)"
 
   # 9.2 — communities present (only required when call edges exist)
   local call_count; call_count=$(jq '.codebase.calls | length' "$WORK_GRAPH" 2>/dev/null || echo 0)
@@ -825,6 +839,325 @@ PYEOF
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Task 8 — Harness Assertions (registration semantics / validator / reconciliation /
+#          extraction_version). All probes live under $SCRIPT_DIR/.work/ only.
+# ──────────────────────────────────────────────────────────────────────────────
+
+run_registration_semantics_tests() {
+  section "Registration semantics (Defect 1)"
+  local work="$SCRIPT_DIR/.work/reg"; mkdir -p "$work"
+  # Class name ends in "Installer" so BOTH extractors recognize it as an installer:
+  # csharp_extractor.py's is_installer = name.endswith("Installer") OR (name.endswith("Module")
+  # AND is_static); csharp-extractor.sh's regex path gates on the FILENAME containing
+  # "Installer" (line ~621: `echo "$f" | grep -q 'Installer'`) — a *Module-suffixed, non-static
+  # probe (as an earlier draft used) satisfies neither and silently produces an empty
+  # registrations array on both sides, which made every downstream assertion here vacuously
+  # fail (empty-vs-expected), not a real extractor defect.
+  # Ordering is LOAD-BEARING and deliberately hostile: the chainless `Register<Bar>` sits
+  # IMMEDIATELY BEFORE the chained `Register<Baz>(...).As<IBaz>()`. csharp-extractor.sh's Form 1
+  # tail-scans forward from its own match for a trailing `.As<T>()`; when that scan was bounded
+  # only by a fixed 400-char window (no statement terminator), Bar's scan ran straight into Baz's
+  # chain on the next line and reported {"type":"Bar","as":"IBaz"} — wrong data in the key this
+  # plan makes load-bearing, and a parity break (tree-sitter correctly emits ""). Found while
+  # building this probe, fixed by cutting the tail at the first `;`. Do NOT "simplify" this probe
+  # by moving the chained registration first: that ordering passes either way and stops testing
+  # the fix. reg.1/reg.3/reg.4 below all depend on this ordering to bite.
+  cat > "$work/ProbeInstaller.cs" <<'CS'
+public class ProbeInstaller {
+  private Foo _fooField;
+  void Configure(IContainerBuilder builder) {
+    builder.RegisterInstance<ITapResolver>(new TapResolver(1));
+    builder.RegisterInstance<IFoo>(_fooField);
+    builder.Register<Bar>(Lifetime.Singleton);
+    builder.Register<Baz>(Lifetime.Singleton).As<IBaz>().As<IQux>();  // multi-As: `as` must be the STRING "IBaz"
+    builder.RegisterInstance(SomeStatic.Opaque());
+  }
+}
+CS
+
+  local py sh
+  py=$(python3 "$GRAPH_DIR/extractors/csharp_extractor.py" --changed-files "$work/ProbeInstaller.cs" 2>/dev/null)
+  if [[ -z "$py" ]]; then
+    known_fail "reg.1: tree-sitter unavailable — python extractor skipped" "csharp_extractor.py exited empty"
+  else
+    echo "$py" | jq -e '[.vcontainer.installers[].registrations[].type]
+                         | map(select(test("^I[A-Z]"))) | length == 0' >/dev/null \
+      && pass "reg.1: no interface recorded as concrete (tree-sitter)" \
+      || fail "reg.1: interface recorded as concrete (tree-sitter)"
+
+    # reg.1b: the chain reader from Task 1 step 4 — Baz must expose IBaz, not ""
+    echo "$py" | jq -e '[.vcontainer.installers[].registrations[]
+                         | select(.type=="Baz") | .as] == ["IBaz"]' >/dev/null \
+      && pass "reg.1b: .As<T>() chain read on the tree-sitter side" \
+      || fail "reg.1b: .As<T>() chain NOT read (tree-sitter) — parity gate reg.4 cannot pass"
+  fi
+
+  # csharp-extractor.sh:70-82 proxies straight to csharp_extractor.py FIRST and only runs
+  # its own regex code when that subprocess exits non-zero — so when tree-sitter is
+  # installed (as it is here), `bash csharp-extractor.sh` returns the SAME tree-sitter
+  # output as $py, not the regex fallback, and every "fallback" assertion below would
+  # silently test tree-sitter twice. A bare `PYTHONPATH=/nonexistent` override (T9's
+  # documented trick for csharp_extractor.py directly) does NOT work here either: the
+  # deps are on the real site-packages path, not reached via PYTHONPATH. Force the
+  # fallback surgically instead — a `python3` shim on PATH that fails ONLY the inner
+  # `csharp_extractor.py` subprocess call, leaving every other python3 call inside
+  # csharp-extractor.sh's own regex helpers untouched.
+  local fakebin="$work/fakebin"
+  mkdir -p "$fakebin"
+  local real_python3; real_python3=$(command -v python3)
+  cat > "$fakebin/python3" <<SHIM
+#!/usr/bin/env bash
+for a in "\$@"; do
+  case "\$a" in
+    *csharp_extractor.py) exit 2 ;;
+  esac
+done
+exec "$real_python3" "\$@"
+SHIM
+  chmod +x "$fakebin/python3"
+  sh=$(PATH="$fakebin:$PATH" bash "$GRAPH_DIR/extractors/csharp-extractor.sh" --changed-files "$work/ProbeInstaller.cs" 2>/dev/null)
+
+  # reg.2: same interface-as-concrete assertion on the fallback
+  if [[ -n "$sh" ]]; then
+    echo "$sh" | jq -e '[.vcontainer.installers[].registrations[].type]
+                         | map(select(test("^I[A-Z]"))) | length == 0' >/dev/null \
+      && pass "reg.2: no interface recorded as concrete (fallback)" \
+      || fail "reg.2: interface recorded as concrete (fallback)"
+  else
+    fail "reg.2: fallback extractor produced no output"
+  fi
+
+  # reg.3: `as` is always a string in BOTH outputs — a non-string `as` (e.g. a JSON
+  # array from an un-collapsed .As<T>() chain) breaks every downstream jq consumer
+  # that expects a scalar.
+  if [[ -n "$py" ]]; then
+    echo "$py" | jq -e '[.vcontainer.installers[].registrations[].as] | map(type) | unique == ["string"]' >/dev/null \
+      && pass "reg.3: every 'as' is a JSON string (tree-sitter)" \
+      || fail "reg.3: a non-string 'as' found (tree-sitter)"
+  fi
+  if [[ -n "$sh" ]]; then
+    echo "$sh" | jq -e '[.vcontainer.installers[].registrations[].as] | map(type) | unique == ["string"]' >/dev/null \
+      && pass "reg.3: every 'as' is a JSON string (fallback)" \
+      || fail "reg.3: a non-string 'as' found (fallback)"
+  fi
+
+  # reg.4: parity — sorted {type,as} multisets must be equal, INCLUDING the .As<T>()
+  # record, but scoped to records where a type was actually RESOLVED on that side
+  # (select(.type != "")). This is not a weakening: builder.RegisterInstance(SomeStatic.Opaque())
+  # is representable by only ONE side (tree-sitter emits {"type":"",...,unresolved:true} per
+  # Task 1 step 7 "never skip"; the fallback's Form 2 regex at csharp-extractor.sh:384 cannot
+  # match an argument containing `()` and emits nothing at all for that shape). An unfiltered
+  # multiset compare is therefore unsatisfiable by construction, not by a missing fix — the
+  # asymmetry is pinned per-extractor by reg.6 instead of being hidden here.
+  if [[ -n "$py" && -n "$sh" ]]; then
+    local py_set sh_set
+    py_set=$(echo "$py" | jq -c '[.vcontainer.installers[].registrations[]
+                                    | select(.type != "") | {type, as}] | sort')
+    sh_set=$(echo "$sh" | jq -c '[.vcontainer.installers[].registrations[]
+                                    | select(.type != "") | {type, as}] | sort')
+    [[ "$py_set" == "$sh_set" ]] \
+      && pass "reg.4: resolved {type,as} multiset parity (tree-sitter vs fallback)" \
+      || fail "reg.4: parity mismatch — tree-sitter=$py_set fallback=$sh_set"
+  fi
+
+  # reg.5: no Register<T> record carries interface_only (guards Task 5's blast radius) —
+  # a false-positive interface_only on an ordinary Register<T> would silently disable
+  # INSTALLER_MISSING_CLASS for that record project-wide.
+  if [[ -n "$py" ]]; then
+    echo "$py" | jq -e '[.vcontainer.installers[].registrations[]
+                          | select(.type=="Bar" or .type=="Baz") | .interface_only] | unique == [null]' >/dev/null \
+      && pass "reg.5: Register<T> records never carry interface_only (tree-sitter)" \
+      || fail "reg.5: a Register<T> record carries interface_only (tree-sitter)"
+  fi
+  if [[ -n "$sh" ]]; then
+    echo "$sh" | jq -e '[.vcontainer.installers[].registrations[]
+                          | select(.type=="Bar" or .type=="Baz") | .interface_only] | unique == [null]' >/dev/null \
+      && pass "reg.5: Register<T> records never carry interface_only (fallback)" \
+      || fail "reg.5: a Register<T> record carries interface_only (fallback)"
+  fi
+
+  # reg.6: the unresolvable form is asserted PER-EXTRACTOR, never as parity — if either
+  # side's behaviour on this shape ever changes, reg.6 fails and the divergence is
+  # re-decided deliberately, which is the outcome reg.4's select() must not swallow.
+  if [[ -n "$py" ]]; then
+    echo "$py" | jq -e '[.vcontainer.installers[].registrations[]
+                          | select(.unresolved == true)] | length == 1' >/dev/null \
+      && pass "reg.6: tree-sitter emits exactly one unresolved record for RegisterInstance(SomeStatic.Opaque())" \
+      || fail "reg.6: tree-sitter unresolved-record count changed"
+  fi
+  if [[ -n "$sh" ]]; then
+    echo "$sh" | jq -e '[.vcontainer.installers[].registrations[]
+                          | select(.type == "")] | length == 0' >/dev/null \
+      && pass "reg.6: fallback emits no record for RegisterInstance(SomeStatic.Opaque()) (asymmetry pinned)" \
+      || fail "reg.6: fallback started emitting a record for the unresolvable RegisterInstance shape"
+  fi
+
+  rm -rf "$work"
+}
+
+run_validator_interface_tests() {
+  section "Validator interface_only guard (Defect 5)"
+  local work="$SCRIPT_DIR/.work/validator"; mkdir -p "$work"
+  local fixture="$work/graph.json"
+
+  # (i) interface_only: true naming an interface — must NOT fire.
+  # (ii) plain registration naming a genuinely absent class — MUST fire.
+  # (iii) plain Register<T>-shaped record with NO interface_only — MUST fire. This is
+  #       the guard-not-too-loose assertion: it fails loudly if interface_only is ever
+  #       set too broadly on ordinary Register<T> registrations, which would silently
+  #       disable the check project-wide.
+  cat > "$fixture" <<'JSON'
+{
+  "schema_version": "1.4.0",
+  "generated_at": "2026-01-01T00:00:00Z",
+  "codebase": {
+    "classes": [{"name": "Dummy", "file": "Dummy.cs", "source_file": "Dummy.cs"}],
+    "interfaces": [],
+    "events": [],
+    "assemblies": [],
+    "calls": [],
+    "vcontainer": {
+      "installers": [{
+        "name": "ProbeInstaller",
+        "file": "ProbeInstaller.cs",
+        "source_file": "ProbeInstaller.cs",
+        "registrations": [
+          {"type": "ISomeInterface", "as": "", "lifetime": "", "interface_only": true},
+          {"type": "MissingClass", "as": "", "lifetime": ""},
+          {"type": "UnknownClass", "as": "", "lifetime": ""}
+        ]
+      }],
+      "scopes": []
+    }
+  }
+}
+JSON
+
+  python3 "$GRAPH_DIR/graph_validate.py" --graph "$fixture" >/dev/null 2>&1
+
+  jq -e '[.validation.consistency.issues[]
+           | select(.type == "INSTALLER_MISSING_CLASS" and .class == "ISomeInterface")] | length == 0' \
+     "$fixture" >/dev/null \
+    && pass "validator (i): interface_only registration does NOT raise INSTALLER_MISSING_CLASS" \
+    || fail "validator (i): interface_only registration incorrectly raised INSTALLER_MISSING_CLASS"
+
+  jq -e '[.validation.consistency.issues[]
+           | select(.type == "INSTALLER_MISSING_CLASS" and .class == "MissingClass")] | length == 1' \
+     "$fixture" >/dev/null \
+    && pass "validator (ii): plain registration naming an absent class raises INSTALLER_MISSING_CLASS" \
+    || fail "validator (ii): absent-class registration did not raise INSTALLER_MISSING_CLASS"
+
+  jq -e '[.validation.consistency.issues[]
+           | select(.type == "INSTALLER_MISSING_CLASS" and .class == "UnknownClass")] | length == 1' \
+     "$fixture" >/dev/null \
+    && pass "validator (iii): plain Register<T>-shaped record with no interface_only still raises INSTALLER_MISSING_CLASS" \
+    || fail "validator (iii): interface_only guard is too broad — ordinary Register<UnknownClass> no longer flagged"
+
+  rm -rf "$work"
+}
+
+run_reconciliation_tests() {
+  section "Disk/graph reconciliation (Task 6)"
+  local work="$SCRIPT_DIR/.work/reconcile"; mkdir -p "$work"
+
+  # (i) healthy build — no GRAPH_DISK_MISMATCH expected. Meaningful only when real
+  # Unity C# exists to compare against; on the bare template repo both the disk-path
+  # set and the graph-path set are empty, so the comparison never has anything to
+  # disagree about and the assertion would be trivially (not meaningfully) green.
+  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
+    known_fail "reconciliation (i): healthy-build silence on GRAPH_DISK_MISMATCH" \
+               "template repo has no Assets/ C# to reconcile against"
+  else
+    local healthy_out healthy_err
+    healthy_out="$work/graph_healthy.json"
+    healthy_err=$(python3 "$GRAPH_DIR/graph-builder.py" --full --skip-mcp --output "$healthy_out" 2>&1 >/dev/null)
+    if echo "$healthy_err" | grep -q "GRAPH_DISK_MISMATCH"; then
+      fail "reconciliation (i): unexpected GRAPH_DISK_MISMATCH on a healthy build"
+    else
+      pass "reconciliation (i): healthy build is silent on GRAPH_DISK_MISMATCH"
+    fi
+  fi
+
+  # (ii) induced omission — call reconcile_graph_with_disk() directly as a pure
+  # function (it needs a graph dict + a disk file list, not a whole Unity project),
+  # so this half of the test runs regardless of UNITY_HAS_CS. A real .cs file that
+  # DECLARES a class is required (_DECL_RE), and a graph with NO matching node.
+  local ghost_cs="$work/GhostClass.cs"
+  cat > "$ghost_cs" <<'CS'
+namespace Probe { public class GhostClass {} }
+CS
+  local probe_py="$work/probe_reconcile.py"
+  cat > "$probe_py" <<PYEOF
+import importlib.util, sys, json
+spec = importlib.util.spec_from_file_location("graph_builder", "$GRAPH_DIR/graph-builder.py")
+gb = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(gb)
+graph = {"codebase": {"classes": [], "interfaces": []}}
+gb.reconcile_graph_with_disk(graph, ["$ghost_cs"], quiet=False)
+PYEOF
+  local recon_stderr recon_exit=0
+  recon_stderr=$(python3 "$probe_py" 2>&1 1>/dev/null) || recon_exit=$?
+
+  if echo "$recon_stderr" | grep -q "GRAPH_DISK_MISMATCH"; then
+    pass "reconciliation (ii): induced omission warns via GRAPH_DISK_MISMATCH"
+  else
+    fail "reconciliation (ii): induced omission did NOT warn (stderr='$recon_stderr')"
+  fi
+  [[ "$recon_exit" -eq 0 ]] \
+    && pass "reconciliation (ii): reconciliation is non-fatal (exit 0)" \
+    || fail "reconciliation (ii): reconciliation raised (exit $recon_exit) instead of warning"
+
+  rm -rf "$work"
+}
+
+run_extraction_version_tests() {
+  section "extraction_version staleness promotion (Task 10)"
+  local work="$SCRIPT_DIR/.work/extver"; mkdir -p "$work"
+  local wg="$work/graph.json"
+
+  # extraction_version is a top-level field written on every build regardless of
+  # whether any real Unity C# exists (see assemble_graph()) — unlike reconciliation,
+  # which needs real disk paths to compare, this does not need UNITY_HAS_CS gating
+  # to produce a meaningful assertion; run_v2_module_tests already builds unconditionally
+  # into .work/ the same way.
+  local expected_ev
+  expected_ev=$(grep -oE '^EXTRACTION_VERSION = [0-9]+' "$GRAPH_DIR/graph-builder.py" | grep -oE '[0-9]+$')
+
+  python3 "$GRAPH_DIR/graph-builder.py" --full --skip-mcp --quiet --output "$wg" 2>/dev/null || true
+
+  # (i) field equals the builder constant
+  assert_jq "$wg" '.extraction_version' "$expected_ev" \
+    "extver (i): extraction_version equals builder's EXTRACTION_VERSION ($expected_ev)"
+
+  # (ii) rewrite the stored value backwards, run --incremental, assert the promotion
+  # is logged AND the graph carries the new value again (self-clearing).
+  local stale=$(( expected_ev - 1 ))
+  jq --argjson v "$stale" '.extraction_version = $v' "$wg" > "$wg.tmp" && mv "$wg.tmp" "$wg"
+  local promo_stderr
+  promo_stderr=$(python3 "$GRAPH_DIR/graph-builder.py" --incremental --skip-mcp --output "$wg" 2>&1 1>/dev/null)
+  if echo "$promo_stderr" | grep -q "extraction_version mismatch" && echo "$promo_stderr" | grep -qi "promoting"; then
+    pass "extver (ii): stale extraction_version promotion is logged"
+  else
+    fail "extver (ii): no promotion message on stale extraction_version (stderr='$promo_stderr')"
+  fi
+  assert_jq "$wg" '.extraction_version' "$expected_ev" \
+    "extver (ii): graph self-clears back to current EXTRACTION_VERSION after promotion"
+
+  # (iii) delete the key entirely — must promote (not raise), same as an unreadable/
+  # missing value (_stored_extraction_version's except-branch defaults to 0).
+  jq 'del(.extraction_version)' "$wg" > "$wg.tmp" && mv "$wg.tmp" "$wg"
+  local del_stderr del_exit=0
+  del_stderr=$(python3 "$GRAPH_DIR/graph-builder.py" --incremental --skip-mcp --output "$wg" 2>&1 1>/dev/null) || del_exit=$?
+  [[ "$del_exit" -eq 0 ]] \
+    && pass "extver (iii): deleting extraction_version promotes rather than raising (exit 0)" \
+    || fail "extver (iii): missing extraction_version key crashed the build (exit $del_exit)"
+  assert_jq "$wg" '.extraction_version' "$expected_ev" \
+    "extver (iii): graph carries current EXTRACTION_VERSION after promoting from a missing key"
+
+  rm -rf "$work"
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Main pipeline
 # ──────────────────────────────────────────────────────────────────────────────
 run_builder_flag_tests
@@ -837,4 +1170,8 @@ run_known_fail_bugs
 run_v2_module_tests
 run_incremental_purge_tests
 run_viz_smoke_tests
+run_registration_semantics_tests
+run_validator_interface_tests
+run_reconciliation_tests
+run_extraction_version_tests
 emit_report
