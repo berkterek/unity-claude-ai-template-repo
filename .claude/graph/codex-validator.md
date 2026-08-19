@@ -46,7 +46,7 @@ OUTPUT (JSON):
 }
 
 Report agreement percentage: agreements / (agreements + disagreements.length) * 100.
-If < 95%: list all disagreements and recommend running graph-builder.sh --full.
+If < 95%: list all disagreements and recommend running graph-builder.py --full.
 ```
 
 ---
@@ -66,4 +66,4 @@ If < 95%: list all disagreements and recommend running graph-builder.sh --full.
 |-----------|--------|
 | ≥ 95% | No action needed |
 | 85–94% | Investigate disagreements; fix extractor if pattern-based |
-| < 85% | Run `graph-builder.sh --full`; if still < 85%, extractor has a bug — file an issue |
+| < 85% | Run `graph-builder.py --full`; if still < 85%, extractor has a bug — file an issue |

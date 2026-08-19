@@ -159,7 +159,7 @@ If the user enabled the Knowledge Graph:
 1. Print: "Running initial graph build…"
 2. Run:
    ```bash
-   bash .claude/graph/graph-builder.sh --full --skip-mcp
+   python3 .claude/graph/graph-builder.py --full --skip-mcp
    ```
 3. Print: "Initial graph complete. Run `/build-knowledge-graph --validate-with-codex` to cross-check accuracy."
 4. Add to the final manual-setup checklist:

@@ -20,7 +20,7 @@ event, installer, scope, asmdef, scene, and prefab in the project.
 
 ## Step 0 — Plugin Preflight
 
-Check `.claude/graph/graph-builder.sh` exists.
+Check `.claude/graph/graph-builder.py` exists.
 
 If missing:
 ```
@@ -63,7 +63,7 @@ If `--mcp-only` is NOT set:
    ```
 2. Run the builder:
    ```bash
-   bash .claude/graph/graph-builder.sh [--full|--incremental] [--skip-mcp] [--quiet]
+   python3 .claude/graph/graph-builder.py [--full|--incremental] [--skip-mcp] [--quiet]
    ```
    Stream stderr to the user.
 
@@ -79,7 +79,7 @@ If `--skip-mcp` is NOT set:
 4. The extractor writes output to `.claude/graph/cache/mcp-extract.json`.
 5. Re-run the builder to merge MCP data:
    ```bash
-   bash .claude/graph/graph-builder.sh --incremental
+   python3 .claude/graph/graph-builder.py --incremental
    ```
 
 If Unity Editor is not connected:

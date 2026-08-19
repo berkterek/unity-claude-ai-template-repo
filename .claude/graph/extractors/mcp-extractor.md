@@ -246,7 +246,7 @@ Write the result to `.claude/graph/cache/mcp-extract.json`:
 
 After writing, re-run:
 ```bash
-bash .claude/graph/graph-builder.sh --incremental
+python3 .claude/graph/graph-builder.py --incremental
 ```
 
 ---
