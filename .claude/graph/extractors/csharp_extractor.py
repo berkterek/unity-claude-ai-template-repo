@@ -43,6 +43,36 @@ _PARENT_REF_CREATE = re.compile(
 )
 
 
+def _declares_container_install(cls_node, src):
+    """True when this class declares an `Install*` method taking an `IContainerBuilder`.
+
+    STRUCTURAL, not name-based, and that is the point. The previous test was
+    `name.endswith("Installer") or (name.endswith("Module") and is_static)`, which silently
+    missed `AppModules` and `SceneModules` — plural, so neither suffix matches — even though
+    `bootstrap-pattern.md` MANDATES exactly those two names. The project's own required
+    convention was the one shape the extractor could not see, in every project built from this
+    template. Adding "Modules" to the suffix list would only reset that clock: the next
+    `GameModules`/`AppInstallers` falls through the same way. `solid-oop.md` already states the
+    principle for the hooks — "enforcement isimden değil koddan belirlenir" — and it applies here.
+
+    The method-name prefix stays in the test on purpose: `IContainerBuilder` alone would also
+    match `LifetimeScope.Configure(IContainerBuilder)` and any `ContainerBuilder` extension
+    helper. Scopes are already routed first by the caller, but a helper class is not, and
+    `Install`/`InstallGame`/`InstallMenu` is the signature bootstrap-pattern.md fixes.
+    """
+    body = cls_node.child_by_field_name("body")
+    if body is None:
+        return False
+    for m_node in _own_method_nodes(body, []):
+        name_node = m_node.child_by_field_name("name")
+        if not name_node or not _node_text(name_node, src).startswith("Install"):
+            continue
+        params = m_node.child_by_field_name("parameters")
+        if params is not None and "IContainerBuilder" in _node_text(params, src):
+            return True
+    return False
+
+
 def _detect_scope_parent_in_code(cls_node, src):
     """Parent type named by `ParentReference.Create<T>()` inside this class, else None.
 
@@ -653,7 +683,16 @@ def extract_file(parser, path, src=None):
 
         partial_calls.extend(_extract_calls(cls_node, src, name, base_types, path))
 
-        is_installer = name.endswith("Installer") or (name.endswith("Module") and is_static)
+        # Structural test first; the two name tests are kept only so nothing that was detected
+        # before stops being detected (an installer with no IContainerBuilder parameter at all).
+        # An aggregator like AppModules lands here with an EMPTY registrations[] — correct, and
+        # not the same thing as being absent: it registers nothing itself, it orders the modules
+        # that do.
+        is_installer = (
+            _declares_container_install(cls_node, src)
+            or name.endswith("Installer")
+            or (name.endswith("Module") and is_static)
+        )
         is_scope = "LifetimeScope" in base_types
         entry = {"name": name, "file": path, "source_file": path, "registrations": registrations}
         if is_scope:

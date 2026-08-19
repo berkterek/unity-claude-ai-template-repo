@@ -294,6 +294,21 @@
         },
         "confidence": {
           "$ref": "#/definitions/confidence"
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace of the declaring IEvent struct. Empty when no declaration record was extracted."
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "1-based line of the IEvent struct declaration. null when no declaration record was extracted."
+        },
+        "declaration_unresolved": {
+          "type": "boolean",
+          "description": "True when this event is only known from a Publish/Subscribe reference and no IEvent struct declaration was extracted. file/source_file are then EMPTY on purpose \u2014 they are never backfilled from the referencing class, which is what previously made every event's location confidently wrong."
         }
       }
     },

@@ -110,7 +110,9 @@ List all classes that publish the given event.
 jq --arg name "<EventName>" '
   .codebase.events[]
   | select(.name == $name)
-  | {event: .name, publishers: .publishers, file: .file}
+  | {event: .name, publishers: .publishers,
+     declared_in: (if .declaration_unresolved then "(unresolved)" else .file end),
+     line: .line, namespace: .namespace}
 ' .claude/graph/graph.json
 ```
 
@@ -124,9 +126,25 @@ List all classes that subscribe to the given event.
 jq --arg name "<EventName>" '
   .codebase.events[]
   | select(.name == $name)
-  | {event: .name, subscribers: .subscribers, file: .file}
+  | {event: .name, subscribers: .subscribers,
+     declared_in: (if .declaration_unresolved then "(unresolved)" else .file end),
+     line: .line, namespace: .namespace}
 ' .claude/graph/graph.json
 ```
+
+**`file` is the DECLARATION site, and only since extraction v4.** Before that it named whichever
+class published or subscribed first, so "where is this event declared?" had a confidently wrong
+answer for essentially every event — an `IEvent` struct lives in `<Domain>Events.cs` and is
+published from a service. If a graph predates v4 the builder promotes one run to `--full`
+automatically; do not hand-correct old records.
+
+`declaration_unresolved: true` means the event is known only from a `Publish`/`Subscribe`
+reference and no `IEvent` struct declaration was extracted — `file` is then deliberately **empty**
+rather than backfilled from the referencing class. Render it as `(unresolved)`, never as a path.
+
+An event with **empty `publishers` and `subscribers`** is now visible rather than absent: it is
+declared and never used. That is a real finding — R2 `EVENT_DANGLING` only catches "publisher but
+no subscriber", so this stricter case has no violation rule and shows up only here.
 
 ---
 

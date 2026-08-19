@@ -171,7 +171,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 
 | File | Purpose |
 |------|---------|
-| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.5.0 |
+| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.6.0 |
 | `graph.json` (generated) | Living index of the codebase — do not edit by hand. Stores `{"$partition": "..."}` refs for scenes/prefabs |
 | `scenes.json` (generated) | Partition file — full `scenes[]` array, written atomically alongside `graph.json` |
 | `prefabs.json` (generated) | Partition file — full `prefabs[]` array, written atomically alongside `graph.json` |
@@ -250,7 +250,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 ## Knowledge Graph
 
-`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.5.0). When enabled (default in
+`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.6.0). When enabled (default in
 `/setup-project`), the graph indexes every class, interface, event, installer, scope, asmdef, scene,
 prefab, **method**, and **call edge**. Graph-aware commands across planning, implementation,
 fix/debug, investigation, migration, and audit/review pipelines run a Step 0 graph preload —
@@ -258,6 +258,39 @@ reading this graph instead of scanning files from scratch, and falling back to a
 when the graph is stale (> 24h), empty, or disabled.
 
 **v1.3.0 partition architecture** (unchanged since)**:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
+
+**v1.6.0 — three fields that were confidently wrong:**
+
+- **`events[].file` now names the declaration site.** It was built purely from
+  `classes[].events_published/subscribed`, so it named whichever class published or subscribed
+  *first* — never the `IEvent` struct's own file, since events are declared in
+  `<Domain>Events.cs` and published from a service. `line` and `namespace` were dropped and
+  `confidence` reported the publishing class's value. The extractor had always emitted correct
+  declaration records; the builder simply never read them. It does now, and they are
+  authoritative.
+- **A declared-but-unreferenced event is no longer invisible.** It used to be absent from
+  `events[]` entirely, so an event nobody publishes or subscribes to could not be found at all.
+  The R2 `EVENT_DANGLING` rule catches "publisher but no subscriber"; the strictly worse
+  "neither" case had no detection anywhere.
+- **An event known only from a reference says so.** `declaration_unresolved: true` with an
+  **empty** `file`, rather than borrowing the referencing class's path — same rule as an
+  unresolved scope parent: an unknown announces itself instead of impersonating a fact.
+- **Installer detection is structural, not a name suffix.** The old test was
+  `name.endswith("Installer") or (name.endswith("Module") and is_static)`, which silently missed
+  `AppModules` and `SceneModules` — plural, so neither suffix matches — the two names
+  `bootstrap-pattern.md` *mandates*. The project's own required convention was the one shape the
+  extractor could not see, in every project built from this template. The test is now "declares an
+  `Install*` method taking an `IContainerBuilder`", which is why adding `"Modules"` to the suffix
+  list was rejected: it fixes today's two names and falls over on the next `GameModules`.
+  An aggregator appears with an empty `registrations[]` — it registers nothing itself, it orders
+  the modules that do.
+- **The `--full` MCP-cache log stated a false cause.** With a cache written seconds earlier it
+  printed `mcp cache stale (0m old)` and told the reader to run `/build-knowledge-graph` — the
+  command they had just run. The branch fires for two reasons and now names the one that applied;
+  a `--full` run bypasses the cache by design, and the correct sequence is `--full` → MCP
+  extraction → `--incremental`.
+- `schema_version` **1.6.0**, `EXTRACTION_VERSION` **4** — both, for the same reason as v1.5.0:
+  fields were added *and* the same input file now yields a different record.
 
 **v1.5.0 — a scope's parent is resolved from code, and an unresolved one says so:**
 

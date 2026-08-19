@@ -70,11 +70,14 @@ def log(msg, quiet=False):
 #   3 — scope parent resolution: a scope whose parent is assigned by
 #       `ParentReference.Create<T>()` in Awake() now reports that parent instead of null, and an
 #       unresolved parent carries parent_unresolved_reason. Same input file, different record.
+#   4 — events[] is built from IEvent DECLARATION records (correct file/line/namespace) instead
+#       of from the first publisher's file, declared-but-unreferenced events now appear at all,
+#       and installer detection is structural (an Install* method taking IContainerBuilder)
+#       rather than a name suffix, so AppModules/SceneModules stop being invisible.
 # Usually this is bumped WITHOUT schema_version, because the shape is unchanged and only the
-# meaning moves. Version 3 is the exception: it also adds fields (parent_source,
-# parent_unresolved_reason) and widens `parent` to accept null, so schema_version moved to
-# 1.5.0 alongside it. Bumping both is correct here; it is not the default.
-EXTRACTION_VERSION = 3
+# meaning moves. Versions 3 and 4 are both exceptions — each also added fields — so
+# schema_version moved with them (1.5.0, then 1.6.0). Bumping both is not the default.
+EXTRACTION_VERSION = 4
 
 
 def _stored_extraction_version(output_path):
@@ -142,9 +145,13 @@ def reconcile_graph_with_disk(graph, disk_cs, quiet, limit=10):
     BOTH sides go through norm() — mixed path formats were the 57c9340 bug."""
     try:
         cb = graph.get("codebase", {})
-        # ONLY these two kinds exist in the graph. `enums`/`structs` are not node kinds at
-        # all, and events[].source_file is the PUBLISHER, not the declaration site — folding
-        # it in would mark the wrong file as covered. See Task 6 step 4.
+        # ONLY these two kinds exist in the graph. `enums`/`structs` are not node kinds at all,
+        # so events stay out of this comparison. The original reason was that
+        # events[].source_file named the PUBLISHER rather than the declaration site; since
+        # extraction v4 it names the declaration site, but folding it in is still wrong — the
+        # DISK side of this comparison is filtered by _DECL_RE (`class`/`interface` only), so an
+        # event-only file never appears there and every added graph path would surface as a
+        # spurious "references files not on disk". See Task 6 step 4.
         graph_paths = {
             norm(n.get("source_file") or n.get("file"))
             for kind in ("classes", "interfaces")
@@ -417,6 +424,7 @@ def retain_entries(existing_graph, reextracted_files, mode):
             "interfaces": [],
             "assemblies": [],
             "installers": [],
+            "events": [],
         }
     re_set = set(reextracted_files)
     cb = existing_graph.get("codebase", {}) or {}
@@ -436,6 +444,12 @@ def retain_entries(existing_graph, reextracted_files, mode):
         "assemblies": keep(cb.get("assemblies", [])),
         "installers": keep(vc.get("installers", [])),
         "scopes": keep(vc.get("scopes", [])),
+        # Event DECLARATION records, retained by the file that declares them. Safe to key on
+        # source_file only because events[].source_file is now the declaration site; while it was
+        # the publisher's file, retaining on it would have kept an event alive whose declaring
+        # file had been deleted. publishers/subscribers are not retained here — event_pivot
+        # recomputes them from all_classes on every build.
+        "events": keep(cb.get("events", [])),
     }
 
 
@@ -477,38 +491,71 @@ def merge_call_edges(existing_calls, new_partial_calls, changed_cs, mode):
 # ── Analysis (formerly inline Python heredocs) ───────────────────────────────
 
 
-def event_pivot(classes):
+def event_pivot(classes, event_defs=None):
+    """Build events[] from DECLARATION records, with publishers/subscribers pivoted on top.
+
+    This used to take `classes` only and set each event's `file`/`source_file` to the file of
+    whichever class happened to publish or subscribe FIRST. So "where is this event declared?"
+    got a confidently wrong answer for every event whose publisher lives elsewhere — which is
+    all of them, since an IEvent struct is declared in `<Domain>Events.cs` and published from a
+    service. `line` and `namespace` were lost outright, and `confidence` reported the publishing
+    class's value rather than the event's.
+
+    Worse, an event that is declared but never published or subscribed never entered events[] at
+    all: it was invisible, not merely mislocated. That interacts badly with the R2
+    EVENT_DANGLING rule, which catches "publisher but no subscriber" — the strictly worse
+    "neither" case was undetectable.
+
+    The extractor has always emitted correct declaration records (name, namespace, file, line,
+    confidence "EXTRACTED" — see csharp_extractor.py, the IEvent struct branch); the builder
+    simply never read them. It does now, and they are authoritative for identity and location.
+
+    An event referenced by a Publish/Subscribe call with no declaration record still appears —
+    dropping it would hide a real reference — but carries `declaration_unresolved: true` instead
+    of a plausible-looking file. Same rule as scope parents: an unknown must announce itself
+    rather than borrow a neighbour's value.
+    """
     events = {}
+
+    for d in event_defs or []:
+        name = d.get("name")
+        if not name:
+            continue
+        events[name] = {
+            "name": name,
+            "namespace": d.get("namespace", ""),
+            "file": d.get("file", ""),
+            "source_file": d.get("source_file") or d.get("file", ""),
+            "line": d.get("line"),
+            "publishers": [],
+            "subscribers": [],
+            "confidence": d.get("confidence", "EXTRACTED"),
+        }
+
+    def _referenced(ev, cls):
+        e = events.get(ev)
+        if e is None:
+            e = events[ev] = {
+                "name": ev,
+                "file": "",
+                "source_file": "",
+                "publishers": [],
+                "subscribers": [],
+                "confidence": cls.get("confidence", "INFERRED"),
+                # No IEvent struct declaration was extracted for this name. Do NOT fall back to
+                # the referencing class's file: that is the original bug, and it reads as fact.
+                "declaration_unresolved": True,
+            }
+        return e
+
     for cls in classes:
         cname = cls.get("name", "")
-        cfile = cls.get("file", "")
-        cconf = cls.get("confidence", "INFERRED")
         for ev in cls.get("events_published", []) or []:
-            e = events.setdefault(
-                ev,
-                {
-                    "name": ev,
-                    "file": cfile,
-                    "source_file": cfile,
-                    "publishers": [],
-                    "subscribers": [],
-                    "confidence": cconf,
-                },
-            )
+            e = _referenced(ev, cls)
             if cname and cname not in e["publishers"]:
                 e["publishers"].append(cname)
         for ev in cls.get("events_subscribed", []) or []:
-            e = events.setdefault(
-                ev,
-                {
-                    "name": ev,
-                    "file": cfile,
-                    "source_file": cfile,
-                    "publishers": [],
-                    "subscribers": [],
-                    "confidence": cconf,
-                },
-            )
+            e = _referenced(ev, cls)
             if cname and cname not in e["subscribers"]:
                 e["subscribers"].append(cname)
     return list(events.values())
@@ -904,10 +951,25 @@ def load_mcp_cache(mcp_cache_path, output_path, mode, skip_mcp, quiet):
         }
 
     pcount = len(fallback_prefabs)
-    log(
-        f"mcp cache stale ({age}m old) — retaining {pcount} prefabs from existing graph; run /build-knowledge-graph to refresh",
-        quiet,
-    )
+    # The branch above is `age < 60 and mode != "full"`, so this one fires for TWO different
+    # reasons and used to report only one of them. On a --full run with a cache written seconds
+    # ago it printed "mcp cache stale (0m old)" — a false cause — and then told the reader to
+    # "run /build-knowledge-graph", i.e. the command they had just run. Naming the actual reason
+    # and the actual next step matters more here than the wording: a message that misidentifies
+    # why it fired sends the reader to fix the wrong thing.
+    if mode == "full":
+        log(
+            f"mcp cache bypassed by --full (cache is {age}m old, not stale) — retaining {pcount} "
+            f"prefabs from the existing graph. A --full run re-extracts from scratch and does not "
+            f"reuse the cache: refresh it via the MCP extractor, then run --incremental to merge.",
+            quiet,
+        )
+    else:
+        log(
+            f"mcp cache stale ({age}m old, limit 60m) — retaining {pcount} prefabs from existing "
+            f"graph; re-run the MCP extraction (Unity Editor must be open) to refresh it",
+            quiet,
+        )
     return {
         "status": "retained",
         "scenes": fallback_scenes,
@@ -959,7 +1021,7 @@ def assemble_graph(
 ):
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
-        "schema_version": "1.5.0",
+        "schema_version": "1.6.0",
         "generated_at": now,
         "generator": f"graph-builder.py@{git_sha}",
         "extraction_version": EXTRACTION_VERSION,
@@ -1218,6 +1280,7 @@ def main():
     new_installers = (cs_output.get("vcontainer") or {}).get("installers", []) or []
     new_scopes = (cs_output.get("vcontainer") or {}).get("scopes", []) or []
     new_partial_calls = cs_output.get("partial_calls", []) or []
+    new_event_defs = cs_output.get("events", []) or []
 
     all_classes = merge_arrays(retained["classes"], new_classes)
     all_ifaces_pre = merge_arrays(retained["interfaces"], new_ifaces)
@@ -1225,7 +1288,8 @@ def main():
     all_installers = merge_arrays(retained["installers"], new_installers)
 
     # ── Event pivot + interface implementers
-    all_events = event_pivot(all_classes)
+    all_event_defs = merge_arrays(retained["events"], new_event_defs)
+    all_events = event_pivot(all_classes, all_event_defs)
     all_ifaces = resolve_implementers(all_ifaces_pre, all_classes)
 
     # ── Scope merge (retained + new) + MCP parent backfill
