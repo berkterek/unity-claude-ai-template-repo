@@ -65,9 +65,16 @@ def log(msg, quiet=False):
 
 # ── Extraction-semantics versioning (Task 10) ────────────────────────────────
 # Bump ONLY when extraction SEMANTICS change — i.e. when the same input file would now
-# produce a different record. v4 Tasks 1+2 change which value lands in `type`/`as`, so: 2.
-# This is deliberately NOT schema_version: the SHAPE is unchanged, the MEANING is not.
-EXTRACTION_VERSION = 2
+# produce a different record.
+#   2 — v4 Tasks 1+2: which value lands in `type`/`as` for a registration.
+#   3 — scope parent resolution: a scope whose parent is assigned by
+#       `ParentReference.Create<T>()` in Awake() now reports that parent instead of null, and an
+#       unresolved parent carries parent_unresolved_reason. Same input file, different record.
+# Usually this is bumped WITHOUT schema_version, because the shape is unchanged and only the
+# meaning moves. Version 3 is the exception: it also adds fields (parent_source,
+# parent_unresolved_reason) and widens `parent` to accept null, so schema_version moved to
+# 1.5.0 alongside it. Bumping both is correct here; it is not the default.
+EXTRACTION_VERSION = 3
 
 
 def _stored_extraction_version(output_path):
@@ -662,6 +669,26 @@ def resolve_call_targets(calls, classes, interfaces):
 
 
 def scope_merge(retained_scopes, new_scopes, mcp_scope_parents):
+    """Merge scope entries and resolve each one's parent from both available routes.
+
+    A LifetimeScope's parent reaches VContainer two ways, and until this function read both, the
+    graph reported a bare `null` for every scope whose parent is assigned in code — which
+    `/knowledge-graph scope-tree` then presented as the fact "this scope has no parent".
+
+      - "code"      — `ParentReference.Create<T>()` in the scope's Awake(). Set by
+                      csharp_extractor.py, which sees C# source with or without Unity running.
+      - "inspector" — the serialized `parentReference.TypeName` on the prefab, read by the MCP
+                      extractor (mcp-extractor.md Step 2b). Requires the Editor connected.
+
+    Code wins on conflict: `Create<T>()` overwrites the whole struct at runtime, so a differing
+    Inspector value is dead config, not a competing answer.
+
+    When neither route resolves, the scope carries `parent_unresolved_reason` instead of a naked
+    null, so an absent parent can never again be read as a proven absence. Note the reason
+    "no-parent-declared" is genuinely ambiguous — it fits a real root scope (AppScope) AND a
+    parent assigned indirectly (through a helper, or `Create<>` via a variable). It says what was
+    looked at, not what is true.
+    """
     by_name = {}
     for s in retained_scopes or []:
         name = s.get("name")
@@ -672,15 +699,32 @@ def scope_merge(retained_scopes, new_scopes, mcp_scope_parents):
         if name:
             by_name[name] = s
     scopes = list(by_name.values())
-    if mcp_scope_parents:
-        parent_map = {
-            p["scope_name"]: p["parent_name"]
-            for p in mcp_scope_parents
-            if p.get("scope_name") and p.get("parent_name")
-        }
-        for s in scopes:
-            if s.get("name") in parent_map:
-                s["parent"] = parent_map[s["name"]]
+
+    inspector_parent = {}
+    mcp_saw = set()
+    for p in mcp_scope_parents or []:
+        sn = p.get("scope_name")
+        if not sn:
+            continue
+        mcp_saw.add(sn)
+        if p.get("parent_name"):
+            inspector_parent[sn] = p["parent_name"]
+
+    for s in scopes:
+        name = s.get("name")
+        # A retained (cache-hit) entry may carry a stale reason from a previous build; recompute.
+        s.pop("parent_unresolved_reason", None)
+        if s.get("parent") and s.get("parent_source") == "code":
+            continue                                   # code route already resolved it
+        if name in inspector_parent:
+            s["parent"] = inspector_parent[name]
+            s["parent_source"] = "inspector"
+            continue
+        s["parent"] = None
+        s.pop("parent_source", None)
+        s["parent_unresolved_reason"] = (
+            "no-parent-declared" if name in mcp_saw else "mcp-extraction-absent"
+        )
     return scopes
 
 
@@ -915,7 +959,7 @@ def assemble_graph(
 ):
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
-        "schema_version": "1.4.0",
+        "schema_version": "1.5.0",
         "generated_at": now,
         "generator": f"graph-builder.py@{git_sha}",
         "extraction_version": EXTRACTION_VERSION,

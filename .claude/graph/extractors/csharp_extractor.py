@@ -6,6 +6,7 @@ import sys
 import json
 import argparse
 import os
+import re
 
 
 def _try_import():
@@ -20,6 +21,40 @@ def _try_import():
 
 def _node_text(node, src):
     return src[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+
+
+# A LifetimeScope's parent reaches VContainer by two routes and the graph must read both:
+#
+#   1. Inspector — the serialized `parentReference.TypeName` on the prefab. Read by the MCP
+#      extractor (mcp-extractor.md Step 2b); invisible to this file, and unavailable at all
+#      when Unity is not connected.
+#   2. Code — `parentReference = ParentReference.Create<AppScope>()` in the scope's Awake(),
+#      before base.Awake(). Read here.
+#
+# Both end in the same runtime call (`LifetimeScope.GetRuntimeParent()` → `Find(Type)`), so
+# neither is "the real one". The code route wins on conflict, because `Create<T>()` overwrites
+# the whole struct at runtime and therefore discards whatever the Inspector had.
+#
+# Why this lives here and not in the MCP extractor: this is a fact about C# source, and the MCP
+# extractor only runs with the Editor open — putting it there would leave a `--full` build with
+# Unity closed still reporting a bare null, which is the exact misreading this exists to stop.
+_PARENT_REF_CREATE = re.compile(
+    r"ParentReference\s*\.\s*Create\s*<\s*([A-Za-z_][A-Za-z0-9_]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)*)\s*>"
+)
+
+
+def _detect_scope_parent_in_code(cls_node, src):
+    """Parent type named by `ParentReference.Create<T>()` inside this class, else None.
+
+    Returns the SHORT type name, matching how the MCP extractor reports it and how every other
+    name in the graph is keyed. Comments and string literals are not stripped first: a mention
+    inside a comment is a false positive here, which is the safe direction — it names a parent
+    that a reader can check, rather than hiding one that exists.
+    """
+    m = _PARENT_REF_CREATE.search(_node_text(cls_node, src))
+    if not m:
+        return None
+    return m.group(1).replace(" ", "").split(".")[-1] or None
 
 
 def _find_children(node, kind):
@@ -622,6 +657,10 @@ def extract_file(parser, path, src=None):
         is_scope = "LifetimeScope" in base_types
         entry = {"name": name, "file": path, "source_file": path, "registrations": registrations}
         if is_scope:
+            code_parent = _detect_scope_parent_in_code(cls_node, src)
+            if code_parent:
+                entry["parent"] = code_parent
+                entry["parent_source"] = "code"
             scopes.append(entry)
         elif is_installer:
             installers.append(entry)

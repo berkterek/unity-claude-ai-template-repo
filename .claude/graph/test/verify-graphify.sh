@@ -690,8 +690,10 @@ run_v2_module_tests() {
   # together. Flagged in final review. A `>=` floor is also wrong (it accepts a regression to
   # an older value). So: an independent literal, updated by hand whenever schema_version is
   # bumped. This line going red after a deliberate bump is the assertion WORKING, not rotting —
-  # update it together with the bump (Task 10 bumped 1.3.0 -> 1.4.0 for `extraction_version`).
-  local expected_sv="1.4.0"
+  # update it together with the bump (Task 10 bumped 1.3.0 -> 1.4.0 for `extraction_version`;
+  # scope-parent resolution bumped 1.4.0 -> 1.5.0 for parent_source /
+  # parent_unresolved_reason and a nullable `parent`).
+  local expected_sv="1.5.0"
   local sv; sv=$(jq -r '.schema_version // "missing"' "$WORK_GRAPH" 2>/dev/null || echo "missing")
   [[ "$sv" == "$expected_sv" ]] && pass "schema_version = $expected_sv" \
                            || fail "schema_version is $sv (expected $expected_sv — if this bump was deliberate, update the literal here)"

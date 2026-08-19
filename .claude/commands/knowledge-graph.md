@@ -76,7 +76,9 @@ jq '{
 
 Also print the scope tree (top-2 levels):
 ```bash
-jq '.codebase.vcontainer.scopes | map({scope: .name, parent: .parent})' .claude/graph/graph.json
+jq '.codebase.vcontainer.scopes
+    | map({scope: .name, parent: .parent, via: .parent_source,
+           unresolved: .parent_unresolved_reason})' .claude/graph/graph.json
 ```
 
 Print the top-5 most-referenced assemblies:
@@ -149,9 +151,26 @@ Print the full VContainer scope hierarchy.
 ```bash
 jq '
   .codebase.vcontainer.scopes
-  | map({scope: .name, parent: (.parent // "(root)"), installers: .installers})
+  | map({scope: .name,
+         parent: (.parent // ("(unresolved: " + (.parent_unresolved_reason // "unknown") + ")")),
+         via: .parent_source,
+         installers: .installers})
 ' .claude/graph/graph.json
 ```
+
+**Never render a null parent as `(root)`.** `.parent // "(root)"` is what this line used to do,
+and it turned "the extractor could not resolve a parent" into the printed assertion "this scope
+is a root scope" — the one thing the reader must not conclude. A scope reported as root when it
+is really a child of `AppScope` looks exactly like the failure `GameScope.Configure()` guards
+against (a second container, a second `IEventBus`, publishers and subscribers on different buses,
+every test still green). Print the reason instead:
+
+| Printed | Means |
+|---|---|
+| `parent: "AppScope", via: "code"` | resolved from `ParentReference.Create<AppScope>()` in `Awake()` |
+| `parent: "AppScope", via: "inspector"` | resolved from the prefab's serialized `parentReference.TypeName` |
+| `(unresolved: mcp-extraction-absent)` | the Inspector route was never read — Unity was not connected for this build. Re-run with the Editor open before drawing any conclusion. |
+| `(unresolved: no-parent-declared)` | both routes were read and neither named a parent. Consistent with a genuine root scope (`AppScope`) **and** with a parent assigned indirectly (via a helper, or `Create<>` through a variable). Confirm in the scope's `Awake()` before reporting a missing parent as a defect. |
 
 ---
 
