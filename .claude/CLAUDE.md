@@ -170,6 +170,8 @@ Three hooks produce persistent JSONL audit files in `.claude/state/` — they fi
 
 `session-save.sh` embeds all-time totals on every Stop: `session.json → subagent_summary.{spawned, stopped, tasks_completed}`.
 Payload note: the stop record carries **no `exit_code`**; TaskCompleted carries **no `status`** field — all three hooks are pure audit trail (exit 0 always).
+
+> **None of the three touches gate state, and `agent-stop-log.sh` in particular must not.** It used to delete `gate-cleared` when the `committer` agent stopped, assuming committer is always the last pipeline step. `/orchestrate` commits after **every** phase and then continues, so that deletion tore the gate down mid-pipeline and forced the Director to re-open it once per phase. Gate teardown belongs to whoever opened the gate — the pipeline's own final step — with the 45-minute TTL and `session-restore.sh` as the safety nets. Do not re-add a `rm` here, and do not paper over it with an "orchestrate is active" marker file: that just moves the same conflict one layer down.
 Full field reference and jq queries: `.claude/docs/hooks-warning.md → ## Subagent Audit Trail`.
 
 ## Commands (slash commands)

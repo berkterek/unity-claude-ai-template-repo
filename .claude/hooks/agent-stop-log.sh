@@ -52,12 +52,13 @@ jq -nc \
     '{event:$event, agent_type:$agent_type, description:$description, session_id:$session_id, duration_approx_s:$duration, stopped_at:$stopped_at, logged_at:$logged_at}' \
     >> "$SUBAGENT_LOG"
 
-# Delete the Director Gate when the committer finishes — committer is always the
-# final pipeline step, so this is the deterministic hook-managed cleanup point.
-# session-restore.sh provides a SessionStart safety net for interrupted pipelines.
-if [ "$AGENT_TYPE" = "committer" ]; then
-    rm -f "${UNITY_HOOK_STATE_DIR}/gate-cleared"
-fi
+# NO gate-cleared deletion here. An earlier version deleted the gate when the
+# committer stopped, on the assumption that committer is always the final pipeline
+# step. That assumption is false: /orchestrate commits after EVERY phase and then
+# continues, so the deletion tore the gate down mid-pipeline and the Director had to
+# re-open it once per phase. Gate lifecycle belongs to whoever opened the gate — the
+# pipeline's own final step — backed by the 45-minute TTL and the session-restore.sh
+# SessionStart safety net. This hook is a pure audit trail and mutates no gate state.
 
 # Depth counter — mirror of the increment in agent-start-log.sh. Floors at 0 so
 # an unmatched Stop (e.g. mid-session hook reload) can't go negative.
