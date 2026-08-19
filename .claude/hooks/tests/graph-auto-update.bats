@@ -4,20 +4,35 @@ setup() {
     export CLAUDE_PROJECT_DIR= UNITY_HOOK_STATE_DIR="$(mktemp -d)"
     HOOK=".claude/hooks/graph-auto-update.sh"
     cd "$BATS_TEST_DIRNAME/../../.." || exit 1
-    GRAPH_BACKUP=""
-    # Back up real graph.json if it exists
-    if [ -f ".claude/graph/graph.json" ]; then
-        GRAPH_BACKUP="$(mktemp)"
-        cp .claude/graph/graph.json "$GRAPH_BACKUP"
-    fi
+    # These tests overwrite the REAL .claude/graph/graph.json with a stub, so every
+    # generated graph file must be backed up and restored — not just the root document.
+    #
+    # Backing up graph.json ALONE was correct before the v1.3.0 partition architecture,
+    # when it was the only generated file. Since partitioning, `scenes[]` and `prefabs[]`
+    # live in the tracked sibling files scenes.json and prefabs.json, and a re-partition
+    # off a stub graph.json empties them. In piggy-doku-repo that gutted 256 lines of
+    # COMMITTED graph data and left it dirty in the working tree, silently, on every
+    # suite run. The list must name every partition file the builder writes.
+    GRAPH_FILES=(graph.json scenes.json prefabs.json)
+    GRAPH_BACKUP_DIR="$(mktemp -d)"
+    for _gf in "${GRAPH_FILES[@]}"; do
+        [ -f ".claude/graph/$_gf" ] && cp ".claude/graph/$_gf" "$GRAPH_BACKUP_DIR/$_gf"
+    done
 }
 
 teardown() {
     rm -rf "$UNITY_HOOK_STATE_DIR"
-    # Restore real graph.json
-    if [ -n "${GRAPH_BACKUP:-}" ] && [ -f "$GRAPH_BACKUP" ]; then
-        cp "$GRAPH_BACKUP" .claude/graph/graph.json
-        rm -f "$GRAPH_BACKUP"
+    if [ -n "${GRAPH_BACKUP_DIR:-}" ] && [ -d "$GRAPH_BACKUP_DIR" ]; then
+        for _gf in "${GRAPH_FILES[@]}"; do
+            if [ -f "$GRAPH_BACKUP_DIR/$_gf" ]; then
+                cp "$GRAPH_BACKUP_DIR/$_gf" ".claude/graph/$_gf"
+            else
+                # Absent before the test must stay absent after it — restoring nothing
+                # would leave a stub-derived partition file behind as a new artifact.
+                rm -f ".claude/graph/$_gf"
+            fi
+        done
+        rm -rf "$GRAPH_BACKUP_DIR"
     fi
 }
 
