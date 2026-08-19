@@ -171,7 +171,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 
 | File | Purpose |
 |------|---------|
-| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.3.0 |
+| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.4.0 |
 | `graph.json` (generated) | Living index of the codebase — do not edit by hand. Stores `{"$partition": "..."}` refs for scenes/prefabs |
 | `scenes.json` (generated) | Partition file — full `scenes[]` array, written atomically alongside `graph.json` |
 | `prefabs.json` (generated) | Partition file — full `prefabs[]` array, written atomically alongside `graph.json` |
@@ -250,14 +250,38 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 ## Knowledge Graph
 
-`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.3.0). When enabled (default in
+`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.4.0). When enabled (default in
 `/setup-project`), the graph indexes every class, interface, event, installer, scope, asmdef, scene,
 prefab, **method**, and **call edge**. Graph-aware commands across planning, implementation,
 fix/debug, investigation, migration, and audit/review pipelines run a Step 0 graph preload —
 reading this graph instead of scanning files from scratch, and falling back to a file scan only
 when the graph is stale (> 24h), empty, or disabled.
 
-**v1.3.0 partition architecture:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
+**v1.3.0 partition architecture** (unchanged in v1.4.0)**:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
+
+**v1.4.0 — extraction semantics versioning and a disk↔graph reconciliation net:**
+
+- `extraction_version` (top-level in `graph.json`, alongside `schema_version`/`generator`) records the
+  builder's `EXTRACTION_VERSION` at build time. It answers a different question from `schema_version`:
+  the latter tracks the document's *shape*, the former tracks *what the values mean*. On an
+  `--incremental` run the builder reads the stored value back and, on a mismatch (or a missing/corrupt
+  graph), promotes that one run to `--full` and says why on stderr — then writes the new value, so the
+  promotion is self-clearing. This is what stops a semantics change from leaving stale-but-fresh-looking
+  records behind in projects nobody remembers to rebuild.
+- **`GRAPH_DISK_MISMATCH`** — every build compares the `.cs` files on disk against the files the graph
+  actually represents, and warns (stderr, non-fatal, `--quiet`-aware) naming the offenders and
+  recommending `--full`. The disk side counts only files that declare a `class` or `interface`
+  (comments and string literals are stripped first); the excluded count is printed so it is never
+  implicit. Sets are compared, not counts — a count check passes when one file drops and another
+  is added, which is the exact failure this net exists to catch.
+- **Registration records now name the concrete type.** `RegisterInstance<IFoo>(new Foo())` records
+  `type: "Foo"`, `as: "IFoo"` (previously `type: "IFoo"`, and the concrete was lost). `.As<T>()` chains
+  are read by both extractors, `as` is always a string, and `/knowledge-graph registrations` resolves
+  through either name. **Limit:** `.AsImplementedInterfaces()` stores that literal as a *placeholder* —
+  it is not an interface name and will not match one.
+- `interface_only` marks the one shape where only a generic interface argument was recoverable
+  (`RegisterInstance<IFoo>(opaqueExpr)`); `graph_validate.py` skips `INSTALLER_MISSING_CLASS` on that
+  provenance only — never because a name merely looks like an interface.
 
 ### Quick commands
 
