@@ -272,10 +272,13 @@ The `Game.Concretes.<Domain>` namespace can collide with `UnityEngine` type name
 | `Game.Concretes.Transform` | `UnityEngine.Transform` | `using UTransform = UnityEngine.Transform;` |
 | `Game.Concretes.Time` | `UnityEngine.Time` | `using UTime = UnityEngine.Time;` |
 | `Game.Concretes.Component` | `UnityEngine.Component` | `using UComponent = UnityEngine.Component;` |
+| `Game.Concretes.GridLayout` | `UnityEngine.GridLayout` | `using UGridLayout = UnityEngine.GridLayout;` |
+
+> **This table is NOT exhaustive — a miss here is not permission.** It is a hand-maintained blacklist of collisions that have actually been hit, and it lags reality by exactly one incident every time: `GridLayout` was added only after a module ate a `CS0104` in the field. `UnityEngine` exposes hundreds of types; any single-word domain name is a candidate. So the absence of a row is **not** evidence that a domain name is safe — the check below is the real rule, and this table is only a shortcut for the names already known to fail.
 
 **Rule:** When `Game.Concretes.<Domain>` contains a type whose name matches a `UnityEngine` type, add the alias at the top of **every** `.cs` file in that domain.
 
-**Pre-plan check:** Before creating a new domain folder, the Researcher must verify that the domain name does not match a `UnityEngine` type. If a match exists, add an alias task to the plan.
+**Pre-plan check:** Before creating a new domain folder, the Researcher must verify that the domain name does not match a `UnityEngine` type — **by checking the name against `UnityEngine` itself, not by scanning the table above.** With Unity MCP connected, `unity_reflect` resolves `UnityEngine.<DomainName>` directly; without it, search the engine reference under `docs/engine-reference/unity/`. If a match exists, add an alias task to the plan **and** add a row to the table so the next plan gets the shortcut. Consulting only the table is how `GridLayout` reached a module in the first place.
 
 ---
 
