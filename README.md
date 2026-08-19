@@ -171,7 +171,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 
 | File | Purpose |
 |------|---------|
-| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.4.0 |
+| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.5.0 |
 | `graph.json` (generated) | Living index of the codebase — do not edit by hand. Stores `{"$partition": "..."}` refs for scenes/prefabs |
 | `scenes.json` (generated) | Partition file — full `scenes[]` array, written atomically alongside `graph.json` |
 | `prefabs.json` (generated) | Partition file — full `prefabs[]` array, written atomically alongside `graph.json` |
@@ -250,14 +250,39 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 ## Knowledge Graph
 
-`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.4.0). When enabled (default in
+`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.5.0). When enabled (default in
 `/setup-project`), the graph indexes every class, interface, event, installer, scope, asmdef, scene,
 prefab, **method**, and **call edge**. Graph-aware commands across planning, implementation,
 fix/debug, investigation, migration, and audit/review pipelines run a Step 0 graph preload —
 reading this graph instead of scanning files from scratch, and falling back to a file scan only
 when the graph is stale (> 24h), empty, or disabled.
 
-**v1.3.0 partition architecture** (unchanged in v1.4.0)**:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
+**v1.3.0 partition architecture** (unchanged since)**:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
+
+**v1.5.0 — a scope's parent is resolved from code, and an unresolved one says so:**
+
+- A `LifetimeScope`'s parent reaches VContainer by **two** routes, and the graph now reads both.
+  `ParentReference.Create<T>()` in `Awake()` is read by `csharp_extractor.py`; the serialized
+  `parentReference.TypeName` on the prefab is read by the MCP extractor. Both end in the same
+  runtime call (`GetRuntimeParent()` → `Find(parentReference.Type)`), so neither is "the real one" —
+  but **code wins on conflict**, because `Create<T>()` overwrites the whole struct at runtime and a
+  differing serialized value is therefore dead config, not a competing answer. `parent_source`
+  records which route answered.
+- **An unresolved parent is never a bare `null` any more.** It carries
+  `parent_unresolved_reason`: `mcp-extraction-absent` (the Inspector route was never read — Unity
+  was not connected) or `no-parent-declared` (both routes read, neither named a parent —
+  deliberately ambiguous, since it fits a genuine root scope *and* a parent assigned indirectly).
+  `/knowledge-graph scope-tree` prints the reason and the route.
+- **Why this was not cosmetic:** `scope-tree` used to render a null parent as `(root)`, turning
+  "the extractor could not resolve this" into the printed assertion "this scope is a root scope".
+  A scope wrongly reported as root looks exactly like the failure a `GameScope.Configure()` guard
+  exists to catch — a second container, a second `IEventBus`, publishers and subscribers on
+  different buses, and every test still green. The resolution lives in the C# extractor rather than
+  the MCP one for the same reason: in the MCP extractor a `--full` build with the Editor closed
+  would still emit that bare null.
+- `schema_version` moved to **1.5.0** *and* `EXTRACTION_VERSION` to **3** — the exception, not the
+  rule (see below): `parent` widened to accept `null`, two fields were added (shape), and the same
+  input file now yields a different record (meaning).
 
 **v1.4.0 — extraction semantics versioning and a disk↔graph reconciliation net:**
 
@@ -294,7 +319,7 @@ when the graph is stale (> 24h), empty, or disabled.
 | `/knowledge-graph publishers <E>` | List event publishers |
 | `/knowledge-graph subscribers <E>` | List event subscribers |
 | `/knowledge-graph registrations <T>` | Which installer registers a type |
-| `/knowledge-graph scope-tree` | Full VContainer scope hierarchy |
+| `/knowledge-graph scope-tree` | Full VContainer scope hierarchy — with `parent_source` and, when a parent is unresolved, the reason instead of a bare `null` |
 | `/knowledge-graph prefab <P>` | Prefab components and variant status |
 | `/knowledge-graph violations` | Print architecture errors and warnings |
 | `/knowledge-graph diff` | Compare current graph with last backup |
