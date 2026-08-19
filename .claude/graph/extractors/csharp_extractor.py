@@ -386,6 +386,33 @@ def _first_arg_identifier(inv, src):
     return _node_text(idn, src) if idn else None
 
 
+def _resolve_concrete(inv, src, symbols):
+    """Argument-side concrete type for RegisterInstance: `new Foo(..)` then field/param symbol."""
+    return _first_arg_new_type(inv, src) or symbols.get(_first_arg_identifier(inv, src), "") or ""
+
+
+def _as_chain(inv, src, hops=8):
+    """Exposed service from a trailing chain: `.As<IBar>()` / `.AsImplementedInterfaces()`.
+    Walks UP through parents because `_detect_member` only ever sees one invocation at a
+    time; the chained call is a member_access_expression on this invocation's own result.
+    First `.As<T>()` wins -> always a single STRING (Chosen Approach decision 2)."""
+    node = inv
+    for _ in range(hops):
+        ma = node.parent
+        if ma is None or ma.type != "member_access_expression":
+            return ""
+        outer = ma.parent
+        if outer is None or outer.type != "invocation_expression":
+            return ""
+        m, ta = _member_name_and_typearg(ma, src)
+        if m == "As" and ta:
+            return ta
+        if m == "AsImplementedInterfaces":
+            return "AsImplementedInterfaces"      # matches csharp-extractor.sh:379
+        node = outer
+    return ""
+
+
 def _detect_member(member_body, src, symbols, registrations, pub_sub):
     PUBSUB = {"Publish", "Subscribe", "Unsubscribe"}
     REG = {"Register", "RegisterInstance", "RegisterComponent", "RegisterEntryPoint", "RegisterComponentInHierarchy"}
@@ -407,14 +434,29 @@ def _detect_member(member_body, src, symbols, registrations, pub_sub):
             if ev:
                 pub_sub.append({"action": method, "event": ev})
         elif method in REG:
-            t = type_arg
-            if not t and method == "RegisterInstance":
-                t = _first_arg_new_type(inv, src) or symbols.get(_first_arg_identifier(inv, src), "")
-            reg = {"type": t or "", "as": "", "lifetime": ""}   # never skip
-            if not t:
-                reg["unresolved"] = True
-                reg["confidence"] = "AMBIGUOUS"   # D3
-            registrations.append(reg)
+            chained = _as_chain(inv, src)
+            if method == "RegisterInstance":
+                concrete = _resolve_concrete(inv, src, symbols)
+                if concrete:
+                    reg = {"type": concrete,
+                           "as": chained or (type_arg if type_arg and type_arg != concrete else ""),
+                           "lifetime": ""}                    # lifetime enum: see Chosen Approach
+                elif type_arg:
+                    # ONLY place interface_only is ever set: RegisterInstance<IFoo>(opaqueExpr).
+                    reg = {"type": type_arg, "as": chained, "lifetime": "",
+                           "interface_only": True, "confidence": "INFERRED"}
+                else:
+                    reg = {"type": "", "as": chained, "lifetime": "",
+                           "unresolved": True, "confidence": "AMBIGUOUS"}
+            elif type_arg:
+                # Register/RegisterComponent/RegisterEntryPoint/RegisterComponentInHierarchy:
+                # the generic slot IS the concrete. Full-strength claim -> NO interface_only,
+                # so INSTALLER_MISSING_CLASS keeps biting on Register<UnknownClass>(...).
+                reg = {"type": type_arg, "as": chained, "lifetime": ""}
+            else:
+                reg = {"type": "", "as": chained, "lifetime": "",
+                       "unresolved": True, "confidence": "AMBIGUOUS"}
+            registrations.append(reg)   # never skip
 
 
 def _class_field_symbols(cls_node, src):

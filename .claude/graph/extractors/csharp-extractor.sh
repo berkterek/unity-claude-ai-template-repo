@@ -357,46 +357,136 @@ except Exception:
 
 results = []
 
+# Field-type map keyed by NAME (not type) so FIELD_TYPES.get(ident) resolves.
+# dict(re.findall(...)) would key by type and make every lookup miss.
+FIELD_TYPES = {name: typ for typ, name in re.findall(
+    r'(?:private|protected|public|internal|readonly|static|\s)+'
+    r'([A-Za-z0-9_<>\.]+)\s+(_?[a-zA-Z][A-Za-z0-9_]*)\s*[;=]', text)}
+
+# Spans consumed by Form 1b/1c so Form 1's generic regex does not also match them.
+consumed_starts = set()
+
+def _chain_as(pos):
+    """Trailing `.As<T>()` / `.AsImplementedInterfaces()` for the statement starting at `pos`.
+
+    Shared by Form 1b/1c and Form 1 so the precedence rule is implemented in ONE place.
+    Bounded at the statement terminator `;` — an unbounded window reads the NEXT
+    statement's chain and mis-assigns it (see the boundary note in Form 1).
+    First `.As<T>()` wins -> always a single STRING, matching the tree-sitter `_as_chain`.
+    """
+    tail = text[pos:pos + 400]
+    _end = tail.find(";")
+    if _end != -1:
+        tail = tail[:_end]
+    hits = re.findall(r'\.As<([A-Za-z0-9_]+)>', tail)
+    if hits:
+        return hits[0]
+    if ".AsImplementedInterfaces()" in tail:
+        return "AsImplementedInterfaces"
+    return ""
+
+# Form 1b: builder.RegisterInstance<IFoo>(new Foo(...))
+for m in re.finditer(
+    r'builder\.RegisterInstance<([A-Za-z0-9_]+)>\s*\(\s*new\s+([A-Za-z0-9_]+)',
+    text
+):
+    consumed_starts.add(m.start())
+    # An explicit .As<T>() outranks the generic interface arg — Task 2 step 7, and it is
+    # what the tree-sitter side already does (`chained or type_arg`). Without this the two
+    # extractors DIVERGE on RegisterInstance<IFoo>(new Foo()).As<IBar>(): fallback said
+    # IFoo, tree-sitter said IBar. Caught in final review; the rule was documented below
+    # but never implemented here.
+    results.append({
+        "type": m.group(2), "as": _chain_as(m.end()) or m.group(1),
+        "lifetime": "Singleton", "scope": ""
+    })
+
+# Form 1c: builder.RegisterInstance<IFoo>(_fooField)
+for m in re.finditer(
+    r'builder\.RegisterInstance<([A-Za-z0-9_]+)>\s*\(\s*(_?[a-zA-Z][A-Za-z0-9_]*)\s*\)',
+    text
+):
+    if m.start() in consumed_starts:
+        continue
+    consumed_starts.add(m.start())
+    iface, ident = m.group(1), m.group(2)
+    concrete = FIELD_TYPES.get(ident, "")
+    chained = _chain_as(m.end())     # explicit chain outranks the generic arg — see Form 1b
+    if concrete:
+        results.append({"type": concrete, "as": chained or iface, "lifetime": "Singleton", "scope": ""})
+    else:
+        # Mirrors Task 1 step 7 (tree-sitter side): the ONLY interface_only site
+        # in this extractor. Do NOT reuse Form 2's name-guessing heuristic here —
+        # the generic argument is strictly better information than a de-underscored
+        # identifier guess.
+        results.append({"type": iface, "as": "", "lifetime": "Singleton",
+                        "scope": "", "interface_only": True, "confidence": "INFERRED"})
+
 # Form 1: generic  builder.Register<Type>(Lifetime.X)
+# `as` is normalised to a STRING throughout (was a list-or-string). schema.json:177
+# types `as` as string, and knowledge-graph.md:139 compares it as a scalar (`.as == $name`),
+# so a list has never matched any consumer. Task 1's tree-sitter `_as_chain` also takes
+# only the first link, so first-wins is the agreed rule on both sides. Dropping the rest
+# loses no information any consumer could ever see.
+# Precedence: an explicit .As<T>() chain still wins over a generic interface argument on
+# a RegisterInstance<T>(...) call — that shape is already routed through Form 1b/1c above
+# and skipped here via consumed_starts, so this loop only ever sees the chain for those.
+# TODO(parity): RegisterInstance<IFoo>(new Foo()).As<IBar>() — which of IFoo/IBar belongs
+# in `as` is unresolved; no such call site exists in either repo to arbitrate it. Current
+# behaviour (explicit chain wins) is kept, matching Task 1's tree-sitter side.
 for m in re.finditer(
     r'builder\.(Register(?:Instance|Component(?:InHierarchy)?)?)'
     r'<([A-Za-z0-9_]+)>'
     r'(?:[^;(]*\(\s*Lifetime\.(\w+)\s*\))?',
     text
 ):
+    if m.group(1) == "RegisterInstance" and m.start() in consumed_starts:
+        continue
     reg = {
         "type": m.group(2),
-        "as": [],
+        "as": "",
         "lifetime": m.group(3) or "Singleton",
         "scope": ""
     }
-    tail = text[m.end():m.end()+400]
-    # Collect all .As<T>() in the chain
-    as_matches = re.findall(r'\.As<([A-Za-z0-9_]+)>', tail[:300])
-    if as_matches:
-        reg["as"] = as_matches if len(as_matches) > 1 else as_matches[0]
-    elif ".AsImplementedInterfaces()" in tail[:200]:
-        reg["as"] = "AsImplementedInterfaces"
+    # Bound the chain scan at the STATEMENT terminator, not at a fixed character count.
+    # Without the `;` cut, a chainless `Register<Bar>(...)` immediately followed by a chained
+    # `Register<Baz>(...).As<IBaz>()` reads IBaz out of the NEXT statement and reports
+    # {"type":"Bar","as":"IBaz"} — wrong data in the very key this plan makes load-bearing,
+    # and a parity break against the tree-sitter side, which correctly emits "". Reproduced
+    # during v4 implementation; found by Task 8's probe construction.
+    reg["as"] = _chain_as(m.end())   # same helper as Form 1b/1c — one implementation of the rule
     results.append(reg)
 
 # Form 2: non-generic  builder.RegisterInstance(someVar)
+# Consult the field-type map before falling back to the name guess; keep "inferred": True
+# on the guessed path so its low confidence stays visible. No interface_only here — there
+# is no interface argument in play for this form.
 for m in re.finditer(
     r'builder\.RegisterInstance\(([A-Za-z0-9_\.]+)\)',
     text
 ):
     arg = m.group(1)
-    # Infer type from variable name: strip leading _ and lowercase
-    type_name = arg.lstrip('_')
-    type_name = type_name[0].upper() + type_name[1:] if type_name else arg
-    reg = {"type": type_name, "as": "", "lifetime": "Singleton", "scope": "", "inferred": True}
+    concrete = FIELD_TYPES.get(arg, "")
+    if concrete:
+        reg = {"type": concrete, "as": "", "lifetime": "Singleton", "scope": ""}
+    else:
+        # Infer type from variable name: strip leading _ and uppercase first char.
+        type_name = arg.lstrip('_')
+        type_name = type_name[0].upper() + type_name[1:] if type_name else arg
+        reg = {"type": type_name, "as": "", "lifetime": "Singleton", "scope": "", "inferred": True}
     results.append(reg)
 
-# Deduplicate by type (first occurrence wins)
+# Deduplicate by (type, as) pair, not type alone — two interfaces backed by the same
+# concrete (e.g. RegisterInstance<IReader>(_store) and RegisterInstance<IWriter>(_store))
+# must both survive. `as` is always a string now, so the key needs no json.dumps wrapper.
+# Note: Task 1's tree-sitter path has no dedup at all, so this change reduces (does not
+# create) divergence between the two extractors.
 seen = set()
 deduped = []
 for r in results:
-    if r["type"] not in seen:
-        seen.add(r["type"])
+    k = (r["type"], r.get("as", ""))
+    if k not in seen:
+        seen.add(k)
         deduped.append(r)
 print(json.dumps(deduped))
 PYEOF
