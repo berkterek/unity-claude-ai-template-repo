@@ -92,6 +92,7 @@ def run_consistency(g):
 
     # Installer references non-existent class
     unresolved_registrations = 0
+    interface_only_registrations = 0
     vcontainer = codebase.get("vcontainer", {})
     for installer in vcontainer.get("installers", []):
         for reg in installer.get("registrations", []):
@@ -100,6 +101,15 @@ def run_consistency(g):
             # dangling — never flag them as INSTALLER_MISSING_CLASS.
             if reg.get("unresolved") is True:
                 unresolved_registrations += 1
+                continue
+            # RegisterInstance<IFoo>(opaqueExpr) — only a generic interface arg was
+            # recoverable. Known-incomplete, not dangling. Set by Task 1 on that ONE
+            # shape; a plain Register<Foo>() never carries it, so it still gets
+            # checked below. Deliberately NOT "name is a known interface" — that
+            # would mask a genuinely deleted implementation, which is exactly
+            # Defect 0's failure mode.
+            if reg.get("interface_only") is True:
+                interface_only_registrations += 1
                 continue
             cls_name = reg.get("class", "") or reg.get("type", "")
             if cls_name and cls_name not in class_names:
@@ -114,6 +124,14 @@ def run_consistency(g):
         print(
             f"graph_validate: {unresolved_registrations} unresolved registration(s) "
             f"(RegisterInstance with unresolvable variable type) — known-incomplete, not dangling",
+            file=sys.stderr,
+        )
+
+    if interface_only_registrations:
+        print(
+            f"graph_validate: {interface_only_registrations} interface-only registration(s) "
+            f"(RegisterInstance<IFoo> with an unresolvable argument) — known-incomplete, "
+            f"not dangling",
             file=sys.stderr,
         )
 
