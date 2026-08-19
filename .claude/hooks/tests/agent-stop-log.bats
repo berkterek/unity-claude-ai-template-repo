@@ -16,11 +16,16 @@ _run_hook() {
         | bash $HOOK
 }
 
-@test "committer stop deletes gate-cleared" {
+# This used to assert the opposite — that a committer stop DELETES gate-cleared.
+# That behaviour was removed: it assumed committer is always the final pipeline step,
+# and /orchestrate commits after every phase and then continues, so the deletion tore
+# the gate down mid-pipeline. The assertion is inverted rather than deleted, so the rm
+# cannot come back unnoticed. Rationale: CLAUDE.md → Subagent Lifecycle Hooks.
+@test "committer stop does NOT delete gate-cleared (gate lifecycle is not this hook's)" {
     touch "$UNITY_HOOK_STATE_DIR/gate-cleared"
     run _run_hook "committer"
     [ "$status" -eq 0 ]
-    [ ! -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
+    [ -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
 }
 
 @test "non-committer stop does not delete gate-cleared" {
@@ -34,6 +39,7 @@ _run_hook() {
     rm -f "$UNITY_HOOK_STATE_DIR/gate-cleared"
     run _run_hook "committer"
     [ "$status" -eq 0 ]
+    [ ! -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
 }
 
 @test "committer stop writes subagent-log entry" {

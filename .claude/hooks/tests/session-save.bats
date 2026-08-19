@@ -13,7 +13,10 @@ teardown() {
     rm -rf "$UNITY_HOOK_STATE_DIR"
 }
 
-@test "session-save preserves gate-cleared (lifecycle managed by agent-stop-log and session-restore)" {
+# agent-stop-log.sh was named here as a gate-lifecycle owner. It no longer touches gate
+# state at all (see agent-stop-log.bats), so the owners are the pipeline step that opened
+# the gate, the 45-minute TTL, and session-restore.sh at SessionStart.
+@test "session-save preserves gate-cleared (lifecycle owned by the opening pipeline and session-restore)" {
     run bash .claude/hooks/session-save.sh < /dev/null
     [ "$status" -eq 0 ]
     [ -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
