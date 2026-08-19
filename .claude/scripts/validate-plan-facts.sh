@@ -378,7 +378,21 @@ done < <(_declared_subjects '\.cs$')
 echo ""
 echo "--- Plan Facts Validation ---"
 echo "files scanned  : ${#FILES[@]}"
-echo "tasks checked  : $CHECKED   (new: $NEW, edit: $EDIT, test-exempt: $EXEMPT)"
+# `.asmdef` subjects are collected as owning-assembly DATA (ALL_ASMDEF_PATHS), never
+# iterated as tasks — the task loop runs over `\.cs$` subjects only. That is deliberate:
+# an .asmdef task has no Callers/Wiring to cross-verify. But it means a module whose tasks
+# are ALL .asmdef reports "tasks checked: 0", which reads as "the parser missed something"
+# when the truth is "there was nothing of the checkable kind here". Say so, rather than
+# leaving a bare 0 to be misread — a count that understates what it looked at is the same
+# class of wrong evidence as a receipt that understates the rule it enforced.
+# The "tasks checked  : N" prefix is load-bearing (validate-plan-facts.bats asserts it);
+# the note is appended, never substituted.
+ASMDEF_COUNT=$(printf '%s' "$ALL_ASMDEF_PATHS" | grep -c . || true)
+ASMDEF_NOTE=""
+if [ "${ASMDEF_COUNT:-0}" -gt 0 ]; then
+    ASMDEF_NOTE="   [+$ASMDEF_COUNT .asmdef subject(s) — assembly-ownership data, not fact-checked here]"
+fi
+echo "tasks checked  : $CHECKED   (new: $NEW, edit: $EDIT, test-exempt: $EXEMPT)$ASMDEF_NOTE"
 echo "duplicate-type : checked $DUP_CHECKED task(s) against ${REPO_ROOT} (${CANDIDATE_CS_COUNT} candidate file(s) found)"
 echo "cross-verified : callers $CALLERS_OK, wiring $WIRING_SVC_OK service task(s)"
 echo "presence-only  : callers $CALLERS_PRESENCE (task-ID/prose references — NOT machine-verified)"
@@ -394,8 +408,15 @@ fi
 
 if [ "$CHECKED" -eq 0 ]; then
     echo "result         : NO TASKS FOUND — this is NOT a pass."
-    echo "                 Either the plan declares no script paths, or the parser"
-    echo "                 missed them. Verify by hand before treating this as green."
+    if [ "${ASMDEF_COUNT:-0}" -gt 0 ]; then
+        echo "                 This plan declares $ASMDEF_COUNT .asmdef subject(s) and no .cs task,"
+        echo "                 so there was nothing of the checkable kind. Adding full paths to the"
+        echo "                 .asmdef lines will NOT change this — the task loop filters on .cs,"
+        echo "                 not on path form. Verify those tasks by hand."
+    else
+        echo "                 Either the plan declares no script paths, or the parser"
+        echo "                 missed them. Verify by hand before treating this as green."
+    fi
     exit 0
 fi
 
