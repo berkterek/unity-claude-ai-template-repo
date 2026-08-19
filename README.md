@@ -171,7 +171,7 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 
 | File | Purpose |
 |------|---------|
-| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.6.0 |
+| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.7.0 |
 | `graph.json` (generated) | Living index of the codebase — do not edit by hand. Stores `{"$partition": "..."}` refs for scenes/prefabs |
 | `scenes.json` (generated) | Partition file — full `scenes[]` array, written atomically alongside `graph.json` |
 | `prefabs.json` (generated) | Partition file — full `prefabs[]` array, written atomically alongside `graph.json` |
@@ -250,7 +250,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 ## Knowledge Graph
 
-`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.6.0). When enabled (default in
+`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.7.0). When enabled (default in
 `/setup-project`), the graph indexes every class, interface, event, installer, scope, asmdef, scene,
 prefab, **method**, and **call edge**. Graph-aware commands across planning, implementation,
 fix/debug, investigation, migration, and audit/review pipelines run a Step 0 graph preload —
@@ -258,6 +258,31 @@ reading this graph instead of scanning files from scratch, and falling back to a
 when the graph is stale (> 24h), empty, or disabled.
 
 **v1.3.0 partition architecture** (unchanged since)**:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
+
+**v1.7.0 — `.AsImplementedInterfaces()` registrations are findable by interface name:**
+
+- That call names no type, so the extractor stores the literal string `"AsImplementedInterfaces"`
+  in `as`. A lookup by interface therefore returned **nothing** for every service registered the
+  way `rules/bootstrap-pattern.md` *mandates* — the same failure as the old name-suffix installer
+  test, one layer down: the convention the project is required to follow was the one the graph
+  could not answer questions about. The builder now expands the placeholder into `as_resolved`
+  from the concrete type's own **and inherited** `implements` (a base-chain walk across files,
+  which only the global builder pass can do), and `/knowledge-graph registrations <IFoo>` matches it.
+- **`as` is not rewritten.** An explicit `.As<IEventBus>()` is a statement of intent; a wildcard
+  that happens to cover `IEventBus` is a side effect. Collapsing the two would destroy a real
+  distinction and break the single-string contract other consumers rely on.
+- **Every expansion is marked.** `as_resolution` is `full` only when a concrete type was named and
+  the whole base chain was walkable; otherwise `partial` plus `as_resolution_reason`
+  (`type-unresolved`, `class-not-in-graph`, `base-not-in-graph`). A partial list is still emitted —
+  it beats the empty one it replaces — and the marker is what stops it reading as exhaustive.
+- Expect `IDisposable`/`IInitializable`/`ITickable` to match nearly every service. That is correct,
+  not noise: the idiom genuinely registers them. A filter hiding VContainer lifecycle interfaces
+  from that query would be a lie.
+- Also in this release: `registrationEntry` became a shared schema definition, so **scope**
+  registrations are declared at all (`GameScope`'s `RegisterComponent` calls were undeclared), and
+  `lifetime`'s description now says the truth — the extractor hardcodes `""` in every branch and
+  never reads the `Lifetime` argument, so the field is not the registered lifetime today.
+- `schema_version` **1.7.0**, `EXTRACTION_VERSION` **5**.
 
 **v1.6.0 — three fields that were confidently wrong:**
 

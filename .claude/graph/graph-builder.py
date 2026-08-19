@@ -74,10 +74,15 @@ def log(msg, quiet=False):
 #       of from the first publisher's file, declared-but-unreferenced events now appear at all,
 #       and installer detection is structural (an Install* method taking IContainerBuilder)
 #       rather than a name suffix, so AppModules/SceneModules stop being invisible.
+#   5 — .AsImplementedInterfaces() registrations expand into as_resolved, so a lookup by
+#       interface name finds them. `as` keeps the literal placeholder (an explicit .As<T>() is a
+#       statement of intent; a wildcard that happens to cover T is a side effect), and every
+#       expansion carries as_resolution full/partial so an incomplete list is never read as
+#       exhaustive.
 # Usually this is bumped WITHOUT schema_version, because the shape is unchanged and only the
-# meaning moves. Versions 3 and 4 are both exceptions — each also added fields — so
-# schema_version moved with them (1.5.0, then 1.6.0). Bumping both is not the default.
-EXTRACTION_VERSION = 4
+# meaning moves. Versions 3, 4 and 5 are all exceptions — each also added fields — so
+# schema_version moved with them (1.5.0, 1.6.0, 1.7.0). Bumping both is not the default.
+EXTRACTION_VERSION = 5
 
 
 def _stored_extraction_version(output_path):
@@ -575,6 +580,98 @@ def resolve_implementers(interfaces, classes):
     return list(iface_map.values())
 
 
+_AS_WILDCARD = "AsImplementedInterfaces"
+
+
+def resolve_as_implemented(installers, scopes, classes):
+    """Expand `.AsImplementedInterfaces()` into the interfaces it actually registers.
+
+    The extractor stores the literal string "AsImplementedInterfaces" in `as`, because that call
+    names no type. So `/knowledge-graph registrations IEventBus` returned nothing for every
+    service registered the house way — and `rules/bootstrap-pattern.md` MANDATES that way
+    (Card 1's RIGHT block, plus the rule that it "covers IInitializable, IDisposable, ITickable
+    automatically"). Same failure as the old name-suffix installer test: the convention the
+    project is required to follow was the one the graph could not see.
+
+    `as` is deliberately NOT overwritten. It is contractually a single string, and the
+    distinction it carries is real: an explicit `.As<IEventBus>()` is a statement of intent,
+    while a wildcard that happens to include IEventBus is a side effect. The resolved list lands
+    in `as_resolved` alongside it.
+
+    Resolution is never assumed complete. `as_resolution` is "full" only when a concrete type was
+    named AND its whole base chain was walkable; otherwise it is "partial" with
+    `as_resolution_reason`:
+
+      type-unresolved   the registration named no concrete type (e.g.
+                        `RegisterComponent(_x).As<...>()` with an opaque argument), so there is
+                        nothing to look up.
+      class-not-in-graph the concrete type is not among classes[] — a third-party or generated
+                        type, or a genuine extraction miss.
+      base-not-in-graph  the base chain left the graph partway up, so interfaces declared on an
+                        unseen ancestor are missing from the list.
+
+    A partial list is still emitted: it is strictly better than the empty one it replaces, and the
+    marker is what stops it being read as exhaustive.
+    """
+    class_by_name = {}
+    for c in classes:
+        n = c.get("name")
+        if not n:
+            continue
+        prev = class_by_name.get(n)
+        # Same tie-break as resolve_call_targets: prefer the non-test declaration.
+        if prev is None or (_is_test_file(prev.get("file")) and not _is_test_file(c.get("file"))):
+            class_by_name[n] = c
+
+    def _interfaces_of(type_name):
+        """Own + inherited interfaces. Walks the first non-interface base across files, which is
+        only possible in this global pass — the per-file extractor sees one class at a time.
+        Depth cap doubles as the cycle guard, exactly as _field_type does."""
+        found, seen, name, complete = [], set(), type_name, True
+        for _ in range(8):
+            if not name or name in seen:
+                break
+            seen.add(name)
+            cls = class_by_name.get(name)
+            if cls is None:
+                complete = False           # chain left the graph
+                break
+            for i in cls.get("implements") or []:
+                if i not in found:
+                    found.append(i)
+
+            ifaces = set(cls.get("implements") or [])
+            name = next((b for b in (cls.get("base_types") or []) if b not in ifaces), None)
+        return found, complete
+
+    expanded = 0
+    for holder in list(installers or []) + list(scopes or []):
+        for reg in holder.get("registrations") or []:
+            if reg.get("as") != _AS_WILDCARD:
+                continue
+            concrete = reg.get("type") or ""
+            if not concrete:
+                reg["as_resolved"] = []
+                reg["as_resolution"] = "partial"
+                reg["as_resolution_reason"] = "type-unresolved"
+                continue
+            if concrete not in class_by_name:
+                reg["as_resolved"] = []
+                reg["as_resolution"] = "partial"
+                reg["as_resolution_reason"] = "class-not-in-graph"
+                continue
+            ifaces, complete = _interfaces_of(concrete)
+            reg["as_resolved"] = ifaces
+            if complete:
+                reg["as_resolution"] = "full"
+                reg.pop("as_resolution_reason", None)
+            else:
+                reg["as_resolution"] = "partial"
+                reg["as_resolution_reason"] = "base-not-in-graph"
+            expanded += 1
+    return expanded
+
+
 def _is_test_file(path):
     p = (path or "").replace("\\", "/")
     if "/Tests/" in p or "/Test/" in p:
@@ -1021,7 +1118,7 @@ def assemble_graph(
 ):
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
-        "schema_version": "1.6.0",
+        "schema_version": "1.7.0",
         "generated_at": now,
         "generator": f"graph-builder.py@{git_sha}",
         "extraction_version": EXTRACTION_VERSION,
@@ -1299,6 +1396,14 @@ def main():
     if args.mode == "full":
         retained_scopes = []
     all_scopes = scope_merge(retained_scopes, new_scopes, mcp_scope_parents)
+
+    # Runs AFTER installers and scopes are merged and over ALL of them, not just the re-extracted
+    # ones: a registration's resolution depends on a class that may live in a file this build did
+    # not touch, so a retained entry's as_resolved can go stale when that class changes. Global
+    # every build, same reasoning as resolve_call_targets.
+    as_expanded = resolve_as_implemented(all_installers, all_scopes, all_classes)
+    if as_expanded:
+        log(f"AsImplementedInterfaces: expanded {as_expanded} registration(s)", quiet)
 
     # ── Call edges
     existing_calls = (existing_graph.get("codebase", {}) or {}).get("calls", []) or []

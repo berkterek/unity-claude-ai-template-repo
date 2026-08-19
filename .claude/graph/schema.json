@@ -348,26 +348,7 @@
         "registrations": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string"
-              },
-              "as": {
-                "type": "string"
-              },
-              "lifetime": {
-                "type": "string",
-                "enum": [
-                  "Singleton",
-                  "Scoped",
-                  "Transient"
-                ]
-              },
-              "scope": {
-                "type": "string"
-              }
-            }
+            "$ref": "#/definitions/registrationEntry"
           }
         }
       }
@@ -407,6 +388,12 @@
             "mcp-extraction-absent"
           ],
           "description": "Present only when parent is null. 'mcp-extraction-absent' = the Inspector route was never read (Unity not connected). 'no-parent-declared' = both routes were read and neither named a parent; ambiguous by nature \u2014 fits a real root scope AND a parent assigned indirectly."
+        },
+        "registrations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/registrationEntry"
+          }
         }
       }
     },
@@ -863,6 +850,61 @@
         },
         "warning_message": {
           "type": "string"
+        }
+      }
+    },
+    "registrationEntry": {
+      "type": "object",
+      "description": "One builder.Register* call. Shared by installerEntry and scopeEntry \u2014 scopes carry registrations too (GameScope's RegisterComponent calls), which this schema previously did not declare at all.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Concrete type registered. Empty when the argument was opaque (e.g. RegisterComponent(_field)); see `unresolved`."
+        },
+        "as": {
+          "type": "string",
+          "description": "Exposed service from the trailing chain. Either an interface name from .As<T>(), or the LITERAL string \"AsImplementedInterfaces\" \u2014 that call names no type, so it is a placeholder, not an interface name. Match `as_resolved` to find what it actually registers."
+        },
+        "as_resolved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Interfaces an AsImplementedInterfaces() registration actually exposes, resolved from the concrete type's own + inherited `implements`. Present only when `as` is the placeholder. Read `as_resolution` before treating it as exhaustive."
+        },
+        "as_resolution": {
+          "enum": [
+            "full",
+            "partial"
+          ],
+          "description": "full = a concrete type was named and its whole base chain was walkable. partial = the list is incomplete; see as_resolution_reason. Never absent when as_resolved is present."
+        },
+        "as_resolution_reason": {
+          "enum": [
+            "type-unresolved",
+            "class-not-in-graph",
+            "base-not-in-graph"
+          ],
+          "description": "Present only when as_resolution is partial. type-unresolved = no concrete type to look up. class-not-in-graph = the concrete type is not in classes[] (third-party/generated, or an extraction miss). base-not-in-graph = the base chain left the graph, so interfaces on an unseen ancestor are missing."
+        },
+        "lifetime": {
+          "type": "string",
+          "enum": [
+            "Singleton",
+            "Scoped",
+            "Transient",
+            ""
+          ],
+          "description": "ALWAYS the empty string today \u2014 csharp_extractor.py hardcodes \"\" in every registration branch and never reads the Lifetime argument, so `Register<T>(Lifetime.Singleton)` records \"\" just like RegisterComponent does. The three named values are reserved for when extraction populates it; until then do NOT present this field as the registered lifetime, and do not infer Transient from an empty value. Adding \"\" to the enum documents the actual output rather than leaving the schema asserting values that are never produced."
+        },
+        "scope": {
+          "type": "string"
+        },
+        "unresolved": {
+          "type": "boolean"
+        },
+        "confidence": {
+          "$ref": "#/definitions/confidence"
         }
       }
     }

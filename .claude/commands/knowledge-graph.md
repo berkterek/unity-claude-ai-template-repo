@@ -154,11 +154,42 @@ Which installer registers the given type.
 
 ```bash
 jq --arg name "<InterfaceOrClassName>" '
-  .codebase.vcontainer.installers[]
-  | select(.registrations[]? | .type == $name or .as == $name)
-  | {installer: .name, file: .file, registrations: [.registrations[] | select(.type == $name or .as == $name)]}
+  def hit: .type == $name or .as == $name or ((.as_resolved // []) | index($name) != null);
+  [ (.codebase.vcontainer.installers[]? | {holder: .name, kind: "installer", file, registrations}),
+    (.codebase.vcontainer.scopes[]?     | {holder: .name, kind: "scope",     file, registrations}) ]
+  | map(select((.registrations // [])[]? | hit))
+  | map({holder, kind, file,
+         registrations: [(.registrations // [])[] | select(hit)
+                         | {type, as, as_resolved, as_resolution, as_resolution_reason, lifetime}]})
 ' .claude/graph/graph.json
 ```
+
+**Searching by interface name works for `.AsImplementedInterfaces()` too — since extraction v5.**
+That call names no type, so `as` holds the literal string `"AsImplementedInterfaces"`; before v5 a
+lookup by interface returned nothing for every service registered the way
+`rules/bootstrap-pattern.md` mandates. The builder now expands the placeholder into `as_resolved`
+using the concrete type's own **and inherited** `implements`, and the query above matches it.
+
+`as` is deliberately left as the placeholder rather than rewritten: an explicit `.As<IEventBus>()`
+is a statement of intent, a wildcard that happens to cover `IEventBus` is a side effect. Report
+which one you found — they are not the same fact.
+
+**Check `as_resolution` before treating `as_resolved` as complete.** `full` means a concrete type
+was named and its whole base chain was walkable. `partial` comes with a reason:
+
+| `as_resolution_reason` | Means |
+|---|---|
+| `type-unresolved` | The registration named no concrete type (e.g. `RegisterComponent(_field)` with an opaque argument). Nothing to look up; `as_resolved` is empty. |
+| `class-not-in-graph` | The concrete type is not in `classes[]` — third-party or generated, or a genuine extraction miss. Worth checking which. |
+| `base-not-in-graph` | The base chain left the graph partway up, so interfaces declared on an unseen ancestor are missing from the list. What is listed is real; what is absent is unknown. |
+
+**Expect `IDisposable`, `IInitializable` and `ITickable` to match almost every service.** That is
+correct, not noise to filter: `.AsImplementedInterfaces()` genuinely registers them —
+`bootstrap-pattern.md` says so explicitly. Do **not** add a filter that hides VContainer lifecycle
+interfaces from this query; the registration exists, and a query that omits it would be lying.
+
+Prefer `/knowledge-graph implementers <IFoo>` when the question is "who implements this?" rather
+than "who registers it?" — the two answers differ whenever a type is implemented but never wired.
 
 ---
 
