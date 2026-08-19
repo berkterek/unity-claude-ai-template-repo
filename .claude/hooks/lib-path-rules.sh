@@ -182,5 +182,31 @@ Kill switch: DISABLE_HOOK_CHECK_DOMAIN_FOLDER_STRUCTURE=1"
 # unity_path_rules_summary — the POSITIVE receipt. Callers print this so that
 # "no output" can never again be mistaken for "rule was checked".
 unity_path_rules_summary() {
-    echo "checked: Scripts/ first segment in [$UNITY_ALLOWED_SCRIPTS_FOLDERS]; Games/ first segment in [$UNITY_ALLOWED_GAMES_FOLDERS]; Abstracts|Concretes domain-folder rule (rules/architecture.md)"
+    # The receipt must name every rule ACTUALLY enforced, allowlist included. It used to
+    # print only the static built-in list, so a repo with `Scripts/Simulation` declared in
+    # path-allowlist.txt got a receipt claiming the first segment had to be one of
+    # [Games Tests Editors] — while the validator was, correctly, also accepting Simulation.
+    # CLAUDE.md makes this receipt the only thing that counts as evidence ("A silent hook is
+    # NOT a compliance check … Only an explicit `checked: <rule>` receipt counts"), so a
+    # receipt that understates the rule is worse than no receipt: it is wrong evidence,
+    # presented as proof, in the one place a human is told to trust.
+    local allowed_scripts="$UNITY_ALLOWED_SCRIPTS_FOLDERS"
+    local allowed_games="$UNITY_ALLOWED_GAMES_FOLDERS"
+    local file extra_scripts="" extra_games=""
+    file="$(unity_path_allowlist_file)"
+    if [ -n "$file" ] && [ -f "$file" ]; then
+        # Same shape unity_path_is_allowlisted matches: "Scripts/<Folder>" / "Scripts/Games/<Folder>",
+        # comments and blank lines ignored.
+        extra_games=$(sed 's/#.*//' "$file" \
+            | awk '{print $1}' \
+            | sed -n 's|^Scripts/Games/\([A-Za-z0-9_.-]\{1,\}\)$|\1|p' \
+            | sort -u | tr '\n' ' ')
+        extra_scripts=$(sed 's/#.*//' "$file" \
+            | awk '{print $1}' \
+            | sed -n 's|^Scripts/\([A-Za-z0-9_.-]\{1,\}\)$|\1|p' \
+            | sort -u | tr '\n' ' ')
+    fi
+    [ -n "${extra_scripts// /}" ] && allowed_scripts="$allowed_scripts + allowlist: ${extra_scripts% }"
+    [ -n "${extra_games// /}" ]   && allowed_games="$allowed_games + allowlist: ${extra_games% }"
+    echo "checked: Scripts/ first segment in [$allowed_scripts]; Games/ first segment in [$allowed_games]; Abstracts|Concretes domain-folder rule (rules/architecture.md)"
 }
