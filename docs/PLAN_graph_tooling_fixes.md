@@ -2,7 +2,7 @@
 
 ## Complexity Assessment
 
-**Score: 0.72 — Medium** (0.65 in v1 → 0.70 in v2 → 0.72 here)
+**Score: 0.57 — Medium** (0.65 in v1 → 0.70 in v2 → 0.72 in v3 → 0.57 here)
 
 | Signal | Effect |
 |---|---|
@@ -10,18 +10,23 @@
 | The `as` key is *not* dead: `.claude/commands/knowledge-graph.md:138-139` reads it, and `csharp-extractor.sh` currently emits it as a **list** in violation of `schema.json:177` (`"as": {"type":"string"}`). Task 2 therefore also has to normalise a value type across a live consumer, not merely add patterns | +0.05 |
 | **NEW —** the tree-sitter extractor cannot read a `.As<T>()` chain at all (`_detect_member`, lines 409-417, never looks past the single invocation), so the PRIMARY extractor must gain an invocation-chain walk before any parity gate can pass | +0.02 |
 | Defect 0 adds a new post-write warning path to the build orchestrator (new stderr channel usage, `--quiet` honouring, non-fatal semantics) | +0.15 |
-| Defect 2 requires a genuinely new extraction capability (method-body `ParentReference.Create<T>()` detection) in both extractors + a merge-precedence decision | +0.20 |
+| ~~Defect 2 requires a genuinely new extraction capability (method-body `ParentReference.Create<T>()` detection)~~ — **REMOVED in v4 (grill D1)**; moved to its own ADR | ~~+0.20~~ 0 |
+| **NEW —** `EXTRACTION_VERSION` (Task 10): one constant, one comparison against the existing graph, one-time promotion of `--incremental` to `--full`. Touches the already-in-scope `graph-builder.py`, no new subsystem | +0.05 |
+| **NEW —** a real-corpus read-only validation checkpoint after Tasks 1+2 (grill D5). No new code; a recorded before/after against another repo's source | +0.00 |
 | Defect 3 is mechanical prose/schema string replacement with an explicit do-not-touch list | +0.05 |
 | No new module folder, no Unity runtime code, no VContainer registration/scene/prefab wiring, no asmdef changes | −0.10 |
 | Existing harness (`verify-graphify.sh` + `lib/assert.sh`) already provides `pass`/`fail`/`known_fail`/`assert_jq`; no test infrastructure to build | −0.05 |
 
-**Why the score moved, and by how little:** v2 already absorbed the corrected `as`-consumer premise (+0.05 over v1). This revision adds one genuinely new extraction capability to the tree-sitter side — reading the `.As<T>()` / `.AsImplementedInterfaces()` chain — because without it the parity gate the plan itself demands is unsatisfiable. It is only **+0.02** because it reuses helpers that already exist and are already correct for this shape (`_member_name_and_typearg` at line 353 returns `(method, type_arg)` for exactly the `As<T>` node form; `_walk` at line 29; `_type_name` at line 337), and because it walks *upward* through `node.parent` rather than introducing any new traversal concept. Still Medium; still one architecture, no new subsystem. Medium ⇒ two approaches proposed, one chosen and justified in `## Chosen Approach`.
+**Why the score moved in v4:** removing Task 7 (`ParentReference.Create<T>()`) takes out the single largest and least-certain signal (−0.20) and de-serialises the plan's tail; `EXTRACTION_VERSION` adds a small, well-bounded one (+0.05). Net 0.72 → 0.57. Still Medium, so the two-approaches requirement below still stands.
+
+**Why the score moved in v3, and by how little:** v2 already absorbed the corrected `as`-consumer premise (+0.05 over v1). This revision adds one genuinely new extraction capability to the tree-sitter side — reading the `.As<T>()` / `.AsImplementedInterfaces()` chain — because without it the parity gate the plan itself demands is unsatisfiable. It is only **+0.02** because it reuses helpers that already exist and are already correct for this shape (`_member_name_and_typearg` at line 353 returns `(method, type_arg)` for exactly the `As<T>` node form; `_walk` at line 29; `_type_name` at line 337), and because it walks *upward* through `node.parent` rather than introducing any new traversal concept. Still Medium; still one architecture, no new subsystem. Medium ⇒ two approaches proposed, one chosen and justified in `## Chosen Approach`.
 
 ---
 
+> **Version:** v4 — 2026-08-19 (revised after the grill recorded in `docs/decisions/2026-08-18-grill-plan-graph-tooling-fixes.md`, applying its six required edits: **D1** Task 7 (`ParentReference.Create<T>()` scope-parent extraction) deleted and moved to an ADR — it overrode stored *Limitation 18* without naming it, and it serialised the whole plan behind its riskiest task; **D2** Task 6's reconciliation unions only `("classes","interfaces")` — `enums`/`structs` are not graph node kinds at all — and the disk side is filtered by declaration kind, with step 5's `[BLOCKED]` cleared by measurement (9 missing → 0 false positives on piggy-doku); **D3** the Goal is narrowed and `as == "AsImplementedInterfaces"` is labelled a placeholder, not an interface name; **D4** new Task 10 adds `EXTRACTION_VERSION` with builder-side cache invalidation; **D5** real-corpus read-only validation moves into a new Checkpoint C1 right after Tasks 1+2, with a recorded baseline, and Task 9 becomes propagation only; **edit 6** Task 9 step 3's `[BLOCKED]` cleared by measurement. Version number gap at Task 7 is intentional — task IDs are not renumbered, so references in git history and the decision record stay valid.)
 > **Version:** v3 — 2026-08-18 (revised after second review: `interface_only` narrowed to the `RegisterInstance`-only, concrete-unresolvable case; `.As<T>()` chain reading added to the tree-sitter extractor so the parity gate is satisfiable; Task 7's search window fixed to slice from the class-declaration line; validator block re-cited as 93-118; `schema.json:12` semver rule and the `lifetime` enum non-conformance both stated correctly. Then, after the third review: Task 8's reg.4 parity compare scoped to resolved-type records with the asymmetric `RegisterInstance(SomeStatic.Opaque())` shape pinned by a new per-extractor reg.6 instead of an unsatisfiable multiset compare; Task 2's `FIELD_TYPES` comprehension inverted to key by field name, which the Form 1c lookup requires.)
 > **Status:** Active
-> **Scope:** `.claude/graph/extractors/csharp_extractor.py`, `.claude/graph/extractors/csharp-extractor.sh`, `.claude/graph/graph_validate.py`, `.claude/graph/graph-builder.py`, `.claude/graph/schema.json`, `.claude/graph/.gitignore`, `.claude/graph/test/verify-graphify.sh`, `.claude/commands/build-knowledge-graph.md`, `.claude/commands/setup-project.md`, `.claude/graph/extractors/mcp-extractor.md`, `.claude/graph/codex-validator.md`. **Python + bash tooling only — nothing under `Assets/` is touched.** No Unity C#, no scenes, no prefabs, no asmdefs.
+> **Scope (v4):** `.claude/graph/extractors/csharp_extractor.py`, `.claude/graph/extractors/csharp-extractor.sh`, `.claude/graph/graph_validate.py`, `.claude/graph/graph-builder.py`, `.claude/graph/schema.json`, `.claude/graph/.gitignore`, `.claude/graph/test/verify-graphify.sh`, `.claude/commands/build-knowledge-graph.md`, `.claude/commands/setup-project.md`, `.claude/graph/extractors/mcp-extractor.md`, `.claude/graph/codex-validator.md`. **Python + bash tooling only — nothing under `Assets/` is touched.** No Unity C#, no scenes, no prefabs, no asmdefs.
 
 ---
 
@@ -33,7 +38,7 @@ A second, quieter half of Defect 1 surfaced during review: `_detect_member` also
 
 Defect 0 is a trust problem with no reproducible root cause left: `_Framework/SaveLoadSystems/LocalSaveLoadDal.cs` and `_Framework/Editors/LogDumpOnStop.cs` existed on disk but were absent from the graph until a `--full` rebuild added them — and that `--full` run overwrote `cache/file-hashes.json`, destroying the evidence. There is currently **no reconciliation anywhere** between the files walked on disk and the files represented in the written graph, so a silent omission is undetectable until a human notices a query lying. This plan therefore does not hunt the root cause it cannot reproduce; it installs a detection net at the single write point (`graph-builder.py:1138`) so the next occurrence announces itself.
 
-Defects 3 and 2 are respectively the cheapest and the most expensive. Defect 3 is stale prose: `graph-builder.sh` no longer exists, but **nine live locations** still tell a human or an agent to run it — verified with `grep -rn "graph-builder\.sh" .claude/`, excluding the six do-not-touch occurrences and the append-only `state/subagent-log.jsonl` history entry: `build-knowledge-graph.md:23,66,82` (×3), `setup-project.md:162` (×1), `mcp-extractor.md:249` (×1), `codex-validator.md:49,69` (×2), `schema.json:5,21` (×2) = 9. That set is exactly Task 3's file list, so Task 3 step 1's census check is satisfiable. Among them is a Step 0 preflight gate at `build-knowledge-graph.md:23` that would make an agent *stop* on a healthy repo. Defect 2 is a real capability gap: `GameScope` sets its parent in code via `ParentReference.Create<AppScope>()`, and neither extractor looks inside method bodies for that, so `/knowledge-graph scope-tree` misreports `GameScope` as a root while a PlayMode test proved `GameScope.Parent == AppScope` at runtime. That is a graph limitation, not an architecture defect, and it is materially larger than the other three.
+Defects 3 and 2 are respectively the cheapest and the most expensive. Defect 3 is stale prose: `graph-builder.sh` no longer exists, but **nine live locations** still tell a human or an agent to run it — verified with `grep -rn "graph-builder\.sh" .claude/`, excluding the six do-not-touch occurrences and the append-only `state/subagent-log.jsonl` history entry: `build-knowledge-graph.md:23,66,82` (×3), `setup-project.md:162` (×1), `mcp-extractor.md:249` (×1), `codex-validator.md:49,69` (×2), `schema.json:5,21` (×2) = 9. That set is exactly Task 3's file list, so Task 3 step 1's census check is satisfiable. Among them is a Step 0 preflight gate at `build-knowledge-graph.md:23` that would make an agent *stop* on a healthy repo. Defect 2 is a real capability gap: `GameScope` sets its parent in code via `ParentReference.Create<AppScope>()`, and neither extractor looks inside method bodies for that, so `/knowledge-graph scope-tree` misreports `GameScope` as a root while a PlayMode test proved `GameScope.Parent == AppScope` at runtime. **Defect 2 is NOT addressed by this plan** — grill decision D1 removed it, because a fix here would silently override the recorded project decision *Limitation 18* ("do NOT fix this with regex/grep on `.cs` files; the fix requires an MCP extractor update"), whose factual half is itself partly outdated and needs deciding deliberately rather than inside a defect-fix plan. The accepted cost is that `scope-tree` keeps showing `GameScope` as a root — a graph limitation, not an architecture defect. Follow-up owed: an ADR per D1. See `## Out of Scope`.
 
 ---
 
@@ -43,11 +48,17 @@ Defects 3 and 2 are respectively the cheapest and the most expensive. Defect 3 i
 - [ ] The false `INSTALLER_MISSING_CLASS` on interfaces disappears without weakening detection of genuinely missing classes — in particular, a plain `Register<UnknownClass>(Lifetime.Singleton)` must still be flagged.
 - [ ] Tree-sitter and regex-fallback extractors produce the same registration shape *and the same value types* for the same input, so graph content does not depend on whether `tree_sitter` happens to be installed. This includes `.As<T>()`-chained registrations.
 - [ ] `as` is always a **string**, matching `schema.json:177`, so the live `/knowledge-graph registrations` query (`.as == $name`) can actually match it.
+- [ ] **Interface-name resolution works for the explicit forms only — this is the declared limit (grill D3).** `registrations <IFoo>` resolves through `as` for explicit `.As<IFoo>()` chains and for generic `RegisterInstance<IFoo>(…)`. It does **not** resolve for `.AsImplementedInterfaces()`, which is the dominant idiom in this project (16 uses vs 10 explicit `.As<T>()` in piggy-doku) and is mandated by `.claude/rules/bootstrap-pattern.md`. For those registrations `as` holds the literal string `"AsImplementedInterfaces"`, which is a **placeholder marking "the interface set was not enumerated" — it is not an interface name**, and no query will ever match a real interface through it. Resolving it properly needs the per-class `implements` data folded into a new *array* key (`as` is a single string per `schema.json:177`), i.e. a schema change plus a query change — a capability, not a defect fix, and therefore out of scope for the same reason D1 removed Task 7. Tracked as follow-up work.
 - [ ] Every build compares disk contents against graph contents and warns (stderr, non-fatal, `--quiet`-aware) with an explicit "run `--full`" recommendation on mismatch.
+- [ ] A change to extraction *semantics* invalidates its own stale output: `EXTRACTION_VERSION` mismatch promotes an `--incremental` run to `--full` once, automatically, in every repo (Task 10).
 - [ ] Zero live references to `graph-builder.sh` remain; the six documented do-not-touch occurrences are untouched.
-- [ ] `ParentReference.Create<XScope>()` in a scope's method body populates `scopeEntry.parent`, with MCP data still authoritative on conflict.
+- [ ] The changed extractors are validated **read-only against a real codebase** (piggy-doku source) immediately after Tasks 1+2, before the synthetic harness work — Checkpoint C1.
 - [ ] Every task is verified by a harness assertion or a stated manual command with expected output — no task rests on "it looks right".
 - [ ] All changed files are copied to `/Users/berkterek/Desktop/Github/piggy-doku-repo` and the harness passes there too.
+
+**Explicit non-goal (grill D1):** `ParentReference.Create<XScope>()` scope-parent extraction. Deferred to an ADR; see `## Out of Scope`.
+
+**Recorded honest scope of Defect 1's payoff (grill D3):** the forms it *corrects* — `RegisterInstance<I>(new C())` and `RegisterInstance<I>(_field)` — total about **five call sites** across five measured repos (1+1 piggy-doku, 1 each voxel-blast / worm-escape / nile-hole, 0 template). The larger gain is the `.As<T>()` chain reader, which gives `as` a real value at **12 call sites** where it is currently always `""` — new information rather than a correction. The justification is "wrong data in the declared primary source of truth, plus 12 empty fields", not a large call-site count.
 
 ---
 
@@ -80,6 +91,8 @@ Change `_detect_member` so the concrete type wins when one is recoverable (`new 
    **`interface_only` is therefore set in exactly one situation:** `method == "RegisterInstance"` **and** the argument-side concrete could not be resolved **and** a generic type argument was nonetheless available. It is *never* set for `Register<Foo>()`, `RegisterEntryPoint<Foo>()`, `RegisterComponent<Foo>()`, or `RegisterComponentInHierarchy<Foo>()`, because for those the generic slot *is* the concrete and the record is making a full-strength claim. *(v2 set the marker on every non-`RegisterInstance` registration, which would have disabled `INSTALLER_MISSING_CLASS` for essentially every normal call site — the exact opposite of this decision. Task 5's acceptance criteria now pin that regression with an explicit assertion.)* A record that names a class and claims resolution must still resolve. This keeps the check honest.
 
 5. **The tree-sitter extractor learns to read `.As<T>()` — it is the PRIMARY extractor and this is the same `as` key everything above turns on.** *(New in v3, in place of v2's unsatisfiable parity gate.)* `_detect_member` (lines 409-417) inspects one `invocation_expression` at a time and never looks at what the result is chained into, so `Register<Bar>(Lifetime.Singleton).As<IBar>()` loses `IBar` on the PRIMARY path while the fallback keeps it. v2's Task 2 verification demanded an empty `{type, as}` diff *including* that record, and Task 8 AC 2 made it a harness gate — a gate no implementation could pass. Rather than exempt chained records (the fallback option, which would leave the plan's own headline key divergent between extractors for no reason), Task 1 gains a small upward chain walk: from the `Register…` invocation, follow `node.parent` while it is a `member_access_expression` whose parent is an `invocation_expression`, and read `(method, type_arg)` off each link with the existing `_member_name_and_typearg`. `As` → take `type_arg`, first one wins; `AsImplementedInterfaces` → the literal string, matching `csharp-extractor.sh:379`. An explicit chain wins over a generic interface argument, mirroring the fallback's precedence (Task 2 step 7). Cost: one helper, no new traversal concept, +0.02 complexity.
+   **`as == "AsImplementedInterfaces"` is a PLACEHOLDER, not an interface name (v4, grill D3).** Both extractors write that literal for `.AsImplementedInterfaces()` registrations. It marks "the exposed interface set was not enumerated"; it is not a type name and `/knowledge-graph registrations <IFoo>` can never match through it. This matters more than it sounds: `AsImplementedInterfaces` is the **dominant** idiom here — 16 uses vs 10 explicit `.As<T>()` in piggy-doku, and `.claude/rules/bootstrap-pattern.md` mandates it — so the registration query stays blind to the majority of registrations by interface name even after this plan lands. Resolving it properly is possible (the graph already carries per-class `implements`: 11 of 51 piggy-doku classes, e.g. `SceneService → ['ISceneService','IAsyncStartable','IDisposable']`) but a class implementing three interfaces does not fit in one string, so it needs a new **array** key, a `schema.json` change, and a change to the query in `knowledge-graph.md`. That is a capability, not a defect fix — the same ground on which D1 removed Task 7 — so it is deliberately not taken here. Stated in the Goals as the declared limit.
+
    **Interaction with the `As` invocation itself:** `_walk` also hands `_detect_member` the outer `.As<IBar>()` invocation. `"As"` is not in `REG` (line 391) and not in `PUBSUB`, so it is already ignored and no duplicate record appears — verified against the current control flow, and pinned by Task 1's "record count per installer is unchanged" criterion.
 
 **Known schema non-conformance, knowingly out of scope:** `schema.json:178` constrains `lifetime` to the enum `["Singleton","Scoped","Transient"]`, but `csharp_extractor.py:413` emits `"lifetime": ""` today and Task 1's rewrite keeps doing so. **Decision: note it, do not fix it here.** Reason: making the key conditional (omit when empty) changes the emitted key set on the tree-sitter side only, which breaks the record-shape parity with `csharp-extractor.sh` that Tasks 2 and 8 exist to enforce; fixing it properly means teaching the tree-sitter path to read `Lifetime.X` from the argument list in both extractors, which is a separate capability with its own probe and its own acceptance criteria. This plan claims conformance for `as` (which it changes) and explicitly does **not** claim it for `lifetime` (which it merely carries forward unchanged). Task 1 AC states this so no reader infers otherwise.
@@ -90,21 +103,26 @@ Change `_detect_member` so the concrete type wins when one is recoverable (`new 
 
 | Phase | Task | Status | parallel_group |
 |---|---|---|---|
-| 1 | Task 1 — Concrete-type precedence + `.As<T>()` chain in `csharp_extractor.py` (`_detect_member`) | ⏳ Pending | A |
-| 1 | Task 2 — Parity fix in `csharp-extractor.sh` (Form 1 + Form 2 + `as` normalisation) | ⏳ Pending | A |
-| 1 | Task 3 — Stale `graph-builder.sh` reference sweep (docs + schema) | ⏳ Pending | A |
-| 1 | Task 4 — Nested `.claude/graph/.gitignore` self-sufficiency | ⏳ Pending | A |
-| 2 | Task 5 — Narrow `graph_validate.py` guard on `interface_only` | ⏳ Pending | B |
-| 2 | Task 6 — Disk-vs-graph reconciliation warning in `graph-builder.py` | ⏳ Pending | B |
-| 3 | Task 7 — `ParentReference.Create<T>()` scope-parent extraction (both extractors + merge precedence) | ⏳ Pending | C |
-| 4 | Task 8 — Harness assertions for Tasks 1/2/5/6/7 | ⏳ Pending | D |
-| 5 | Task 9 — Copy changed files to `piggy-doku-repo` and re-verify | ⏳ Pending | E |
+| 1 | Task 1 — Concrete-type precedence + `.As<T>()` chain in `csharp_extractor.py` (`_detect_member`) | ✅ Done | A |
+| 1 | Task 2 — Parity fix in `csharp-extractor.sh` (Form 1 + Form 2 + `as` normalisation) | ✅ Done | A |
+| 1 | Task 3 — Stale `graph-builder.sh` reference sweep (docs + schema) | ✅ Done | A |
+| 1 | Task 4 — Nested `.claude/graph/.gitignore` self-sufficiency | ✅ Done | A |
+| 1.5 | **Checkpoint C1 — Real-corpus read-only validation of Tasks 1+2 against piggy-doku source** | ✅ **PASSED 2026-08-19** | — (gate) |
+| 2 | Task 5 — Narrow `graph_validate.py` guard on `interface_only` | ✅ Done | B |
+| 2 | Task 6 — Disk-vs-graph reconciliation warning in `graph-builder.py` | ✅ Done | B |
+| 3 | ~~Task 7 — `ParentReference.Create<T>()` scope-parent extraction~~ | ❌ **REMOVED (v4, grill D1)** — moved to an ADR | — |
+| 3 | Task 10 — `EXTRACTION_VERSION` constant + builder-side cache invalidation | ✅ Done | C |
+| 4 | Task 8 — Harness assertions for Tasks 1/2/5/6/10 | ✅ Done | D |
+| 5 | Task 9 — Propagate changed files to `piggy-doku-repo` and re-verify | ⏸ **DEFERRED 2026-08-19** — user is updating that repo separately | E |
 
-**parallel_group reasoning** (structure unchanged by this revision — no task's file set moved; the `.As<T>()` chain reader added to Task 1 lands in `csharp_extractor.py`, which Task 1 already owned)
+**Task numbering:** Task 7's ID is retired, not reused, and the tasks after it keep their original numbers. Renumbering would invalidate every reference to "Task 8" / "Task 9" in this file's own history, in `docs/decisions/2026-08-18-grill-plan-graph-tooling-fixes.md`, and in git log. The new task takes the next free ID, 10.
+
+**parallel_group reasoning** (v4: group C's occupant changed — Task 7 removed, Task 10 takes its slot)
 - **A** — four distinct file sets, no shared file, no shared key. Tasks 1 and 2 both introduce the same *concept* but touch different files and neither reads the other's output.
-- **B** — sequential after A because Task 5's guard reads the `interface_only` key that Task 1 introduces, and Task 6's reconciliation must not be authored against a moving extractor. Tasks 5 and 6 touch different files (`graph_validate.py` vs `graph-builder.py`) and are mutually independent within B.
-- **C** — Task 7 writes `csharp_extractor.py` and `csharp-extractor.sh` (same files as Tasks 1 and 2) and `graph-builder.py` (same file as Task 6), so it **must** be sequential after both A and B. Two tasks writing the same file are never parallel.
-- **D** — Task 8 writes `verify-graphify.sh` and asserts on behaviour from Tasks 1, 2, 5, 6, 7; strictly last among edits.
+- **Checkpoint C1** — a hard gate, not a group. It runs after Tasks 1 and 2 are written and before anything in B starts. It is read-only and spawns no edit, so it parallelises with nothing.
+- **B** — sequential after A (and after C1) because Task 5's guard reads the `interface_only` key that Task 1 introduces, and Task 6's reconciliation must not be authored against a moving extractor. Tasks 5 and 6 touch different files (`graph_validate.py` vs `graph-builder.py`) and are mutually independent within B.
+- **C** — Task 10 writes `graph-builder.py`, the same file as Task 6, so it **must** be sequential after B. Two tasks writing the same file are never parallel.
+- **D** — Task 8 writes `verify-graphify.sh` and asserts on behaviour from Tasks 1, 2, 5, 6, 10; strictly last among edits.
 - **E** — Task 9 copies files, so it depends on *every* preceding edit task.
 
 ---
@@ -113,11 +131,11 @@ Change `_detect_member` so the concrete type wins when one is recoverable (`new 
 
 | File | Change Type | Notes |
 |---|---|---|
-| `.claude/graph/extractors/csharp_extractor.py` | Modify | Task 1 (`_detect_member`, lines 389-417, plus a new chain helper); Task 7 (scope emission near 580-583) |
-| `.claude/graph/extractors/csharp-extractor.sh` | Modify | Task 2 (Form 1 at 360-380, Form 2 at 382-392, dedup at 394-401); Task 7 (`extract_scope`, 413-456) |
+| `.claude/graph/extractors/csharp_extractor.py` | Modify | Task 1 (`_detect_member`, lines 389-417, plus a new chain helper). *(Task 7's scope emission edit removed in v4.)* |
+| `.claude/graph/extractors/csharp-extractor.sh` | Modify | Task 2 (Form 1 at 360-380, Form 2 at 382-392, dedup at 394-401). *(Task 7's `extract_scope` edit removed in v4.)* |
 | `.claude/graph/graph_validate.py` | Modify | Task 5 — narrow guard at the `INSTALLER_MISSING_CLASS` block, lines **93-118** (93-94 are the section comment and counter init; name assigned at 104, membership tested at 105) |
-| `.claude/graph/graph-builder.py` | Modify | Task 6 — new reconciliation after `atomic_write_json` (line 1138); Task 7 — `scope_merge` precedence (559-579) |
-| `.claude/graph/schema.json` | Modify | Task 3 — `description` at line 5, `generator` description at line 21; Task 7 — document `parent` provenance on `scopeEntry` (185-193) |
+| `.claude/graph/graph-builder.py` | Modify | Task 6 — new reconciliation after `atomic_write_json` (line 1138); **Task 10 — `EXTRACTION_VERSION` constant, comparison, one-time `--incremental`→`--full` promotion; metadata write near lines 813-815**. *(Task 7's `scope_merge` edit removed in v4.)* |
+| `.claude/graph/schema.json` | Modify | Task 3 — `description` at line 5, `generator` description at line 21; **Task 10 — document `extraction_version` in `metadata`, minor `schema_version` bump per the rule at `schema.json:12`**. *(Task 7's `scopeEntry` edit removed in v4.)* |
 | `.claude/graph/.gitignore` | Modify | Task 4 — add `cache/mcp-extract.json` |
 | `.claude/commands/build-knowledge-graph.md` | Modify | Task 3 — lines 23, 66, 82 |
 | `.claude/commands/setup-project.md` | Modify | Task 3 — line 162 |
@@ -245,9 +263,19 @@ elif method in REG:
 4. [ ] Add a generic-`RegisterInstance`-with-`new` pattern: `builder.RegisterInstance<IFoo>(new Foo(...))`. Today Form 1 matches this and records `IFoo`; the new pattern must extract `Foo` from the `new` expression and put `IFoo` in `as`. Order matters — this pattern must be tried **before** Form 1 consumes the same text, or Form 1's match must be skipped when the argument list starts with `new`.
 5. [ ] Add a generic-`RegisterInstance`-with-identifier pattern: `builder.RegisterInstance<IFoo>(_fooField)`. Resolve `_fooField` against a field-type map scraped from the same file with a declaration regex (e.g. `(?:private|protected|public|internal|readonly|\s)+([A-Za-z0-9_<>]+)\s+(_?[a-zA-Z][A-Za-z0-9_]*)\s*[;=]`). On a hit, `type` = declared type, `as` = `IFoo`. On a miss, fall back to `type = IFoo` with `interface_only: True` — **do not** reuse Form 2's name-guessing heuristic here, because the generic argument is strictly better information than a de-underscored identifier. This is the fallback's counterpart to Task 1 step 7, and it is likewise the **only** place this extractor sets `interface_only`.
 6. [ ] Leave Form 2 (non-generic `RegisterInstance(someVar)`, lines 382-392) behaviour intact apart from also consulting the new field-type map before falling back to the name guess; keep `"inferred": True` on the guessed path so its low confidence stays visible. Do not add `interface_only` here — there is no interface in play.
-7. [ ] Preserve the **precedence** of an explicit `.As<T>()` chain over a generic interface argument, which is now the rule on both sides (Task 1 step 6 implements the same order). **[BLOCKED — needs investigation]** if a single registration has both a generic interface arg *and* an explicit `.As<T>()` chain (`RegisterInstance<IFoo>(new Foo()).As<IBar>()`), which one belongs in `as` is a genuine product question and no such call site exists in either repo to arbitrate it. Keep the explicit chain winning (current behaviour, and now Task 1's behaviour too) and add a `# TODO(parity)` comment naming this case. Note this is only a question of *which string*, not of string-vs-list — step 3 settles the type unconditionally.
+7. [ ] Preserve the **precedence** of an explicit `.As<T>()` chain over a generic interface argument, which is now the rule on both sides (Task 1 step 6 implements the same order). **[BLOCKED — needs investigation]** if a single registration has both a generic interface arg *and* an explicit `.As<T>()` chain (`RegisterInstance<IFoo>(new Foo()).As<IBar>()`), which one belongs in `as` is a genuine product question and no such call site exists in either repo to arbitrate it. Keep the explicit chain winning (current behaviour, and now Task 1's behaviour too) and add a `# TODO(parity)` comment naming this case. Note this is only a question of *which string*, not of string-vs-list — step 3 settles the type unconditionally. **Implementation note (v4):** the chain-wins rule is now actually implemented on the fallback for Form 1b/1c too, via a single shared `_chain_as(pos)` helper that Form 1, 1b and 1c all call. Final review caught that the rule was *documented* in a comment here but never executed on the 1b/1c paths, so `RegisterInstance<IFoo>(new Foo()).As<IBar>()` gave `as="IFoo"` on the fallback and `as="IBar"` on tree-sitter — a live parity break at the exact shape this step is about. The `[BLOCKED]` above still stands: it is about whether chain-wins is the *right* rule, not about whether the two extractors agree. They now do. **This `[BLOCKED]` is deliberately kept in v4** (a reviewer flagged it; the grill's six required edits do not include it, and the grill's own "Open Questions" section is about grill branches, not about this): the *behaviour* is settled — explicit chain wins on both sides — and what stays open is only which string a shape that exists at **zero call sites in either repo** should carry. There is nothing to arbitrate it with, so the marker records honest uncertainty rather than gating anything. It does not block implementation of this step.
 8. [ ] Re-check the dedup block ("Deduplicate by type (first occurrence wins)", lines 394-401). With `type` now holding concretes, two different interfaces backed by the same concrete would collapse into one record. Dedup on the `(type, as)` pair rather than `type` alone, so `RegisterInstance<IReader>(_store)` and `RegisterInstance<IWriter>(_store)` both survive. Because `as` is now always a string (step 3), the key needs no `json.dumps` wrapper. Note that Task 1's tree-sitter path has no dedup at all, so this change also reduces (does not create) divergence.
-9. [ ] Keep the emitted key set identical to Task 1's: `type`, `as`, `lifetime`, plus optional `scope`, `inferred`, `interface_only`, `unresolved`, `confidence`.
+9. [ ] **Bound the `.As<T>()` tail scan at the statement terminator `;`, not at a fixed character
+   count.** Found during v4 implementation (while Task 8 built its probe) and confirmed by direct
+   reproduction: Form 1 scanned a fixed 400-char window forward from its own match, so a chainless
+   `Register<Bar>(...)` immediately followed by a chained `Register<Baz>(...).As<IBaz>()` read
+   `IBaz` out of the **next statement** and emitted `{"type":"Bar","as":"IBaz"}` — wrong data in the
+   key this plan makes load-bearing, and a parity break (tree-sitter correctly emits `""`). Cut the
+   tail at the first `;` before running the `.As<T>()` / `.AsImplementedInterfaces()` searches, and
+   drop the now-redundant `[:300]` / `[:200]` sub-slices. Task 8's probe deliberately orders the
+   chainless registration BEFORE the chained one so this stays pinned; reverting the fix turns
+   reg.4 red with exactly the signature above (demonstrated, not assumed).
+10. [ ] Keep the emitted key set identical to Task 1's: `type`, `as`, `lifetime`, plus optional `scope`, `inferred`, `interface_only`, `unresolved`, `confidence`.
 
 **Verification:** **(b) manual command.** Run the fallback extractor directly against the same probe file used in Task 1 (which includes an `.As<IBar>()` chain):
 ```bash
@@ -311,6 +339,48 @@ for r in results:
 - `.AsImplementedInterfaces()` handling is unchanged (still the literal string `"AsImplementedInterfaces"`, which Task 1 now emits identically), and single-`.As<T>()` output is unchanged; only the multi-`.As<T>()` case changes, from a list to its first element, per `## Chosen Approach` decision 2.
 - Dedup no longer collapses two interfaces sharing one concrete.
 - Script still exits 0 and prints valid JSON when the file has no registrations (the `print("[]")` guard at the top of the heredoc still fires).
+
+---
+
+## Checkpoint C1 — Real-Corpus Read-Only Validation (gate, immediately after Tasks 1 + 2)
+
+**New in v4 (grill D5). This is a gate, not an edit task — it writes nothing.**
+
+**Why it exists, measured.** The template repo has **no `Assets/` directory at all**: its graph contains 0 classes, 0 interfaces, 0 installers, and its only 9 `.cs` files are test fixtures. So every assertion in Tasks 1-8 runs against synthetic probes written by the same person writing the fix, encoding the same assumptions. The originating symptom — `GridModule`'s false `INSTALLER_MISSING_CLASS` — is reproducible **only** in piggy-doku, and in v3 the sole real-corpus check (Task 9) came *after* Tasks 1-8 were already marked done. That ordering failed twice during the grill session itself: a research agent's false "nothing reads the `as` key" claim was passed to the planner as verified fact, and v2's `interface_only` marker landed on every ordinary `Register<Foo>()`, which would have disabled `INSTALLER_MISSING_CLASS` for the common case. Both were assumption errors; only an independent look caught either.
+
+**Boundary — this does NOT enter the harness.** `verify-graphify.sh` stays self-contained on synthetic probes. This is plan-time evidence, not a CI gate; making the template's tests depend on another repository existing is explicitly rejected.
+
+**Steps:**
+1. [ ] Run the template's *changed* tree-sitter extractor read-only against piggy-doku's real module files. No copy, no commit, piggy-doku's `graph.json` untouched (this exact invocation was validated as executable during the grill):
+   **`--changed-files` is COMMA-separated, not space-separated** (`csharp_extractor.py:717`,
+   split at line 724). Passing a shell glob or space-joined list does **not** error — it silently
+   yields an empty file list and an empty `installers` array, which reads exactly like "no
+   registrations found". This bit during the v4 C1 run; build the list with `paste -sd,`:
+   ```bash
+   T=/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo
+   P=/Users/berkterek/Desktop/Github/piggy-doku-repo
+   M=$(find "$P/PiggyDoku/Assets/_GameFolders/Scripts/Games/Concretes" -name '*Module.cs' | paste -sd, -)
+   python3 "$T/.claude/graph/extractors/csharp_extractor.py" --changed-files "$M" \
+     | jq -c '.vcontainer.installers[] | {name, registrations}'
+   ```
+2. [ ] Compare against the **recorded baseline** — the pre-fix output captured during the grill against the *unmodified* extractor:
+   ```
+   GridModule → [{"type": "ITapResolver", "as": "", "lifetime": ""},
+                 {"type": "GridService",  "as": "", "lifetime": ""}]
+   ```
+3. [ ] Run the changed fallback extractor over the same files and diff `{type, as}` against the tree-sitter output, exactly as in Task 2's verification — but on real source rather than a probe.
+4. [ ] Do **not** modify anything in `$P`. Do **not** run `graph-builder.py` inside `$P` at this checkpoint — that is Task 9's job, and running it here would rewrite a tracked `graph.json` with a half-finished plan's output.
+5. [ ] Record the before/after in the checkpoint's completion note.
+
+**Acceptance Criteria (gate — B does not start until all pass):**
+- `GridModule`'s first record moves from `{"type":"ITapResolver","as":""}` to `{"type":"TapResolver","as":"ITapResolver"}`; the recorded baseline above is the before-state.
+- `GridService`'s **`type` is unchanged** (`GridService`) and it carries **no `interface_only`** — the generic slot is the concrete and Task 1 must not touch it. **Corrected during the v4 C1 run:** an earlier draft of this criterion said the whole record was unchanged. That was wrong — `GridModule.cs:30` is `builder.Register<GridService>(Lifetime.Singleton).AsImplementedInterfaces()`, so Task 1's chain reader correctly moves `as` from `""` to the placeholder `"AsImplementedInterfaces"`. The criterion was written from the recorded baseline without checking the call shape; C1 caught it, which is the entire reason D5 moved this checkpoint ahead of group B.
+- No record on real source has `type` matching `^I[A-Z]` where a concrete was recoverable.
+- Every `as` on real source is a JSON string.
+- No registration on real source that came from a plain `Register<T>()` carries `interface_only` — this is the v2 regression, checked against real code rather than a probe.
+- `$P` has zero modified files afterwards (`git -C "$P" status --porcelain` is empty).
+
+**If any criterion fails, Tasks 1/2 are not done** — fix them and re-run this checkpoint before starting group B.
 
 ---
 
@@ -463,7 +533,7 @@ if interface_only_registrations:
 
 ## Task 6 — Disk-vs-Graph Reconciliation Warning in `graph-builder.py`
 
-**Sequential after Task 1/2** (group B). Touches `graph-builder.py`, which Task 7 also touches — so Task 7 must follow this.
+**Sequential after Task 1/2** (group B), and after Checkpoint C1. Touches `graph-builder.py`, which Task 10 also touches — so Task 10 must follow this.
 
 **Files:**
 - `.claude/graph/graph-builder.py` (new reconciliation immediately after `atomic_write_json(graph, output_path)` at line 1138)
@@ -480,8 +550,36 @@ if interface_only_registrations:
        return os.path.relpath(os.path.realpath(p), os.path.realpath("."))
    ```
    Reuse the existing normalisation helper if `57c9340` already introduced a named one rather than adding a second; grep for `relpath` before writing.
-4. [ ] Build `graph_cs_paths` as the distinct set of `norm(source_file)` (falling back to `file`) across the written graph's `codebase.classes`, plus interfaces/enums/structs if they carry file fields — the goal is "which .cs files does the graph represent", so union every node kind that names a source file. Build `disk_cs_paths` as `{norm(p) for p in full_cs if p}`.
-5. [ ] Exclude from `disk_cs_paths` any path that legitimately contributes no node: files that exist but declare nothing the graph models. **[BLOCKED — needs investigation]** the false-positive rate here is genuinely empirical and cannot be reasoned out (e.g. a `.cs` containing only a namespace-level `delegate`, an attribute, or only `partial` continuations already attributed to another file). Measure it first: run the comparison on a healthy full build in both repos and read the resulting missing-set. If it is non-empty on a known-good graph, the warning must either subtract those categories or be gated behind a threshold — decide *after* measuring, not before.
+4. [ ] Build `graph_cs_paths` as the distinct set of `norm(source_file)` (falling back to `file`) over **exactly two** node kinds: `("classes", "interfaces")`. **Corrected in v4 (grill D2):** v3 unioned `("classes","interfaces","enums","structs")`, but **the graph has no `enums` and no `structs` arrays at all** — its node kinds are `classes`, `interfaces`, `events`, `assemblies`, `calls`, `communities`, so two of the four keys always yielded an empty list and read as if coverage existed. Do **not** add `events` either: `events[].source_file` points at the event's **publisher**, not its declaration site (`CellStateChangedEvent` is declared in `GridEvents.cs`; the graph records `GridService.cs`), so folding it in would mark the *wrong* file as covered. Build `disk_cs_paths` per step 5.
+5. [ ] **Filter the disk side by declaration kind before comparing** — `[BLOCKED]` cleared in v4 by measurement, not by reasoning. Include a disk `.cs` file only if it declares a `class` or an `interface`; anything else is a node kind the graph does not model, and comparing it produces a permanent false alarm.
+
+   **The measurement (piggy-doku, live graph):**
+
+   | | |
+   |---|---|
+   | graph nodes carrying a source file | 63 |
+   | `.cs` files on disk | 72 |
+   | **missing (disk − graph), unfiltered** | **9** |
+   | extra (graph − disk) | 0 |
+
+   All nine are node kinds the graph does not model: 4 `enum`-only (`LogTag`, `CellState`, `TapAction`, `FlowState`), 2 `struct`-only (`GridLayout`, `GridFramingEntry`), 3 `*Events.cs` declaration sites (`GridEvents`, `LevelEvents`, `LivesEvents` — invisible for the `source_file` reason in step 4). So v3's own verification gate ("a healthy build must be SILENT") **would have failed as written**.
+
+   **The filter was then validated on the same corpus:** 63 candidate files after filtering = 63 graph class/interface files, **0 false positives**, and none of the 9 excluded files contains the word `class` or `interface` anywhere — so on this corpus the regex is not silently dropping a declaring file either. **It still catches the bug it exists for:** `LocalSaveLoadDal.cs` and `LogDumpOnStop.cs`, the two files that went silently missing, both declare classes.
+
+   **Second failure direction, found in v4 end-to-end verification — the regex can ALSO
+   over-match.** A file whose only mention of `class` sits in a **comment** (`// class GhostThing
+   — see below`) or in a string literal passed the declaration test, landed on the disk side,
+   matched no graph node, and raised `GRAPH_DISK_MISMATCH` **on a healthy build** — the exact false
+   alarm this task's gate forbids. Reproduced in a scratch project, then fixed by stripping
+   comments and string/char literals before the test (`_strip_comments_and_strings`, same
+   precedent as `check-no-monobehaviour-in-services.sh`). Re-measured afterwards on piggy-doku:
+   72 disk / 63 graph / 63 kept / 9 excluded / missing 0 / extra 0 — **identical**, so the original
+   D2 measurement was structurally sound and merely lucky about comments. Verified the net did not
+   blunt: a genuinely missing `class` is still reported.
+
+   **Residual risk, recorded not hand-waved:** the regex is a *hole*, not a false alarm — an unusual declaration (multi-line, heavily attributed) would silently drop that file out of the comparison. Measured at zero on the current corpus. *Mitigation:* print the excluded-file count in the build output so the number is visible rather than implicit, and re-measure the first time this filter meets a new codebase.
+
+   **Rejected alternatives:** comparing against the extractor's *processed* file set is conceptually closer to "was a file skipped?", but it is unverified whether the builder publishes such a set today and adopting it adds an accounting layer. Adding `enums`/`structs` as real node kinds would make the naive comparison correct *and* close a genuine gap (`/knowledge-graph` cannot answer "where is `CellState` declared") — but that is an extractor capability, which is exactly what D1 removed Task 7 for.
 6. [ ] Compute `missing = disk_cs_paths - graph_cs_paths`. Warn only when non-empty, on stderr, through `log(..., quiet)` so `--quiet` suppresses it, listing up to N (say 10) paths plus a `(+K more)` tail, and ending with the explicit recommendation to run a full rebuild: `python3 .claude/graph/graph-builder.py --full`.
 7. [ ] Also compute `extra = graph_cs_paths - disk_cs_paths` and fold it into the same warning as a separate line. That is the ghost-node direction; the existing purge logic should already keep it empty, so a non-empty `extra` is independently interesting.
 8. [ ] **Non-fatal, unconditionally.** Do not `return 1` (that is the collapse guard's pattern at 1124-1132, deliberately not copied), do not `sys.exit`, do not skip the cache update or the post-write modules. The requirement is explicit and the reasoning holds: a false alarm that blocks every build is worse than the silent omission it replaces. Wrap the whole reconciliation in `try/except Exception` and `log` the failure — a bug in the detector must never break the builder.
@@ -497,7 +595,7 @@ python3 .claude/graph/graph-builder.py --full --skip-mcp 2>&1 | grep -i "GRAPH_D
 #    (in the harness .work/ sandbox: build full, then hand-remove one class entry
 #     from the graph copy and re-run the reconciliation against it)
 ```
-Expected: step 1 silent (this is the false-positive gate — if it warns on a healthy repo, step 5's [BLOCKED] item is unresolved and the task is not done); step 2 prints a warning naming the removed file, recommends `--full`, and the process exit code is still `0`.
+Expected: step 1 emits **no `GRAPH_DISK_MISMATCH`** (this is the false-positive gate; the separate `reconciliation: N .cs file(s) excluded` line is expected and is not a mismatch warning — on piggy-doku N is 9); step 2 prints a warning naming the removed file, recommends `--full`, and the process exit code is still `0`. Run step 1 in **piggy-doku** as well as the template — the template has no `Assets/` and therefore proves nothing here.
 
 **Code Skeleton:**
 ```python
@@ -506,19 +604,41 @@ def norm(p):
     See docs/plans/graph-incremental-purge-fix.md:5."""
     return os.path.relpath(os.path.realpath(p), os.path.realpath("."))
 
+# v4 (grill D2): the disk side is filtered by declaration kind. Measured on piggy-doku —
+# unfiltered gave 9 permanent false positives (4 enum-only, 2 struct-only, 3 *Events.cs),
+# filtered gives 63 == 63, zero false positives. This regex is a HOLE, not an alarm: a
+# declaring file it misses drops out of the comparison silently, so the excluded count is
+# logged (below) rather than left implicit.
+_DECL_RE = re.compile(r'\b(?:class|interface)\s+[A-Za-z_]', re.M)
+
+def _declares_node(path):
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            return bool(_DECL_RE.search(fh.read()))
+    except OSError:
+        return False   # unreadable -> not comparable; counted as excluded
+
 def reconcile_graph_with_disk(graph, disk_cs, quiet, limit=10):
     """Non-fatal net for silent omissions. Path SET comparison, not counts:
     a count check passes when one file drops and another is added.
     BOTH sides go through norm() — mixed path formats were the 57c9340 bug."""
     try:
         cb = graph.get("codebase", {})
+        # ONLY these two kinds exist in the graph. `enums`/`structs` are not node kinds at
+        # all, and events[].source_file is the PUBLISHER, not the declaration site — folding
+        # it in would mark the wrong file as covered. See Task 6 step 4.
         graph_paths = {
             norm(n.get("source_file") or n.get("file"))
-            for kind in ("classes", "interfaces", "enums", "structs")
+            for kind in ("classes", "interfaces")
             for n in cb.get(kind, []) or []
             if (n.get("source_file") or n.get("file"))
         }
-        disk_paths = {norm(p) for p in disk_cs if p}
+        candidates = [p for p in disk_cs if p]
+        disk_paths = {norm(p) for p in candidates if _declares_node(p)}
+        excluded = len(candidates) - len(disk_paths)
+        if excluded:
+            log(f"reconciliation: {excluded} .cs file(s) excluded — declare no class/interface "
+                f"(enum-only, struct-only, event declaration sites)", quiet)
         missing = sorted(disk_paths - graph_paths)
         extra   = sorted(graph_paths - disk_paths)
         if not missing and not extra:
@@ -541,7 +661,9 @@ reconcile_graph_with_disk(graph, full_cs, quiet)
 ```
 
 **Acceptance Criteria:**
-- Silent on a healthy `--full` build in **both** repos (zero false positives — this is the gate, not a nice-to-have).
+- No `GRAPH_DISK_MISMATCH` on a healthy `--full` build in **both** repos (zero false positives — this is the gate, not a nice-to-have). Measured expectation on piggy-doku: 63 filtered disk files vs 63 graph class/interface files, missing = 0, extra = 0.
+- The graph side unions exactly `("classes","interfaces")`; no code path reads `enums`, `structs`, or `events[].source_file`.
+- The disk side is filtered by the class/interface declaration regex, and the count of excluded files is **logged**, not silent (piggy-doku: 9).
 - Warns and names the offending paths when a `.cs` file on disk has no graph node.
 - Both sides of the comparison are normalised through the single `norm()` helper; no raw path string is compared.
 - Exit code, `graph.json` bytes, hash-cache update, and post-write module execution are all identical to before this task in every case.
@@ -551,122 +673,185 @@ reconcile_graph_with_disk(graph, full_cs, quiet)
 
 ---
 
-## Task 7 — `ParentReference.Create<T>()` Scope-Parent Extraction
+## Task 7 — REMOVED in v4 (grill D1) — moved to an ADR
 
-**Sequential after Tasks 1, 2, and 6** — writes `csharp_extractor.py`, `csharp-extractor.sh`, and `graph-builder.py`, all of which earlier tasks modify. This is the largest task in the plan and is deliberately scoped narrowly.
+**Was:** `ParentReference.Create<T>()` scope-parent extraction across both extractors plus a
+`scope_merge` precedence decision. The full v3 text is recoverable from git history
+(`docs/PLAN_graph_tooling_fixes.md` at v3) and its rationale is preserved in
+`docs/decisions/2026-08-18-grill-plan-graph-tooling-fixes.md` D1.
+
+**Why it was removed — three reasons, in order of weight:**
+
+1. **It silently overrode a recorded project decision without naming it.** Stored memory
+   *Limitation 18* says verbatim: "Do NOT report this as a bug or try to fix it with regex/grep
+   on .cs files. … The fix requires an MCP extractor update (C# EditorScript querying
+   `AssetDatabase` + `SerializedObject`), which has not been implemented." Task 7 did exactly the
+   forbidden thing on both extractors — AST on `csharp_extractor.py`, and **regex** on
+   `csharp-extractor.sh`. A defect-fix plan is not the place to reverse a standing decision.
+2. **That recorded decision is itself partly outdated, which makes this a decision, not a task.**
+   Limitation 18's factual half ("the parent is never declared in C# source") is **false** for
+   piggy-doku, where `GameScope` builds its parent in `Awake` via `ParentReference.Create<AppScope>()`.
+   Its normative half (do not solve this with regex on `.cs`) still binds the shell-fallback side.
+   Both halves cannot stand as written — that needs deciding deliberately.
+3. **It serialised the entire plan behind its riskiest, least-certain task.** Task 7 alone occupied
+   `parallel_group` C because it rewrote all three files that groups A and B touch. The other eight
+   tasks are narrow, measurable, and shippable today.
+
+**Accepted cost, recorded:** `/knowledge-graph scope-tree` keeps showing `GameScope` as a root
+scope. That is a graph limitation, not an architecture defect — a PlayMode test already proves
+`GameScope.Parent == AppScope` and `IsRoot == false` at runtime.
+
+**Follow-up owed — an ADR, and it is NOT YET WRITTEN.** Open it with `/adr` (the decision record's
+own "Recommended next command", to be run after this plan update). It must decide (a) whether
+Limitation 18's factual half is amended, (b) whether code-declared parents may be read from source
+at all, and (c) if yes, whether the regex fallback is permitted to participate. **This plan does
+not block on the ADR** — Tasks 1-6 and 8-10 are independent of it — but the ADR is a tracked debt,
+not an optional nicety: until it exists, the reason `scope-tree` is wrong lives only in a grill
+transcript and this stub.
+
+---
+
+## Task 10 — `EXTRACTION_VERSION` and Builder-Side Cache Invalidation
+
+**New in v4 (grill D4). Sequential after group B** — writes `graph-builder.py`, the same file as
+Task 6.
 
 **Files:**
-- `.claude/graph/extractors/csharp_extractor.py` (scope entry emission, lines ~578-583)
-- `.claude/graph/extractors/csharp-extractor.sh` (`extract_scope`, lines 413-456)
-- `.claude/graph/graph-builder.py` (`scope_merge`, lines 559-579)
-- `.claude/graph/schema.json` (`scopeEntry`, lines 185-193 — documentation only)
+- `.claude/graph/graph-builder.py` (new module-level constant; a comparison in the mode-selection
+  path; the metadata write near lines 813-815 where `schema_version` and `generator` are emitted)
+- `.claude/graph/schema.json` (document `metadata.extraction_version`; minor `schema_version` bump
+  per the rule at `schema.json:12`)
+
+**The gap this closes, measured.** This plan changes the *values* of `type` and `as`, not their
+*shape* — so nothing existing signals that a graph is stale in the way that matters. `generator`
+(written at `graph-builder.py:815`) and `schema_version` (`1.3.0`, line 813) are both
+**write-only: nothing in the pipeline reads either.** Staleness is judged purely on `generated_at`
+being older than 24h (`knowledge-graph.md:33`). An `--incremental` build does not re-extract
+unchanged files, so old wrong records survive indefinitely while the graph reports itself fresh,
+and `/knowledge-graph` answers from them with confidence.
+
+| Repo | `graph.json` tracked | builder SHA | built |
+|---|---|---|---|
+| template | yes | `5a23b5b` | 2026-07-06 |
+| piggy-doku | yes | `20c0136` | 2026-08-18 |
+| voxel-blast | no | `87fcde1` | 2026-08-14 |
+| worm-escape | yes | `e732700` | 2026-08-17 |
+| nile-hole | yes | `fc2c3e20` | 2026-08-13 |
+
+Task 9 rebuilds piggy-doku only. Without this task, **three other projects keep wrong `type` and
+empty `as` forever.**
+
+**Rejected alternative:** documenting "run `--full` in every repo after this lands". That is
+precisely the class of instruction that silently does not happen — and Defect 0 exists *because* a
+graph silently disagreed with disk. Relying on a remembered manual step would reproduce the exact
+failure mode this plan is fixing.
+
+**Side benefit:** `generator` and the version fields become load-bearing for the first time.
 
 **Steps:**
-1. [ ] Re-read all four sites. Confirm: `csharp_extractor.py:581` builds `entry = {"name": name, "file": path, "source_file": path, "registrations": registrations}` with **no** `parent` key and appends it to `scopes` when `"LifetimeScope" in base_types`; `csharp-extractor.sh:442` matches only `\[ParentScope\s*\(\s*typeof\s*\(\s*([A-Za-z0-9_]+Scope)\s*\)` and line 450 emits `"parent": parent` (which is `None` → JSON `null` when absent); `graph-builder.py:559-579` `scope_merge` overlays `mcp_scope_parents` (`{scope_name, parent_name}` pairs from `mcp-extractor.md:240-242`, sourced from Unity's serialized `scope.parentReference.TypeName` at `mcp-extractor.md:172`) onto merged scopes, unconditionally overwriting `s["parent"]`; `schema.json:185-193` already declares `"parent": {"type": "string"}`.
-2. [ ] **Precedence decision, stated up front:** MCP (serialized `parentReference` read from the live Editor) > `[ParentScope(typeof(X))]` attribute > `ParentReference.Create<X>()` in code. MCP reflects actual runtime state and is the ground truth the PlayMode test agreed with; the code form is a static approximation that cannot see a parent assigned by a different code path or overridden in the Inspector. `scope_merge`'s existing unconditional overwrite already implements "MCP wins" — the new code-derived value must therefore be written *before* that overlay (i.e. by the extractor into `entry["parent"]`) so the overlay naturally supersedes it. No change to the overwrite itself.
-3. [ ] In `csharp_extractor.py`, add a helper `_scope_parent(cls_node, src)` that walks the class body for an invocation whose function resolves to `ParentReference.Create` and returns its generic type argument. Reuse the existing machinery: `_walk(body, "invocation_expression")` (line 29), `_member_name_and_typearg(func, src)` (line 353, already used at line 404 and returns `(method, type_arg)`), and `_TYPE_NODES`/`_type_name` (line 337) for the type name. Only run it when `is_scope` is true (line 580) — no cost on ordinary classes.
-4. [ ] Handle the realistic call shapes: `parentReference = ParentReference.Create<AppScope>();` (assignment in `Awake`), `ParentReference.Create<AppScope>()` as a plain expression statement, and the fully-qualified `VContainer.Unity.ParentReference.Create<AppScope>()`. Match on the *method name* `Create` plus a receiver whose text ends in `ParentReference` rather than on an exact receiver string, so the qualified form is not missed.
-5. [ ] Set `entry["parent"] = parent` on the scope entry only when a name was found; when nothing is found, **omit the key** rather than writing `""` — the schema types `parent` as a string, and an empty string is indistinguishable from "genuinely rootless", which is exactly the ambiguity that made `GameScope` look like a root.
-6. [ ] Add a provenance marker on the entry (`parent_source: "code" | "attribute" | "mcp"`) so `/knowledge-graph scope-tree` and `codex-validator` can tell a statically-inferred parent from an Editor-verified one. Set `"mcp"` in `scope_merge` when the overlay fires. **Schema question RESOLVED — no rejection risk:** `schema.json` declares `"additionalProperties": false` at only two places, lines 70 and 88; `scopeEntry` (185-193) declares none, so an extra key is accepted as-is. The one remaining check is the consumer half: read the `/knowledge-graph scope-tree` query before adding the key and confirm it projects named fields (`{name, parent, ...}`) rather than echoing whole objects into a fixed shape; if it projects, the marker is invisible to it and safe. Only drop the marker if that query would actually break.
-7. [ ] In `csharp-extractor.sh`'s `extract_scope` heredoc, add a second regex tried **after** the existing `[ParentScope(...)]` match at line 442 and only when that produced nothing: `ParentReference\s*\.\s*Create\s*<\s*([A-Za-z0-9_\.]+)\s*>`. Take the last dot-separated segment as the short name (matching `mcp-extractor.md:172-175`, which shortens `Namespace.AppScope` to `AppScope`). Preserve the attribute form's precedence so the two extractors agree.
-8. [ ] Note the fallback extractor's structural limit in a comment: `extract_scope` finds only the **first** `LifetimeScope` class per file (it `break`s at the first match) and scans the whole file text for the parent, so a file containing two scopes will mis-attribute. That pre-exists this task and is out of scope — but a `ParentReference.Create` scan over whole-file text makes the mis-attribution *more* likely to produce a wrong value rather than a null. Restrict the new regex's search window to the text from the matched class declaration onward, and record the residual risk. **Slice by line index, not by `m.start()`:** the loop at lines 429-430 matches `m` against `chunk = " ".join(lines[i:i+4])`, so `m.start()` is an offset into that throwaway 4-line join and has no meaning in `text` — using it would pick an arbitrary window. Record `class_line = i` when the class declaration matches and search `"\n".join(lines[class_line:])`.
-9. [ ] In `graph-builder.py`'s `scope_merge`, add a **key-level merge** that preserves a known `parent` over a missing one, rather than letting `by_name[name] = s` (lines 565-568) replace the whole retained dict. **RESOLVED — this is not speculative.** `new_scopes` is read at line 1052 from `cs_output`, i.e. from the extraction over the changed-file set, so on an incremental run it contains only scopes whose files were re-extracted — and each such file is re-extracted in full, so the *code*-derived parent cannot be lost. The real loss case is provenance-crossed: a retained entry whose `parent` came from the **MCP overlay** is replaced by a freshly extracted entry that has no `parent`, on any run where MCP data is absent (`--skip-mcp`, or Unity not running). Today that silently drops a known parent. Fix it by carrying `parent`/`parent_source` forward from the retained entry when the new entry lacks them; the MCP overlay at lines 571-578 still runs afterwards and still wins when present.
-10. [ ] Update `schema.json:185-193` `scopeEntry` — add a `description` to `parent` recording the three sources and their precedence, and add `parent_source` (step 6 resolves in favour of it unless the `scope-tree` query objects). Additive and optional; bump the **minor** `schema_version` per the schema's own rule, which is the `description` at **`schema.json:12`** ("Semver. Increment minor on additive changes, major on breaking changes." — line 10 is the `"type": "string"` line, not the rule), since a new documented property is added.
+1. [ ] Re-read `graph-builder.py`: the argparse block at lines 42-50 (`--full` / `--incremental`
+   mutually exclusive, `set_defaults(mode="incremental")` at line 46); `select_changed` at 210-230
+   and its `if mode == "full" or cur != cache.get(f, "")` test at line 226; the metadata write at
+   813-815; `log(msg, quiet=False)` at 59-62.
+2. [ ] Add a module-level constant near the top, with a comment stating the rule that governs it:
+   `EXTRACTION_VERSION = 2` — **bump this whenever extraction SEMANTICS change**, i.e. whenever the
+   same input file would now produce a different record. Renaming a variable does not count;
+   changing which value lands in `type` or `as` does. v4's Tasks 1 and 2 are exactly such a change,
+   which is why the constant lands at 2 rather than 1.
+3. [ ] Before mode selection, read the existing `graph.json`'s `metadata.extraction_version`
+   (absent → treat as `0`). If it differs from `EXTRACTION_VERSION` **and** `mode == "incremental"`,
+   promote to `"full"` **once** and write the reason to stderr through `log(...)`, naming both
+   versions. Wrap the read in `try/except` — a missing, unreadable, or malformed `graph.json` must
+   promote to `full` (the safe direction), never crash the builder.
+4. [ ] Emit `"extraction_version": EXTRACTION_VERSION` alongside `schema_version` and `generator`
+   (near line 813-815), so the *next* run can compare against it. **Corrected during v4
+   implementation:** this task's prose and grill D4 both said "`metadata.extraction_version`", but
+   **`graph.json` has no `metadata` wrapper** — `schema_version`, `generator`, `generated_at`,
+   `stats`, `validation` are all *top-level* keys (verified: `jq 'has("metadata")'` → `false`).
+   The field is therefore top-level too, matching the existing shape, and every verification
+   command below reads `.extraction_version`, **not** `.metadata.extraction_version`. The promotion in
+   step 3 is therefore self-clearing: the run that promotes also writes the new value, and the run
+   after it is incremental again.
+5. [ ] Do **not** couple this to `schema_version`. They answer different questions:
+   `schema_version` = "does the *shape* differ", `extraction_version` = "does the *meaning of the
+   values* differ". This plan changes the second without changing the first, which is precisely why
+   `schema_version` alone could not have caught it.
+6. [ ] Do not make a mismatch fatal and do not skip any post-write module — the promotion is the
+   entire remedy.
+7. [ ] Document `metadata.extraction_version` in `schema.json` and bump the **minor**
+   `schema_version` per the rule at `schema.json:12` ("Increment minor on additive changes"), since
+   an optional property is added.
 
 **Verification:** **(a) harness assertion** (Task 8) plus **(b) manual**:
 ```bash
-# probe: a scope file setting its parent in code
-# public class GameScope : LifetimeScope {
-#     protected override void Awake() { parentReference = ParentReference.Create<AppScope>(); base.Awake(); } }
-python3 .claude/graph/extractors/csharp_extractor.py --changed-files <GameScope.cs> \
-  | jq '.vcontainer.scopes[] | {name, parent}'
-bash .claude/graph/extractors/csharp-extractor.sh --changed-files <GameScope.cs> \
-  | jq '.vcontainer.scopes[] | {name, parent}'
+# 1. Fresh full build writes the new field
+python3 .claude/graph/graph-builder.py --full --skip-mcp
+jq '.metadata.extraction_version' .claude/graph/graph.json      # -> 2
+
+# 2. An incremental run on a matching version stays incremental (no promotion line)
+python3 .claude/graph/graph-builder.py --incremental 2>&1 | grep -i "extraction_version"
+# expected: no output
+
+# 3. Simulate a stale graph: force the stored version backwards, then run --incremental
+jq '.metadata.extraction_version = 1' .claude/graph/graph.json > /tmp/g && mv /tmp/g .claude/graph/graph.json
+python3 .claude/graph/graph-builder.py --incremental 2>&1 | grep -i "extraction_version"
+# expected: a stderr line naming 1 -> 2 and stating the run was promoted to --full
+jq '.metadata.extraction_version' .claude/graph/graph.json      # -> 2 again (self-clearing)
+
+# 4. Missing metadata must promote, not crash
+jq 'del(.metadata.extraction_version)' .claude/graph/graph.json > /tmp/g && mv /tmp/g .claude/graph/graph.json
+python3 .claude/graph/graph-builder.py --incremental 2>&1 | grep -i "extraction_version"   # promotes
 ```
-Expected from both: `{"name":"GameScope","parent":"AppScope"}`. Then, after a real build, `/knowledge-graph scope-tree` must show `GameScope` nested under `AppScope` rather than as a second root — record the before/after output in the task's completion note, since that user-visible symptom is the actual acceptance signal.
 
 **Code Skeleton:**
 ```python
-# csharp_extractor.py
-def _scope_parent(cls_node, src):
-    """`parentReference = ParentReference.Create<AppScope>()` inside the scope body.
-    Returns the short type name, or None. Matches on method name + receiver suffix so
-    the fully-qualified VContainer.Unity.ParentReference form is not missed."""
-    body = cls_node.child_by_field_name("body")
-    if not body:
-        return None
-    for inv in _walk(body, "invocation_expression"):
-        func = inv.child_by_field_name("function")
-        if not func or func.type != "member_access_expression":
-            continue
-        method, type_arg = _member_name_and_typearg(func, src)
-        if method != "Create" or not type_arg:
-            continue
-        recv = _node_text(func.child_by_field_name("expression"), src) or ""
-        if recv.split(".")[-1] == "ParentReference":
-            return type_arg.split(".")[-1]
-    return None
+# module level, near the other constants
+# Bump ONLY when extraction SEMANTICS change — i.e. when the same input file would now
+# produce a different record. v4 Tasks 1+2 change which value lands in `type`/`as`, so: 2.
+# This is deliberately NOT schema_version: the SHAPE is unchanged, the MEANING is not.
+EXTRACTION_VERSION = 2
 
-# at the scope-emission site (~line 580):
-if is_scope:
-    parent = _scope_parent(cls_node, src)
-    if parent:
-        entry["parent"] = parent
-        entry["parent_source"] = "code"     # scopeEntry has no additionalProperties:false
-    scopes.append(entry)
-```
-```python
-# csharp-extractor.sh heredoc — record the class line in the existing loop (429-430):
-for i, line in enumerate(lines):
-    chunk = " ".join(lines[i:i+4])
-    m = re.search(r'class\s+([A-Z][A-Za-z0-9_]*)\s*[:<][^{]*LifetimeScope', chunk)
-    if m:
-        scope_name = m.group(1)
-        class_line = i          # NOTE: m.start() is an offset into `chunk`, NOT `text`
-        break
+def _stored_extraction_version(output_path):
+    try:
+        with open(output_path, "r", encoding="utf-8") as fh:
+            return int(json.load(fh).get("metadata", {}).get("extraction_version", 0))
+    except Exception:
+        return 0        # missing/unreadable/malformed -> promote (the safe direction)
 
-# after the [ParentScope(...)] attempt (line 442):
-if not parent:
-    tail = "\n".join(lines[class_line:])     # from the class decl onward, not whole file
-    cm = re.search(r'ParentReference\s*\.\s*Create\s*<\s*([A-Za-z0-9_\.]+)\s*>', tail)
-    if cm:
-        parent = cm.group(1).split(".")[-1]
-```
-```python
-# graph-builder.py scope_merge (559-579): key-level merge so a re-extracted entry
-# cannot drop an MCP-derived parent on a --skip-mcp run; MCP overlay still wins.
-for s in new_scopes or []:
-    name = s.get("name")
-    if not name:
-        continue
-    prev = by_name.get(name)
-    if prev and not s.get("parent") and prev.get("parent"):
-        s["parent"] = prev["parent"]
-        s["parent_source"] = prev.get("parent_source", "retained")
-    by_name[name] = s
-...
-# MCP overlay unchanged (it must still win); only annotate provenance when it fires:
-for s in scopes:
-    if s.get("name") in parent_map:
-        s["parent"] = parent_map[s["name"]]
-        s["parent_source"] = "mcp"
+# in main(), immediately after argparse resolves `mode`:
+if mode == "incremental":
+    stored = _stored_extraction_version(output_path)
+    if stored != EXTRACTION_VERSION:
+        log(f"extraction_version mismatch (graph={stored}, builder={EXTRACTION_VERSION}) — "
+            f"promoting this --incremental run to --full once so stale records are re-extracted",
+            quiet)
+        mode = "full"
+
+# in the metadata dict (near lines 813-815), alongside schema_version/generator:
+"extraction_version": EXTRACTION_VERSION,
 ```
 
 **Acceptance Criteria:**
-- Both extractors report `parent: "AppScope"` for a `GameScope` that sets its parent via `ParentReference.Create<AppScope>()`.
-- The fallback's `ParentReference.Create` search window starts at the matched class-declaration **line**, derived from the loop index, not from `m.start()` (which indexes the 4-line `chunk`, not `text`).
-- The `[ParentScope(typeof(X))]` attribute form still wins over the code form when both are present.
-- MCP `scope_parents` data still overrides both (`scope_merge` overlay unchanged).
-- An incremental `--skip-mcp` rebuild does not drop a previously MCP-derived `parent` (key-level merge, step 9).
-- A scope with no discoverable parent has **no** `parent` key (not `""`), and is still reported as a root.
-- `/knowledge-graph scope-tree` no longer lists `GameScope` as a root.
-- `schema.json` remains valid, the `schema_version` **minor** is bumped for the new `parent_source` property per the rule at `schema.json:12`, and `bash .claude/graph/test/verify-graphify.sh` exits 0.
+- A `--full` build writes `metadata.extraction_version == EXTRACTION_VERSION`.
+- An `--incremental` run against a graph whose stored version matches is **not** promoted and logs
+  nothing.
+- An `--incremental` run against a graph with a differing, absent, or malformed
+  `extraction_version` is promoted to `--full` exactly once, logs the reason to stderr naming both
+  versions, and the resulting graph carries the new value (self-clearing — the next run is
+  incremental again).
+- A missing or corrupt `graph.json` promotes to `--full` and does not raise.
+- The promotion writes to stderr via `log(...)`, so `--quiet` suppresses it.
+- Exit code and `graph.json` shape are otherwise unchanged; nothing is skipped on mismatch.
+- `schema.json` documents `metadata.extraction_version`, is still valid JSON, and its
+  `schema_version` **minor** is bumped per the rule at `schema.json:12`.
+- `EXTRACTION_VERSION` is read from the existing graph by the builder — i.e. unlike `generator` and
+  `schema_version`, it is not write-only.
 
 ---
 
 ## Task 8 — Harness Assertions
 
-**Sequential last among edits** — writes `verify-graphify.sh` and asserts behaviour from Tasks 1, 2, 5, 6, 7.
+**Sequential last among edits** — writes `verify-graphify.sh` and asserts behaviour from Tasks 1, 2, 5, 6, 10. *(v4: the Task 7 scope-parent assertions are removed with Task 7 itself; a Task 10 `EXTRACTION_VERSION` assertion takes their place.)*
 
 **Files:**
 - `.claude/graph/test/verify-graphify.sh` (new assertions only)
@@ -676,11 +861,19 @@ for s in scopes:
 2. [ ] Add a new `run_registration_semantics_tests()` function. Write a probe `.cs` into `$SCRIPT_DIR/.work/` covering **five** registration forms — interface + `new`, interface + field, plain generic, plain generic **with an `.As<T>()` chain**, and unresolvable — run **both** extractors against it, and assert with `assert_jq`: no `type` is the interface when a concrete exists; `as` carries the interface; **every `as` is a JSON string** (`map(type) | unique == ["string"]`); the `{type, as}` multisets from the two extractors are identical (the parity gate from Task 2). The `.As<T>()` chain is mandatory in the probe — and note that the parity assertion over that record is satisfiable **only** because Task 1 step 4 added `_as_chain` to the tree-sitter extractor; before that change the tree-sitter side emits `as: ""` there and this assertion is unpassable by construction. If Task 1's chain reader was not implemented, this assertion must be reported as a `fail`, not softened.
 3. [ ] Add `run_validator_interface_tests()`: construct a minimal graph fixture with (i) an `interface_only: true` registration naming an interface, (ii) a plain registration naming a genuinely absent class, and (iii) a plain `Register<T>`-shaped record `{"type":"UnknownClass","as":"","lifetime":""}` with **no** `interface_only`. Assert `graph_validate.py` emits **no** `INSTALLER_MISSING_CLASS` for (i) and **does** emit one for both (ii) and (iii). Case (iii) is the guard-not-too-loose assertion and is the most important test in this task: it fails loudly if `interface_only` is ever set on ordinary `Register<T>` registrations, which would silently disable the check project-wide.
 4. [ ] Add `run_reconciliation_tests()`: (i) on a healthy `--full --skip-mcp` build into `.work/`, assert stderr contains no `GRAPH_DISK_MISMATCH`; (ii) drop a class node from a copy of the graph, re-run the check, assert the warning fires **and** exit code is `0`. Gate (i) on `UNITY_HAS_CS=1` and `known_fail` on template/empty repos, matching how the existing builder tests degrade (the template repo has no `Assets/` C# to reconcile).
-5. [ ] Add `run_scope_parent_tests()`: probe `GameScope.cs` with `ParentReference.Create<AppScope>()`; assert both extractors yield `parent == "AppScope"`; assert a parentless scope emits no `parent` key; assert the `[ParentScope(...)]` attribute form still takes precedence when both are present.
+5. [ ] Add `run_extraction_version_tests()` (replaces v3's `run_scope_parent_tests`, which died with Task 7): in the `.work/` sandbox, build a graph, then (i) assert `metadata.extraction_version` equals the builder's `EXTRACTION_VERSION`; (ii) rewrite the stored value to `EXTRACTION_VERSION - 1`, re-run `--incremental`, and assert stderr names the promotion **and** the resulting graph carries the new value again (self-clearing); (iii) delete the key entirely and assert the run promotes rather than raising. Gate on `UNITY_HAS_CS` the same way the other builder tests do.
 6. [ ] Register all four functions in the `# Main pipeline` block at the bottom, appended after `run_viz_smoke_tests` and before `emit_report`.
 7. [ ] Use `known_fail` (not `fail`) for anything that cannot run in the given environment — tree-sitter absent, no Unity C# present — so the harness stays green on the bare template repo while still reporting the gap. Follow the existing precedent of `UNITY_HAS_CS` gating. Do **not** use `known_fail` to paper over a missing implementation (see step 2).
 8. [ ] Clean up `.work/` probe files the way the existing tests do (`rm -rf` of the sandbox dir), and never write probes outside `$SCRIPT_DIR/.work/`.
-9. [ ] Do not modify lines 261, 430, or 547 — the two assertion message strings and the comment that mention `graph-builder.sh` are historical and are excluded from Task 3's sweep by design.
+9. [ ] **Update the pinned `schema_version` assertion at `verify-graphify.sh:577`** — discovered
+   during v4 implementation, and it is currently making the tree RED. That line asserts the literal
+   `[[ "$sv" == "1.3.0" ]]`, so Task 10 step 7's *required* minor bump to `1.4.0` turns it into a
+   `FAIL` (harness went 31/0 → 30/1). This is a real seam the plan did not anticipate: any task that
+   bumps `schema_version` must land a matching harness update, and Task 8 is the task that owns this
+   file. Fix by asserting the current version rather than re-pinning a literal that will rot again —
+   read the expected value from `schema.json` (or assert `>= 1.4.0`), so the next additive bump does
+   not re-break it. Record the before/after harness counts.
+10. [ ] Do not modify lines 261, 430, or 547 — the two assertion message strings and the comment that mention `graph-builder.sh` are historical and are excluded from Task 3's sweep by design.
 
 **Verification:** **(a) harness assertion** — this task *is* the harness work; it is verified by running it:
 ```bash
@@ -751,7 +944,7 @@ CS
   #        is re-decided deliberately — which is the outcome reg.4's select() must not swallow.
   rm -rf "$work"
 }
-# ... run_validator_interface_tests, run_reconciliation_tests, run_scope_parent_tests ...
+# ... run_validator_interface_tests, run_reconciliation_tests, run_extraction_version_tests ...
 # appended to the Main pipeline block
 ```
 
@@ -761,18 +954,36 @@ CS
 - The parity assertion (reg.4) compares only records where that extractor resolved a type (`select(.type != "")`). The one shape only one side can represent — non-generic `RegisterInstance` with an unresolvable argument — is asserted per-extractor by reg.6, so the asymmetry is pinned rather than exempted. reg.4 without the `select()` is unsatisfiable by construction (`csharp-extractor.sh:384` cannot match an argument containing `()`), and reg.6 must fail if either side's behaviour on that shape changes.
 - An assertion exists that fails if either extractor emits a non-string `as`.
 - An assertion exists that fails if a `Register<T>`-shaped record carries `interface_only`, and a validator assertion exists that fails if `INSTALLER_MISSING_CLASS` stops firing for a plain `Register<UnknownClass>` record.
-- Each of Tasks 1, 2, 5, 6, 7 has at least one dedicated assertion that fails when that task's change is reverted (demonstrated, not assumed).
+- Each of Tasks 1, 2, 5, 6, 10 has at least one dedicated assertion that fails when that task's change is reverted (demonstrated, not assumed). No assertion references scope-parent extraction — that capability is not in this plan.
 - Lines 261, 430, 547 and `test/README.md:58` are unmodified.
 - Environment-dependent tests use `known_fail`, never `fail`; missing implementations use `fail`, never `known_fail`.
 - No probe file is written outside `$SCRIPT_DIR/.work/`, and the sandbox is removed on completion.
 
 ---
 
-## Task 9 — Copy Changed Files to `piggy-doku-repo` and Re-Verify
+## Task 9 — Propagate Changed Files to `piggy-doku-repo` and Re-Verify
 
-**Sequential last — depends on Tasks 1 through 8.**
+**Sequential last — depends on Tasks 1 through 8 and Task 10.**
 
-**Files:** all files modified by Tasks 1-8, copied from `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo` to `/Users/berkterek/Desktop/Github/piggy-doku-repo`.
+> **⏸ DEFERRED 2026-08-19 by the user** — piggy-doku is being updated separately in another
+> session, so propagating into it now risks a collision. Everything this task depends on is done
+> and green in the template. **The pre-copy diff gate (step 1) was already run read-only on
+> 2026-08-19 and came back fully clean:** all four core tooling files *plus* the four `.md` files,
+> `schema.json` and `verify-graphify.sh` are byte-identical between the two repos at our `HEAD`, so
+> a later copy destroys nothing — re-run it anyway when the task resumes, since the premise decays.
+> **Task 10 removes the urgency:** whenever these files do land in piggy-doku, its next build sees
+> the `extraction_version` mismatch and promotes itself to `--full` once, automatically. No
+> remembered manual step is owed.
+
+**v4 scope change (grill D5): this task is PROPAGATION, not the plan's verification round.** In v3
+it was the only real-corpus check in the whole plan and it ran *after* Tasks 1-8 were already
+marked done — so every earlier assertion rested on synthetic probes written against the same
+assumptions as the fix. Checkpoint C1 now owns the "does this work on real code" question and runs
+before group B. What remains here is: propagate the files, rebuild, and confirm the originating
+symptom is gone in situ. The re-verification below is a **confirmation** of an already-validated
+change, not its first contact with reality.
+
+**Files:** all files modified by Tasks 1-6, 8 and 10, copied from `/Users/berkterek/Desktop/Github/unity-claude-ai-template-repo` to `/Users/berkterek/Desktop/Github/piggy-doku-repo`.
 
 **Steps:**
 1. [ ] Before copying, re-establish the premise that made copying safe: all four core tooling files were verified byte-identical between the two repos today. Re-verify **immediately before** the copy, because the premise decays:
@@ -786,10 +997,10 @@ CS
    ```
    using `T`/`P` for the two repo roots. Any `DIVERGED` line stops the task — resolve by hand-porting that file's hunks, never by blind overwrite.
 2. [ ] Enumerate the exact copy set from `git diff --name-only` in the template repo rather than from this plan's File Map, so a file touched during implementation but not planned is not forgotten.
-3. [ ] Treat the doc/command files (`.claude/commands/*.md`, `.claude/graph/*.md`) with the same diff-first check — piggy-doku may carry project-specific edits to `setup-project.md` that a blind copy would destroy. **[BLOCKED — needs investigation]** the byte-identical verification covered only the four tooling files; the markdown and `schema.json` state in piggy-doku is unverified. Diff each before copying and hand-port where they differ.
+3. [ ] Treat the doc/command files (`.claude/commands/*.md`, `.claude/graph/*.md`) with the same diff-first check. **`[BLOCKED]` cleared in v4 (grill, required edit 6) — measured, not assumed:** every `.md` in the copy set **and** `schema.json` are byte-identical between the two repos; the only file that differs is `.claude/graph/.gitignore`, by exactly one line, which is Task 4's own subject (and step 4 below already skips it). So no hand-porting is expected. Still run the diff immediately before copying rather than trusting this measurement — it was taken on 2026-08-18 and decays like any other; a `DIVERGED` line stops the task exactly as in step 1.
 4. [ ] `.claude/graph/.gitignore` (Task 4) needs **no** copy — the point of that task was to match piggy-doku's existing content. Diff to confirm they are now identical and skip.
 5. [ ] Copy the verified-identical files. Do not copy `.claude/graph/graph.json`, `graph.json.bak`, `cache/*`, or `.last-build` — those are per-project generated artifacts.
-6. [ ] In piggy-doku, run a full rebuild so the new extractor logic regenerates the graph: `python3 .claude/graph/graph-builder.py --full --skip-mcp`. A full build is required, not incremental, because the registration and scope records for unchanged files must be re-extracted under the new logic.
+6. [ ] In piggy-doku, run a full rebuild so the new extractor logic regenerates the graph: `python3 .claude/graph/graph-builder.py --full --skip-mcp`. A full build is required, not incremental, because the registration records for unchanged files must be re-extracted under the new logic. **With Task 10 in place this is now belt-and-braces rather than the only safeguard** — an `--incremental` run here would detect the `EXTRACTION_VERSION` mismatch and promote itself to `--full` anyway. Run `--full` explicitly regardless, and additionally verify the promotion path works *in this repo* by checking `jq '.metadata.extraction_version'` before and after. **The three repos this task does not touch (voxel-blast, worm-escape, nile-hole) are covered by Task 10, not by this task** — they self-heal on their next build.
 7. [ ] Re-run validation and the harness in piggy-doku; confirm the specific originating symptom is gone, confirm **both** halves of the live `as`-consumer behaviour change declared in `## Chosen Approach` decision 1, and spot-check that `INSTALLER_MISSING_CLASS` is still capable of firing (the `interface_only` count from Task 5 step 5 must be a small minority of all registrations).
 8. [ ] Record in the completion note: the diff-check result from step 1, the piggy-doku harness pass/fail counts, the before/after `GridModule` validation output, the `interface_only` share of all registrations, and the before/after output of both `registrations` queries from step 7.
 
@@ -840,7 +1051,26 @@ P=/Users/berkterek/Desktop/Github/piggy-doku-repo
 
 ---
 
-## Out of Scope (verified already correct — no task)
+## Out of Scope
+
+### Removed from this plan in v4 (grill) — real gaps, deliberately deferred
+
+- **`ParentReference.Create<T>()` scope-parent extraction (was Task 7, grill D1).** Deferred to an
+  ADR because a fix here would silently reverse the recorded *Limitation 18*, whose factual half is
+  itself now partly false. **Cost accepted:** `/knowledge-graph scope-tree` keeps listing
+  `GameScope` as a root. **Owed:** an ADR deciding (a) whether Limitation 18's factual half is
+  amended, (b) whether code-declared parents may be read from source, (c) if so, whether the regex
+  fallback may participate. Full reasoning in the `## Task 7 — REMOVED` stub above.
+- **Resolving `.AsImplementedInterfaces()` to real interface names (grill D3).** The dominant idiom
+  in this project stays unresolvable by interface name; `as` holds a placeholder string. Needs a new
+  array key + `schema.json` change + query change — a capability, not a defect fix. The graph
+  already carries the per-class `implements` data this would build on. Declared in the Goals so the
+  gap is documented rather than discovered.
+- **Adding `enums`/`structs` as graph node kinds (grill D2).** Would make Task 6's naive comparison
+  correct *and* close a real query gap (`/knowledge-graph` cannot answer "where is `CellState`
+  declared"). Same reason as above: extractor capability, not defect fix.
+
+### Verified already correct — no task
 
 - `.claude/graph/cache/mcp-extract.json` in piggy-doku is already ignored (`git check-ignore -v` → `.claude/graph/.gitignore:4:cache/mcp-extract.json`).
 - `docs/.idea` in piggy-doku is already ignored (`.gitignore:119:**/.idea/`).
