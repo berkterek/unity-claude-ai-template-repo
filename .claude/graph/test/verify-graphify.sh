@@ -8,20 +8,80 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Auto-detect Unity project source root (nested projects resolved via unity_project_folder).
-# UNITY_CONCRETES — a writable Concretes/ dir for probe tests (purge_ghosts, --changed-files).
-# UNITY_HAS_CS    — 1 if real C# source exists; 0 on template/empty repos.
+# UNITY_CONCRETES — a writable dir inside the scanned tree, for probe tests
+#                   (purge_ghosts, --changed-files). Prefers Games/Concretes.
+# UNITY_HAS_CS    — 1 if real C# source exists anywhere the BUILDER scans; 0 on empty repos.
+#
+# UNITY_HAS_CS must NOT be derived from Games/Concretes. It was, and that made the harness
+# call any project whose code lives in a declared-allowlist tree an "empty template": a repo
+# with 541 C# files under Scripts/Simulation/ (own .asmdef, noEngineReferences — the exact
+# exception rules/architecture.md → "Adding a Top-Level Folder" sanctions) reported
+# UNITY_HAS_CS=0 and silently skipped ~14 project-specific checks, i.e. half the suite, while
+# still printing a green summary. Silence read as coverage.
+#
+# The honest definition is "does the graph have anything to index", so these roots mirror the
+# ones graph-builder.py walks (its roots_cs: <assets>/_Framework and <assets>/_GameFolders/Scripts).
+#
+# Be precise about what this is: the list below IS a second copy, hardcoded in bash — it is not
+# derived from the builder, and an earlier draft of this comment wrongly claimed it was. A second
+# list is exactly how the original blind spot formed, so it is not left on trust: T0b below
+# asserts the two lists agree and FAILS the suite if the builder gains or renames a root.
+# Duplication with an alarm, not duplication with a promise.
+_unity_assets_root() {
+  local folder="."
+  if [[ -f "$REPO_ROOT/.claude/project-features.json" ]]; then
+    folder=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("unity_project_folder","."))' \
+      "$REPO_ROOT/.claude/project-features.json" 2>/dev/null || echo ".")
+  fi
+  [[ "$folder" == "." ]] && echo "$REPO_ROOT/Assets" || echo "$REPO_ROOT/$folder/Assets"
+}
+_unity_scan_roots() {
+  local assets; assets="$(_unity_assets_root)"
+  printf '%s\n%s\n' "$assets/_Framework" "$assets/_GameFolders/Scripts"
+}
 _detect_unity_root() {
-  local concretes
-  concretes=$(find "$REPO_ROOT" -maxdepth 8 -type d -name "Concretes" 2>/dev/null \
+  local d
+  # Preferred: the conventional Concretes/ dir.
+  d=$(find "$REPO_ROOT" -maxdepth 8 -type d -name "Concretes" 2>/dev/null \
     | grep -E '_GameFolders/Scripts/Games/Concretes$' | head -1)
-  echo "${concretes:-}"
+  # An EMPTY Games/Concretes/ is a perfectly good answer here, and requiring a .cs inside
+  # was wrong: this variable's job is "a writable directory the builder scans", used by
+  # purge_ghosts to drop a throwaway probe. An empty dir is arguably the better choice for
+  # that — no risk of touching real source. The separate need, "an EXISTING .cs to feed
+  # --changed-files", is answered by _unity_any_cs below, which searches the whole scanned
+  # tree. Conflating the two is what made an empty Concretes/ starve the .cs consumers.
+  if [[ -n "$d" ]]; then echo "$d"; return; fi
+  # Fallback: any directory inside the scanned tree that already holds a .cs, so probe-based
+  # tests still run on a project that legitimately has no Games/Concretes.
+  while IFS= read -r root; do
+    [[ -d "$root" ]] || continue
+    d=$(find "$root" -name "*.cs" 2>/dev/null | head -1)
+    [[ -n "$d" ]] && { dirname "$d"; return; }
+  done < <(_unity_scan_roots)
+  echo ""
+}
+# _unity_any_cs — an EXISTING .cs anywhere the builder scans (not just Concretes/).
+# Consumers that need a real file to feed --changed-files use this; consumers that need a
+# place to WRITE a probe use UNITY_CONCRETES.
+_unity_any_cs() {
+  local root f
+  if [[ -n "${UNITY_CONCRETES:-}" ]]; then
+    f=$(find "$UNITY_CONCRETES" -name "*.cs" -maxdepth 3 2>/dev/null | head -1)
+    [[ -n "$f" ]] && { echo "$f"; return; }
+  fi
+  while IFS= read -r root; do
+    [[ -d "$root" ]] || continue
+    f=$(find "$root" -name "*.cs" 2>/dev/null | head -1)
+    [[ -n "$f" ]] && { echo "$f"; return; }
+  done < <(_unity_scan_roots)
+  echo ""
 }
 UNITY_CONCRETES="$(_detect_unity_root)"
-if [[ -n "$UNITY_CONCRETES" ]] && find "$UNITY_CONCRETES" -name "*.cs" -maxdepth 3 2>/dev/null | grep -q .; then
-  UNITY_HAS_CS=1
-else
-  UNITY_HAS_CS=0
-fi
+UNITY_HAS_CS=0
+while IFS= read -r _root; do
+  [[ -d "$_root" ]] || continue
+  if find "$_root" -name "*.cs" 2>/dev/null | grep -q .; then UNITY_HAS_CS=1; break; fi
+done < <(_unity_scan_roots)
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -98,7 +158,7 @@ run_builder_flag_tests() {
   local cache_entries
   cache_entries=$(jq_count "$GRAPH_DIR/cache/file-hashes.json" 'length')
   if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] --incremental cache: no C# source files in repo (template mode)"
+    printf "[SKIP        ] --incremental cache — no C# under the builder's scan roots\n"
   elif [[ "$cache_entries" -gt 0 ]]; then
     pass "--incremental populates file-hashes cache ($cache_entries entries)"
   else
@@ -108,7 +168,7 @@ run_builder_flag_tests() {
   # 3. --changed-files (single file) — use an actual .cs file from the project, or a temp one.
   local single_file
   if [[ -n "$UNITY_CONCRETES" ]]; then
-    single_file=$(find "$UNITY_CONCRETES" -name "*.cs" -maxdepth 3 2>/dev/null | head -1)
+    single_file=$(_unity_any_cs)
   fi
   if [[ -z "${single_file:-}" ]]; then
     # No real file — create a temp .cs file to exercise the flag
@@ -194,31 +254,34 @@ run_pivot_tests() {
   python3 "$GRAPH_DIR/graph-builder.py" --full --skip-mcp --quiet --output "$WORK_GRAPH" 2>/dev/null || true
 
   local ev inst scopes
+  # The old `>=16` / `>=9` thresholds were one project's inventory hard-coded as a
+  # universal expectation. What is actually portable is the PIVOT: if the project
+  # declares events at all, the events[] array must be populated (a pivot that
+  # silently produces nothing is the real defect these tests exist to catch).
   ev=$(jq_count "$WORK_GRAPH" '.codebase.events | length')
-  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] events pivot: no C# source files (template mode)"
-  elif [[ "$ev" -ge 16 ]]; then
-    pass "events pivot ($ev events, >=16)"
-  else
-    fail "events pivot count=$ev (expected >=16)"
+  if require_nodes "$ev" "events pivot" "project declares no IEvent structs yet" ":[[:space:]]*IEvent\\b"; then
+    pass "events pivot populated ($ev events)"
   fi
 
   inst=$(jq_count "$WORK_GRAPH" '.codebase.vcontainer.installers | length')
-  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] installers count: no C# source files (template mode)"
-  elif [[ "$inst" -ge 9 ]]; then
-    pass "installers count ($inst, >=9)"
-  else
-    fail "installers count=$inst (expected >=9)"
+  if require_nodes "$inst" "installers count" "project has no VContainer installers/modules yet" "Install[[:space:]]*\\([[:space:]]*IContainerBuilder"; then
+    pass "installers pivot populated ($inst)"
   fi
 
+  # Scope NAMES are project convention, not a graph invariant. AppScope/GameScope is
+  # this template's convention (rules/architecture.md) but a project may legitimately
+  # name or stage its scopes differently, so assert the pivot works and report the
+  # convention separately instead of failing on it.
   scopes=$(jq -r '[.codebase.vcontainer.scopes[].name] | tojson' "$WORK_GRAPH" 2>/dev/null || echo "[]")
-  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] scopes check: no C# source files (template mode)"
-  elif echo "$scopes" | jq -e 'index("AppScope") and index("GameScope")' >/dev/null 2>&1; then
-    pass "scopes contain AppScope+GameScope"
-  else
-    fail "scopes missing one of AppScope/GameScope: $scopes"
+  local scope_n; scope_n=$(echo "$scopes" | jq 'length' 2>/dev/null || echo 0)
+  if require_nodes "$scope_n" "scopes pivot" "project declares no LifetimeScope subclasses yet" ":[^\n]*\\bLifetimeScope\\b"; then
+    pass "scopes pivot populated ($scope_n): $scopes"
+    if echo "$scopes" | jq -e 'index("AppScope") and index("GameScope")' >/dev/null 2>&1; then
+      pass "scopes follow the AppScope+GameScope convention"
+    else
+      known_fail "scopes do not follow the AppScope+GameScope convention" \
+                 "found $scopes — convention per rules/architecture.md, not a graph defect"
+    fi
   fi
 
   # .last-build freshness
@@ -238,7 +301,7 @@ run_pivot_tests() {
   local impl
   impl=$(jq_count "$WORK_GRAPH" '[.codebase.classes[] | select(.implements | length > 0)] | length')
   if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] implementers pivot: no C# source files (template mode)"
+    printf "[SKIP        ] implementers pivot — no C# under the builder's scan roots\n"
   elif [[ "$impl" -gt 0 ]]; then
     echo "[REGRESSION_FIXED: BUG#1] class.implements[] populated ($impl classes)" >&2
     pass "implementers pivot — BUG#1 fixed ($impl classes)"
@@ -272,7 +335,7 @@ run_knowledge_graph_tests() {
   local n_classes
   n_classes=$(jq_count "$WORK_GRAPH" '.codebase.classes | length')
   if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] summary: no C# source files (template mode)"
+    printf "[SKIP        ] summary — no C# under the builder's scan roots\n"
   elif [[ "$n_classes" -ge 1 ]]; then
     pass "summary: classes=$n_classes"
   else
@@ -282,24 +345,18 @@ run_knowledge_graph_tests() {
   # 2. implementers — asset-agnostic: any interface with implementers must resolve
   local impl_iface n_impl
   impl_iface=$(jq -r 'first(.codebase.classes[] | select((.implements // []) | length > 0) | .implements[0]) // empty' "$WORK_GRAPH" 2>/dev/null)
-  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] implementers: no C# source files (template mode)"
-  elif [[ -n "$impl_iface" ]]; then
+  local n_iface_classes
+  n_iface_classes=$(jq_count "$WORK_GRAPH" '[.codebase.classes[]? | select((.implements // []) | length > 0)] | length')
+  if require_nodes "$n_iface_classes" "implementers" "no class in this project implements an interface yet" "class[^\n]*:[[:space:]]*I[A-Z]"; then
     n_impl=$(jq --arg n "$impl_iface" '[.codebase.classes[] | select((.implements // []) | index($n) != null)] | length' "$WORK_GRAPH" 2>/dev/null || echo 0)
     pass "implementers query resolves (e.g. $impl_iface → $n_impl)"
-  else
-    fail "no class has a populated implements[] — implements extraction broken"
   fi
 
   # 3. publishers — asset-agnostic: at least one event has a resolved publisher
   local n_pub
   n_pub=$(jq_count "$WORK_GRAPH" '[.codebase.events[]? | select((.publishers // []) | length > 0)] | length')
-  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] publishers: no C# source files (template mode)"
-  elif [[ "$n_pub" -ge 1 ]]; then
+  if require_nodes "$n_pub" "publishers" "no event in this project has a publisher yet (or the project declares no events)" "\\.Publish[[:space:]]*\\("; then
     pass "publishers query resolves ($n_pub event(s) with publishers)"
-  else
-    fail "no event has a publisher — publisher extraction broken"
   fi
 
   # 4. subscribers (parseable is enough — always run, result 0 is valid) — asset-agnostic
@@ -314,35 +371,49 @@ run_knowledge_graph_tests() {
   # 5. registrations — asset-agnostic: at least one installer/module registered
   local n_reg
   n_reg=$(jq_count "$WORK_GRAPH" '.codebase.vcontainer.installers | length')
-  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] registrations: no C# source files (template mode)"
-  elif [[ "$n_reg" -ge 1 ]]; then
+  if require_nodes "$n_reg" "registrations" "project has no VContainer installers/modules yet" "Install[[:space:]]*\\([[:space:]]*IContainerBuilder"; then
     pass "registrations present ($n_reg installer(s)/module(s))"
-  else
-    fail "no installers/modules found in graph"
   fi
 
   # 6. scope-tree
   local scope_names
   scope_names=$(jq -r '[.codebase.vcontainer.scopes[].name] | tojson' "$WORK_GRAPH" 2>/dev/null || echo "[]")
-  if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] scope-tree: no C# source files (template mode)"
-  elif echo "$scope_names" | jq -e 'index("AppScope") and index("GameScope")' >/dev/null 2>&1; then
-    pass "scope-tree contains AppScope and GameScope"
-  else
-    fail "scope-tree missing AppScope or GameScope: $scope_names"
+  local n_scope_names; n_scope_names=$(echo "$scope_names" | jq 'length' 2>/dev/null || echo 0)
+  if require_nodes "$n_scope_names" "scope-tree" "project declares no LifetimeScope subclasses yet" ":[^\n]*\\bLifetimeScope\\b"; then
+    pass "scope-tree populated ($n_scope_names): $scope_names"
   fi
 
   # 7. prefabs — asset-agnostic: prefab list well-formed (merge coverage is in T7/T8)
   if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] prefabs: no C# source files (template mode)"
+    printf "[SKIP        ] prefabs — no C# under the builder's scan roots\n"
   else
-    local n_pf n_named
-    n_pf=$(jq_count "$WORK_GRAPH" '.codebase.prefabs | length')
+    # Since v1.3.0 `codebase.prefabs` may be a partition REFERENCE object
+    # ({"$partition": "prefabs.json"}) rather than an inline array. `jq length` on that
+    # object returns 1 — its key count — so this check used to report "1 prefab, 0 named"
+    # on every partitioned graph, i.e. every graph built since v1.3.0. It never surfaced
+    # because it only runs when UNITY_HAS_CS=1, which the old Concretes-only detection
+    # made false on the very projects that have prefabs. Resolve the ref first.
+    local n_pf n_named pf_src part
+    pf_src="$WORK_GRAPH"
+    part=$(jq -r '.codebase.prefabs["$partition"] // empty' "$WORK_GRAPH" 2>/dev/null)
+    if [[ -n "$part" ]]; then
+      pf_src="$(dirname "$WORK_GRAPH")/$part"
+      if [[ ! -f "$pf_src" ]]; then
+        known_fail "prefabs" "partition file $part referenced but not written"
+        return 0
+      fi
+      n_pf=$(jq_count "$pf_src" 'length')
+    else
+      n_pf=$(jq_count "$WORK_GRAPH" '.codebase.prefabs | length')
+    fi
     if [[ "$n_pf" -eq 0 ]]; then
       echo "[SKIP] prefabs: none in this graph (requires a Unity/MCP-connected build; merge is verified generically in T7/T8)"
     else
-      n_named=$(jq_count "$WORK_GRAPH" '[.codebase.prefabs[]? | select(.name != null and .name != "")] | length')
+      if [[ -n "$part" ]]; then
+        n_named=$(jq_count "$pf_src" '[.[]? | select(.name != null and .name != "")] | length')
+      else
+        n_named=$(jq_count "$WORK_GRAPH" '[.codebase.prefabs[]? | select(.name != null and .name != "")] | length')
+      fi
       if [[ "$n_pf" -eq "$n_named" ]]; then
         pass "prefabs well-formed ($n_pf, all named)"
       else
@@ -371,13 +442,43 @@ run_knowledge_graph_tests() {
 }
 
 # ──────────────────────────────────────────────────────────────────────────────
+# T0b — Scan-root parity (the alarm on the harness's copy of the builder's roots)
+# ──────────────────────────────────────────────────────────────────────────────
+# _unity_scan_roots hardcodes the same two roots graph-builder.py walks. That copy is a
+# liability, not a design: the blind spot this suite was just fixed for existed because a
+# second list drifted from the thing it mirrored. This test is the price of keeping the
+# copy — add or rename a root in graph-builder.py's roots_cs and the suite goes red here
+# instead of silently under-reporting UNITY_HAS_CS on the next project.
+run_scan_root_parity_tests() {
+  section "T0b — Scan-root parity with graph-builder.py"
+
+  local builder_roots harness_roots
+  # The literal roots_cs block: os.path.join(assets_root, "...") entries, in order.
+  builder_roots=$(awk '/roots_cs = \[/{f=1;next} f&&/\]/{exit} f' "$GRAPH_DIR/graph-builder.py" \
+    | grep -oE '"[^"]+"' | tr -d '"' | paste -sd/ - | sed 's|/|,|; s|/|/|g')
+  # Normalise both sides to a comma-joined, assets-relative form.
+  builder_roots=$(awk '/roots_cs = \[/{f=1;next} f&&/\]/{exit} f' "$GRAPH_DIR/graph-builder.py" \
+    | sed -n 's/.*os\.path\.join(assets_root, *\(.*\)).*/\1/p' \
+    | tr -d '" ' | sed 's/,/\//g' | sort | paste -sd"," -)
+  harness_roots=$(_unity_scan_roots | sed "s|.*/Assets/||" | sort | paste -sd"," -)
+
+  if [[ -z "$builder_roots" ]]; then
+    fail "T0b: could not parse roots_cs out of graph-builder.py — parity unverifiable"
+  elif [[ "$builder_roots" == "$harness_roots" ]]; then
+    pass "T0b: harness scan roots match graph-builder.py roots_cs ($harness_roots)"
+  else
+    fail "T0b: scan-root DRIFT — builder=[$builder_roots] harness=[$harness_roots]; update _unity_scan_roots"
+  fi
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
 # T6b — RC1-RC4 call-edge resolution (PLAN_graph_call_resolution.md, Task 6 step 5)
 # ──────────────────────────────────────────────────────────────────────────────
 run_call_resolution_tests() {
   section "T6b — Call-edge resolution (RC1-RC4)"
 
   if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] T6b callers/validator: no C# source files in repo (template mode)"
+    printf "[SKIP        ] T6b callers/validator — no C# under the builder's scan roots\n"
     return
   fi
 
@@ -390,7 +491,11 @@ run_call_resolution_tests() {
   else
     local callers_json n_hits
     callers_json=$(python3 "$GRAPH_DIR/graph-traversal.py" --graph "$WORK_GRAPH" callers "$concrete_cls" --json 2>/dev/null)
-    n_hits=$(echo "$callers_json" | jq '.hits | length' 2>/dev/null || echo 0)
+    # graph-traversal.py cmd_callers prints `hits` (a LIST) at the top level — there is no
+    # ".hits" key. `jq '.hits | length'` therefore errors on an array, the `|| echo 0` swallows
+    # it, and the check reports "returned 0 hits" while printing a JSON body full of hits.
+    # Pre-existing; only reachable once UNITY_HAS_CS could be 1 outside Games/Concretes.
+    n_hits=$(echo "$callers_json" | jq 'length' 2>/dev/null || echo 0)
     if [[ "$n_hits" -ge 1 ]]; then
       pass "T6b callers $concrete_cls returns $n_hits hit(s)"
     else
@@ -485,7 +590,7 @@ run_trigger_tests() {
     probe_abs="$UNITY_CONCRETES/__GhostProbe__.cs"
   fi
   if [[ -z "$probe_abs" ]]; then
-    echo "[SKIP] purge_ghosts: no Concretes/ directory found (template mode)"
+    printf "[SKIP        ] purge_ghosts — no writable dir found inside the builder's scan roots\n"
   elif [[ -f "$probe_abs" ]]; then
     echo "[SKIP] purge_ghosts: $probe_abs already exists — skipping to avoid side-effects"
   else
@@ -522,7 +627,7 @@ run_known_fail_bugs() {
   local n_impl
   n_impl=$(jq_count "$WORK_GRAPH" '[.codebase.classes[] | select(.implements | length > 0)] | length')
   if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] BUG#1 check: no C# source files (template mode)"
+    printf "[SKIP        ] BUG#1 check — no C# under the builder's scan roots\n"
   elif [[ "$n_impl" -gt 0 ]]; then
     echo "[REGRESSION_FIXED: BUG#1] class.implements[] now populated ($n_impl classes)" >&2
     pass "BUG#1 resolved — implements[] populated ($n_impl classes)"
@@ -731,7 +836,7 @@ run_incremental_purge_tests() {
 
   # Skip entirely on template repos with no C# source.
   if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
-    echo "[SKIP] T10b: no C# source files (template mode — full project required)"
+    printf "[SKIP        ] T10b — no C# under the builder's scan roots (needs a populated project)\n"
     return
   fi
 
@@ -749,7 +854,7 @@ run_incremental_purge_tests() {
 
   # Pick any .cs file — use an ABSOLUTE path to mirror the hook's behaviour.
   if [[ -n "$UNITY_CONCRETES" ]]; then
-    single_file=$(find "$UNITY_CONCRETES" -name "*.cs" -maxdepth 3 2>/dev/null | head -1)
+    single_file=$(_unity_any_cs)
     [[ -n "$single_file" ]] && single_file_abs="$(cd "$(dirname "$single_file")" && pwd)/$(basename "$single_file")"
   fi
   if [[ -z "${single_file_abs:-}" ]]; then
@@ -791,10 +896,21 @@ run_incremental_purge_tests() {
   echo "namespace Probe { public class ProbeAnchor {} }" > "$guard_assets/Assets/_Framework/ProbeAnchor.cs"
 
   # Build a fake graph with 20 ghost classes (source paths that do NOT exist in the temp tree).
-  python3 - <<'PYEOF' > "$guard_out"
-import json
+  # The fixture MUST carry the builder's current extraction_version. Without it the
+  # builder sees a mismatch (stored 0 vs current N), promotes this --incremental run
+  # to --full, and the collapse guard never gets a chance to fire — the test then
+  # reports "graph overwritten" and looks like a guard regression when nothing is
+  # wrong with the guard. Derived from the builder rather than hard-coded: this is
+  # fixture SETUP, not an assertion, so tracking the subject is correct here (the
+  # opposite of the schema_version check, which must own its expected value).
+  local _ev
+  _ev=$(grep -oE '^EXTRACTION_VERSION[[:space:]]*=[[:space:]]*[0-9]+' "$GRAPH_DIR/graph-builder.py" \
+        | grep -oE '[0-9]+$' | head -1)
+  python3 - "${_ev:-0}" <<'PYEOF' > "$guard_out"
+import json, sys
 classes = [{"name": f"GhostClass{i}", "source_file": f"/tmp/ghost_path_{i}.cs"} for i in range(20)]
-g = {"schema_version": "1.3.0", "codebase": {"classes": classes, "interfaces": [], "events": [], "vcontainer": {"installers": [], "scopes": []}, "assemblies": [], "calls": []}}
+g = {"schema_version": "1.3.0", "extraction_version": int(sys.argv[1]),
+     "codebase": {"classes": classes, "interfaces": [], "events": [], "vcontainer": {"installers": [], "scopes": []}, "assemblies": [], "calls": []}}
 print(json.dumps(g))
 PYEOF
 
@@ -1066,7 +1182,7 @@ run_reconciliation_tests() {
   # disagree about and the assertion would be trivially (not meaningfully) green.
   if [[ "$UNITY_HAS_CS" -eq 0 ]]; then
     known_fail "reconciliation (i): healthy-build silence on GRAPH_DISK_MISMATCH" \
-               "template repo has no Assets/ C# to reconcile against"
+               "no C# under the builder's scan roots (<assets>/_Framework, <assets>/_GameFolders/Scripts) — nothing to reconcile"
   else
     local healthy_out healthy_err
     healthy_out="$work/graph_healthy.json"
@@ -1160,6 +1276,7 @@ run_extraction_version_tests() {
 # ──────────────────────────────────────────────────────────────────────────────
 # Main pipeline
 # ──────────────────────────────────────────────────────────────────────────────
+run_scan_root_parity_tests
 run_builder_flag_tests
 run_validator_tests
 run_pivot_tests
