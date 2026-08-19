@@ -1,3 +1,4 @@
 # Build artifacts — regenerated on every graph build, no history value
 .last-build
 cache/file-hashes.json
+cache/mcp-extract.json
