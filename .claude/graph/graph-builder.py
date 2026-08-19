@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -60,6 +61,110 @@ def log(msg, quiet=False):
     if quiet:
         return
     print(f"graph-builder: {msg}", file=sys.stderr)
+
+
+# ── Extraction-semantics versioning (Task 10) ────────────────────────────────
+# Bump ONLY when extraction SEMANTICS change — i.e. when the same input file would now
+# produce a different record. v4 Tasks 1+2 change which value lands in `type`/`as`, so: 2.
+# This is deliberately NOT schema_version: the SHAPE is unchanged, the MEANING is not.
+EXTRACTION_VERSION = 2
+
+
+def _stored_extraction_version(output_path):
+    # NOTE: graph.json has no "metadata" wrapper object — schema_version/generator/
+    # generated_at all live at the document's top level (see build_graph()). This
+    # field follows that existing shape rather than the plan's informal "metadata
+    # dict" phrasing, which refers to the group of fields, not a literal nested key.
+    try:
+        with open(output_path, "r", encoding="utf-8") as fh:
+            return int(json.load(fh).get("extraction_version", 0))
+    except Exception:
+        return 0  # missing/unreadable/malformed -> promote (the safe direction)
+
+
+# ── Disk-vs-graph reconciliation (Task 6) ────────────────────────────────────
+
+
+def norm(p):
+    """Repo-root-relative, realpath-resolved — the convention fixed in 57c9340.
+    See docs/plans/graph-incremental-purge-fix.md:5."""
+    return os.path.relpath(os.path.realpath(p), os.path.realpath("."))
+
+
+# v4 (grill D2): the disk side is filtered by declaration kind. Measured on piggy-doku —
+# unfiltered gave 9 permanent false positives (4 enum-only, 2 struct-only, 3 *Events.cs),
+# filtered gives 63 == 63, zero false positives. This regex is a HOLE, not an alarm: a
+# declaring file it misses drops out of the comparison silently, so the excluded count is
+# logged (below) rather than left implicit.
+_DECL_RE = re.compile(r'\b(?:class|interface)\s+[A-Za-z_]', re.M)
+
+# Comments and string literals are stripped BEFORE the declaration test. Without this a
+# file whose only mention of "class" sits in a comment (e.g. `// class GhostThing — see
+# below`) or in a string counts as declaring, lands on the disk side of the comparison,
+# finds no matching graph node, and raises GRAPH_DISK_MISMATCH on a perfectly healthy
+# build — a FALSE ALARM, which Task 6's acceptance criterion forbids outright ("zero
+# false positives — this is the gate"). Reproduced end-to-end during v4 verification.
+# The plan's D2 residual-risk note anticipated only the opposite failure (the regex
+# MISSING a real declaration); this is the over-matching direction. Same comment/string
+# -stripping precedent as check-no-monobehaviour-in-services.sh.
+_COMMENT_OR_STRING_RE = re.compile(
+    r'/\*.*?\*/'          # block comment
+    r'|//[^\n]*'          # line comment
+    r'|@"(?:[^"]|"")*"'   # verbatim string
+    r'|"(?:\\.|[^"\\])*"' # regular string
+    r"|'(?:\\.|[^'\\])*'",  # char literal
+    re.S,
+)
+
+
+def _strip_comments_and_strings(src):
+    return _COMMENT_OR_STRING_RE.sub(" ", src)
+
+
+def _declares_node(path):
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            return bool(_DECL_RE.search(_strip_comments_and_strings(fh.read())))
+    except OSError:
+        return False   # unreadable -> not comparable; counted as excluded
+
+
+def reconcile_graph_with_disk(graph, disk_cs, quiet, limit=10):
+    """Non-fatal net for silent omissions. Path SET comparison, not counts:
+    a count check passes when one file drops and another is added.
+    BOTH sides go through norm() — mixed path formats were the 57c9340 bug."""
+    try:
+        cb = graph.get("codebase", {})
+        # ONLY these two kinds exist in the graph. `enums`/`structs` are not node kinds at
+        # all, and events[].source_file is the PUBLISHER, not the declaration site — folding
+        # it in would mark the wrong file as covered. See Task 6 step 4.
+        graph_paths = {
+            norm(n.get("source_file") or n.get("file"))
+            for kind in ("classes", "interfaces")
+            for n in cb.get(kind, []) or []
+            if (n.get("source_file") or n.get("file"))
+        }
+        candidates = [p for p in disk_cs if p]
+        disk_paths = {norm(p) for p in candidates if _declares_node(p)}
+        excluded = len(candidates) - len(disk_paths)
+        if excluded:
+            log(f"reconciliation: {excluded} .cs file(s) excluded — declare no class/interface "
+                f"(enum-only, struct-only, event declaration sites)", quiet)
+        missing = sorted(disk_paths - graph_paths)
+        extra   = sorted(graph_paths - disk_paths)
+        if not missing and not extra:
+            return
+        if missing:
+            head = ", ".join(missing[:limit])
+            tail = f" (+{len(missing) - limit} more)" if len(missing) > limit else ""
+            log(f"WARNING: GRAPH_DISK_MISMATCH — {len(missing)} .cs file(s) on disk are "
+                f"absent from the graph: {head}{tail}. "
+                f"Run 'python3 .claude/graph/graph-builder.py --full' to rebuild.", quiet)
+        if extra:
+            log(f"WARNING: GRAPH_DISK_MISMATCH — {len(extra)} graph node(s) reference "
+                f"files not on disk: {', '.join(extra[:limit])}", quiet)
+    except Exception as e:
+        log(f"reconciliation check failed (non-fatal): {e}", quiet)
 
 
 # ── Hashing / cache I/O ──────────────────────────────────────────────────────
@@ -810,9 +915,10 @@ def assemble_graph(
 ):
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
-        "schema_version": "1.3.0",
+        "schema_version": "1.4.0",
         "generated_at": now,
         "generator": f"graph-builder.py@{git_sha}",
+        "extraction_version": EXTRACTION_VERSION,
         "confidence_legend": {
             "EXTRACTED": "Explicit machine-readable data (asmdef JSON, tree-sitter AST)",
             "INFERRED": "Derived from regex patterns — correct on common cases, may miss edge cases",
@@ -983,6 +1089,23 @@ def main():
     last_build_file = str(SCRIPT_DIR / ".last-build")
     output_path = args.output
 
+    # ── Extraction-semantics staleness check (Task 10) ──────────────────────
+    # An --incremental run never re-extracts unchanged files, so if extraction
+    # SEMANTICS changed since the graph was last built (EXTRACTION_VERSION bump),
+    # old records would survive forever while the graph reports itself fresh.
+    # Promote once to --full; the same run writes the new version, so the next
+    # run is incremental again (self-clearing).
+    if args.mode == "incremental":
+        stored_extraction_version = _stored_extraction_version(output_path)
+        if stored_extraction_version != EXTRACTION_VERSION:
+            log(
+                f"extraction_version mismatch (graph={stored_extraction_version}, "
+                f"builder={EXTRACTION_VERSION}) — promoting this --incremental run to "
+                f"--full once so stale records are re-extracted",
+                quiet,
+            )
+            args.mode = "full"
+
     # Initialize files if missing
     if not os.path.isfile(cache_file):
         save_hash_cache(cache_file, {})
@@ -1136,6 +1259,10 @@ def main():
     write_partition_files(graph_dir, mcp_scenes, mcp_prefabs)
 
     atomic_write_json(graph, output_path)
+
+    # ── Disk-vs-graph reconciliation (non-fatal; catches silent omissions like
+    # the ghost-purge/collapse bugs this file already guards against elsewhere)
+    reconcile_graph_with_disk(graph, full_cs, quiet)
 
     # ── Update hash cache
     updated_cache = update_hash_cache(cache, all_cs + all_asmdef)
