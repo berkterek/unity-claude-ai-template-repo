@@ -36,4 +36,4 @@ Normal: "The issue is that React re-renders because inline objects create new re
 Caveman: `inline obj → new ref → re-render. wrap in useMemo.`
 
 Normal: "I've looked at the code and it seems like the AudioService isn't being registered in AppScope, which would explain why injection is failing."
-Caveman: `AudioService missing from AppScope → inject fails. add to AppInstaller.`
+Caveman: `AudioService missing from AppScope → inject fails. add to AppModules.`

@@ -101,7 +101,7 @@ public sealed class PlayerInputHandler : IPlayerInputHandler
 
 **WRONG:**
 ```csharp
-// Registered in both AppInstaller and PlayerInstaller → two PlayerControls instances, two subscriptions
+// Registered by both InputModule and PlayerModule → two PlayerControls instances, two subscriptions
 builder.Register<InputService>(Lifetime.Transient).AsImplementedInterfaces();
 ```
 

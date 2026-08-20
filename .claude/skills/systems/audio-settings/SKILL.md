@@ -407,23 +407,27 @@ public sealed class AudioSettingsView : MonoBehaviour, IInitializable, IDisposab
 
 ---
 
-## AudioInstaller Registration
+## AudioModule Registration
 
 ```csharp
-public sealed class AudioInstaller : ModuleInstaller
+public static class AudioModule
 {
-    [SerializeField] private AudioConfiguration _config;
-    [SerializeField] private AudioMixer         _mixer;
-
-    public override void Install(IContainerBuilder builder)
+    public static void Install(IContainerBuilder builder, AudioConfiguration config, AudioMixer mixer)
     {
-        if (_config == null)
-            throw new InvalidOperationException($"{nameof(AudioInstaller)}: _config is not assigned.");
-        if (_mixer == null)
-            throw new InvalidOperationException($"{nameof(AudioInstaller)}: _mixer is not assigned.");
+        if (config == null)
+        {
+            Debug.LogError("[AudioModule] AudioConfiguration missing.");
+            return;
+        }
 
-        builder.RegisterInstance(_config);
-        builder.RegisterInstance(_mixer);
+        if (mixer == null)
+        {
+            Debug.LogError("[AudioModule] AudioMixer missing.");
+            return;
+        }
+
+        builder.RegisterInstance(config);
+        builder.RegisterInstance(mixer);
 
         builder.Register<AudioMixerService>(Lifetime.Singleton)
                .As<IAudioMixerService>();
@@ -433,6 +437,8 @@ public sealed class AudioInstaller : ModuleInstaller
     }
 }
 ```
+
+Called from `AppModules.Install()` with the configs from `ConfigCatalog`. Guards use `Debug.LogError` + `return`, never `throw` — see `rules/bootstrap-pattern.md`.
 
 ---
 

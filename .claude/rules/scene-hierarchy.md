@@ -53,17 +53,17 @@ When converting a bare GO to a prefab, save to:
 | Name contains `*Provider`, `*Manager`, `*Service` | `_GameFolders/Prefabs/Services/` |
 | Goes to `[Environment]` | `_GameFolders/Prefabs/Environment/` |
 | Has `LifetimeScope` component AND only `ScriptableObject` / asset refs (no scene object refs) | `_GameFolders/Prefabs/Bootstrap/` |
-| Has `LifetimeScope` component AND requires scene object refs (wired manually) | `_GameFolders/Prefabs/Bootstrap/` — prefab olarak kaydedilir, `[SerializeField]` alanlar sahnedeki instance üzerinde doldurulur |
+| Has `LifetimeScope` component AND requires scene object refs (wired manually) | `_GameFolders/Prefabs/Bootstrap/` — saved as a prefab; `[SerializeField]` fields are filled on the scene instance |
 | Name is `EventSystem` (Unity UI EventSystem) | `_GameFolders/Prefabs/CoreObjects/` |
 | Name is `MainCamera` or has `Camera` component | `_GameFolders/Prefabs/CoreObjects/` |
 
 ### AppScope Prefab Rule (NON-NEGOTIABLE)
 
-`AppScope` (and any `LifetimeScope` subclass) **can and must** be saved as a prefab when all its serialized references are `ScriptableObject` assets (e.g. `AppInstaller`, `AppConfiguration`). The prefab stores those asset references — no drag-and-drop is needed at scene time.
+`AppScope` (and any `LifetimeScope` subclass) **can and must** be saved as a prefab when all its serialized references are `ScriptableObject` assets (e.g. `ConfigCatalog`, `AppConfiguration`). The prefab stores those asset references — no drag-and-drop is needed at scene time.
 
 ```
 _GameFolders/Prefabs/Bootstrap/
-├── AppScope.prefab           ← LifetimeScope with [SerializeField] AppInstaller _appInstaller (SO asset)
+├── AppScope.prefab           ← LifetimeScope with [SerializeField] ConfigCatalog _configCatalog (SO asset)
 └── GameScope.prefab          ← scene-scope LifetimeScope (if references are all assets)
 ```
 

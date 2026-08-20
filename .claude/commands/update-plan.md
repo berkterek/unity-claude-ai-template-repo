@@ -200,7 +200,7 @@ After writing all new tasks, analyze dependencies across ALL tasks (existing + n
 
 **Rules:**
 1. **Compile-time dependency (most important):** If Task B's code references a type, interface, or method that Task A *introduces* (even in a different file), Task B MUST be sequential after Task A. Different files ≠ safe to parallelize when there is a type dependency.
-   - Example: Task A creates `IGameFlowService.cs`, Task B creates `InputView.cs` that calls `IGameFlowService.ResumeGame()` → Task B is sequential after Task A.
+   - Example: Task A creates `IGameFlowService.cs`, Task B creates `PauseInputHandler.cs` that calls `IGameFlowService.ResumeGame()` → Task B is sequential after Task A.
 2. **File write conflict:** If two tasks write to the same file → they MUST be sequential.
 3. **Independent:** If two tasks write to entirely different files AND neither references types introduced by the other → assign the same `parallel_group` number.
 4. Tasks with no parallel candidate get `—` (sequential by default).

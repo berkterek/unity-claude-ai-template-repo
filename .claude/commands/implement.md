@@ -124,7 +124,7 @@ Before spawning any agents, score the task complexity on a 0.0–1.0 scale and d
 - Creates a new module folder? +0.3
 - Adds or modifies IEventBus events? +0.2
 - Touches ECS systems or Addressables? +0.3
-- Modifies AppScope, InputView, or an Installer? +0.2
+- Modifies AppScope, InputService, or a [Domain]Module? +0.2
 - Single method addition to existing class? −0.3
 
 **Simple routing (score < 0.3):** Stop the /implement pipeline and show:
@@ -464,23 +464,23 @@ If unity-verifier reports **VERIFY FAILED** → stop and show the user all remai
 
 ## Step 3.6 — Play Mode Smoke Test (NON-SKIPPABLE)
 
-> **Ders:** Derleme ve testlerin geçmesi runtime davranışını garanti etmez. TapToStartView.cs vakasında yanlış state koşulu (TapToStart yerine Idle) yazıldı — derleyici hata vermedi, reviewer kaçırdı, ama Play mode'da 10 saniyede görülürdü. 3 fix döngüsü yaşandı.
+> **Lesson:** compiling and passing tests does not guarantee runtime behavior. In the TapToStartView.cs case the wrong state condition was written (Idle instead of TapToStart) — the compiler said nothing, the reviewer missed it, and Play mode would have shown it in ten seconds. It cost three fix cycles.
 
-**Bu adım her zaman kullanıcıdan manuel onay alır. Code review veya derleme başarısı bu adımın yerini tutamaz.**
+**This step always waits for manual approval from the user. A code review or a successful compile cannot stand in for it.**
 
 Show the user this message:
 
 ```
-⚠️  Play Mode Smoke Test — Manuel Adım
+⚠️  Play Mode Smoke Test — Manual Step
 
-Lütfen Unity'de şunları kontrol et:
+Please check the following in Unity:
   1. Play moduna gir
-  2. [INSERT HERE: 1-2 cümleyle ne görülmesi/olması gerektiği — implement edilen feature'dan türet]
-  3. Console'da hata veya beklenmedik davranış var mı?
+  2. [INSERT HERE: 1-2 sentences on what should be seen or happen — derive from the implemented feature]
+  3. Any errors or unexpected behavior in the Console?
 
-Sonuç:
+Result:
   ok    — devam et
-  fail  — sorunu açıkla, düzeltelim
+  fail  — describe the problem and we will fix it
 ```
 
 Wait for `ok` or `fail`. On `fail` → spawn unity-coder with the reported issue, then repeat from Step 3.5 and Step 3.6.

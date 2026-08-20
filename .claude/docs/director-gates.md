@@ -43,7 +43,7 @@ Proposed structure (inferred from task):
   Interface:  I[ModuleName]Service.cs
   Service:    [ModuleName]Service.cs (sealed)
   Config:     [ModuleName]Configuration.cs (ScriptableObject)
-  Installer:  [ModuleName]Installer.cs (ModuleInstaller)
+  Module:     [ModuleName]Module.cs (static, called from AppModules)
   Events:     [ModuleName]Events.cs (if events needed)
 
 Scope registered in: [AppScope | GameScope | MenuScope]

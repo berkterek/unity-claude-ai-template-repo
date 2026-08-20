@@ -93,9 +93,9 @@ BaseEnemy.prefab          ← base: shared components, default values
 - [ ] Canvas prefabs are Prefab Variants of BaseCanvas (not standalone)
 - [ ] If 2+ prefabs share the same component set → Base + Variant used
 - [ ] Default values match ScriptableObject configs
-- [ ] **UI prefabs only:** GO, Canvas veya Canvas child `parentPath` ile oluşturuldu (scene root'ta oluşturup reparent edilmedi)
-- [ ] **UI prefabs only:** `manage_components` RectTransform özelliği hatasız set edildi
-- [ ] **UI prefabs only:** `execute_code` RectTransform guard geçti — `Debug.LogError` yok
+- [ ] **UI prefabs only:** the GO was created with a Canvas or Canvas-child `parentPath` (not created at scene root and reparented)
+- [ ] **UI prefabs only:** a RectTransform property was set via `manage_components` without error
+- [ ] **UI prefabs only:** the `execute_code` RectTransform guard passed — no `Debug.LogError`
 
 ### 3. ScriptableObject Asset Creation
 - Create ScriptableObject assets for all configurations
@@ -144,21 +144,21 @@ This is a critical setup step. Games ship broken when input is not wired. Follow
 3. **Add bindings**: WASD + Arrow Keys + Gamepad Left Stick for Move; Space + Gamepad South for Jump; etc.
 4. **Generate C# class**: In the asset inspector, enable "Generate C# Class", set path to `Assets/Input/PlayerControls.cs`, click Apply
 5. **Verify generated file**: Confirm `PlayerControls.cs` exists and compiles
-6. **Create InputView**: Create the InputView MonoBehaviour that:
-   - Creates `PlayerControls` in Awake
-   - Enables action map in OnEnable, subscribes callbacks
-   - Disables action map in OnDisable, unsubscribes callbacks
-   - Reads continuous input in Update, forwards to Systems
-7. **Place InputView in scene**: Add InputView component to a GameObject under `[Systems]` container
-8. **Register in VContainer**: Add `builder.RegisterComponentInHierarchy<InputView>()` to the scene's LifetimeScope
+6. **Create InputService**: a pure C# class (never a MonoBehaviour) that:
+   - Creates `PlayerControls` in its constructor
+   - Enables the action map in `Initialize()`
+   - Disables the map and disposes `PlayerControls` in `Dispose()`
+   - Exposes input as properties read on demand (`ReadValue<>()`, `WasPressedThisFrame()`) — no cached frame state, no tick
+7. **Create per-prefab InputHandler**: a pure C# handler that reads what the prefab needs from `IInputService` and calls its domain service; the prefab's Mono shell ticks it
+8. **Register in VContainer**: `builder.RegisterEntryPoint<InputService>().AsImplementedInterfaces()` in `InputModule.Install()` — exactly one instance
 9. **Smoke test**: Press Play, verify input moves the player / triggers actions. Check console for null refs or missing binding warnings
 
 **Common failures to check:**
 - PlayerControls not generated (forgot "Generate C# Class")
-- InputView not in scene (forgot to add component)
-- Action map not enabled (forgot `_controls.Player.Enable()` in OnEnable)
-- Callbacks not subscribed (subscribed in Awake instead of OnEnable)
-- VContainer can't find InputView (not registered in LifetimeScope)
+- Action map not enabled (forgot `_controls.Player.Enable()` in `Initialize()`)
+- `InputService` registered more than once — `PlayerControls` enabled twice, every action fires twice
+- A handler consuming a discrete press inside `FixedUpdate` without latching it — the press is dropped or double-consumed
+- VContainer can't resolve `IInputService` (`InputModule.Install` not called from `AppModules`)
 
 ## MCP Availability
 

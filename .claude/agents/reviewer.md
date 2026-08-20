@@ -156,15 +156,15 @@ If your task prompt includes a **Mailbox** or **Heartbeat** section, follow thes
 
 ### Input System Compliance (CRITICAL — blocks PASS)
 - [ ] **No legacy Input API**: Zero usage of `Input.GetKey`, `Input.GetAxis`, `Input.GetButton`, `Input.mousePosition`
-- [ ] **InputView exists**: If the game has player input, there MUST be an InputView MonoBehaviour
+- [ ] **InputService exists**: If the game has player input, there MUST be a pure C# `InputService` — an `InputView` MonoBehaviour is a violation, that class was removed
 - [ ] **PlayerControls generated**: `.inputactions` asset exists with "Generate C# Class" enabled → `PlayerControls.cs` generated
-- [ ] **Enable in OnEnable**: InputView enables action maps in `OnEnable()` — without this, input is dead at runtime
-- [ ] **Disable in OnDisable**: InputView disables action maps and unsubscribes all callbacks in `OnDisable()`
-- [ ] **Every += has a -=**: Every `action.performed += OnCallback` has a matching `action.performed -= OnCallback` in OnDisable
-- [ ] **Continuous input in Update**: `ReadValue<>()` and polling happen in `Update()`, NOT in `FixedUpdate()`
+- [ ] **Enable in Initialize**: `InputService` enables action maps in `IInitializable.Initialize()` — without this, input is dead at runtime
+- [ ] **Disable in Dispose**: `InputService` disables the maps and disposes `PlayerControls` in `IDisposable.Dispose()`
+- [ ] **Pull-based, no cached frame state**: properties read via `ReadValue<>()` / `WasPressedThisFrame()` on demand. No `Tick`/`FixedTick` on `InputService`, no `performed +=` flag caching
+- [ ] **FixedUpdate latch**: a discrete press consumed in `FixedUpdate` is latched by the consuming handler, never read frame-scoped inside `FixedUpdate`
 - [ ] **Systems are input-agnostic**: Systems expose `SetMoveInput(Vector2)`, `Jump()`, etc. — they NEVER reference `InputAction`, `PlayerControls`, or `UnityEngine.InputSystem`
-- [ ] **InputView registered in VContainer**: `builder.RegisterComponentInHierarchy<InputView>()` in LifetimeScope
-- [ ] **Action map switching**: If game has UI/menu states, InputView handles map switching (disable current, enable next)
+- [ ] **One InputService instance**: registered `Singleton` (`builder.RegisterEntryPoint<InputService>().AsImplementedInterfaces()`) — two instances enable `PlayerControls` twice and every action fires twice
+- [ ] **Action map switching**: If game has UI/menu states, switching goes through `IInputService.EnableGameplay()` / `EnableUI()` — callers never touch `_controls`
 
 ### Input Runtime Verification (MANDATORY)
 

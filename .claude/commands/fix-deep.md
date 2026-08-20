@@ -576,21 +576,21 @@ Review loop: max 3 passes (same as `/fix`).
 
 ## Step 6.6 — Play Mode Smoke Test (NON-SKIPPABLE)
 
-> **Ders:** Derleme ve testlerin geçmesi runtime davranışını garanti etmez. Play mode'da 10 saniyede görülecek bir hata, 3 fix döngüsüne neden olabilir.
+> **Lesson:** compiling and passing tests does not guarantee runtime behavior. A fault Play mode would show in ten seconds can cost three fix cycles.
 
 Show the user this message:
 
 ```
-⚠️  Play Mode Smoke Test — Manuel Adım
+⚠️  Play Mode Smoke Test — Manual Step
 
-Lütfen Unity'de şunları kontrol et:
+Please check the following in Unity:
   1. Play moduna gir
-  2. [INSERT HERE: orijinal bug'ın tekrar edip etmediğini gösteren 1-2 cümle — root cause'dan türet]
-  3. Console'da yeni hata veya beklenmedik davranış var mı?
+  2. [INSERT HERE: 1-2 sentences showing whether the original bug reproduces — derive from the root cause]
+  3. Any new errors or unexpected behavior in the Console?
 
-Sonuç:
+Result:
   ok    — devam et
-  fail  — sorunu açıkla, düzeltelim
+  fail  — describe the problem and we will fix it
 ```
 
 Wait for `ok` or `fail`. On `fail` → spawn unity-coder with the reported issue, then repeat from Step 5.5.

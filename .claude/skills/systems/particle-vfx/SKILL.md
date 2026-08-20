@@ -269,19 +269,25 @@ public async UniTaskVoid PlayAndReturnAsync(VFXController vfx, IVFXPool pool, Ca
 ## VContainer Registration
 
 ```csharp
-public sealed class VFXInstaller : ModuleInstaller
+public static class VFXModule
 {
-    [SerializeField] private VFXController _explosionPrefab;
-    [SerializeField] private VFXController _hitSparkPrefab;
-
-    public override void Install(IContainerBuilder builder)
+    public static void Install(IContainerBuilder builder, VFXConfiguration config)
     {
+        if (config == null)
+        {
+            Debug.LogError("[VFXModule] VFXConfiguration missing.");
+            return;
+        }
+
+        builder.RegisterInstance(config);
         builder.Register<VFXPool>(Lifetime.Singleton)
-            .WithParameter(_explosionPrefab)
+            .WithParameter(config.ExplosionPrefab)
             .As<IVFXPool>();
     }
 }
 ```
+
+The prefab references live on a `VFXConfiguration` ScriptableObject reached through `ConfigCatalog` — a static module has no Inspector to hold `[SerializeField]` fields.
 
 ---
 

@@ -12,7 +12,7 @@ Copy `.claude/` into the project root. Most hooks warn only — four will **bloc
 
 | Hook | What it blocks | Migration path |
 |------|---------------|----------------|
-| `check-input-system.sh` | `Input.GetKey`, `Input.GetAxis` | Create `PlayerControls.inputactions`, wrap in `InputView` |
+| `check-input-system.sh` | `Input.GetKey`, `Input.GetAxis` | Create `PlayerControls.inputactions`, wrap in a pure C# `InputService` |
 | `check-vcontainer-singleton.sh` | Static singletons | Replace with VContainer registration in scope |
 | `guard-editor-runtime.sh` | Bare `using UnityEditor` in runtime | Wrap with `#if UNITY_EDITOR` |
 | `check-pure-csharp.sh` | `using UnityEngine` in `_Framework/` | Move Unity calls to a Provider in `Games/Concretes/` |

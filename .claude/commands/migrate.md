@@ -231,7 +231,7 @@ You are a Unity code migration specialist. Migrate legacy patterns in this proje
 
 ### Legacy Input → New Input System
 - Input.GetKey / Input.GetAxis → PlayerControls actions
-- All input reading must go through InputView
+- All input reading must go through `IInputService` (pull-based, pure C#) and per-prefab `InputHandler`s
 
 ## When Done
 List every file you changed with a one-line summary of what was migrated.

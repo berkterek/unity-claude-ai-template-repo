@@ -64,7 +64,7 @@ Scene setup always targets Unity/Mixed code — `coder` agent is never used here
 - Creates a new module folder? +0.3
 - Adds or modifies IEventBus events? +0.2
 - Touches ECS systems or Addressables? +0.3
-- Modifies AppScope, InputView, or an Installer? +0.2
+- Modifies AppScope, InputService, or a [Domain]Module? +0.2
 - Single MonoBehaviour with no dependencies? −0.3
 
 **Print before proceeding:**

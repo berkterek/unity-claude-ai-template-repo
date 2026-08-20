@@ -255,7 +255,7 @@ var sut = new MyService(<classNameCamel>);
 |---------|----------|------|
 | `Input.GetAxis("Horizontal")` | FooInput.cs:18 | check-input-system |
 
-**Fix:** You cannot inject an InputView into this package. Create a thin `<PackageName>InputBridge` MonoBehaviour that reads from `PlayerControls` and calls the package's public API directly. Never forward legacy `Input.*` calls from your own code.
+**Fix:** You cannot inject an `IInputService` into this package. Create a thin `<PackageName>InputBridge` MonoBehaviour that reads from `PlayerControls` and calls the package's public API directly. Never forward legacy `Input.*` calls from your own code.
 
 ---
 

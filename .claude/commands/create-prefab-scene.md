@@ -108,7 +108,7 @@ Then produce a **Scene Analysis Report** in this format for each scene:
 
 **Organizer rule:** Empty GameObjects with no components other than `Transform` and a name in brackets like `[Systems]`, `[UI]`, `[Gameplay]` → mark as `(organizer — exempt)`, do NOT create prefabs for these.
 
-**AppScope / LifetimeScope rule:** A `LifetimeScope` subclass (e.g. `AppScope`, `GameScope`) is a bare GameObject only when it is not yet a prefab instance. It **must** become a prefab saved to `_GameFolders/Prefabs/Bootstrap/`. Its `[SerializeField]` references (e.g. `AppInstaller` ScriptableObject) are asset references — they are assigned on the prefab directly, not at scene-placement time. Do NOT mark LifetimeScope GameObjects as "wired manually" unless they reference scene objects that cannot be stored on a prefab.
+**AppScope / LifetimeScope rule:** A `LifetimeScope` subclass (e.g. `AppScope`, `GameScope`) is a bare GameObject only when it is not yet a prefab instance. It **must** become a prefab saved to `_GameFolders/Prefabs/Bootstrap/`. Its `[SerializeField]` references (e.g. the `ConfigCatalog` ScriptableObject) are asset references — they are assigned on the prefab directly, not at scene-placement time. Do NOT mark LifetimeScope GameObjects as "wired manually" unless they reference scene objects that cannot be stored on a prefab.
 
 **EventSystem / MainCamera rule:** Unity's built-in `EventSystem` and `MainCamera` GameObjects must be saved as prefabs in `_GameFolders/Prefabs/CoreObjects/`. The same prefab instance is placed in every scene — never leave these as bare GameObjects.
 

@@ -1,7 +1,7 @@
-# Orchestrate — Modül Task Executor
+# Orchestrate — Module Task Executor
 
-Bir modülün `tasks.md` dosyasını okuyarak her task'ı otomatik çalıştırır.
-Kullanım: `/orchestrate docs/modules/01-core-loop/tasks.md`
+Reads a module's `tasks.md` and runs every task automatically.
+Usage: `/orchestrate docs/modules/01-core-loop/tasks.md`
 
 ---
 
@@ -10,7 +10,7 @@ Kullanım: `/orchestrate docs/modules/01-core-loop/tasks.md`
 **Parse $ARGUMENTS first:**
 - `$ARGUMENTS` → tasks.md dosya yolu (zorunlu). Eksikse dur:
   ```
-  tasks.md yolu gerekli. Kullanım: /orchestrate docs/modules/01-core-loop/tasks.md
+  A tasks.md path is required. Usage: /orchestrate docs/modules/01-core-loop/tasks.md
   ```
 - Check $ARGUMENTS for `--heavy` flag → if present, set `FORCE_OPUS_TIER=true`
 - Print: `Mode: heavy (all implementation agents → opus tier)` if flag found, else nothing extra.
@@ -32,15 +32,15 @@ Plugins: superpowers:verification-before-completion [✓/✗]
 
 **Step 0b.1 — Tasks.md Okuma**
 
-1. `$ARGUMENTS`'teki tasks.md dosyasını oku. Dosya yoksa dur:
+1. Read the tasks.md file given in `$ARGUMENTS`. If the file does not exist, stop:
    ```
-   tasks.md bulunamadı: [path]
-   Modül planını önce oluşturun.
+   tasks.md not found: [path]
+   Create the module plan first.
    ```
 2. Checkbox'lardan durumu parse et:
    - `- [x]` → COMPLETE (skip)
-   - `- [ ]` → PENDING (çalıştır)
-3. Tekrar tamamlanan task'lar `[x]` checkbox ile işaretlidir — skip edilir.
+   - `- [ ]` → PENDING (run it)
+3. Already-completed tasks are marked with an `[x]` checkbox — they are skipped.
 
 **Step 0b.2 — Review Mode**
 
@@ -76,7 +76,7 @@ Before executing any task, score the overall workflow complexity on a 0.0–1.0 
 - Creates a new module folder? +0.3
 - Adds or modifies IEventBus events? +0.2
 - Touches ECS systems or Addressables? +0.3
-- Modifies AppScope, InputView, or an Installer? +0.2
+- Modifies AppScope, InputService, or a [Domain]Module? +0.2
 - Single method addition to existing class? −0.3
 
 **Print before proceeding:**
@@ -152,16 +152,16 @@ A hook exiting 0 is never evidence a rule was checked — only the printed `chec
 Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
 
 ```
-## SCOPE_GATE — Modül Orchestration
+## SCOPE_GATE — Module Orchestration
 
 Plan: [tasks.md dosya yolu]
-Modül: [tasks.md başlığından]
-Toplam task: [sayı]
-Bekleyen: [sayı] (tamamlanan [sayı] skip edilecek)
+Module: [from the tasks.md title]
+Total tasks: [count]
+Pending: [count] (completed [count] will be skipped)
 Complexity: [score] — [Label]
 Review Mode: [solo|lean|full]
 
-Devam etmek için `go` yaz:
+Type `go` to continue:
 ```
 
 Wait for `go` before spawning any agents.
@@ -186,7 +186,7 @@ Announce:
 ```
 ## Orchestration Starting
 Plan: [tasks.md path]
-Modül: [tasks.md başlığından]
+Module: [from the tasks.md title]
 Toplam task: [N]
 Bekleyen task: [M]
 Resuming from: [ilk pending task veya "beginning"]
@@ -628,9 +628,9 @@ Append to `docs/EVENTS.jsonl`:
 
 ### Phase Gate (Checkpoint)
 
-tasks.md'de `**Checkpoint:**` ile başlayan satırlar phase gate noktalarıdır.
+Lines starting with `**Checkpoint:**` in tasks.md are phase gate points.
 
-Her Checkpoint'e ulaşıldığında:
+On reaching each Checkpoint:
 
 1. Run the automated QA sequence below before asking the developer.
 
@@ -714,7 +714,7 @@ Print:
 ## Checkpoint: [checkpoint metni]
 Ralph: green | Silent failures: [CLEAN / N findings] | Validate: PASS
 
-Devam edilecek sonraki task'lar: [list]
+Remaining tasks to continue with: [list]
 
 Devam? (yes / no / stop)
 ```
@@ -748,16 +748,16 @@ Devam? (yes / no / stop)
 
 Run: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"`
 
-Update `docs/ROADMAP.md` — ilgili modül satırını bul ve Status'u güncelle: `→ ✅ Complete`
+Update `docs/ROADMAP.md` — find the module's row and set its Status: `→ ✅ Complete`
 
 ```
 ## Orchestration Complete
 
 tasks.md: [path]
 Tamamlanan task'lar: [N]
-Skip edilen (zaten tamamlanmış): [M]
+Skipped (already complete): [M]
 
-Sıradaki adım: /roadmap ile ROADMAP.md'yi güncelle
+Next step: update ROADMAP.md with /roadmap
 ```
 
 Append to `docs/EVENTS.jsonl`:

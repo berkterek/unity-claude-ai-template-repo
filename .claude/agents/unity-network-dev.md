@@ -47,8 +47,8 @@ public sealed class PlayerNetworkController : NetworkBehaviour
         }
     }
 
-    // Input is supplied by InputView (see architecture rules) — never read Input.* here.
-    // InputView calls SetMoveInput on the locally owned NetworkBehaviour each frame.
+    // Input is supplied by an InputHandler reading IInputService (see architecture rules) — never read Input.* here.
+    // The handler calls SetMoveInput on the locally owned NetworkBehaviour each frame.
     private Vector2 _moveInput;
     public void SetMoveInput(Vector2 input) => _moveInput = input;
 

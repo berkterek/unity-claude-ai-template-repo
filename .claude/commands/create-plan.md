@@ -186,7 +186,7 @@ Print the score and label at the top of the plan before any tasks.
 - VContainer for DI — no singletons, no static access
 - IEventBus for cross-module communication — readonly struct events, zero allocation
 - UniTask for all async work — no coroutines, no async void
-- New Input System only — InputView owns PlayerControls
+- New Input System only — `InputService` (pure C#, pull-based) owns PlayerControls
 
 ## Plan File Format
 
@@ -283,7 +283,7 @@ After writing all tasks, analyze task dependencies and assign `parallel_group` n
 
 **Rules:**
 1. **Compile-time dependency (most important):** If Task B's code references a type, interface, or method that Task A *introduces* (even in a different file), Task B MUST be sequential after Task A. Different files ≠ safe to parallelize when there is a type dependency.
-   - Example: Task A creates `IGameFlowService.cs`, Task B creates `InputView.cs` that calls `IGameFlowService.ResumeGame()` → Task B is sequential after Task A.
+   - Example: Task A creates `IGameFlowService.cs`, Task B creates `PauseInputHandler.cs` that calls `IGameFlowService.ResumeGame()` → Task B is sequential after Task A.
 2. **File write conflict:** If two tasks write to the same file → they MUST be sequential.
 3. **Independent:** If two tasks write to entirely different files AND neither task's code references types introduced by the other → assign the same `parallel_group` number.
 4. Tasks with no parallel candidate get `—` (sequential by default).
@@ -294,7 +294,7 @@ Add a `parallel_group` column to the Status table:
 |-------|------|--------|----------------|
 | 1 | Add IEnemyService | ⏳ Pending | 1 |
 | 1 | Add IAudioService | ⏳ Pending | 1 |
-| 2 | Wire both in AppInstaller | ⏳ Pending | — |
+| 2 | Wire both in AppModules | ⏳ Pending | — |
 
 **When orchestrate runs this plan:** tasks in the same `parallel_group` will spawn simultaneously (complexity ≥ 0.4). Tasks with `—` run sequentially.
 

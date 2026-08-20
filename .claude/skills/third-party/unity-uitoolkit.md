@@ -648,7 +648,7 @@ public sealed class MainMenuView : MonoBehaviour
 }
 ```
 
-Subscribe in `OnEnable`, unsubscribe in `OnDisable` — same pattern as InputView.
+Subscribe in `OnEnable`, unsubscribe in `OnDisable` — same pattern as a UGUI View.
 
 ---
 

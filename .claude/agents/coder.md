@@ -56,11 +56,12 @@ You are a senior C# developer specializing in Unity game development. You write 
 
 ### Input System Standards (NON-NEGOTIABLE)
 - **Systems are input-agnostic**: Systems expose methods like `SetMoveInput(Vector2)`, `Jump()`, `Attack()`. They NEVER reference `InputAction`, `PlayerControls`, `InputSystem`, or any `UnityEngine.InputSystem` type.
-- **InputView is a View**: The InputView MonoBehaviour is the ONLY class that creates and holds `PlayerControls`. It reads input and calls System methods.
+- **InputService owns PlayerControls**: `InputService` is a pure C# class — the ONLY one that creates and holds `PlayerControls`. It is pull-based: properties read the Input System on demand. An `InputView` MonoBehaviour is a violation; that class was removed.
 - **No legacy Input API**: `Input.GetKey`, `Input.GetAxis`, `Input.GetButton` are BLOCKED by hooks. Use the New Input System exclusively.
-- **Enable/Disable lifecycle**: InputView MUST enable action maps in `OnEnable()` and disable + unsubscribe in `OnDisable()`. Missing this = zero input at runtime.
-- **Continuous input in Update**: `ReadValue<Vector2>()` in Update, cache it. Apply physics in FixedUpdate using cached values.
-- **Discrete input via callbacks**: Button actions use `performed` callback → call System method. Subscribe in OnEnable, unsubscribe in OnDisable.
+- **Enable/Dispose lifecycle**: `InputService` enables action maps in `Initialize()` and disables + disposes in `Dispose()`. Missing this = zero input at runtime.
+- **Continuous input**: `ReadValue<Vector2>()` read on demand from a property — never cached behind a tick.
+- **Discrete input**: `WasPressedThisFrame()`, read on demand. A press consumed in `FixedUpdate` is latched by the consuming handler, never by `InputService`.
+- **Per-prefab InputHandler**: each prefab gets a pure C# `InputHandler` that reads what it needs from `IInputService` and calls its domain service; the Mono shell ticks it.
 
 ### Unity 6 + C# 9 Usage
 - Records for immutable DTOs and event args

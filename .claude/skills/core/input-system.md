@@ -1,128 +1,53 @@
 ---
 name: input-system
-description: New Input System & InputView pattern — using the PlayerControls generated class, OnEnable/OnDisable subscription rules, action map switching, legacy Input API ban. Use this skill when writing anything input-related, creating an InputView, when you see Input.GetKey/GetAxis in code, or when switching action maps. Legacy Input API is completely banned — all input goes through the New Input System.
+description: New Input System — pull-based InputService (pure C#) + per-prefab InputHandler, action map switching, the FixedUpdate latch rule, legacy Input API ban. Use when writing anything input-related, when you see Input.GetKey/GetAxis in code, or when switching action maps. The legacy Input API is banned outright.
 model-tier: normal
 ---
 
-# Input System — InputView Pattern
+# Input System
 
-## Setup
+> **`.claude/rules/unity-input.md` is the authority.** Read it before writing input code — this skill is the short form, the rule file carries the cards, the full `InputService`/`InputHandler` listings and the enforcement table. On any conflict, the rule file wins.
 
-1. Create `Assets/Input/PlayerControls.inputactions` — define all action maps
-2. Enable "Generate C# Class" in the Inspector → `PlayerControls.cs` is generated
-3. Write an `InputView` MonoBehaviour — the only class that touches `PlayerControls`
+## The shape
 
-## InputView — Full Example
+```
+InputService   ← pure C#, Singleton, owns PlayerControls. PULL-BASED: every property
+                 reads the Input System on demand. No Tick/FixedTick of any kind.
+InputHandler   ← pure C#, one per prefab. Reads only what that prefab needs from
+                 IInputService and calls its domain service. Ticked by its Mono shell.
+```
 
 ```csharp
-public sealed class InputView : MonoBehaviour
+public sealed class InputService : IInputService, IInitializable, IDisposable
 {
-    #region Fields
+    private readonly PlayerControls _controls; // the only field — no cached frame state
 
-    private PlayerControls _controls;
-    private IPlayerService _playerService;
+    public Vector2 MoveInput   => _controls.Player.Move.ReadValue<Vector2>();
+    public bool    JumpPressed => _controls.Player.Jump.WasPressedThisFrame();
 
-    #endregion
-
-    #region Lifecycle
-
-    private void Awake()
-    {
-        _controls = new PlayerControls();
-    }
-
-    private void OnEnable()
-    {
-        _controls.Player.Enable();
-        _controls.Player.Jump.performed   += OnJump;
-        _controls.Player.Attack.performed += OnAttack;
-    }
-
-    private void OnDisable()
-    {
-        _controls.Player.Jump.performed   -= OnJump;
-        _controls.Player.Attack.performed -= OnAttack;
-        _controls.Player.Disable();
-    }
-
-    private void Update()
-    {
-        _playerService.SetMoveInput(_controls.Player.Move.ReadValue<Vector2>());
-    }
-
-    #endregion
-
-    #region Constructor
-
-    [Inject]
-    public void Construct(IPlayerService playerService)
-    {
-        _playerService = playerService;
-    }
-
-    #endregion
-
-    #region Private Methods
-
-    private void OnJump(InputAction.CallbackContext ctx)   => _playerService.Jump();
-    private void OnAttack(InputAction.CallbackContext ctx) => _playerService.Attack();
-
-    #endregion
+    public void Initialize() => _controls.Player.Enable();
+    public void Dispose()    { _controls.Player.Disable(); _controls.Dispose(); }
 }
 ```
 
-## Mandatory Rules
-
-| Rule | Reason |
-|------|--------|
-| `Enable` → `OnEnable`, `Disable` → `OnDisable` | If Enable is missing, zero input arrives; if Disable is missing, ghost callbacks + leaks |
-| `+=` and `-=` on the same method | Every Subscribe must have a matching Unsubscribe |
-| Continuous input (`ReadValue`) → `Update` | FixedUpdate runs at a different rate, input can be missed |
-| Cache input for physics, apply in `FixedUpdate` | Physics forces use the cached value |
-| `Input.GetKey` / `Input.GetAxis` are forbidden | Blocked by hook (exit 2) |
-| One `InputView` per scene | Prevents duplicate subscriptions |
-
-## Action Map Switching
+Registration — one instance, always:
 
 ```csharp
-// Gameplay → UI (when opening the pause menu)
-_controls.Player.Disable();
-_controls.UI.Enable();
-
-// UI → Gameplay (when closing the menu)
-_controls.UI.Disable();
-_controls.Player.Enable();
+builder.RegisterEntryPoint<InputService>().AsImplementedInterfaces();
 ```
 
-Disable the current map, **then** enable the new one. Multiple gameplay maps must not be open at the same time.
+`Singleton` is the requirement; `RegisterEntryPoint` is just how `Initialize`/`Dispose` get wired. Two instances mean `PlayerControls` is enabled twice and every action fires twice.
 
-## Service Side
+## Non-negotiables
 
-Services are input-agnostic — they only receive commands:
+| Rule | Why |
+|---|---|
+| **`InputView` does not exist** — it was removed | Input is not a MonoBehaviour concern; the service is pure C#, the handler is pure C# |
+| `InputService` exposes **no** `Tick`/`FixedTick`/`LateTick`, not even an empty one | Nothing to advance; an empty tick invites a cache, and a cache reintroduces the ordering bug between the container's tick and `MonoBehaviour.Update` |
+| Continuous input via `ReadValue<T>()`, discrete via `WasPressedThisFrame()` | Frame-scoped by the Input System; reading does not consume, so N consumers agree in any order |
+| A press consumed in `FixedUpdate` is latched **by the consuming handler** | `FixedUpdate` runs 0..N times per frame — unlatched, the press is dropped or double-consumed. A latch in the shared service would be raced over by every consumer |
+| `InputHandler` is pure C#, never a MonoBehaviour | No `[SerializeField]` needed; `IInputService` arrives via constructor — Card 0 is not satisfied |
+| Map switching only via `IInputService.EnableGameplay()` / `EnableUI()` | Single owner; callers never touch `_controls` |
+| Legacy `Input.GetKey` / `GetAxis` / `GetButton` | Blocked by hook |
 
-```csharp
-public interface IPlayerService
-{
-    void SetMoveInput(Vector2 input);
-    void Jump();
-    void Attack();
-}
-```
-
-`InputView` is a thin adapter — reads, forwards, zero logic.
-
-## Forbidden Usages
-
-```csharp
-// FORBIDDEN — legacy API, blocked by hook
-Input.GetKey(KeyCode.Space)
-Input.GetAxis("Horizontal")
-Input.GetButton("Fire1")
-
-// FORBIDDEN — creating PlayerControls outside of InputView
-var controls = new PlayerControls(); // in another class
-
-// CORRECT
-_controls.Player.Move.ReadValue<Vector2>()
-_controls.Player.Jump.performed += OnJump;
-```
+Full cards, the latch example and the `PlayerInputHandler`/`PlayerController` listings: `.claude/rules/unity-input.md`.

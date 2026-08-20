@@ -78,8 +78,8 @@ LoadDataAsync(this.GetCancellationTokenOnDestroy()).Forget();
 **Migrate:**
 1. Remove static Instance field and Awake singleton setup
 2. Make class `sealed`, add constructor injection
-3. Create `[ModuleName]Installer : ModuleInstaller` if not exists
-4. Register in AppScope or scene scope as appropriate
+3. Create a static `[ModuleName]Module` class with `Install(IContainerBuilder, [Domain]Configuration)` if not present
+4. Call it from `AppModules.Install()` (app lifetime) or `SceneModules` (scene lifetime) — never inline in a scope
 5. Update all `ClassName.Instance.Method()` call sites to injected field
 
 ### 3. Legacy Input → New Input System
@@ -89,7 +89,7 @@ LoadDataAsync(this.GetCancellationTokenOnDestroy()).Forget();
 
 **Migrate:**
 1. Ensure `PlayerControls.inputactions` exists — if not, note it must be created manually
-2. Create or update `InputView.cs` following the InputView pattern
+2. Create or update `InputService.cs` (pure C#, pull-based) plus a per-prefab `InputHandler` — see `rules/unity-input.md`
 3. Replace all direct `Input.*` calls with service method calls (`_playerService.Jump()`, etc.)
 4. Remove legacy input references from service/system classes
 

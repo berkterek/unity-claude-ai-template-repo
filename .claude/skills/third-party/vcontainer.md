@@ -1,6 +1,6 @@
 ---
 name: vcontainer
-description: VContainer dependency injection for Unity — scope hierarchy, installer pattern (IInstaller → ModuleInstaller → AppInstaller → AppScope), registration patterns, and DI failure diagnosis. Use whenever wiring a new service, creating an installer, debugging injection errors, adding a module to AppInstaller, or designing scope structure. Trigger on any mention of AppScope, ModuleInstaller, AppInstaller, LifetimeScope, [Inject], VContainer, DI registration, or "how do I add a new service/module".
+description: VContainer dependency injection for Unity — scope hierarchy, the code-first module pattern ([Domain]Module → AppModules → AppScope), registration patterns, and DI failure diagnosis. Use whenever wiring a new service, writing a module, debugging injection errors, adding a module to AppModules, or designing scope structure. Trigger on any mention of AppScope, AppModules, LifetimeScope, [Inject], VContainer, DI registration, or "how do I add a new service/module".
 
 user-invocable: true
 model-tier: normal
@@ -8,7 +8,7 @@ model-tier: normal
 
 # VContainer — Setup & Usage Guide
 
-> For the full bootstrap/installer pattern (IInstaller → ModuleInstaller → AppInstaller → AppScope layer rules) see `rules/bootstrap-pattern.md`.
+> For the full bootstrap pattern ([Domain]Module → AppModules → AppScope layer rules) see `rules/bootstrap-pattern.md` — it is the authority on anything below.
 
 ## What VContainer Does
 
@@ -25,7 +25,7 @@ AppScope (Bootstrap scene — DontDestroyOnLoad)
 ```
 
 - Bootstrap scene (Build index 0) loads once and never unloads
-- `AppScope` registers global services via `AppInstaller` — never directly
+- `AppScope` registers global services via `AppModules` — never directly
 - Child scopes resolve from parent — `GameScope` can use `IAudioService` registered in `AppScope`
 - Sibling scopes are isolated — `MenuScope` cannot access `GameScope` registrations
 - A scope disposes all its registrations when the scene unloads
@@ -34,12 +34,12 @@ AppScope (Bootstrap scene — DontDestroyOnLoad)
 
 ## AppScope Pattern
 
-`AppScope.cs` **never changes.** To add a new module, add a new installer to `AppInstaller.asset`.
+`AppScope.cs` **never changes.** To add a new module, add one line to `AppModules.Install()`.
 
 ```csharp
 public sealed class AppScope : LifetimeScope
 {
-    [SerializeField] private AppInstaller     _appInstaller;
+    [SerializeField] private ConfigCatalog    _configCatalog;
     [SerializeField] private AppConfiguration _appConfiguration;
 
     protected override void Configure(IContainerBuilder builder)
@@ -50,9 +50,15 @@ public sealed class AppScope : LifetimeScope
             return;
         }
 
-        if (_appInstaller == null)
+        if (_configCatalog == null)
         {
-            Debug.LogError("[AppScope] AppInstaller reference is missing.");
+            Debug.LogError("[AppScope] ConfigCatalog reference is missing.");
+            return;
+        }
+
+        if (!_configCatalog.Validate(out var missing))
+        {
+            Debug.LogError($"[AppScope] ConfigCatalog missing fields: {string.Join(", ", missing)} — installation stopped.");
             return;
         }
 
@@ -61,7 +67,7 @@ public sealed class AppScope : LifetimeScope
         builder.RegisterComponentInHierarchy<UIRoot>();
         builder.RegisterComponentInHierarchy<AudioRoot>();
 
-        _appInstaller.Install(builder);
+        AppModules.Install(builder, _configCatalog);
 
         builder.RegisterBuildCallback(container =>
         {
@@ -72,13 +78,16 @@ public sealed class AppScope : LifetimeScope
 ```
 
 **Important:**
-- `EventBus` is not registered directly here — `EventBusInstaller` does that
+- `EventBus` is not registered directly here — `EventBusModule` does that, first in `AppModules`
 - Scene components (`UIRoot`, `AudioRoot`) are found with `RegisterComponentInHierarchy`
+- `ConfigCatalog.Validate()` runs before any module installs, so all missing fields are reported at once
 - Null guards use `Debug.LogError + return` — not `throw`
 
 ---
 
-## Installer Layer
+## Module Layer
+
+> **ScriptableObject installers were removed.** `ModuleInstaller` (abstract SO base) and `AppInstaller` (SO with a `_modules` list) no longer exist. A module is a static class; there is no asset to create, no list to drag into, and no merge-conflict-prone `.asset` file. `.claude/rules/bootstrap-pattern.md` is the authority.
 
 ### IInstaller
 
@@ -93,79 +102,56 @@ namespace Framework.Installers
 }
 ```
 
-### ModuleInstaller (abstract base)
+Kept for pure C# installer abstractions only — modules do not implement it.
+
+### AppModules (the module list)
 
 ```csharp
-// _Framework/Installers/ModuleInstaller.cs
-using UnityEngine;
-using VContainer;
-
-namespace Framework.Installers
+// _GameFolders/Scripts/Games/Concretes/Infrastructure/AppModules.cs
+public static class AppModules
 {
-    public abstract class ModuleInstaller : ScriptableObject, IInstaller
+    public static void Install(IContainerBuilder builder, ConfigCatalog configs)
     {
-        public abstract void Install(IContainerBuilder builder);
+        EventBusModule.Install(builder);                 // FIRST — structural guarantee
+        AudioModule.Install(builder, configs.Audio);
+        PlayerModule.Install(builder, configs.Player);
+        // New module: one line here
     }
 }
 ```
 
-### AppInstaller (module list)
-
-```csharp
-// _GameFolders/Scripts/Games/Concretes/Infrastructure/AppInstaller.cs
-[CreateAssetMenu(menuName = "Game/Infrastructure/App Installer", fileName = "AppInstaller")]
-public sealed class AppInstaller : ScriptableObject, IInstaller
-{
-    [SerializeField] private List<ModuleInstaller> _modules = new();
-
-    public void Install(IContainerBuilder builder)
-    {
-        foreach (var module in _modules)
-        {
-            if (module == null) continue;
-            module.Install(builder);
-        }
-    }
-}
-```
-
-- Use `List<ModuleInstaller>` — not array (for reordering in the Inspector)
-- `EventBusInstaller` **is always the first element in the list**
+`AppModules.cs` is the single source of truth for what is registered at app scope, and module order determines EntryPoint execution order.
 
 ---
 
-## Writing [Module]Installer
+## Writing a [Domain]Module
 
-Each module has its own installer. If there is a config, a null guard is required.
+Each module is a static class. If it takes a config, a null guard is required.
 
 ```csharp
-[CreateAssetMenu(menuName = "Game/Installers/Audio", fileName = "AudioInstaller")]
-public sealed class AudioInstaller : ModuleInstaller
+public static class AudioModule
 {
-    [SerializeField] private AudioConfiguration _config;
-
-    public override void Install(IContainerBuilder builder)
+    public static void Install(IContainerBuilder builder, AudioConfiguration config)
     {
-        if (_config == null)
+        if (config == null)
         {
-            Debug.LogError("[AudioInstaller] AudioConfiguration is missing.", this);
+            Debug.LogError("[AudioModule] AudioConfiguration missing.");
             return;
         }
 
-        builder.RegisterInstance(_config);
+        builder.RegisterInstance(config);
         builder.Register<AudioService>(Lifetime.Singleton)
             .AsImplementedInterfaces();  // IInitializable, IDisposable registered automatically
     }
 }
 ```
 
-### EventBusInstaller (required in every project)
+### EventBusModule (required in every project)
 
 ```csharp
-[CreateAssetMenu(menuName = "Game/Installers/EventBus", fileName = "EventBusInstaller")]
-public sealed class EventBusInstaller : ModuleInstaller
+public static class EventBusModule
 {
-    public override void Install(IContainerBuilder builder)
+    public static void Install(IContainerBuilder builder)
     {
         builder.Register<EventBus>(Lifetime.Singleton)
             .AsImplementedInterfaces();
@@ -173,14 +159,14 @@ public sealed class EventBusInstaller : ModuleInstaller
 }
 ```
 
-Holds no config. **Always first in the `AppInstaller._modules` list.**
+Holds no config. **Always the first call in `AppModules.Install()`** — other modules may `Subscribe` during `Initialize()`, and those subscriptions silently fail if EventBus is not in the container yet.
 
 ### New module addition flow
 
-1. Write `[Domain]Installer.cs`, derive from `ModuleInstaller`
-2. Create the asset in Unity: `Assets → Create → Game/Installers/[Domain]`
-3. Assign the config SO in the Inspector
-4. Open `AppInstaller.asset` → add the new installer to the `_modules` list
+1. Write `[Domain]Module.cs` — static class, `Install(IContainerBuilder builder, [Domain]Configuration config)`
+2. Add the config field to `ConfigCatalog` — one `[SerializeField]` + property + `Validate()` null check
+3. In Unity: create the config ScriptableObject asset and assign it in the `ConfigCatalog` Inspector
+4. Add one line to `AppModules.Install()`
 5. **Do not touch** `AppScope.cs`
 
 ---
@@ -204,7 +190,7 @@ builder.Register<AudioService>(Lifetime.Singleton);
 
 ```csharp
 // Present in scene — searches the hierarchy
-builder.RegisterComponentInHierarchy<InputView>();
+builder.RegisterComponentInHierarchy<UIRoot>();
 
 // Reference dragged from Inspector
 builder.RegisterComponent(_audioRoot);
@@ -347,7 +333,7 @@ public sealed class ScoreView : MonoBehaviour
 ### `VContainerException: Unable to find type registration`
 
 1. Does the relevant `[Module]Installer.Install()` have `builder.Register<T>()`?
-2. Is that installer in the `AppInstaller.asset → _modules` list?
+2. Is that module called from `AppModules.Install()`?
 3. Can the scope requesting the dependency see the scope that registered it? (parent/child relationship)
 
 ### `[Inject] method never called`
@@ -388,8 +374,8 @@ builder.RegisterBuildCallback(container =>
 |------|-----|
 | Use `.AsImplementedInterfaces()` | Automatically covers `IInitializable`, `IDisposable` lifecycles |
 | Always register to interface | Caller depends on the contract, not the implementation |
-| `AppScope.cs` never changes | New module → add installer to `AppInstaller.asset` |
-| `EventBusInstaller` first in list | All other modules depend on `IEventBus` — it must be registered first |
+| `AppScope.cs` never changes | New module → one line in `AppModules.Install()` |
+| `EventBusModule.Install` first in `AppModules` | Other modules may subscribe during `Initialize()` — EventBus must exist first |
 | Config null guard uses `LogError + return` | `throw` carries a crash risk in build context |
 | Unsubscribe in `Dispose()` not `OnDestroy()` | VContainer disposes before scope destroy |
 | Don't use `FindObjectOfType` / `GetComponent` for services | Bypasses DI, creates hidden coupling |

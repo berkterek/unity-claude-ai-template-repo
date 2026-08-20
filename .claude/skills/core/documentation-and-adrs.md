@@ -110,7 +110,7 @@ Recommended ADRs to create at the start of a template project:
 | ADR-002 | UniTask and CancellationToken strategy |
 | ADR-003 | IEventBus struct event pattern |
 | ADR-004 | Addressables — Resources.Load ban |
-| ADR-005 | New Input System and InputView architecture |
+| ADR-005 | New Input System — pull-based InputService architecture |
 | ADR-006 | URP render pipeline selection |
 | ADR-007 | NSubstitute + AAA test strategy |
 

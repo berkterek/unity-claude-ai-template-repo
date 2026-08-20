@@ -24,8 +24,8 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `commit-trailers` | Structured commit trailers — `Scope-risk` and `Confidence` on every commit, plus `Constraint`, `Rejected`, `Not-tested` when they apply. Makes architectural decisions and known gaps searchable in git history |
 | `event-systems` | Decide which event mechanism to use — C# events vs IEventBus vs Action vs UnityEvent |
 | `event-bus` | Project IEventBus implementation — location, namespace, Subscribe/Unsubscribe/Publish API, EventBusAccessor |
-| `bootstrap-pattern` | IInstaller → ModuleInstaller → AppInstaller → AppScope layer structure, new module addition flow |
-| `input-system` | New Input System & InputView pattern, OnEnable/OnDisable subscription rules, action map switching |
+| `bootstrap-pattern` | [Domain]Module → AppModules → AppScope layer structure, ConfigCatalog validation, new module addition flow |
+| `input-system` | New Input System — pull-based InputService + per-prefab InputHandler, Initialize/Dispose lifecycle, FixedUpdate latch rule, action map switching |
 | `scene-hierarchy` | 6-container scene structure, GO classification table, prefab domain mapping |
 | `logging` | Project-specific DLog pattern — logging implementation, location, and usage |
 | `save-load` | Project-specific SaveLoadSystem pattern — location, namespace, and usage |
@@ -95,7 +95,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `unity-editor-tools` | AssetDatabase, AssetPostprocessor, InitializeOnLoad, EditorPrefs, PrefabUtility, build pipeline hooks |
 | `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
 | `vcontainer` | Scope hierarchy, registration, lifecycle interfaces, DI failure diagnosis |
-| `netcode` | NGO 2.x mimari kuralları — NetworkBehaviour, RPC, NetworkVariable, Spawn/Despawn, VContainer entegrasyonu — + 7 sub-doc |
+| `netcode` | NGO 2.x architecture rules — NetworkBehaviour, RPC, NetworkVariable, Spawn/Despawn, VContainer integration — + 7 sub-docs |
 | `probuilder` | ProBuilder in-editor mesh modeling — shape generation, face/edge/vertex ops, UV unwrapping, Boolean ops, bake-to-asset workflow — + api.md, integration.md |
 
 ## Plugins (`skills/plugins/`)

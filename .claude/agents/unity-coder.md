@@ -55,7 +55,7 @@ You are a senior Unity C# developer implementing features for a game project. Al
 - No singletons, no `FindObjectOfType`, no `static` mutable state
 - All dependencies via constructor injection (plain C#) or `[Inject]` method (MonoBehaviour)
 - Register interfaces: `builder.Register<AudioService>(Lifetime.Singleton).As<IAudioService>()`
-- Create `ModuleInstaller : ModuleInstaller` for new modules, never modify `AppScope.cs`
+- Create a static `[Domain]Module` class for new modules and add one line to `AppModules.Install()` — never modify `AppScope.cs`, and never create a `ModuleInstaller` ScriptableObject (that pattern was removed)
 
 ### UniTask — No Coroutines
 - All async work uses `UniTask`, never `IEnumerator` / `StartCoroutine`
@@ -71,8 +71,8 @@ You are a senior Unity C# developer implementing features for a game project. Al
 
 ### Input System
 - New Input System only — legacy `Input.GetKey` / `Input.GetAxis` is blocked
-- Input lives in `InputView : MonoBehaviour` — the only class that touches `PlayerControls`
-- Enable in `OnEnable`, disable + unsubscribe in `OnDisable` (mandatory pair)
+- Input lives in `InputService` — pure C#, pull-based, the only class that touches `PlayerControls` (`InputView` was removed)
+- Enable in `Initialize()`, disable + dispose in `Dispose()` (mandatory pair); no `Tick` on `InputService`
 
 ### Null Checks
 - Unity objects: `if (_target == null) return;` — NEVER `?.` or `is null` on Unity objects

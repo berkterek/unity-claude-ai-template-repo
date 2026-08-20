@@ -86,7 +86,7 @@ public void Dispose()     => _eventBus.Unsubscribe<EnemyDiedEvent>(OnEnemyDied);
 
 ### VContainer Installer Missing Null Guard
 
-Flag `ModuleInstaller.Install()` methods that use `[SerializeField]` config without a null check — misassigned assets cause `NullReferenceException` far from the source.
+Flag `[Domain]Module.Install()` methods that use their config parameter without a null check — misassigned assets cause `NullReferenceException` far from the source.
 
 ```csharp
 // BAD — no guard

@@ -99,7 +99,7 @@ var service = container.Resolve<IEnemyService>();
 
 // GOOD — wrap in meaningful context or use TryResolve
 if (!container.TryResolve<IEnemyService>(out var service))
-    throw new InvalidOperationException("IEnemyService not registered — check AppInstaller.");
+    throw new InvalidOperationException("IEnemyService not registered — check AppModules.");
 ```
 
 ### 8. ECS ECB Playback Never Called

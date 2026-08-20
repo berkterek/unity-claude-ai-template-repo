@@ -60,7 +60,7 @@ When converting a GO to a prefab, save to:
 
 ```
 _GameFolders/Prefabs/Bootstrap/
-├── AppScope.prefab      ← [SerializeField] AppInstaller (SO asset)
+├── AppScope.prefab      ← [SerializeField] ConfigCatalog (SO asset)
 └── GameScope.prefab     ← if all refs are assets
 ```
 

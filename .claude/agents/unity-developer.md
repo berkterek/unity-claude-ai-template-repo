@@ -70,7 +70,7 @@ Apply all checks below. Skip checks marked with a feature flag if that feature i
 2. **Draw call budget** — `renderer.material` clones detected? MaterialPropertyBlock used for per-instance variation? `renderer.sharedMaterial` for read-only access?
 3. **Component references** — `GetComponent` in Awake for components that exist at edit time? Must be `[SerializeField]` + Inspector assignment instead
 4. **Lifecycle correctness** — OnEnable/OnDisable symmetry, VContainer scope boundaries, UniTask CancellationToken cancelled in Dispose
-5. **Input correctness** — New Input System only (`Input.GetKey` / `Input.GetAxis` forbidden), PlayerControls owned solely by InputView, enable/disable lifecycle symmetric
+5. **Input correctness** — New Input System only (`Input.GetKey` / `Input.GetAxis` forbidden), PlayerControls owned solely by `InputService` (pure C#, pull-based), enable/dispose lifecycle symmetric
 6. **Unity null checks** — `?.` used on Unity objects? Must use `if (obj == null)` — `?.` bypasses destroyed-object detection
 7. **Editor/runtime boundary** — UnityEditor namespace guarded with `#if UNITY_EDITOR` in runtime assemblies
 8. **Prefab structure** — every scene GO is a prefab instance; logic on root, visual on `Body` child; no bare GOs except hierarchy organizers
