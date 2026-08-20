@@ -78,6 +78,49 @@ BaseCanvas.prefab  ← Canvas + CanvasScaler (reference 1080×1920) + GraphicRay
 
 **GOTCHA:** Prefab Variants only make sense when the base is stable. If you find yourself overriding every property on every variant, make separate prefabs instead.
 
+---
+
+### Card 5: İkinci Kopyayı Koymadan Önce Prefab'a Çıkar (Prefab DRY)
+
+**WHEN:** Bir GameObject'i aynı parent altına ikinci kez koyacaksın — can göstergesi, slot, envanter hücresi, liste satırı.
+
+**WRONG:**
+```
+CanvasDynamic/
+└── HeartRow/            ← layout bileşeni yok, üç çocuk elle konumlandırılmış
+    ├── Heart1           ← RectTransform + Image
+    ├── Heart2           ← RectTransform + Image   (Heart1'in kopyası)
+    └── Heart3           ← RectTransform + Image   (Heart1'in kopyası)
+```
+
+**RIGHT:**
+```
+UI/Utilities/Heart.prefab        ← tek tanım
+CanvasDynamic/
+└── HeartRow/                    ← HorizontalLayoutGroup
+    ├── Heart (instance)         ← sıfır transform override
+    ├── Heart (instance)
+    └── Heart (instance)
+```
+
+**Ölçüt — "aynı bileşen seti" değil, üçü birden:**
+1. Aynı parent altındalar,
+2. Aynı bileşen setine sahipler,
+3. Birlikte düzenleniyorlar (birinin sprite'ı/boyutu değişince diğerleri de değişir).
+
+Üçü birden doğruysa tekrardır. `Blocker` ile `Heart` ikisi de RectTransform+Image'dir ama üçüncü koşulu geçmez — ayrı prefab gerekmez.
+
+**GOTCHA:** Prefab'a çıkarmanın ön koşulu, parent'ta bir layout bileşeninin (`HorizontalLayoutGroup` / `GridLayoutGroup`) bulunmasıdır. Layout yoksa her instance kendi `anchoredPosition`'ını override olarak taşır — bu, Card 4'ün "her variant'ta her property'yi override ediyorsan prefab yanlış" dediği durumun ta kendisidir. Layout eklemek ile prefab'a çıkarmak tek pakettir, ayrılamaz. İkinci tuzak: atom prefab'ının **kökündeki** bileşeni sonradan bir çocuğa taşıma — dışarıdan o köke bakan `[SerializeField]` dizileri (`Image[] _hearts`) sessizce `None` olur, hata vermez, sadece güncellenmez.
+
+**Doğrulama (prefab/sahne içeren her modülün kapısında):**
+```bash
+grep -h "m_Name: " *.prefab *.unity 2>/dev/null \
+  | sed 's/.*m_Name: //' | grep -E '[0-9]+$' \
+  | sed -E 's/[0-9]+$//' | sort | uniq -c | awk '$1>1'
+```
+Çıktı boş olmalı. Boş değilse: ya prefab'a çıkarıldı, ya "tek kullanım" gerekçesi yazıldı. Bu bir duman alarmıdır — varlık değil **fark** ölçer; `HudView 5/5 bağlı` tipi kontroller kopyala-yapıştırı tanımı gereği göremez.
+
+
 Every GameObject placed in a scene must be an instance of a prefab. Bare (non-prefab) GameObjects are forbidden — except scene separators/organizers (empty GameObjects used purely as hierarchy dividers with no components).
 
 **Why:** Bare GameObjects cannot be reused, are hard to maintain across scenes, and break Addressables-based spawning.
@@ -239,6 +282,7 @@ Player.prefab                  ← Root: logic components only
 | Prefabs grouped by domain under `_GameFolders/Prefabs/` | Predictable location, clean Project window |
 | Never duplicate a prefab manually | Use Prefab Variants instead |
 | Empty hierarchy organizers are the only bare GameObjects allowed | No components = no logic = no maintenance cost |
+| Aynı parent altına ikinci kopya koymadan önce prefab'a çıkar (+ parent'a layout) | Kopya sayısı arttıkça düzenleme N yere dağılır — Card 5 |
 | Logic components on root, visual components on `Body` child | Decouples visual swaps from logic, clear responsibility |
 | `AppScope` / `LifetimeScope` with only ScriptableObject refs → `Prefabs/Bootstrap/` | Asset refs are stored on the prefab; no scene-time drag-and-drop needed |
 | `EventSystem` and `MainCamera` → `Prefabs/CoreObjects/`, same prefab in every scene | Consistent settings, single source of truth across all scenes |

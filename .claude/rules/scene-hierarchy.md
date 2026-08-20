@@ -104,6 +104,7 @@ MyObject.prefab        ← Root: logic components only (Provider, Controller, Co
 - Before placing a GO, determine its container via the classification table
 - Place the GO as a child of the correct container — never at root level
 - This rule is **blocking** — placing a GO at root level (outside a container) is not allowed
+- Before placing a **second** GameObject with the same component set under the same parent, extract it as a prefab and add a layout component to the parent — see `unity-prefabs.md` Card 5. Hand-duplicated siblings (`Heart1`/`Heart2`/`Heart3`) are not allowed
 
 **`/update-scene-hierarchy`:** Reorganizes existing scene — moves misplaced GOs to correct containers.
 
