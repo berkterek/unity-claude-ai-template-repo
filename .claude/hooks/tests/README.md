@@ -39,6 +39,7 @@ npm install -g bats
 | `graph-auto-update.bats` | `graph-auto-update.sh` — empty graph warning |
 | `hook-profile.bats` | `_lib.sh` — profile gating, `DISABLE_UNITY_HOOKS`, `UNITY_HOOK_MODE` |
 | `guard-gate-cleared.bats` | `guard-gate-cleared.sh` |
+| `check-duplicate-siblings.bats` | `.claude/scripts/check-duplicate-siblings.py` — Card 5 structural duplicate detector; pins the two false positives it originally shipped with |
 
 ## What each test covers
 
