@@ -3,16 +3,16 @@
 The New Input System package is **mandatory**. Legacy `Input.GetKey`/`Input.GetAxis` is **BLOCKED** by hooks.
 
 The input architecture uses two layers:
-- `InputService` (pure C#, `ITickable`) — owns `PlayerControls`, handles action map switching, cross-module singleton
+- `InputService` (pure C#, **pull-based — no tick of any kind**) — owns `PlayerControls`, handles action map switching, cross-module singleton
 - `InputHandler` (pure C#, per-prefab) — reads specific actions for one prefab, calls its service
 
 ## Cards
 
-### Card 1: InputService is Pure C# — NOT MonoBehaviour
+### Card 1: InputService is Pure C# and Pull-Based — No Cached Frame State
 
 **WHEN:** Implementing the global input reader.
 
-**WRONG:**
+**WRONG — MonoBehaviour:**
 ```csharp
 public sealed class InputView : MonoBehaviour
 {
@@ -23,19 +23,36 @@ public sealed class InputView : MonoBehaviour
 }
 ```
 
-**RIGHT:**
+**ALSO WRONG — pure C#, but caches per-frame state behind a tick:**
 ```csharp
 public sealed class InputService : IInputService, ITickable, IInitializable, IDisposable
 {
+    public void Tick()
+    {
+        _moveInput   = _controls.Player.Move.ReadValue<Vector2>();
+        _jumpPressed = false; // who clears vs. who reads is now an ordering question
+    }
+
+    private void OnJump(InputAction.CallbackContext _) => _jumpPressed = true;
+}
+```
+
+**RIGHT — read on demand, store nothing:**
+```csharp
+public sealed class InputService : IInputService, IInitializable, IDisposable
+{
     private readonly PlayerControls _controls;
     public InputService() => _controls = new PlayerControls();
-    public void Initialize() { _controls.Player.Enable(); /* ... */ }
-    public void Tick()       { _moveInput = _controls.Player.Move.ReadValue<Vector2>(); }
+
+    public Vector2 MoveInput   => _controls.Player.Move.ReadValue<Vector2>();
+    public bool    JumpPressed => _controls.Player.Jump.WasPressedThisFrame();
+
+    public void Initialize() { _controls.Player.Enable(); }
     public void Dispose()    { _controls.Player.Disable(); _controls.Dispose(); }
 }
 ```
 
-**GOTCHA:** `InputService` has no `[SerializeField]` and no Unity callbacks it cannot handle in `Initialize`/`Dispose`. Card 0 in `solid-oop.md` says MonoBehaviour is only justified when one of those is required — neither applies here. VContainer's `ITickable` replaces `Update()`.
+**GOTCHA:** The middle version is the trap, and it is what this rule file itself used to prescribe. It splits **who advances the state** (VContainer's tick) from **who consumes it** (a MonoBehaviour `Update`), which makes correctness depend on the relative PlayerLoop position of the two — and VContainer publishes no ordering guarantee between `ITickable` and `MonoBehaviour.Update`. Pull-based deletes the question rather than answering it: `ReadValue()` and `WasPressedThisFrame()` are frame-scoped by the Input System, so N consumers reading in the same frame all get the same answer, in any order, with nothing to clear. Do **not** add a `Tick()`/`FixedTick()` to `InputService` "in case it is needed later" — an empty tick method is an invitation for the next refactor to reintroduce the cache. Hand-rolling frame-edge detection with a `performed` callback plus a bool flag also violates `csharp-unity.md` Card 6 (Reuse Before You Hand-Roll): `WasPressedThisFrame()` already ships it.
 
 ---
 
@@ -91,10 +108,10 @@ builder.Register<InputService>(Lifetime.Transient).AsImplementedInterfaces();
 **RIGHT:**
 ```csharp
 builder.RegisterEntryPoint<InputService>().AsImplementedInterfaces();
-// RegisterEntryPoint uses Singleton lifetime and wires ITickable/IInitializable/IDisposable automatically
+// Singleton lifetime + wires IInitializable/IDisposable (Enable/Disable). No ITickable to wire.
 ```
 
-**GOTCHA:** Two `InputService` instances means `PlayerControls` is enabled twice — every action fires twice. Always `Singleton`, always `RegisterEntryPoint`.
+**GOTCHA:** Two `InputService` instances means `PlayerControls` is enabled twice — every action fires twice. The load-bearing part of this card is **Singleton**, not the registration call: a plain `builder.Register<InputService>(Lifetime.Singleton).AsImplementedInterfaces()` prevents the duplicate just as well, and is the right choice if the service ever stops needing `Initialize`/`Dispose`. `RegisterEntryPoint` is preferred here only because `IInitializable`/`IDisposable` still carry the `Enable`/`Disable` pair — it is no longer about a tick. Do not read this card as "the mechanism is mandatory"; read it as "one instance is mandatory".
 
 ---
 
@@ -118,6 +135,44 @@ _inputService.EnableGameplay(); // pause menu closes
 
 ---
 
+### Card 5: A Discrete Press Consumed in FixedUpdate Needs a Latch — In the Handler, Not the Service
+
+**WHEN:** A one-frame press (jump, dash, fire) drives physics, so it is consumed inside `FixedUpdate`/`FixedTick` rather than `Update`.
+
+**WRONG:**
+```csharp
+// PlayerController
+private void FixedUpdate() => _movementHandler.FixedTick(Time.fixedDeltaTime);
+
+// MovementHandler.FixedTick — reads the frame-scoped press directly
+if (_inputService.JumpPressed) Jump();
+```
+
+**RIGHT:**
+```csharp
+// PlayerController — shell stays state-free: latch in Update, consume in FixedUpdate
+private void Update()      => _movementHandler.LatchJump(_inputService.JumpPressed);
+private void FixedUpdate() => _movementHandler.FixedTick(Time.fixedDeltaTime);
+
+// MovementHandler — owns the latch, consumes it exactly once
+public void LatchJump(bool pressed) { if (pressed) _jumpLatched = true; }
+
+public void FixedTick(float fixedDeltaTime)
+{
+    _rigidbody.velocity = ReadMove() * _config.MoveSpeed; // continuous — no latch needed
+
+    if (_jumpLatched)
+    {
+        _jumpLatched = false;
+        _rigidbody.AddForce(Vector3.up * _config.JumpForce, ForceMode.Impulse);
+    }
+}
+```
+
+**GOTCHA:** `FixedUpdate` runs **zero or more** times per rendered frame, not exactly once. Reading a frame-scoped press inside it therefore fails in both directions: on a frame where `FixedUpdate` does not run, the press is silently dropped; on a frame where it runs twice, the same press is consumed twice and the player double-jumps. Continuous values (`MoveInput`) have neither problem — they are sampled, not consumed — so do **not** latch them. The latch belongs to the handler that consumes it, never to `InputService`: a latch inside the shared service would be a single flag raced over by every consumer, where whichever handler ticks first eats the press for all of them. Keeping it in the handler also keeps the shell state-free per `solid-oop.md` (no state fields on a Controller).
+
+---
+
 ## Generated C# Class (Preferred Approach)
 
 1. Create `Assets/Input/PlayerControls.inputactions` — define all action maps
@@ -126,9 +181,9 @@ _inputService.EnableGameplay(); // pause menu closes
 
 ---
 
-## InputService — Pure C#, ITickable
+## InputService — Pure C#, Pull-Based
 
-`InputService` is the single owner of `PlayerControls`. It is registered as a `Singleton` entry point — VContainer calls `Initialize()` once and `Tick()` every frame.
+`InputService` is the single owner of `PlayerControls`. It is registered as a `Singleton` entry point — VContainer calls `Initialize()` once to enable the maps and `Dispose()` once to tear them down. **It is never ticked, by VContainer or by anyone else**: every property reads the Input System on demand, so there is no per-frame state to advance.
 
 ```csharp
 // Game/Abstracts/Input/IInputService.cs
@@ -138,15 +193,18 @@ namespace Game.Abstracts.Input
 {
     public interface IInputService
     {
-        /// <summary>Current move axis value. Updated every Tick.</summary>
+        /// <summary>Current move axis value, read from the device on every call.</summary>
         /// <remarks>
         /// Postcondition: Normalized direction or zero vector when no input is held.
+        /// Idempotent: Yes — repeated reads within one frame return the same value.
         /// </remarks>
         Vector2 MoveInput { get; }
 
-        /// <summary>True only on the frame the Jump action was performed.</summary>
+        /// <summary>True for the duration of the frame in which the Jump action was pressed.</summary>
         /// <remarks>
-        /// Postcondition: Reset to false at the start of the next Tick.
+        /// Postcondition: Stays true for every read within that frame; false from the next frame on.
+        /// Idempotent: Yes — reading does NOT consume the press, so any number of consumers may read it.
+        /// Side effect: None. A consumer that must consume the press exactly once owns its own latch (Card 5).
         /// </remarks>
         bool JumpPressed { get; }
 
@@ -169,13 +227,11 @@ using VContainer.Unity;
 
 namespace Game.Concretes.Input
 {
-    public sealed class InputService : IInputService, ITickable, IInitializable, IDisposable
+    public sealed class InputService : IInputService, IInitializable, IDisposable
     {
         #region Fields
 
-        private readonly PlayerControls _controls;
-        private Vector2 _moveInput;
-        private bool    _jumpPressed;
+        private readonly PlayerControls _controls; // the only field — no cached frame state
 
         #endregion
 
@@ -190,8 +246,8 @@ namespace Game.Concretes.Input
 
         #region IInputService
 
-        public Vector2 MoveInput  => _moveInput;
-        public bool    JumpPressed => _jumpPressed;
+        public Vector2 MoveInput   => _controls.Player.Move.ReadValue<Vector2>();
+        public bool    JumpPressed => _controls.Player.Jump.WasPressedThisFrame();
 
         public void EnableGameplay()
         {
@@ -212,32 +268,20 @@ namespace Game.Concretes.Input
         public void Initialize()
         {
             _controls.Player.Enable();
-            _controls.Player.Jump.performed += OnJump;
-        }
-
-        public void Tick()
-        {
-            _moveInput   = _controls.Player.Move.ReadValue<Vector2>();
-            _jumpPressed = false; // clear AFTER consumers read it — Update runs after EntryPoint Tick
         }
 
         public void Dispose()
         {
-            _controls.Player.Jump.performed -= OnJump;
             _controls.Player.Disable();
             _controls.Dispose();
         }
 
         #endregion
-
-        #region Private Methods
-
-        private void OnJump(InputAction.CallbackContext _) => _jumpPressed = true;
-
-        #endregion
     }
 }
 ```
+
+> No `Tick()`, no `performed` subscription, no flag to clear — and therefore no unsubscribe to forget in `Dispose()`. `WasPressedThisFrame()` is frame-scoped by the Input System, so the frame-edge detection the old `performed`-plus-bool pattern hand-rolled is already provided.
 
 > `new PlayerControls()` in the constructor is correct — `PlayerControls` is a dependency-free generated class. The same logic that permits it in `Awake()` (per `solid-oop.md` Awake clarification) applies to constructors.
 
@@ -353,7 +397,7 @@ namespace Game.Concretes.Input
     {
         public static void Install(IContainerBuilder builder)
         {
-            // RegisterEntryPoint: Singleton lifetime + wires ITickable, IInitializable, IDisposable
+            // Singleton lifetime + wires IInitializable/IDisposable (map Enable/Disable). No tick.
             builder.RegisterEntryPoint<InputService>().AsImplementedInterfaces();
 
             // InputHandler is registered in the module that owns the prefab (e.g. PlayerModule)
@@ -372,10 +416,12 @@ In `AppModules.cs` (or equivalent): `InputModule.Install(builder);`
 | Rule | Why |
 |------|-----|
 | **Enable in `Initialize()`, disable + unsubscribe in `Dispose()`** | VContainer lifecycle — not Unity lifecycle |
-| **Continuous input read in `Tick()`, cleared each frame** | Prevents stale input crossing frame boundaries |
-| **Discrete input via `performed` callback, stored as bool flag** | Reliable one-frame detection; `ReadValue` misses button presses between ticks |
+| **Continuous input read on demand via `ReadValue<T>()`** | No cached state to go stale, and no ordering dependency between reader and writer |
+| **Discrete input read on demand via `WasPressedThisFrame()`** | Frame-scoped by the Input System; reading does not consume, so N consumers agree (Card 1) |
+| **`InputService` exposes NO `Tick`/`FixedTick`/`LateTick` — not even an unused one** | Nothing to advance; an empty tick invites a cache, and a cache brings the ordering bug back |
+| **A press consumed in `FixedUpdate` is latched by the consuming handler** | `FixedUpdate` runs 0..N times per frame — an unlatched press is dropped or double-consumed (Card 5) |
 | **Action map switching via `IInputService.EnableGameplay()`/`EnableUI()`** | Single point of control — callers never touch `_controls` directly |
-| **ONE `InputService` in the project (Singleton via `RegisterEntryPoint`)** | Prevents duplicate `PlayerControls` subscriptions — the primary risk of the old MonoBehaviour pattern |
+| **ONE `InputService` in the project (`Singleton`)** | Prevents duplicate `PlayerControls` subscriptions. `Singleton` is the requirement; `RegisterEntryPoint` is just how `Initialize`/`Dispose` get wired (Card 3) |
 | **`InputHandler` is pure C# — NOT MonoBehaviour** | No `[SerializeField]` needed, `IInputService` injected via constructor — Card 0 condition not met |
 | **Never use legacy Input API** | `Input.GetKey`, `Input.GetAxis`, `Input.GetButton` are BLOCKED by hook |
 
@@ -395,4 +441,4 @@ _inputService.EnableGameplay();
 
 `InputService.EnableGameplay()` and `EnableUI()` always disable the outgoing map before enabling the incoming one — multiple gameplay maps active simultaneously is prevented by design.
 
-> See also: `rules/solid-oop.md` → Card 0 (MonoBehaviour justification); `rules/architecture.md` → ITickable / RegisterEntryPoint pattern; `rules/csharp-unity.md` → Card 4 (#region for 3+ methods)
+> See also: `rules/solid-oop.md` → Card 0 (MonoBehaviour justification), Tier 2 (a Handler is ticked by its owning shell), and EntryPoint (`ITickable` is not used in this project — a service that needs a frame tick exposes `Tick(float)` and its domain's Mono shell forwards it); `rules/csharp-unity.md` → Card 4 (#region for 3+ methods) and Card 6 (Reuse Before You Hand-Roll)

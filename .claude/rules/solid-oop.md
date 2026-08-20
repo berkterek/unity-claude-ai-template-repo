@@ -15,7 +15,7 @@ A class may be MonoBehaviour **only if at least one applies:**
 | (c) Cross-module Unity API boundary | Provider |
 | (d) Canvas UI | View |
 
-**"I need Update" is NOT a valid reason.** Prefab-local → Handler.Tick (Controller forwards). Global → `ITickable`.
+**"I need Update" is NOT a valid reason** — but the escape is a Mono shell forwarding the callback, not a container-driven tick. Prefab-local → `Handler.Tick`, Controller forwards. Global → the domain's own shell (Controller or Manager) forwards to the service the same way. **`ITickable` / `IFixedTickable` are not used in this project** — see EntryPoint below for why.
 
 **WRONG:**
 ```csharp
@@ -28,13 +28,24 @@ public sealed class WaveDirectorService : MonoBehaviour
 
 **RIGHT:**
 ```csharp
-// Pure C# service using ITickable — no MonoBehaviour needed
-public sealed class WaveDirectorService : IWaveDirectorService, ITickable, IInitializable, IDisposable
+// Pure C# service — takes deltaTime as a parameter, owns no Unity callback
+public sealed class WaveDirectorService : IWaveDirectorService
 {
-    public void Tick() { /* VContainer calls every frame */ }
+    public void Tick(float deltaTime) { /* wave progression logic */ }
 }
-// In installer:
-builder.RegisterEntryPoint<WaveDirectorService>().AsImplementedInterfaces();
+
+// The domain's Mono shell drives it — same forwarding pattern as a Controller and its Handler
+public sealed class WaveManager : MonoBehaviour
+{
+    private IWaveDirectorService _waveDirector;
+
+    [Inject]
+    public void Construct(IWaveDirectorService waveDirector) => _waveDirector = waveDirector;
+
+    private void Update() => _waveDirector.Tick(Time.deltaTime);
+}
+// In installer — a plain registration; no RegisterEntryPoint needed for the tick
+builder.Register<WaveDirectorService>(Lifetime.Singleton).AsImplementedInterfaces();
 ```
 
 **GOTCHA:** If a class passes none of the four conditions, it must be pure C#. Every MonoBehaviour that fails this gate is a rule violation.
@@ -72,7 +83,7 @@ MonoBehaviour may only take one of four roles: **View**, **Provider**, **Control
   for it.
 - **MonoBehaviour only if Card 0 applies**, exactly like every other role — a Manager needs its
   own `[SerializeField]` field or a Unity lifecycle callback to be a MonoBehaviour; otherwise it
-  must be a pure C# Service (e.g. `EnemyDirectorService`, `ITickable`) instead. Preferring pure C#
+  must be a pure C# Service (e.g. `EnemyDirectorService`) instead. Preferring pure C#
   is still the default — `*Manager` as a MonoBehaviour is the exception, not the norm.
 - **SRP still applies.** If a Manager grows business logic/calculation beyond
   registration+coordination, extract that into a Handler or Service — the Manager stays a thin
@@ -150,7 +161,7 @@ public sealed class EnemyManager : MonoBehaviour, IEnemyManager
 
 **GOTCHA (worked example):** `EnemyManager`'s own `MonoBehaviour`-ness came from nothing here except being
 placed in the scene — if it has no lifecycle callback and no `[SerializeField]` of its own, prefer a pure
-C# `EnemyDirectorService` (`ITickable`, `RegisterEntryPoint`) instead. A `*Manager` MonoBehaviour is the
+C# `EnemyDirectorService` instead. A `*Manager` MonoBehaviour is the
 exception, not the default, exactly like every other role in Card 0.
 
 **Suffix prohibition table:**
@@ -298,9 +309,9 @@ Every class belongs to exactly one tier. Assign the tier before writing a single
 │  NSubstitute seam.                                                     │
 ├─ Tier 3: Service + EntryPoint (cross-module logic) ───────────────────┤
 │  Pure C#, NO UnityEngine API (math types allowed). Registered with    │
-│  VContainer. Needs Update → use ITickable/IStartable                  │
-│  (RegisterEntryPoint) — NOT a reason to be MonoBehaviour.             │
-│  Interface-first.                                                      │
+│  VContainer. Needs a frame update → expose Tick(float) and let the     │
+│  domain's Mono shell forward it — NOT a reason to be MonoBehaviour,    │
+│  and NOT a reason for ITickable (unused here). Interface-first.        │
 ├─ Tier 4: Provider (cross-module Unity API boundary) ───────────────────┤
 │  Remains as-is: wraps Unity API that the Service needs.               │
 │  Do NOT open a Provider for prefab-local Unity access —               │
@@ -322,7 +333,7 @@ Every class belongs to exactly one tier. Assign the tier before writing a single
 | Does it cache scene refs + forward lifecycle only? | Tier 1 — Controller |
 | Does it contain gameplay logic that touches Unity refs, lives inside one prefab? | Tier 2 — Handler |
 | Is it pure C# logic shared across modules? | Tier 3 — Service |
-| Does it need a frame tick but should stay pure C#? | Tier 3 — EntryPoint (`ITickable`) |
+| Does it need a frame tick but should stay pure C#? | Tier 3 — Service with `Tick(float)`, forwarded by the domain's Mono shell |
 | Does it wrap Unity API on behalf of a Service (cross-module)? | Tier 4 — Provider |
 | Does it perform the actual scene load call (SceneManager / Addressables)? | Tier 4 — `ISceneLoader` implementation (`*SceneLoader`) |
 
@@ -465,68 +476,80 @@ private void Update()
 
 ---
 
-## EntryPoint — ITickable for Pure C# Update
+## EntryPoint — Lifecycle Yes, Frame Ticks No
 
-When a pure C# service needs a frame update, use `ITickable`. **"I need Update" is never a reason to make something a MonoBehaviour.**
+VContainer's EntryPoint interfaces are used for **lifecycle** (build, start, teardown) and deliberately **not** for per-frame work. A pure C# service that needs a frame update exposes `Tick(float deltaTime)` — or `FixedTick`/`LateTick` — and the domain's Mono shell forwards Unity's callback into it, exactly as a Controller forwards into its Handler.
 
 ```csharp
 namespace Game.Concretes.Waves
 {
-    public sealed class WaveDirectorService : IWaveDirectorService, ITickable, IInitializable, IDisposable
+    // Pure C# service — deltaTime arrives as a parameter, never read from Unity here
+    public sealed class WaveDirectorService : IWaveDirectorService
     {
         #region Fields
 
-        private readonly IEventBus _eventBus;
-        private CancellationTokenSource _cts;
+        private readonly IEventBus         _eventBus;
+        private readonly WaveConfiguration _config;
+        private float _elapsed;
+        private int   _wave;
 
         #endregion
 
         #region Constructor
 
-        public WaveDirectorService(IEventBus eventBus)
+        public WaveDirectorService(IEventBus eventBus, WaveConfiguration config)
         {
             _eventBus = eventBus;
+            _config   = config;
         }
 
         #endregion
 
-        #region Lifecycle
+        #region IWaveDirectorService
 
-        public void Initialize()
+        public void Tick(float deltaTime)
         {
-            _cts = new CancellationTokenSource();
-        }
+            _elapsed += deltaTime;
+            if (_elapsed < _config.WaveInterval) return;
 
-        // VContainer calls every frame — no MonoBehaviour needed
-        public void Tick()
-        {
-            /* wave progression logic */
-        }
-
-        public void Dispose()
-        {
-            _cts?.Cancel();
-            _cts?.Dispose();
+            _elapsed = 0f;
+            _eventBus.Publish(new WaveStartedEvent(++_wave));
         }
 
         #endregion
     }
 }
 
-// In the module installer:
-builder.RegisterEntryPoint<WaveDirectorService>().AsImplementedInterfaces();
+// The domain's Mono shell drives it — forwarding only, no logic (Card 1: Manager role)
+public sealed class WaveManager : MonoBehaviour
+{
+    private IWaveDirectorService _waveDirector;
+
+    [Inject]
+    public void Construct(IWaveDirectorService waveDirector) => _waveDirector = waveDirector;
+
+    private void Update() => _waveDirector.Tick(Time.deltaTime);
+}
+
+// In the module installer — plain registration, no EntryPoint needed for a tick
+builder.Register<WaveDirectorService>(Lifetime.Singleton).AsImplementedInterfaces();
 ```
 
-**ITickable / IStartable / IFixedTickable:**
+**Which EntryPoint interfaces this project uses:**
 
-| Interface | Called by VContainer | Replaces |
+| Interface | Called by VContainer | Status |
 |---|---|---|
-| `ITickable` | Every frame (Update equivalent) | `MonoBehaviour.Update` |
-| `IFixedTickable` | Every fixed frame (FixedUpdate) | `MonoBehaviour.FixedUpdate` |
-| `IStartable` | Once on scope start | `MonoBehaviour.Start` |
-| `IAsyncStartable` | Once on scope start (async) | Async `MonoBehaviour.Start` |
+| `IInitializable` / `IDisposable` | Scope build / scope teardown | **Used** — acquire and release (enable an input map, open a handle) |
+| `IStartable` | Once on scope start | **Used** — one-shot synchronous startup |
+| `IAsyncStartable` | Once on scope start (async) | **Used** — async startup, e.g. `SceneService` (`bootstrap-pattern.md` Card 6) |
+| `ITickable` | Every frame | **Not used** — the domain's Mono shell owns `Update` |
+| `IFixedTickable` | Every fixed frame | **Not used** — the domain's Mono shell owns `FixedUpdate` |
 
-Use `RegisterEntryPoint<T>()` in the installer — this wires the lifecycle interfaces automatically.
+Use `RegisterEntryPoint<T>()` when a service implements one of the three lifecycle interfaces above; use a plain `Register<T>(Lifetime.Singleton)` when it only needs a tick, because the tick no longer comes from the container.
+
+**Why frame ticks are Mono-driven here.** Unity's `Update`/`FixedUpdate`/`LateUpdate` order relative to each other is documented and stable; VContainer's tick position in the PlayerLoop relative to `MonoBehaviour.Update` is not part of any published contract. As soon as a container-driven tick produces state that a MonoBehaviour consumes — which is the normal case, since views and controllers are MonoBehaviours — correctness depends on that unpublished ordering, and it fails as a one-frame-stale or dropped value rather than an exception. `rules/unity-input.md` Card 1 documents a concrete instance of exactly this. Keeping one driver (Unity) removes the question instead of answering it.
+
+**If a genuine owner-less per-frame stream is ever needed**, the intended tool is R3 (`Observable.EveryUpdate()` and friends) — not `ITickable`, and not a hand-rolled `while (true) { await UniTask.Delay(...) }` loop, which is just re-implementing `Update` with worse ergonomics. Note that **R3 is not currently installed** — adding it is a Required Stack decision, so treat this as a named escape hatch rather than an available option.
 
 ---
 

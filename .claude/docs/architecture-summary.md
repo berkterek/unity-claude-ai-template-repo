@@ -3,7 +3,8 @@
 - **No singletons** — VContainer only. Register in AppScope (global) or scene scopes.
 - **No GameContext / service locator** — each class declares only its own dependencies.
 - **No coroutines** — UniTask everywhere. `async UniTask`, not `async void`.
-- **No legacy Input** — New Input System only. `InputService` (pure C#, `ITickable`) + `InputHandler` (per-prefab). `InputView` is removed.
+- **No legacy Input** — New Input System only. `InputService` (pure C#, pull-based — no tick) + `InputHandler` (per-prefab). `InputView` is removed.
+- **No container-driven frame ticks** — `ITickable` / `IFixedTickable` are not used. A service needing a frame update exposes `Tick(float)` and its domain's Mono shell forwards `Update`/`FixedUpdate`/`LateUpdate`.
 - **No concrete cross-module deps** — only interfaces consumed across modules.
 - **No UnityEngine in services** — Provider pattern (Tier 4). Unity API never crosses into Tier 3.
 - **No direct EntityManager structural changes** — use `EntityCommandBuffer` in ECS systems.
@@ -21,7 +22,7 @@ Every class belongs to exactly one tier:
 |------|------|------|------|-------|
 | 1 | Mono Shell (Controller / View) | MonoBehaviour | Caches `[SerializeField]` refs, creates Handlers, forwards lifecycle (`Update → handler.Tick`). Zero branching/calculation. | ≤ ~80 lines |
 | 2 | Handler | Pure C# (NOT MonoBehaviour) | Prefab-local gameplay logic. Receives Unity component refs (Rigidbody, Transform) via constructor. Lives inside one prefab — never referenced externally. Always has `I*Handler` interface. | — |
-| 3 | Service + EntryPoint | Pure C# (no UnityEngine API) | Cross-module logic. Registered with VContainer. Needs frame update → `ITickable` via `RegisterEntryPoint`, never MonoBehaviour. | — |
+| 3 | Service + EntryPoint | Pure C# (no UnityEngine API) | Cross-module logic. Registered with VContainer. Needs frame update → expose `Tick(float)`, forwarded by the domain's Mono shell — never MonoBehaviour, never `ITickable`. EntryPoint interfaces are for lifecycle only (`IInitializable`/`IDisposable`/`IStartable`/`IAsyncStartable`). | — |
 | 4 | Provider | MonoBehaviour | Unity API boundary for Services. Wraps a single Unity API group (AudioSource, Physics, etc.). One Provider per API group. | — |
 
 **Suffix rule:** `*View` → Canvas/UI only. `*Controller` → gameplay/character shell. `*Provider` → Unity API abstraction. `*Handler` → pure C# (NEVER MonoBehaviour). `*Service` → NEVER MonoBehaviour (hook blocks it).

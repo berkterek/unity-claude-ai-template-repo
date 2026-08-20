@@ -66,7 +66,7 @@ if ! echo "$STRIPPED" | unity_monobehaviour_is_justified; then
 File: $FILE_PATH
 
 This class may not need to be a MonoBehaviour (solid-oop.md Card 0).
-If you need a frame tick, use ITickable instead. If you need no Unity lifecycle, make it pure C#." >&2
+If you need a frame tick, expose Tick(float deltaTime) on a pure C# class and let this domain's Mono shell forward Update/FixedUpdate/LateUpdate into it. Do NOT use ITickable — this project does not use container-driven ticks (see rules/solid-oop.md -> EntryPoint). If you need no Unity lifecycle at all, make it pure C#." >&2
 fi
 
 # --- Check 2: Oversized MonoBehaviour shell (> 150 lines) ---

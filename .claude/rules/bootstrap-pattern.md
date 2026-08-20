@@ -275,7 +275,7 @@ namespace Game.Concretes.Audio
 - Static class — not ScriptableObject, not abstract, not MonoBehaviour
 - Signature: `Install(IContainerBuilder builder, <Config> config)`
 - Null guard: `LogError` + `return` — do not use `throw` (risk of crash in build context)
-- `.AsImplementedInterfaces()` covers `IInitializable`, `IDisposable`, `ITickable` automatically
+- `.AsImplementedInterfaces()` covers `IInitializable` and `IDisposable` automatically (this project does not use `ITickable` — frame ticks are forwarded by a Mono shell, see `solid-oop.md` → EntryPoint)
 - No `[CreateAssetMenu]` attribute
 - Lives in `Game.Concretes.<Domain>`
 
@@ -305,7 +305,7 @@ namespace Game.Concretes.Infrastructure
 **Rules:**
 - `EventBusModule` is always first — not convention but structural guarantee: other modules may call `IEventBus.Subscribe` during `Initialize()`, so EventBus must exist in the container before any other `IInitializable` runs
 - New module = one C# line — visible in git diff, hookable, no Editor action required
-- Module order determines `IInitializable` / `ITickable` execution order (VContainer EntryPoint order)
+- Module order determines `IInitializable` / `IStartable` execution order (VContainer EntryPoint order)
 - `AppModules.cs` is the single source of truth for what is registered at app scope
 
 ---
@@ -626,4 +626,4 @@ _GameFolders/
 | `ConfigCatalog.Validate()` not called before `Install()` | Always call `Validate()` first in `AppScope.Configure()` — partial wiring is worse than no wiring |
 | `EventBus` registered after another module | `EventBusModule.Install` must be the first call in `AppModules.Install()` |
 | `throw` used in module null guard | Use `Debug.LogError` + `return` — `throw` crashes the build context |
-| Single interface registered with `.As<IEventBus>()` | Use `.AsImplementedInterfaces()` — also covers `IInitializable`, `IDisposable`, `ITickable` |
+| Single interface registered with `.As<IEventBus>()` | Use `.AsImplementedInterfaces()` — also covers `IInitializable` and `IDisposable` |

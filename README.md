@@ -203,7 +203,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
-| `unity-input.md` | New Input System, InputService (ITickable) + InputHandler (per-prefab), action map switching |
+| `unity-input.md` | New Input System, InputService (pure C#, pull-based — no tick) + InputHandler (per-prefab), action map switching, `FixedUpdate` latch rule |
 | `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, BaseCanvas pattern, Prefab Variants (Base+Variant decision table), folder structure, logic/visual separation |
 | `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
@@ -275,9 +275,11 @@ when the graph is stale (> 24h), empty, or disabled.
   the whole base chain was walkable; otherwise `partial` plus `as_resolution_reason`
   (`type-unresolved`, `class-not-in-graph`, `base-not-in-graph`). A partial list is still emitted —
   it beats the empty one it replaces — and the marker is what stops it reading as exhaustive.
-- Expect `IDisposable`/`IInitializable`/`ITickable` to match nearly every service. That is correct,
-  not noise: the idiom genuinely registers them. A filter hiding VContainer lifecycle interfaces
-  from that query would be a lie.
+- Expect `IDisposable`/`IInitializable` to match nearly every service. That is correct, not noise:
+  the idiom genuinely registers them. A filter hiding VContainer lifecycle interfaces from that
+  query would be a lie. `ITickable` is the exception, and for a project reason rather than a graph
+  one — this template does not use container-driven ticks, so a `registrations ITickable` answering
+  "none" is the correct answer, not a missed extraction.
 - Also in this release: `registrationEntry` became a shared schema definition, so **scope**
   registrations are declared at all (`GameScope`'s `RegisterComponent` calls were undeclared), and
   `lifetime`'s description now says the truth — the extractor hardcodes `""` in every branch and
@@ -1425,7 +1427,8 @@ Arts/
 - All prefabs under `_GameFolders/Prefabs/<Domain>/` (`Bootstrap/`, `CoreObjects/`, `Enemies/`, `UI/Canvases/`, `VFX/`, `Environment/`…); shared-base objects use Prefab Variants; all Canvas prefabs are Prefab Variants of `BaseCanvas`
 - All material assets (.mat) under `Arts/Materials/<Domain>/` — never inside `Prefabs/`; shader files (.shader / .shadergraph) under `_GameFolders/Arts/Shaders/`; never use Built-in Standard shader in a URP project — use the `unity-shader-dev` agent for shader authoring (automatically routes to HLSL or ShaderGraph based on complexity); use the `unity-particle-designer` agent for particle VFX (`Arts/Materials/VFX/` + `_GameFolders/Prefabs/VFX/` + pooling)
 - `AppScope` saved as `Prefabs/Bootstrap/AppScope.prefab`; `EventSystem` and `MainCamera` saved as `Prefabs/CoreObjects/` prefabs — same prefab instance reused across all scenes
-- New Input System only — `InputService` (pure C#, `ITickable`) owns `PlayerControls`; per-prefab `InputHandler` routes actions
+- New Input System only — `InputService` (pure C#, pull-based, no tick of any kind) owns `PlayerControls`; per-prefab `InputHandler` routes actions
+- No container-driven frame ticks — `ITickable` / `IFixedTickable` are unused; a service needing a frame update exposes `Tick(float)` and its domain's Mono shell forwards `Update`/`FixedUpdate`/`LateUpdate`
 - UniTask everywhere — no coroutines, no `async void`, always pass `CancellationToken`
 - Addressables for all runtime asset loading — no `Resources.Load`
 - NSubstitute + AAA pattern for tests — only interfaces mocked
