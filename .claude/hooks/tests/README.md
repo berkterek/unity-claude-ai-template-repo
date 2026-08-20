@@ -20,8 +20,14 @@ npm install -g bats
 
 ## Test files
 
-| File | Hook under test |
-|------|----------------|
+Not every suite here covers a `.claude/hooks/*.sh`. `.claude/scripts/` validators are
+tested in this same directory — one runner, one place to look. Known gap:
+`validate-plan-paths.sh` has no suite, though it is the fail-closed sibling of
+`validate-plan-facts.sh` and carries the same responsibility.
+
+
+| File | Under test |
+|------|------------|
 | `block-git-push.bats` | `block-git-push.sh` |
 | `block-scene-edit.bats` | `block-scene-edit.sh` |
 | `block-projectsettings.bats` | `block-projectsettings.sh` |
@@ -39,6 +45,7 @@ npm install -g bats
 | `graph-auto-update.bats` | `graph-auto-update.sh` — empty graph warning |
 | `hook-profile.bats` | `_lib.sh` — profile gating, `DISABLE_UNITY_HOOKS`, `UNITY_HOOK_MODE` |
 | `guard-gate-cleared.bats` | `guard-gate-cleared.sh` |
+| `validate-plan-facts.bats` | `.claude/scripts/validate-plan-facts.sh` — plan-time fact gate (`Callers:`/`Wiring:`), fence handling, `_templates/` skip |
 | `check-duplicate-siblings.bats` | `.claude/scripts/check-duplicate-siblings.py` — Card 5 structural duplicate detector; pins the two false positives it originally shipped with |
 
 ## What each test covers
