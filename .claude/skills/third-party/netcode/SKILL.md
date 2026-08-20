@@ -1,68 +1,68 @@
 ---
 name: netcode
 description: >
-  Netcode for GameObjects (NGO) 2.x mimari kuralları ve hallucination guard'ları. NetworkBehaviour,
-  RPC, NetworkVariable, NetworkList, Spawn/Despawn, NetworkSceneManager veya UnityTransport hakkında
-  herhangi bir kod yazılmadan önce yükle. Bu skill NGO 2.x kaynak kodundan doğrulanmış kurallara
-  dayanır — NGO, multiplayer, NetworkManager, NetworkObject, ServerRpc, ClientRpc, IsOwner, IsServer,
-  IsHost sözcükleri geçtiğinde tetikle. Eğlenceli kısım: bu projedeki VContainer ve UniTask
-  kullanımı NGO lifecycle sırasıyla çakışır — bu dosyayı okumadan NGO kodu yazma.
+  Netcode for GameObjects (NGO) 2.x architecture rules and hallucination guards. Load before writing
+  any code involving NetworkBehaviour, RPC, NetworkVariable, NetworkList, Spawn/Despawn,
+  NetworkSceneManager or UnityTransport. This skill rests on rules verified against NGO 2.x source
+  — trigger on the words NGO, multiplayer, NetworkManager, NetworkObject, ServerRpc, ClientRpc,
+  IsOwner, IsServer, IsHost. The catch: this project's VContainer and UniTask usage collides with
+  NGO's lifecycle order — do not write NGO code without reading this file.
 user-invocable: true
 ---
 
 # Netcode for GameObjects 2.x — Mimari Rehber
 
-Bu proje **VContainer** ve **UniTask** kullanıyor. NGO kendi lifecycle'ını getiriyor —
-`OnNetworkSpawn`, `OnNetworkDespawn` ve `[Rpc]` attribute'ları VContainer injection ile dikkatli entegre edilmeli.
+This project uses **VContainer** and **UniTask**. NGO brings its own lifecycle —
+`OnNetworkSpawn`, `OnNetworkDespawn` and `[Rpc]` attributes must be integrated carefully with VContainer injection.
 
 ## Kritik Kurallar — Ezbere Bil
 
 | # | Kural | Kaynak |
 |---|-------|--------|
-| 1 | `Spawn()` / `Despawn()` sadece Server/Host'ta çağrılır | `NetworkObject.cs:1884, 1921` |
-| 2 | `OnNetworkSpawn()` Unity `Start()`'tan **önce**, `Awake`/`OnEnable`'dan **sonra** çalışır | `NetworkBehaviour.cs:704` |
-| 3 | Legacy `[ServerRpc]` metod adı `ServerRpc` ile bitmeli; `[ClientRpc]` → `ClientRpc` ile (ILPP compile-time zorlar) | `Editor/CodeGen/` |
-| 4 | Yeni `[Rpc(SendTo.X)]` isim kısıtlaması yok; `SendTo` 11 değere sahip | `RpcTarget.cs:9-80` |
-| 5 | `PlayerPrefab` mutlaka `NetworkPrefabsList` veya `NetworkConfig.Prefabs`'ta kayıtlı olmalı | `NetworkConfig.cs:40` |
-| 6 | **İç içe NetworkObject yasak** — bir NetworkObject prefabı başka bir NetworkObject içinde olamaz | `NetworkObject.cs:2135-2215` |
+| 1 | `Spawn()` / `Despawn()` may only be called on Server/Host | `NetworkObject.cs:1884, 1921` |
+| 2 | `OnNetworkSpawn()` runs **before** Unity `Start()` and **after** `Awake`/`OnEnable` | `NetworkBehaviour.cs:704` |
+| 3 | A legacy `[ServerRpc]` method name must end in `ServerRpc`; `[ClientRpc]` in `ClientRpc` (ILPP enforces at compile time) | `Editor/CodeGen/` |
+| 4 | The new `[Rpc(SendTo.X)]` has no naming constraint; `SendTo` has 11 values | `RpcTarget.cs:9-80` |
+| 5 | `PlayerPrefab` must be registered in `NetworkPrefabsList` or `NetworkConfig.Prefabs` | `NetworkConfig.cs:40` |
+| 6 | **Nested NetworkObjects are forbidden** — a NetworkObject prefab cannot live inside another NetworkObject | `NetworkObject.cs:2135-2215` |
 | 7 | `NetworkVariable<T>` → `T` `unmanaged` veya `INetworkSerializable` implement etmeli. `string`, `List<>`, `class` kabul edilmez | `NetworkVariable.cs:12` |
-| 8 | `NetworkList<T>` → `T: unmanaged, IEquatable<T>`. `NetworkVariable<List<T>>` ile aynı şey **değil** | `NetworkList.cs:14` |
+| 8 | `NetworkList<T>` → `T: unmanaged, IEquatable<T>`. **Not** the same thing as `NetworkVariable<List<T>>` | `NetworkList.cs:14` |
 | 9 | `NetworkSceneManager.LoadScene/UnloadScene` sadece Server'da | `NetworkSceneManager.cs:1496` |
-| 10 | `SetRelayServerData` ve `SetConnectionData` **birbirini dışlar** — ikisini birden çağırma | `UnityTransport.cs:776-897` |
+| 10 | `SetRelayServerData` and `SetConnectionData` are **mutually exclusive** — never call both | `UnityTransport.cs:776-897` |
 
-## Bu Projeye Özgü Entegrasyon Kuralları
+## Integration Rules Specific to This Project
 
 ### VContainer + NGO
 
-NGO `NetworkBehaviour` sınıfları VContainer injection **desteklemez** — `[Inject]` attribute çalışmaz.
+NGO `NetworkBehaviour` classes do **not** support VContainer injection — the `[Inject]` attribute does not work.
 
 ```csharp
-// YANLIŞ — NetworkBehaviour constructor injection almaz
+// WRONG — NetworkBehaviour does not take constructor injection
 public class PlayerNetworkView : NetworkBehaviour
 {
-    [Inject] // Bu çalışmaz
+    [Inject] // this does not work
     public void Construct(IPlayerService service) { }
 }
 
-// DOĞRU — NetworkBehaviour servis referansını sahneden alır
+// RIGHT — the NetworkBehaviour gets its service reference from the scene
 public class PlayerNetworkView : NetworkBehaviour
 {
-    [SerializeField] private PlayerProvider _provider; // aynı prefab içi
+    [SerializeField] private PlayerProvider _provider; // same prefab
 
     public override void OnNetworkSpawn()
     {
-        // Sahnedeki VContainer scope'tan çöz
+        // resolve from the scene's VContainer scope
         var container = LifetimeScope.Find<GameScope>().Container;
         _playerService = container.Resolve<IPlayerService>();
     }
 }
 ```
 
-Alternatif: `NetworkBehaviour`'ı thin adapter olarak kullan, asıl mantığı ayrı bir servise delege et.
+Alternative: use `NetworkBehaviour` as a thin adapter and delegate the real logic to a separate service.
 
 ### UniTask + NGO Lifecycle
 
-`OnNetworkSpawn` içinde async işlem başlatmak için:
+To start async work inside `OnNetworkSpawn`:
 
 ```csharp
 public override void OnNetworkSpawn()
@@ -83,7 +83,7 @@ public override void OnNetworkDespawn()
 
 ### NetworkVariable ile IEventBus
 
-`NetworkVariable` değişimini `IEventBus`'a köprüle — doğrudan cross-module referans kurma:
+Bridge `NetworkVariable` changes to `IEventBus` — never build a direct cross-module reference:
 
 ```csharp
 public NetworkVariable<int> Score = new(0,
@@ -109,31 +109,31 @@ private void OnScoreChanged(int prev, int next)
 ## Hallucination Guard
 
 ```
-❌ NetworkManager.Singleton          → proje singleton yasak; NetworkManager sahneye yerleştirilmeli
-❌ NetworkObject.NetworkObjectId      → GlobalObjectIdHash ile karıştırma; farklı şeyler
+❌ NetworkManager.Singleton          → singletons are forbidden here; place NetworkManager in the scene
+❌ NetworkObject.NetworkObjectId      → do not confuse with GlobalObjectIdHash; different things
 ❌ [ClientRpc] void MyMethod()        → NGO 2.x'te yeni syntax: [Rpc(SendTo.ClientsAndHost)]
-❌ NetworkVariable<string>            → string unmanaged değil; FixedString32Bytes kullan
+❌ NetworkVariable<string>            → string is not unmanaged; use FixedString32Bytes
 ❌ NetworkVariable<List<T>>           → NetworkList<T> kullan
-❌ Spawn() Client'ta                  → sadece Server/Host; IsServer kontrolü ile koru
-❌ new GameObject() ile NetworkObject → prefabdan Instantiate et, ardından Spawn()
+❌ Spawn() on a Client                → Server/Host only; guard it with an IsServer check
+❌ NetworkObject via new GameObject() → Instantiate from a prefab, then Spawn()
 ```
 
 ## Sub-doc Routing
 
-Konuya göre ilgili referans dosyasını oku:
+Read the reference file that matches the topic:
 
 | Konu | Dosya |
 |------|-------|
-| Lifecycle sırası (Awake → OnNetworkSpawn → Start) | [references/LIFECYCLE.md](references/LIFECYCLE.md) |
+| Lifecycle order (Awake → OnNetworkSpawn → Start) | [references/LIFECYCLE.md](references/LIFECYCLE.md) |
 | IsOwner/IsServer/IsHost permission matrix | [references/OWNERSHIP.md](references/OWNERSHIP.md) |
-| RPC seçimi, `SendTo` semantiği, deprecated yollar | [references/RPC.md](references/RPC.md) |
+| RPC choice, `SendTo` semantics, deprecated paths | [references/RPC.md](references/RPC.md) |
 | NetworkVariable/NetworkList init ve serialization | [references/VARIABLES.md](references/VARIABLES.md) |
-| Prefab kayıt → Spawn → Despawn akışı | [references/SPAWNING.md](references/SPAWNING.md) |
+| Prefab registration → Spawn → Despawn flow | [references/SPAWNING.md](references/SPAWNING.md) |
 | NetworkSceneManager, EnableSceneManagement | [references/SCENE.md](references/SCENE.md) |
 | UnityTransport direct / Relay / DebugSimulator | [references/TRANSPORT.md](references/TRANSPORT.md) |
-| 30 somut hallucination tuzağı | [references/PITFALLS.md](references/PITFALLS.md) |
+| 30 concrete hallucination traps | [references/PITFALLS.md](references/PITFALLS.md) |
 
 ## Versiyon
 
-`com.unity.netcode.gameobjects` **2.x** (2.11.0, Unity 6000.0+ ile doğrulandı).
-1.x'te `SendTo.Authority`, `RpcInvokePermission`, evrensel `[Rpc]` attribute **mevcut değildir**.
+`com.unity.netcode.gameobjects` **2.x** (2.11.0, verified against Unity 6000.0+).
+In 1.x, `SendTo.Authority`, `RpcInvokePermission` and the universal `[Rpc]` attribute **do not exist**.

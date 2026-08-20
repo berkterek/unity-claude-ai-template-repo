@@ -1,58 +1,58 @@
 # Continue Orchestration Agent
 
-Kesilen bir orkestrasyon çalışmasını tam olarak kaldığı yerden devam ettirir.
+Resumes an interrupted orchestration run exactly where it stopped.
 
 ## Initialization
 
-1. `$ARGUMENTS`'ten tasks.md yolunu oku. Eksikse: "tasks.md yolu gerekli. Kullanım: /continue docs/modules/01-core-loop/tasks.md"
-2. `docs/GDD.md` ve `docs/TDD.md`'yi bağlam için oku.
+1. Read the tasks.md path from `$ARGUMENTS`. If missing: "A tasks.md path is required. Usage: /continue docs/modules/01-core-loop/tasks.md"
+2. Read `docs/GDD.md` and `docs/TDD.md` for context.
 3. Belirtilen `tasks.md`'yi oku.
-4. `docs/EVENTS.jsonl`'u oku (varsa) — gerçek durum kaynağı.
+4. Read `docs/EVENTS.jsonl` (if present) — the real source of truth for state.
 
 ## Resume Process
 
 ### Step 1: Event Replay ile Durumu Belirle
 
-`docs/EVENTS.jsonl` varsa, son olayları okuyarak hangi task'ların tamamlandığını anla:
-- `TASK_COMPLETED` eventi olan task'lar → zaten bitti
+If `docs/EVENTS.jsonl` exists, read the recent events to determine which tasks completed:
+- Tasks with a `TASK_COMPLETED` event → already done
 - `ORCHESTRATION_PAUSED` eventi → checkpoint'te durdu
-- `TASK_BLOCKED` eventi → bloke edilmiş task
+- a `TASK_BLOCKED` event → a blocked task
 
-tasks.md checkbox'larıyla karşılaştır: eğer events'te TASK_COMPLETED var ama checkbox `- [ ]` ise, checkbox'ı `- [x]` olarak güncelle.
+Compare against the tasks.md checkboxes: if the events show TASK_COMPLETED but the checkbox is `- [ ]`, update the checkbox to `- [x]`.
 
-### Step 2: Recovery Planı
+### Step 2: Recovery Plan
 
-tasks.md'deki duruma göre:
-- `- [x]` checkbox → tamamlandı, atla
-- `- [ ]` checkbox → bekliyor, çalıştır
-- EVENTS.jsonl'da `TASK_BLOCKED` → bloğu raporla, kullanıcıdan çözüm iste
+Based on the state in tasks.md:
+- `- [x]` checkbox → complete, skip it
+- `- [ ]` checkbox → pending, run it
+- `TASK_BLOCKED` in EVENTS.jsonl → report the block and ask the user how to resolve it
 
-### Step 3: Kullanıcıya Raporla
+### Step 3: Report to the User
 
 ```
 ## Devam Ediliyor
 
 tasks.md: [path]
-Tamamlandı: [N] task
+Complete: [N] tasks
 Bekliyor: [M] task
 Bloke: [K] task
 
-Devam etmek için `go` yaz:
+Type `go` to continue:
 ```
 
 ### Step 4: Devam Et
 
-Kullanıcı onayından sonra `/orchestrate docs/modules/<n>-<name>/tasks.md` mantığıyla devam et:
-- Tamamlanan task'ları (`[x]`) atla
-- Bekleyen task'ları çalıştır
-- orchestration-active.json oluştur:
+After the user approves, continue with the same logic as `/orchestrate docs/modules/<n>-<name>/tasks.md`:
+- Skip completed tasks (`[x]`)
+- Run the pending tasks
+- Create orchestration-active.json:
   ```bash
-  echo '{"started":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","module":"[modül adı]"}' > .claude/orchestration-active.json
+  echo '{"started":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","module":"[module name]"}' > .claude/orchestration-active.json
   ```
 
 ## Kurallar
-- Tamamlanmış task'ları yeniden çalıştırma
-- Review adımını atlatma
-- `EVENTS.jsonl` events'i tasks.md checkbox'larından daha güvenilirdir
+- Never re-run a completed task
+- Never skip the review step
+- `EVENTS.jsonl` events are more reliable than the tasks.md checkboxes
 
 $ARGUMENTS

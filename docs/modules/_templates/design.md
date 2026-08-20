@@ -1,10 +1,10 @@
-# Design: [Modül Adı]
-> Spec: spec.md | TDD ref: [ilgili TDD bölümü]
+# Design: [Module Name]
+> Spec: spec.md | TDD ref: [relevant TDD section]
 
-## Yeni/Değişen Sözleşmeler
+## New / Changed Contracts
 
 ### `Game.Abstracts.<Domain>`
-- `IXxxService` — [metot imzaları + contract doc: precondition/postcondition]
+- `IXxxService` — [method signatures + contract doc: precondition/postcondition]
 - `IXxxProvider` — [...]
 
 ## Module Wiring
@@ -15,15 +15,15 @@ builder.Register<XxxService>(Lifetime.Singleton).AsImplementedInterfaces();
 builder.RegisterEntryPoint<YyyService>().AsImplementedInterfaces();
 ```
 
-AppModules.cs'e eklenecek satır:
+Line to add to AppModules.cs:
 ```csharp
 [Domain]Module.Install(builder, configs.[Domain]);
 ```
 
 ## Events
 
-`[Domain]Events.cs` içinde tanımlanacak readonly struct'lar:
-- `XxxHappenedEvent` — [ne zaman publish edilir, hangi alanlar taşır]
+Readonly structs to define in `[Domain]Events.cs`:
+- `XxxHappenedEvent` — [when it is published, which fields it carries]
 
 ## File Map
 
@@ -33,13 +33,13 @@ AppModules.cs'e eklenecek satır:
 | `_GameFolders/Scripts/Games/Concretes/[Domain]/XxxService.cs` | Add | |
 | `_GameFolders/Scripts/Games/Concretes/[Domain]/[Domain]Module.cs` | Add | |
 
-## Test Type Kararları
+## Test Type Decisions
 
-| Sınıf | Test Tipi | Gerekçe |
+| Class | Test Type | Rationale |
 |-------|-----------|---------|
 | `XxxService` | EditMode | Pure C#, NSubstitute ile mock |
 | `XxxController` | PlayMode-Programmatic | MonoBehaviour lifecycle |
 
-## Riskler / Açık Sorular
+## Risks / Open Questions
 
 - [Risk veya soru]

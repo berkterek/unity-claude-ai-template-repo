@@ -1,4 +1,4 @@
-# Tasks: [Modül Adı]
+# Tasks: [Module Name]
 > Design: design.md
 > Status: ⏳ Pending
 
@@ -36,12 +36,12 @@
 
 ## Phase 0 — Foundational (Blocking)
 
-Bu modülün gerektirdiği minimum altyapı — yoksa ekle, varsa atla.
+The minimum infrastructure this module needs — add it if missing, skip it if present.
 
-- [ ] T001 `_GameFolders/Scripts/Games/Concretes/[Domain]/[Domain]Module.cs` — static class, `Install(IContainerBuilder builder, [Domain]Configuration config)` imzası
+- [ ] T001 `_GameFolders/Scripts/Games/Concretes/[Domain]/[Domain]Module.cs` — static class, signature `Install(IContainerBuilder builder, [Domain]Configuration config)`
   - Callers: AppModules.cs (one new line: `[Domain]Module.Install(...)`) — presence-only; do NOT backtick this path unless AppModules.cs already exists on disk or is declared by another task in THIS plan (see schema note above)
   - Wiring: n/a — this file IS the module; it is not itself wired into another module
-  - Acceptance: Derleme hatası yok; AppModules.cs'e bir satır eklenerek kaydolur
+  - Acceptance: compiles without error; registered by adding one line to AppModules.cs
 
 ## Phase 1 — PS1 (P1) 🎯 Oynanabilir Dilim
 
@@ -59,17 +59,17 @@ Bu modülün gerektirdiği minimum altyapı — yoksa ekle, varsa atla.
   - Acceptance: Interface derleniyor
 
 - [ ] T003 [parallel_group:1] `_GameFolders/Scripts/Tests/[Project]EditModeTest/XxxServiceTests.cs` — EditMode test
-  - Acceptance: Test çalışıyor, başarıyla geçiyor
+  - Acceptance: the test runs and passes
 
 - [ ] T004 `_GameFolders/Scripts/Games/Concretes/[Domain]/XxxService.cs` — implementation
   - Callers: T003 (EditMode test); production caller is the owning Controller/Handler — name it once that task exists
   - Wiring: registered in `[Domain]Module.cs` via `Install()` → `Register<XxxService>().AsImplementedInterfaces()`
-  - Acceptance: T003 testleri geçiyor
+  - Acceptance: the T003 tests pass
 
-**Checkpoint: PS1 Independent Test geçer — [spec.md PS1'deki bağımsız doğrulama adımı]**
+**Checkpoint: PS1 Independent Test passes — [the independent verification step from spec.md PS1]**
 
 ## Phase 2 — PS2 (P2)
 
 - [ ] T005 [parallel_group:2] ...
 
-**Checkpoint: PS2 Independent Test geçer**
+**Checkpoint: PS2 Independent Test passes**

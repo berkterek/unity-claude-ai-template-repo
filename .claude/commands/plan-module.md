@@ -1,13 +1,13 @@
 ---
 name: plan-module
-description: Tek bir modülün spec+design+tasks üçlüsünü güncel codebase'e karşı just-in-time üretir. /roadmap tarafından belirlenen modül numarası ile çalışır.
+description: Generates one module's spec+design+tasks trio just-in-time against the current codebase. Takes the module number assigned by /roadmap.
 ---
 
-# /plan-module — Modül Planlayıcı (Just-in-Time)
+# /plan-module — Module Planner (Just-in-Time)
 
-Tek bir modülün `docs/modules/<n>-<name>/` klasörünü oluşturur: `spec.md`, `design.md`, `tasks.md`.
+Creates a single module's `docs/modules/<n>-<name>/` folder: `spec.md`, `design.md`, `tasks.md`.
 
-## Kullanım
+## Usage
 
 ```
 /plan-module 01
@@ -16,22 +16,22 @@ Tek bir modülün `docs/modules/<n>-<name>/` klasörünü oluşturur: `spec.md`,
 
 ## Kurallar
 
-- Sadece belirtilen modülü planla — diğer modüllere dokunma
-- `tasks.md` doğrudan `/orchestrate` girdisi olacak format: checkbox'lar + `[parallel_group:N]` + dosya yolları + code skeleton + acceptance criteria
-- Mevcut codebase'i tara: hangi dosyalar zaten var, hangisi eksik? Var olanları "Add" yerine "Modify" olarak işaretle
-- Eğer `docs/modules/<n>-<name>/` zaten varsa: "Bu modül zaten planlandı" diyerek dur — üzerine yazma
+- Plan only the named module — never touch the others
+- `tasks.md` must be in the format `/orchestrate` consumes directly: checkboxes + `[parallel_group:N]` + file paths + code skeletons + acceptance criteria
+- Scan the existing codebase: which files already exist and which are missing? Mark existing ones "Modify", not "Add"
+- If `docs/modules/<n>-<name>/` already exists: stop with "this module is already planned" — never overwrite it
 
-## Süreç
+## Process
 
 ### Step 0 — Knowledge Graph Preload
 
-Herhangi bir codebase taraması veya subagent spawn'ından önce, knowledge graph'ın bu modül planlamasını hızlandırıp hızlandıramayacağına karar ver.
+Before any codebase scan or subagent spawn, decide whether the knowledge graph can speed up planning this module.
 
-`.claude/project-features.json` kontrol et:
-- `.graph == true` VE `.claude/graph/graph.json` mevcut → graph yolu adayı.
-- Aksi halde → `GRAPH_CONTEXT` boş bırak, Step 1'e geç (mevcut file-scan davranışı, değişmedi).
+Check `.claude/project-features.json`:
+- `.graph == true` AND `.claude/graph/graph.json` exists → candidate for the graph path.
+- Otherwise → leave `GRAPH_CONTEXT` empty and go to Step 1 (the existing file-scan behavior, unchanged).
 
-Aday ise, graph'ın **kullanılabilir** olduğunu doğrula (fresh VE non-empty):
+If it is a candidate, verify the graph is **usable** (fresh AND non-empty):
 
 ```bash
 python3 -c "
@@ -45,13 +45,13 @@ print('classes=%d age_h=%.1f' % (n, age_h))
 "
 ```
 
-- `classes == 0` ise (boş graph — örn. henüz oyun kodu olmayan taze bir template) → `GRAPH_CONTEXT` boş bırak, sessizce file scan'e düş. Uyarma — boş graph geçerli bir durumdur.
-- `age_h > 24` ise (stale) → kullanıcıya bildir, sonra file scan'e düş:
+- If `classes == 0` (empty graph — e.g. a fresh template with no game code yet) → leave `GRAPH_CONTEXT` empty and fall back to a file scan silently. Do not warn — an empty graph is a valid state.
+- If `age_h > 24` (stale) → tell the user, then fall back to a file scan:
   ```
   ⚠ Knowledge graph is stale (last built > 24h ago).
     Run /build-knowledge-graph for graph-accelerated planning. Falling back to file scan.
   ```
-- Aksi halde (fresh VE non-empty) → `GRAPH_CONTEXT`'i graph inventory'sinden oluştur:
+- Otherwise (fresh AND non-empty) → build `GRAPH_CONTEXT` from the graph inventory:
 
 ```bash
 python3 -c "
@@ -78,99 +78,99 @@ for inst in installers:
 "
 ```
 
-Bu çıktıyı `GRAPH_CONTEXT` olarak sakla ve Step 3'teki `Plan` subagent prompt'una göm. `GRAPH_CONTEXT` boşsa, planlama aşaması tıpkı öncesi gibi davranır — regresyon yok.
+Store this output as `GRAPH_CONTEXT` and embed it in the Step 3 `Plan` subagent prompt. If `GRAPH_CONTEXT` is empty, the planning stage behaves exactly as before — no regression.
 
 ### Step 1 — Okuma
 
-1. $ARGUMENTS'ten modül numarası/adını parse et
-2. `docs/ROADMAP.md` oku — bu modülün adını, bağımlılıklarını ve önceliğini bul
-3. `docs/GDD.md` oku — bu modülle ilgili bölümü bul
-4. `docs/TDD.md` oku — bu modüle ait mimari kararları bul
-5. Mevcut codebase'i tara: bu modülle ilgili mevcut .cs dosyalarını listele
+1. Parse the module number/name from $ARGUMENTS
+2. Read `docs/ROADMAP.md` — find this module's name, dependencies and priority
+3. Read `docs/GDD.md` — find the section covering this module
+4. Read `docs/TDD.md` — find the architecture decisions belonging to this module
+5. Scan the existing codebase: list the .cs files that already relate to this module
 
-Eğer modül zaten `docs/modules/<n>-<name>/` altında varsa:
+If the module already exists under `docs/modules/<n>-<name>/`:
 ```
-Modül <n> zaten planlandı: docs/modules/<n>-<name>/
-Mevcut planı güncellemek için /update-plan komutunu kullan.
+Module <n> is already planned: docs/modules/<n>-<name>/
+Use /update-plan to change the existing plan.
 ```
 diyerek dur.
 
 ### Step 2 — ARCHITECTURE_GATE
 
-**Önce (BLOCKING):** spec/design/tasks yazıldıktan sonra, gate'i göstermeden önce çalıştır:
+**First (BLOCKING):** after spec/design/tasks are written and before showing the gate, run:
 
 ```bash
-.claude/scripts/validate-plan-paths.sh <modül plan klasörü>
-.claude/scripts/validate-plan-facts.sh <modül plan klasörü>
+.claude/scripts/validate-plan-paths.sh <module plan folder>
+.claude/scripts/validate-plan-facts.sh <module plan folder>
 ```
 
-exit 2 → plan `rules/architecture.md` ile çelişiyor. Sessizce devam etme, klasörü de kendi kafana göre uydurma: çelişkiyi ARCHITECTURE_GATE bloğunun içinde göster, üç seçenekle (planı değiştir / `.claude/path-allowlist.txt` + `rules/architecture.md`'ye istisnayı yaz / dur). Kararı kullanıcı verir. `NO PATHS FOUND` pass değildir. Hook'un susması hiçbir zaman "doğrulandı" demek değildir — spec'e AC olarak "uyumlu, doğrulandı" yazmak için `checked:` satırı şart.
+exit 2 → the plan contradicts `rules/architecture.md`. Do not continue silently, and do not invent a folder of your own: show the conflict inside the ARCHITECTURE_GATE block with three options (change the plan / write the exception into `.claude/path-allowlist.txt` + `rules/architecture.md` / stop). The user decides. `NO PATHS FOUND` is not a pass. A silent hook never means "verified" — writing "compliant, verified" as an AC in the spec requires an explicit `checked:` line.
 
-`validate-plan-facts.sh` exit 2 → en az bir task `Callers:`/`Wiring:` eksik ya da beyan ettiği kaynak plan içinde/diskte çözülmüyor. Sessizce devam etme: ihlali ARCHITECTURE_GATE bloğunda göster, planı düzelt ya da dur — kararı kullanıcı verir. `NO TASKS FOUND` pass değildir — script'in kendi ifadesiyle "this is NOT a pass"; elle doğrula.
+`validate-plan-facts.sh` exit 2 → at least one task is missing `Callers:`/`Wiring:`, or the source it declares does not resolve in the plan or on disk. Do not continue silently: show the violation in the ARCHITECTURE_GATE block, then fix the plan or stop — the user decides. `NO TASKS FOUND` is not a pass — in the script's own words, "this is NOT a pass"; verify by hand.
 
-Kullanıcıya şu bilgileri göster ve onay iste:
+Show the user the following and ask for approval:
 
 ```
-## ARCHITECTURE_GATE — <n>-<name> Modülü
+## ARCHITECTURE_GATE — Module <n>-<name>
 
-**GDD özeti:** [bu modül ne yapıyor]
-**Önerilen yapı:**
+**GDD summary:** [what this module does]
+**Proposed structure:**
 - Abstracts: [interface listesi]
 - Concretes: [class listesi]
 - Module installer: [Domain]Module.cs
 - Events: [event listesi]
 
-**Onaylamak için `go`, değiştirmek için açıkla:**
+**Type `go` to approve, or describe what to change:**
 ```
 
-Gate onaylanmadan (kullanıcı `go` yazmadan) bir sonraki adıma geçme.
+Do not proceed to the next step until the gate is approved (the user types `go`).
 
-### Step 3 — Planlama Subagent'ı
+### Step 3 — Planning Subagent
 
-`Plan` subagent'ını spawn et (`subagent_type: "Plan"`, `model: opus`) — `/create-plan` Step 2 ile aynı agent. **`lean-planner` kullanma:** o agent tanımı gereği acceptance criteria, `parallel_group` annotation ve code skeleton üretmez ve çıktısı tek bir 3-5 satırlık tablodur; bu komut ise üç ayrı doküman (spec/design/tasks) ve Step 4 reviewer'ın aradığı Given/When/Then AC'leri + Step 2 `validate-plan-facts.sh`'in istediği `Callers:`/`Wiring:` satırlarını gerektirir. Subagent'a şunu ver:
-- Modülün GDD özeti
+Spawn the `Plan` subagent (`subagent_type: "Plan"`, `model: opus`) — the same agent as `/create-plan` Step 2. **Do not use `lean-planner`:** by definition that agent produces no acceptance criteria, no `parallel_group` annotations and no code skeletons, and its output is a single 3-5 row table; this command needs three separate documents (spec/design/tasks), the Given/When/Then ACs the Step 4 reviewer looks for, and the `Callers:`/`Wiring:` lines Step 2's `validate-plan-facts.sh` requires. Give the subagent:
+- The module's GDD summary
 - TDD'deki ilgili mimari kararlar
-- Mevcut codebase scan sonuçları
-- Aşağıdaki Knowledge Graph bloğu (Step 0'dan)
-- Şablon formatı: `docs/modules/_templates/` altındaki spec/design/tasks şablonları
+- The results of the existing codebase scan
+- The Knowledge Graph block below (from Step 0)
+- The template format: the spec/design/tasks templates under `docs/modules/_templates/`
 
-Prompt'a şu bloğu ekle:
+Add this block to the prompt:
 
 ```
-## Knowledge Graph (mevcut class/interface/event/installer envanteri — dosya taramadan ÖNCE bunu sorgula)
+## Knowledge Graph (inventory of existing classes/interfaces/events/installers — query this BEFORE scanning files)
 [INSERT HERE: the GRAPH_CONTEXT output from the Step 0 preload step — if empty, write "No usable graph — scan source files directly."]
 ```
 
-Talimat: Yukarıdaki graph inventory boş değilse, önce onu kullan — zaten var olan interface/class/installer/dependency'leri graph'tan oku, sadece belirli bir satır/detay için kaynak dosyayı aç. Graph boşsa (veya "No usable graph" yazıyorsa), önceki gibi mevcut codebase scan sonuçlarına dayan.
+Instruction: if the graph inventory above is not empty, use it first — read existing interfaces/classes/installers/dependencies from the graph, and open a source file only for a specific line or detail. If the graph is empty (or says "No usable graph"), fall back to the codebase scan results as before.
 
-Subagent çıktısı olarak üç dokümanın taslağını al.
+Take the three document drafts as the subagent's output.
 
 ### Step 4 — REVIEWER
 
-`reviewer` subagent'ı spawn et (`model: sonnet`). Şunları kontrol etmesini iste:
-- `tasks.md`'deki tüm task'lar `/orchestrate` uyumlu mu? (checkbox + dosya yolu + acceptance)
-- `parallel_group` annotations doğru mu?
-- `spec.md` acceptance criteria'ları test edilebilir mi? (Given/When/Then formatı)
-- `design.md` interface imzaları mevcut architecture kurallarına uygun mu?
+Spawn the `reviewer` subagent (`model: sonnet`). Ask it to check:
+- Is every task in `tasks.md` `/orchestrate`-compatible? (checkbox + file path + acceptance)
+- Are the `parallel_group` annotations correct?
+- Are `spec.md`'s acceptance criteria testable? (Given/When/Then format)
+- Do `design.md`'s interface signatures comply with the current architecture rules?
 
 ### Step 5 — SAVE
 
-Üç dosyayı `docs/modules/<n>-<name>/` altına kaydet:
+Save the three files under `docs/modules/<n>-<name>/`:
 - `spec.md`
 - `design.md`
 - `tasks.md`
 
-`docs/ROADMAP.md`'daki ilgili satırı güncelle: Status → `⏳ Pending`, Plan sütununa link ekle.
+Update the matching row in `docs/ROADMAP.md`: Status → `⏳ Pending`, and add a link in the Plan column.
 
-Kullanıcıya göster:
+Show the user:
 ```
-✅ Modül <n>-<name> planlandı
+✅ Module <n>-<name> planned
 
 docs/modules/<n>-<name>/spec.md
 docs/modules/<n>-<name>/design.md
 docs/modules/<n>-<name>/tasks.md
 
-Sıradaki adım: `/orchestrate docs/modules/<n>-<name>/tasks.md`
+Next step: `/orchestrate docs/modules/<n>-<name>/tasks.md`
 ```
 
 $ARGUMENTS

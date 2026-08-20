@@ -10,46 +10,46 @@ globs: ["**/*Volume*.cs", "**/*PostProcess*.cs", "**/*VolumeProfile*.asset"]
 
 # URP Volume — MCP Skill
 
-URP Volume sistemi SRP Core üzerine inşa edilmiştir. Tüm Volume işlemleri `manage_graphics` tool'u
-üzerinden `action` parametresi ile yapılır.
+The URP Volume system is built on SRP Core. Every Volume operation goes through the `manage_graphics`
+tool via its `action` parameter.
 
-## Hallucination Guard — Bunlar Mevcut Değil
+## Hallucination Guard — These Do Not Exist
 
 ```
 ❌ volume_create(...)          → manage_graphics(action="volume_create", ...) kullan
 ❌ postprocess_add_effect(...) → manage_graphics(action="volume_add_effect", ...) kullan
-❌ manage_volume(...)          → böyle bir tool yok
+❌ manage_volume(...)          → no such tool
 ❌ volume_set_bloom(...)       → manage_graphics(action="volume_set_effect", ...) kullan
 ```
 
-Tüm action'lar `manage_graphics` üzerinden geçer. Action prefix'i `volume_` dir.
+All actions go through `manage_graphics`. The action prefix is `volume_`.
 
 ## Mevcut Actions
 
 | Action | Ne yapar |
 |--------|----------|
-| `volume_create` | Volume GameObject oluşturur (global veya local), isteğe bağlı VolumeProfile ile |
-| `volume_create_profile` | Bağımsız VolumeProfile asset'i oluşturur |
-| `volume_set_profile` | Mevcut Volume'a farklı bir profile atar |
+| `volume_create` | Creates a Volume GameObject (global or local), optionally with a VolumeProfile |
+| `volume_create_profile` | Creates a standalone VolumeProfile asset |
+| `volume_set_profile` | Assigns a different profile to an existing Volume |
 | `volume_add_effect` | VolumeProfile'a bir effect override ekler |
 | `volume_set_effect` | Effect'in parametrelerini set eder |
-| `volume_list_effects` | Volume üzerindeki mevcut effect'leri listeler |
-| `volume_get_info` | Volume'un detaylarını (weight, priority, profile, effects) okur |
-| `volume_remove_effect` | Effect override'ı siler — tehlikeli, geri alınamaz |
-| `volume_set_properties` | Volume'un weight, priority, isGlobal değerlerini değiştirir |
+| `volume_list_effects` | Lists the effects currently on a Volume |
+| `volume_get_info` | Reads a Volume's details (weight, priority, profile, effects) |
+| `volume_remove_effect` | Deletes an effect override — destructive, not undoable |
+| `volume_set_properties` | Changes a Volume's weight, priority and isGlobal values |
 
-## Temel İş Akışı
+## Core Workflow
 
-### 1. Ortam kontrolü
+### 1. Environment check
 
-URP kurulu değilse tüm volume action'ları hata döner. Önce kontrol et:
+Every volume action errors out if URP is not installed. Check first:
 
 ```python
 manage_graphics(action="pipeline_get_info")
-# → pipeline_type: "URP" olmalı
+# → pipeline_type must be "URP"
 ```
 
-### 2. Global post-processing Volume oluştur
+### 2. Create a global post-processing Volume
 
 ```python
 manage_graphics(
@@ -63,7 +63,7 @@ manage_graphics(
 )
 ```
 
-`is_global: false` ise Volume bir Collider ile birleşerek lokal efekt verir (fog zone, dark room vb.).
+With `is_global: false` the Volume pairs with a Collider to give a local effect (fog zone, dark room, etc.).
 
 ### 3. Effect ekle
 
@@ -75,9 +75,9 @@ manage_graphics(
 )
 ```
 
-**Effect isimleri tam olarak yazılmalı.** Kısaltma kabul etmez:
+**Effect names must be written in full.** Abbreviations are rejected:
 
-| Doğru | Yanlış |
+| Correct | Wrong |
 |-------|--------|
 | `Bloom` | `bloom`, `BloomEffect` |
 | `DepthOfField` | `DOF`, `DepthOfFieldEffect` |
@@ -89,17 +89,17 @@ manage_graphics(
 | `WhiteBalance` | `WhiteBalanceEffect` |
 | `FilmGrain` | `FilmGrainEffect` |
 
-### 4. Parametre set etmeden önce gerçek isimleri öğren
+### 4. Learn the real parameter names before setting anything
 
 ```python
-# Önce effect'in gerçek parameter isimlerini oku
+# read the effect's real parameter names first
 manage_graphics(
     action="volume_get_info",
     target="GlobalPostProcessVolume"
 )
 ```
 
-Geri dönen `components[].parameters` listesindeki gerçek isimleri kullan. Tahmin etme.
+Use the real names from the returned `components[].parameters` list. Never guess.
 
 ### 5. Parametre set et
 
@@ -136,13 +136,13 @@ manage_graphics(
 )
 ```
 
-## Sık Kullanılan Effect Parametreleri
+## Commonly Used Effect Parameters
 
 ### Bloom
 ```
-intensity     → float (0-1+ arası)
-threshold     → float (parlaklık eşiği)
-scatter       → float (0-1, yayılma)
+intensity     → float (0-1+)
+threshold     → float (brightness threshold)
+scatter       → float (0-1, spread)
 tint          → Color
 ```
 
@@ -150,8 +150,8 @@ tint          → Color
 ```
 mode          → "Gaussian" veya "Bokeh"
 focusDistance → float (metre cinsinden)
-aperture      → float (f/stop, Bokeh için)
-focalLength   → float (mm, Bokeh için)
+aperture      → float (f/stop, for Bokeh)
+focalLength   → float (mm, for Bokeh)
 ```
 
 ### Tonemapping
@@ -176,12 +176,12 @@ hueShift         → float (-180 to 180)
 saturation       → float (-100 to 100)
 ```
 
-## Local Volume Kullanımı
+## Using a Local Volume
 
-Lokal Volume, Collider sınırları içinde aktif olur (fog zone, karanlık oda, su altı efekti vb.):
+A local Volume becomes active inside its Collider bounds (fog zone, dark room, underwater effect, etc.):
 
 ```python
-# 1. Local volume oluştur
+# 1. create the local volume
 manage_graphics(
     action="volume_create",
     properties={
@@ -192,7 +192,7 @@ manage_graphics(
     }
 )
 
-# 2. BoxCollider ekle (trigger olarak)
+# 2. add a BoxCollider (as a trigger)
 manage_components(
     action="add",
     target="FogZoneVolume",
@@ -204,9 +204,9 @@ manage_components(
 manage_graphics(action="volume_add_effect", target="FogZoneVolume", properties={"type": "Fog"})
 ```
 
-## VolumeProfile Asset Yönetimi
+## VolumeProfile Asset Management
 
-Profil'i ayrı asset olarak kaydetmek sahneden bağımsız yeniden kullanım sağlar:
+Saving the profile as a separate asset makes it reusable independently of any scene:
 
 ```python
 manage_graphics(
@@ -222,13 +222,13 @@ manage_graphics(
 )
 ```
 
-## Doğrulama Adımları
+## Verification Steps
 
-Her Volume değişikliğinden sonra:
+After every Volume change:
 
 ```python
 read_console(types=["error", "warning"], count=5)
 manage_graphics(action="volume_get_info", target="GlobalPostProcessVolume")
 ```
 
-Hata yoksa `manage_camera(action="screenshot", include_image=True)` ile görsel doğrula.
+If there are no errors, verify visually with `manage_camera(action="screenshot", include_image=True)`.

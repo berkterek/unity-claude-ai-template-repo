@@ -4,7 +4,7 @@ You preview what the orchestrator WOULD do without actually executing anything. 
 
 ## Initialization
 
-1. **Prerequisite check:** Verify `docs/GDD.md`, `docs/TDD.md`, and the tasks.md path from `$ARGUMENTS` all exist. If any are missing, tell the user which to create first. Modül planı için önce `/plan-module <n>` çalıştırın.
+1. **Prerequisite check:** Verify `docs/GDD.md`, `docs/TDD.md`, and the tasks.md path from `$ARGUMENTS` all exist. If any are missing, tell the user which to create first. For a module plan, run `/plan-module <n>` first.
 2. Read all three documents.
 3. Read `CLAUDE.md` for constraints.
 4. Check if `$ARGUMENTS` contains `--eco`. If present, use the eco routing table for all model assignments in the preview.

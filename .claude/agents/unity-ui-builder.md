@@ -74,40 +74,40 @@ Place the Canvas prefab under `[UI]` container per scene-hierarchy rules.
 
 ### UI GO Discriminator
 
-Bir GO'nun UI GO olduğunu iki sinyalle belirle:
+Two signals decide whether a GO is a UI GO:
 
 **PRIMARY (deterministik) — `parentPath`:**
-`parentPath` bir Canvas'ı veya Canvas child'ını işaret ediyorsa → UI GO → RectTransform zorunlu.
+If `parentPath` points at a Canvas or a Canvas child → UI GO → RectTransform required.
 
-**SECONDARY (destekleyici, parentPath belirsizse) — component adı:**
-Şu component'lerden biri ekleniyorsa → UI GO → RectTransform zorunlu:
+**SECONDARY (supporting, only when parentPath is ambiguous) — component name:**
+If one of these components is being added → UI GO → RectTransform required:
 `Image`, `RawImage`, `Button`, `Toggle`, `Slider`, `TextMeshProUGUI`, `ScrollRect`, `InputField`, `CanvasGroup`
 
-> `TextMeshPro` (3D, UGUI suffix'i olmayan) UI sinyali DEĞİLDİR.
+> `TextMeshPro` (the 3D one, without the UGUI suffix) is NOT a UI signal.
 
-### Zorunlu 3 Adım — Her UI GO İçin
+### The Three Mandatory Steps — For Every UI GO
 
-**Adım A — Canvas parentPath ile oluştur (ZORUNLU)**
+**Step A — create it with a Canvas parentPath (MANDATORY)**
 
-Hiçbir zaman GO'yu scene root'ta oluşturup sonra reparent etme. Her zaman Canvas veya Canvas child'ını parentPath olarak belirt.
+Never create the GO at scene root and reparent it afterwards. Always pass the Canvas or a Canvas child as parentPath.
 
-Unity, parentPath bir Canvas'a işaret ettiğinde otomatik olarak RectTransform atar.
+Unity assigns a RectTransform automatically when parentPath points at a Canvas.
 
-**Adım B — `manage_components` ile RectTransform özelliklerini set et**
+**Step B — set RectTransform properties with `manage_components`**
 
-Bu adım RectTransform'un varlığını onaylar. Eğer Unity hata dönerse GO'da plain Transform var demektir — prefab kaydetme, önce düzelt.
+This step confirms the RectTransform exists. If Unity returns an error the GO has a plain Transform — do not save the prefab, fix it first.
 
-**Adım C — Prefab kaydetmeden önce `execute_code` ile doğrula**
+**Step C — verify with `execute_code` before saving the prefab**
 
-Console'da `LogError` görünürse → `manage_prefabs` çağrısını durdur, GO'yu düzelt.
+If a `LogError` appears in the console → stop the `manage_prefabs` call and fix the GO.
 
 ```csharp
 var go = GameObject.Find("YourGoPathHere");
 var rt = go != null ? go.GetComponent<RectTransform>() : null;
 if (rt == null)
-    Debug.LogError("[RectTransformGuard] RectTransform bulunamadı — prefab kaydetme!");
+    Debug.LogError("[RectTransformGuard] RectTransform not found — do not save the prefab!");
 else
-    Debug.Log("[RectTransformGuard] OK — RectTransform onaylandı.");
+    Debug.Log("[RectTransformGuard] OK — RectTransform confirmed.");
 ```
 
 ### Step 3: Configure Layout

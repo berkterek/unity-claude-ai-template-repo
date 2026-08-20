@@ -11,9 +11,9 @@
   - Claude does zero analysis — Codex reads the code directly, implements, then Claude reviews
 - `/scene-setup <description>` — **complexity score** → **unity-coder** (Simple/Medium/Complex) + unity-setup → **unity-verifier** → **Codex** → unity-reviewer → [unity-developer if score ≥ 0.7] → committer
 - `/migrate <pattern> in <scope>` — **complexity score** → **test-type-router** → [tester if not NoTest and complexity ≥ Medium] → **migrator** / **unity-migrator** → reviewer → [unity-developer if score ≥ 0.7] → committer
-- `/create-plan <file> <what>` — researcher → **complexity-aware planner** (opus, assigns `parallel_group` to independent tasks) → reviewer → save → optional implementer (parallel spawn for grouped tasks if complexity ≥ 0.4) Plan hazır olduğunda `/plan-summary <file>` ile özet alabilirsiniz.
+- `/create-plan <file> <what>` — researcher → **complexity-aware planner** (opus, assigns `parallel_group` to independent tasks) → reviewer → save → optional implementer (parallel spawn for grouped tasks if complexity ≥ 0.4) Once the plan is ready, `/plan-summary <file>` produces a summary of it.
 - `/create-plan --lean <file> <topic>` — **Lean mode:** researcher → **lean-planner** (`sonnet`) → reviewer → save. Output: 3-5 task table (name, files, one-line note). No code skeletons, no acceptance criteria, no parallel_group annotations. Implementer auto-spawn: **disabled** regardless of complexity score. To upgrade: re-run without `--lean`.
-- `/update-plan <file> <change>` — analyzer → planner (opus, updates `parallel_group` annotations) → reviewer → save → optional implementer (parallel spawn for grouped tasks if complexity ≥ 0.4) Plan güncellendikten sonra `/plan-summary <file>` ile özet alabilirsiniz.
+- `/update-plan <file> <change>` — analyzer → planner (opus, updates `parallel_group` annotations) → reviewer → save → optional implementer (parallel spawn for grouped tasks if complexity ≥ 0.4) After the plan is updated, `/plan-summary <file>` produces a summary of it.
 - `/update-plan --lean <file> <change>` — analyzer → **lean-planner** (`sonnet`) → reviewer → save. Output: updated 3-5 task table only. Implementer auto-spawn: **disabled**. Use when the change is small (adding/removing a task, adjusting a file path).
 - `/smart-commit` — analyze dirty working tree → group into logical commits → commit
 - `/smart-commit-selected` — analyze dirty working tree → plan commit groups → **show checklist (multiSelect)** → commit only selected groups
@@ -42,8 +42,8 @@
 - `/refine-tdd` — Iterate on an existing TDD
 
 ### Development
-- `/roadmap` — GDD + TDD + mevcut modülleri okuyarak `docs/ROADMAP.md` modül tablosunu oluşturur. Gap analizi: hangi sistemlerin planı var, hangisi eksik.
-- `/plan-module <n>` — Tek modülün `spec.md + design.md + tasks.md` üçlüsünü just-in-time üretir. `/orchestrate` için direkt girdi.
+- `/roadmap` — reads the GDD, the TDD and the existing modules, then builds the module table in `docs/ROADMAP.md`. Gap analysis: which systems have a plan and which are missing one.
+- `/plan-module <n>` — generates one module's `spec.md + design.md + tasks.md` trio just-in-time. Direct input for `/orchestrate`.
 - `/new-module` — Generate the 5-file module structure (Interface, Service, Config, Installer, Events)
 
 ### Knowledge Graph
@@ -77,9 +77,9 @@
 - `/dump` — Save current session notes to `.claude/logs/` as markdown
 - `/five` — 5 Whys root cause analysis for a bug or architectural problem
 - `/continue` — Resume an interrupted orchestration run from the event journal (picks up where it left off, path via $ARGUMENTS)
-- `/status` — Report current pipeline stage: GDD → TDD → ROADMAP + modül task durumu özeti
+- `/status` — reports the current pipeline stage: GDD → TDD → ROADMAP, plus a per-module task status summary
 - `/dry-run` — Preview the orchestration plan for a tasks.md without executing any tasks
-- `/plan-summary <file>` — Plan dosyasını okur ve 3 bölümlü özet üretir: ne yapıyoruz, nasıl yapıyoruz, sonunda ne göreceğiz. `/orchestrate` veya `/implement` öncesinde planın beklentinizle örtüştüğünü doğrulamak için kullanın.
+- `/plan-summary <file>` — reads a plan file and produces a three-part summary: what we are building, how we are building it, and what you will see at the end. Use it before `/orchestrate` or `/implement` to confirm the plan matches your expectation.
 - `/instincts` — Manage instinct library: status, list, evolve, promote, export, import
 
 ### Changelog

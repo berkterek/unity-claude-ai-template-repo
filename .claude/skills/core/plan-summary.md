@@ -1,35 +1,35 @@
 ---
 name: plan-summary
-description: Plan dosyasını okuyup 3 bölümlü insan dilinde özet üretir — ne yapıyoruz, nasıl, sonunda ne görürüz. Gate yok, agent spawn yok.
+description: Reads a plan file and produces a three-part, plain-language summary — what we are building, how, and what we will see at the end. No gates, no agent spawns.
 ---
 
 # Plan Summary
 
-Verilen plan dosyasını okuyup sabit 3 bölümlü özet üret. Bu skill'i çalıştırmak demek:
+Read the given plan file and produce the fixed three-part summary below. Running this skill means:
 
-1. `<file>` parametresini oku
-2. Dosya yoksa: `"Dosya bulunamadı: <path>. Önce /create-plan çalıştırın."` yaz ve dur
-3. Dosyada task yoksa: `"Plan dosyası task içermiyor. /update-plan ile içerik ekleyin."` yaz ve dur
-4. Aşağıdaki formatta özet üret — başka bir şey yazma
+1. Read the `<file>` argument
+2. If the file does not exist: print `"File not found: <path>. Run /create-plan first."` and stop
+3. If the file contains no tasks: print `"Plan file contains no tasks. Add content with /update-plan."` and stop
+4. Produce the summary in the format below — write nothing else
 
-## Çıktı Formatı (değiştirme)
+## Output Format (do not change it)
 
 ```
-## Plan Özeti — <dosya adı>
+## Plan Summary — <file name>
 
-### Ne yapıyoruz?
-[1-2 cümle. Projenin hangi parçasına dokunuyoruz ve amacı ne. Teknik detay değil.]
+### What are we building?
+[1-2 sentences. Which part of the project this touches and why. No technical detail.]
 
-### Nasıl yapıyoruz?
-[Bullet list. Her task için 1 satır, insan dilinde. "AudioInstaller'a Register<T> ekle" değil → "Ses sistemi bağımlılık enjeksiyonuna bağlanacak".]
+### How are we building it?
+[Bullet list. One line per task, in plain language. Not "add Register<T> to AudioInstaller" → "the audio system gets wired into dependency injection".]
 
-### Sonunda ne göreceğiz?
-[Observable çıktılar. Her madde gözlemlenebilir bir sonuç. "kod yazılacak" değil → "Oyunu çalıştırdığında ses duyulacak". Format: "X çalışacak / Y Inspector'da görünecek / Z testi geçecek".]
+### What will we see at the end?
+[Observable outcomes. Every item must be something you can observe. Not "code will be written" → "you will hear sound when you run the game". Shape: "X works / Y appears in the Inspector / test Z passes".]
 ```
 
-## Kurallar
+## Rules
 
-- Sadece plan dosyasını oku — kaynak kod dosyalarını açma
-- Özet bölümlerinin dışına hiçbir şey yazma (giriş cümlesi, açıklama, öneri yok)
-- Sonuç bölümündeki her madde mutlaka gözlemlenebilir olmalı
-- Tone: sade Türkçe, teknik jargon minimum
+- Read only the plan file — never open source files
+- Write nothing outside the summary sections (no preamble, no commentary, no suggestions)
+- Every item in the outcome section must be observable
+- Tone: plain language, minimal jargon

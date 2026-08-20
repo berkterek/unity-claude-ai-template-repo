@@ -1,64 +1,64 @@
 # Pipeline Status Reporter
 
-Proje pipeline'ının mevcut durumunu hızlıca gösterir.
+Shows the project pipeline's current state at a glance.
 
 ## Process
 
-1. Şu dosyaları oku (varsa):
-   - `docs/GDD.md` — Oyun Tasarım Dokümanı
-   - `docs/TDD.md` — Teknik Mimari
-   - `docs/ROADMAP.md` — Modül yol haritası ve status rollup
-   - `docs/modules/` — mevcut modüllerin tasks.md'lerini tara
+1. Read these files (if present):
+   - `docs/GDD.md` — Game Design Document
+   - `docs/TDD.md` — Technical Architecture
+   - `docs/ROADMAP.md` — module roadmap and status rollup
+   - `docs/modules/` — scan the tasks.md of every existing module
 
-2. Pipeline aşamasını belirle:
-   - **Hiç doküman yok** → Pipeline başlamadı. `/game-idea` veya GDD oluştur.
-   - **Yalnızca GDD** → GDD hazır. Sıradaki: `/architect`
-   - **GDD + TDD** → Mimari hazır. Sıradaki: `/roadmap`
-   - **GDD + TDD + ROADMAP** → Yol haritası hazır. Sıradaki: `/plan-module <n>`
-   - **Modül planları var** → Her tasks.md'nin checkbox durumunu oku ve özetle.
+2. Determine the pipeline stage:
+   - **No documents at all** → the pipeline has not started. Run `/game-idea` or create a GDD.
+   - **GDD only** → the GDD is ready. Next: `/architect`
+   - **GDD + TDD** → the architecture is ready. Next: `/roadmap`
+   - **GDD + TDD + ROADMAP** → the roadmap is ready. Next: `/plan-module <n>`
+   - **Module plans exist** → read each tasks.md checkbox state and summarize it.
 
-3. `docs/ROADMAP.md` varsa modül tablosunu göster (mevcut status'larıyla).
+3. If `docs/ROADMAP.md` exists, show the module table with its current statuses.
 
-4. Son 10 EVENTS.jsonl olayını göster (varsa):
+4. Show the last 10 EVENTS.jsonl events (if present):
    ```
-   ### Son Olaylar
+   ### Recent Events
    - [10:35:00] ORCHESTRATION_COMPLETE — 01-core-loop
    - [10:34:00] TASK_COMPLETED — T003
    ...
    ```
 
-5. Proje dosyalarını tara:
-   - `.cs` dosya sayısı: `_GameFolders/Scripts/`
-   - Test dosyası sayısı: `_GameFolders/Scripts/Tests/`
-   - Prefab sayısı: `_GameFolders/Prefabs/`
+5. Scan the project files:
+   - `.cs` file count: `_GameFolders/Scripts/`
+   - Test file count: `_GameFolders/Scripts/Tests/`
+   - Prefab count: `_GameFolders/Prefabs/`
 
-## Çıktı Formatı
+## Output Format
 
 ```
 ## Pipeline Status
 
-**Proje:** [GDD'den oyun adı veya "Başlamadı"]
-**Mevcut Aşama:** [aşama adı]
-**Sıradaki Adım:** [çalıştırılacak komut]
+**Project:** [game name from the GDD, or "Not started"]
+**Current Stage:** [stage name]
+**Next Step:** [command to run]
 
-### Dokümanlar
+### Documents
 - [✅|❌] GDD  — docs/GDD.md
 - [✅|❌] TDD  — docs/TDD.md
 - [✅|❌] ROADMAP — docs/ROADMAP.md
 
-### Modüller (ROADMAP özeti)
-| # | Modül | Status |
+### Modules (ROADMAP summary)
+| # | Module | Status |
 |---|-------|--------|
 | 01 | core-loop | ✅ Complete |
 | 02 | audio | ⏳ Pending |
 
-### Son Olaylar (EVENTS.jsonl)
-[son 10 olay]
+### Recent Events (EVENTS.jsonl)
+[last 10 events]
 
-### Üretilen Varlıklar
-- C# Scripts: [sayı]
-- Test Dosyaları: [sayı]
-- Prefablar: [sayı]
+### Produced Assets
+- C# Scripts: [count]
+- Test Files: [count]
+- Prefabs: [count]
 ```
 
 $ARGUMENTS

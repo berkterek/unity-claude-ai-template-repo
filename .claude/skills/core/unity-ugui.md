@@ -100,23 +100,23 @@ Scale Mode: Scale With Screen Size
 
 ## Pre-Prefab Checklist (NON-NEGOTIABLE)
 
-Herhangi bir UI GO'yu prefab olarak kaydetmeden önce üç koşulun tamamı sağlanmış olmalı:
+All three conditions must hold before saving any UI GameObject as a prefab:
 
-- [ ] GO, Canvas veya Canvas child'ına `parentPath` ile oluşturuldu
-- [ ] `manage_components` ile RectTransform özelliği set edildi (hatasız tamamlandı)
-- [ ] `execute_code` ile `GetComponent<RectTransform>()` doğrulandı (LogError yok)
+- [ ] The GO was created under a Canvas or a Canvas child via `parentPath`
+- [ ] A RectTransform property was set with `manage_components` (completed without error)
+- [ ] `GetComponent<RectTransform>()` was verified with `execute_code` (no LogError)
 
 ### UI GO Discriminator
 
-| Sinyal | Tür | UI GO mu? |
+| Signal | Kind | Is it a UI GO? |
 |--------|-----|-----------|
-| `parentPath` → Canvas veya Canvas child | PRIMARY | Evet — RectTransform zorunlu |
-| Component: `Image`, `RawImage`, `Button`, `Toggle`, `Slider` | SECONDARY | Evet — RectTransform zorunlu |
-| Component: `TextMeshProUGUI`, `ScrollRect`, `InputField`, `CanvasGroup` | SECONDARY | Evet — RectTransform zorunlu |
-| Component: `TextMeshPro` (3D, UGUI suffix'siz) | — | **Hayır** — UI sinyali değil |
-| `parentPath` → `[Services]`, `[Setup]`, `[Characters]`, `[VFX]` container | — | **Hayır** — normal GO |
+| `parentPath` → Canvas or Canvas child | PRIMARY | Yes — RectTransform required |
+| Component: `Image`, `RawImage`, `Button`, `Toggle`, `Slider` | SECONDARY | Yes — RectTransform required |
+| Component: `TextMeshProUGUI`, `ScrollRect`, `InputField`, `CanvasGroup` | SECONDARY | Yes — RectTransform required |
+| Component: `TextMeshPro` (3D, no UGUI suffix) | — | **No** — not a UI signal |
+| `parentPath` → `[Services]`, `[Setup]`, `[Characters]`, `[VFX]` container | — | **No** — ordinary GO |
 
-> PRIMARY sinyal her zaman önce kontrol edilir. SECONDARY yalnızca parentPath belirsizse kullanılır.
+> The PRIMARY signal is always checked first. SECONDARY is used only when parentPath is ambiguous.
 
 ---
 

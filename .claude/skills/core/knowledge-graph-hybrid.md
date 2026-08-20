@@ -83,7 +83,7 @@ python3 -c "import mcp" 2>/dev/null
 
 - **Non-zero exit** (`mcp` not installed): emit this specific diagnostic BEFORE the generic warning:
   ```bash
-  echo "graph-mcp-server gerektiren 'mcp' paketi kurulu değil — pip install mcp" >&2
+  echo "the 'mcp' package required by graph-mcp-server is not installed — pip install mcp" >&2
   ```
 - **Zero exit** (`mcp` installed but tool absent): no specific diagnostic — proceed directly to the generic warning.
 
@@ -92,7 +92,7 @@ python3 -c "import mcp" 2>/dev/null
 Always emit this exact Bash command in State B (after the optional specific diagnostic):
 
 ```bash
-echo "MCP bağlı değil — sonuçlar eksik olabilir" >&2
+echo "MCP not connected — results may be incomplete" >&2
 ```
 
 This is the single canonical owner of that warning string. It must appear verbatim — do not paraphrase.

@@ -39,7 +39,7 @@ Then, score the request and choose the output format:
 |-------------|--------|-----------|
 | < 0.4 | **HLSL** — write `.shader` file directly | No |
 | 0.4 – 0.6 | **HLSL** — but note ShaderGraph is available | No |
-| > 0.6 | **Ask:** "HLSL (code) mi ShaderGraph (görsel) mi?" | **Yes** |
+| > 0.6 | **Ask:** "HLSL (code) or ShaderGraph (visual)?" | **Yes** |
 
 When score > 0.6, show this prompt to the user:
 

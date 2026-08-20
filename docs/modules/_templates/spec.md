@@ -1,18 +1,18 @@
-# Spec: [Modül Adı]
+# Spec: [Module Name]
 > Status: Draft
-> GDD ref: [GDD bölüm başlığı]
+> GDD ref: [GDD section title]
 
-## Player Stories (öncelikli, bağımsız test edilebilir)
+## Player Stories (prioritized, independently testable)
 
-### PS1 — [başlık] (P1)
-**Independent Test:** [Bu story tek başına nasıl doğrulanır — Editor'de ne oynanır/test edilir]
+### PS1 — [title] (P1)
+**Independent Test:** [how this story is verified on its own — what is played or tested in the Editor]
 
 **Acceptance:**
-- Given [başlangıç durumu]
+- Given [initial state]
 - When [eylem]
-- Then [beklenen sonuç]
+- Then [expected result]
 
-### PS2 — [başlık] (P2)
+### PS2 — [title] (P2)
 **Independent Test:** [...]
 
 **Acceptance:**
@@ -22,13 +22,13 @@
 
 ## Functional Requirements
 
-- FR-001: Sistem ... yapmalı
-- FR-002: ... [NEEDS CLARIFICATION: belirsizliği buraya yaz]
+- FR-001: The system MUST ...
+- FR-002: ... [NEEDS CLARIFICATION: state the ambiguity here]
 
 ## Out of Scope
 
-- [Bu modülde yapılmayacak şeyler]
+- [What this module deliberately does not do]
 
 ## Assumptions
 
-- [Varsayımlar]
+- [Assumptions]
