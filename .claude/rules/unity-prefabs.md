@@ -80,45 +80,56 @@ BaseCanvas.prefab  ← Canvas + CanvasScaler (reference 1080×1920) + GraphicRay
 
 ---
 
-### Card 5: İkinci Kopyayı Koymadan Önce Prefab'a Çıkar (Prefab DRY)
+### Card 5: Extract Before the Second Copy (Prefab DRY)
 
-**WHEN:** Bir GameObject'i aynı parent altına ikinci kez koyacaksın — can göstergesi, slot, envanter hücresi, liste satırı.
+**WHEN:** You are about to place a GameObject under the same parent for the second time — health pips, slots, inventory cells, list rows.
 
 **WRONG:**
 ```
 CanvasDynamic/
-└── HeartRow/            ← layout bileşeni yok, üç çocuk elle konumlandırılmış
+└── HeartRow/            ← no layout component; three children positioned by hand
     ├── Heart1           ← RectTransform + Image
-    ├── Heart2           ← RectTransform + Image   (Heart1'in kopyası)
-    └── Heart3           ← RectTransform + Image   (Heart1'in kopyası)
+    ├── Heart2           ← RectTransform + Image   (copy of Heart1)
+    └── Heart3           ← RectTransform + Image   (copy of Heart1)
 ```
 
 **RIGHT:**
 ```
-UI/Utilities/Heart.prefab        ← tek tanım
+UI/Utilities/Heart.prefab        ← one definition
 CanvasDynamic/
 └── HeartRow/                    ← HorizontalLayoutGroup
-    ├── Heart (instance)         ← sıfır transform override
+    ├── Heart (instance)         ← size comes from the prefab, not the instance
     ├── Heart (instance)
     └── Heart (instance)
 ```
 
-**Ölçüt — "aynı bileşen seti" değil, üçü birden:**
-1. Aynı parent altındalar,
-2. Aynı bileşen setine sahipler,
-3. Birlikte düzenleniyorlar (birinin sprite'ı/boyutu değişince diğerleri de değişir).
+**The test is three conditions together — not "same component set":**
+1. They sit under the same parent,
+2. They have the same component set,
+3. They are edited together (change one's sprite or size and the others must change too).
 
-Üçü birden doğruysa tekrardır. `Blocker` ile `Heart` ikisi de RectTransform+Image'dir ama üçüncü koşulu geçmez — ayrı prefab gerekmez.
+All three true means it is a duplicate. `Blocker` and `Heart` are both RectTransform+Image but fail the third condition — they do not need a shared prefab.
 
-**GOTCHA:** Prefab'a çıkarmanın ön koşulu, parent'ta bir layout bileşeninin (`HorizontalLayoutGroup` / `GridLayoutGroup`) bulunmasıdır. Layout yoksa her instance kendi `anchoredPosition`'ını override olarak taşır — bu, Card 4'ün "her variant'ta her property'yi override ediyorsan prefab yanlış" dediği durumun ta kendisidir. Layout eklemek ile prefab'a çıkarmak tek pakettir, ayrılamaz. İkinci tuzak: atom prefab'ının **kökündeki** bileşeni sonradan bir çocuğa taşıma — dışarıdan o köke bakan `[SerializeField]` dizileri (`Image[] _hearts`) sessizce `None` olur, hata vermez, sadece güncellenmez.
+**GOTCHA:** Extraction requires a layout component (`HorizontalLayoutGroup` / `GridLayoutGroup`) on the parent first. Without one, every instance carries its own `anchoredPosition` as an override — exactly the "overriding every property on every variant" failure Card 4 names. Adding the layout and extracting the prefab is one package, never split. Second trap: never move a component off an atom prefab's **root** into a child later — `[SerializeField]` arrays pointing at that root (`Image[] _hearts`) silently become `None`, with no error and no log, and the field simply stops updating.
 
-**Doğrulama (prefab/sahne içeren her modülün kapısında):**
+> **"Zero transform overrides on the instances" is NOT the goal — it is unreachable.** Unity serializes a RectTransform's anchors, pivot, size and position as instance overrides on every UI prefab instance; `PrefabUtility.RevertObjectOverride` does not stick, because the layout pass immediately recomputes and rewrites them. Measured while doing this extraction for real: the canvas's own `BaseCanvas` variant root carried the identical 17 overrides and always had.
+>
+> The goal that override count was standing in for is **size authority**: set `childControlWidth` / `childControlHeight` to `true` on the layout group and give the atom prefab a `LayoutElement`. Size then flows from the prefab, the serialized override becomes dead data, and changing the atom propagates to every instance — which was the whole point of extracting it.
+
+**Verification (at the gate of any module that touches prefabs or scenes):**
 ```bash
-grep -h "m_Name: " *.prefab *.unity 2>/dev/null \
-  | sed 's/.*m_Name: //' | grep -E '[0-9]+$' \
-  | sed -E 's/[0-9]+$//' | sort | uniq -c | awk '$1>1'
+python3 .claude/scripts/check-duplicate-siblings.py        # whole tree
+python3 .claude/scripts/check-duplicate-siblings.py <path> # one folder or file
 ```
-Çıktı boş olmalı. Boş değilse: ya prefab'a çıkarıldı, ya "tek kullanım" gerekçesi yazıldı. Bu bir duman alarmıdır — varlık değil **fark** ölçer; `HudView 5/5 bağlı` tipi kontroller kopyala-yapıştırı tanımı gereği göremez.
+Exit 0 is the only pass. `NO PREFAB OR SCENE FILES FOUND` is **not** a pass — the script says so itself; it means the path was wrong.
+
+The check is **structural — it never looks at names.** Conditions 1 and 2 above are measurable, so the script measures exactly those: same parent, same component set. Condition 3 is human judgement, so a hit is a question for the gate, not a verdict — close it by extracting the prefab, or by recording why it is not duplication. Never by editing the script.
+
+> **Why not a `grep` over `m_Name:`.** This card originally verified with one, matching names ending in a digit (`Heart1`, `Heart2`). It was measured against real files and found blind to `Heart (1)` / `Heart (2)` — Unity's own default naming when you press Cmd+D in the Hierarchy, which is the most common way a duplicate is created at all. It also flagged `Level01`/`Level02` as duplicates while testing neither of the card's first two conditions. Do not reintroduce a name-based test.
+
+Bare Transform-only GameObjects are excluded: those are the six mandated scene containers, and `scene-hierarchy.md` both requires them and forbids them from being prefabs — without the exclusion they are a permanent false positive in every scene.
+
+This is a smoke alarm — it measures **difference**, not presence. A presence check like `HudView 5/5 bound` is blind to copy-paste by construction, which is why no gate in the module that shipped `Heart1/Heart2/Heart3` ever fired.
 
 
 Every GameObject placed in a scene must be an instance of a prefab. Bare (non-prefab) GameObjects are forbidden — except scene separators/organizers (empty GameObjects used purely as hierarchy dividers with no components).
@@ -282,7 +293,7 @@ Player.prefab                  ← Root: logic components only
 | Prefabs grouped by domain under `_GameFolders/Prefabs/` | Predictable location, clean Project window |
 | Never duplicate a prefab manually | Use Prefab Variants instead |
 | Empty hierarchy organizers are the only bare GameObjects allowed | No components = no logic = no maintenance cost |
-| Aynı parent altına ikinci kopya koymadan önce prefab'a çıkar (+ parent'a layout) | Kopya sayısı arttıkça düzenleme N yere dağılır — Card 5 |
+| Extract to a prefab (+ layout on the parent) before placing a second copy | Editing spreads across N places as copies accumulate — Card 5 |
 | Logic components on root, visual components on `Body` child | Decouples visual swaps from logic, clear responsibility |
 | `AppScope` / `LifetimeScope` with only ScriptableObject refs → `Prefabs/Bootstrap/` | Asset refs are stored on the prefab; no scene-time drag-and-drop needed |
 | `EventSystem` and `MainCamera` → `Prefabs/CoreObjects/`, same prefab in every scene | Consistent settings, single source of truth across all scenes |

@@ -197,21 +197,21 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 | File | Covers |
 |------|--------|
-| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputView, AppScope; **Scripts/ folder rules** (only `Games/`, `Tests/`, `Editors/` at the top level; only `Abstracts/`, `Concretes/`, `Ecs/` under `Games/` — enforced fail-closed, with declared exceptions in `.claude/path-allowlist.txt`); **domain folder convention** (the first folder under `Games/Abstracts\|Concretes/` is a domain — never a layer like `Services/`, never a catch-all like `Core/`; free below it); **`Concretes/<Domain>/ARCHITECTURE.md` intent contract** (English, ≤40 lines, four fixed headings, no class names) |
+| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputService, AppScope; **Scripts/ folder rules** (only `Games/`, `Tests/`, `Editors/` at the top level; only `Abstracts/`, `Concretes/`, `Ecs/` under `Games/` — enforced fail-closed, with declared exceptions in `.claude/path-allowlist.txt`); **domain folder convention** (the first folder under `Games/Abstracts\|Concretes/` is a domain — never a layer like `Services/`, never a catch-all like `Core/`; free below it); **`Concretes/<Domain>/ARCHITECTURE.md` intent contract** (English, ≤40 lines, four fixed headings, no class names) |
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; namespace collision rule (`Game.Concretes.<Domain>` vs UnityEngine aliases) |
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; material folder structure (`Arts/Materials/<Domain>/`); shader file structure (`_GameFolders/Arts/Shaders/`); URP shader rule (Standard forbidden) |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
 | `unity-input.md` | New Input System, InputService (pure C#, pull-based — no tick) + InputHandler (per-prefab), action map switching, `FixedUpdate` latch rule |
-| `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, BaseCanvas pattern, Prefab Variants (Base+Variant decision table), **prefab DRY — same-parent duplicate siblings must be extracted (Card 5, + layout prerequisite)**, folder structure, logic/visual separation |
+| `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, BaseCanvas pattern, Prefab Variants (Base+Variant decision table), **prefab DRY — same-parent duplicate siblings must be extracted (Card 5, + layout prerequisite, verified by `.claude/scripts/check-duplicate-siblings.py`)**, folder structure, logic/visual separation |
 | `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]` → `[Services]` → `[UI]` → `[Environment]` → `[Characters]` → `[VFX]`), classification table, prefab/container rules, MCP placement enforcement (no hand-duplicated siblings) |
 | `bootstrap-pattern.md` | Code-first static Module pattern: `[X]Module` static class → `AppModules.cs` → `AppScope`. ConfigCatalog, SceneModules, new module addition flow (one line in AppModules, no Editor asset) |
-| `solid-oop.md` | MonoBehaviour rol sınırları (View/Provider/Controller only, ~100 satır max); **suffix kuralı: `*View` yalnızca Canvas/UI, `*Controller` gameplay/karakter, `*Provider` Unity API soyutlaması**; SRP tek-cümle testi (AND içermemeli); OCP polymorphism kuralı; DIP constructor-interface kuralı |
+| `solid-oop.md` | MonoBehaviour role boundaries (View/Provider/Controller only, ~100 lines max); **suffix rule: `*View` is Canvas/UI only, `*Controller` is gameplay/character, `*Provider` abstracts Unity API**; SRP one-sentence test (must not contain AND); OCP polymorphism rule; DIP constructor-interface rule |
 | `web-tool-data-contract.md` | **Web authoring tools only** — export schema single-source, enum int map, version field, unit/scale contract, parity fixture lock, importer error-on-missing, tool-side import validation (version + required-field checks before hydrating) |
 | `web-tool-architecture.md` | **Web authoring tools only** — zero-build `file://` constraint, single model source of truth, pure-core/DOM-shell split, ~400 line limit, event delegation, idempotent render, runner-less tests, stable row identity (never array index) |
 | `web-tool-design-system.md` | **Web authoring tools only** — design tokens, fixed spacing scale, control-type decision table, viewport primacy, unit display, destructive actions undoable-or-confirmed, keyboard access with visible focus, visible unsaved/invalid/empty state, bounded undo history, localStorage draft persistence across reloads |
@@ -566,7 +566,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 | Hook | What it blocks | Migration path |
 |------|---------------|----------------|
 | `check-vcontainer-singleton` | Static singletons | Migrate to VContainer registration — or temporarily disable the hook |
-| `check-input-system` | `Input.GetKey` / `Input.GetAxis` | Replace with New Input System + `InputView` |
+| `check-input-system` | `Input.GetKey` / `Input.GetAxis` | Replace with New Input System + a pure C# `InputService` |
 | `check-unity-event` | `UnityEvent`, `UnityEvent<T>`, `using UnityEngine.Events` | Use `IEventBus`, `Action`/`Func`, or C# `event` keyword |
 | `check-time-scale` | `Time.timeScale =` assignment | Use IEventBus + PauseService pattern |
 | `check-no-monobehaviour-in-services` | `class FooService : MonoBehaviour/ScriptableObject` in `_Framework/` / `Games/Abstracts/` / `Games/Concretes/` | Make it a Provider, View, Controller, or Manager instead (needs an own `[SerializeField]` or a Unity lifecycle callback) — `using UnityEngine` for math value types (`Mathf`/`Vector3`/`Quaternion`/`Color`...) and `Debug` logging is allowed; only real engine/scene/input/time API (`SceneManager`/`Transform`/`AudioSource`/`Physics`/`Input`/`Time`) is blocked |
