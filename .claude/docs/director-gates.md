@@ -2,8 +2,17 @@
 
 Named review gates used across pipeline commands. Two kinds:
 
-- **Human-pause gates** (SCOPE_GATE, ARCHITECTURE_GATE, BREAKING_GATE, QUALITY_GATE, COMMIT_GATE, BREAKING_REVISION_GATE) — stop the pipeline and wait for user approval before continuing.
+- **Human-pause gates** (SCOPE_GATE, ARCHITECTURE_GATE, BREAKING_GATE, QUALITY_GATE, EXHAUSTION_GATE, EVIDENCE_GATE, HYPOTHESIS_GATE, COMMIT_GATE, BREAKING_REVISION_GATE) — stop the pipeline and wait for user approval before continuing.
 - **Automated check gates** (TD-ARCHITECTURE, TD-UNITY-RISK, TD-PERFORMANCE, TD-COMPILE, CD-SCOPE) — spawn a reviewer subagent and evaluate verdict automatically.
+- **Hook-enforced gates** (SPARC_GATE) — a human-pause gate whose skipping is blocked mechanically by a PreToolUse hook. Defined further down under `## How to Reference Gates in Pipeline Commands`, in table form rather than as a box.
+
+> **When auditing this file, two heading traps.** (1) Match `####` as well as `###` — SPARC_GATE
+> is a `####` heading in a later section, so a check scanning only `^### ` reports it as
+> called-but-undefined and invites "fixing" a gate that was never broken. (2) Counting gate
+> headings gives 11 while there are **10** gates: `### SCOPE_GATE` appears twice, once as its
+> definition and once as the worked example under
+> `## How to Reference Gates in Pipeline Commands`. Deduplicate before comparing that count
+> against the gate tables in `README.md` and `.claude/CLAUDE.md`, which list 10.
 
 ---
 
@@ -90,12 +99,137 @@ Reviewer found issues:
 
 Options:
   fix    — spawn coder to address all findings
+  list   — show full details for each finding   (optional; omit when already shown in full)
   skip   — accept and proceed to commit (your responsibility)
   stop   — abort, leave files uncommitted
 ──────────────────────────────────────────────────────────
 ```
 
 Wait for response. Act accordingly.
+
+**`list` is display-only and non-terminal.** It prints the full detail of each finding and
+then **re-shows this gate** — it is not a choice that advances the pipeline. A caller that
+treats `list` as terminal exits with the decision never made. Include the line only when the
+findings were summarised; if they were already printed in full, omit it rather than offering
+a no-op.
+
+Answering `fix` starts a fresh coder → reviewer round. That round is bounded — see
+`## Retry and Pass Limits`. Once the budget is spent, this gate is no longer the right
+one: fall through to **EXHAUSTION_GATE** below.
+
+---
+
+### EXHAUSTION_GATE
+
+**When:** A bounded retry loop has spent its budget and the work is still failing. It is the
+branch QUALITY_GATE (and every other bounded fix loop) falls through to.
+**Purpose:** The budget is gone. Only a human can decide whether to ship the known-bad state
+or abandon the run.
+
+Show the user:
+```
+EXHAUSTION_GATE ──────────────────────────────────────────
+$WHAT_WAS_RETRIED still failing after $N $PASS_TYPE passes:
+[list every remaining issue]
+
+Skipping ships: [what each remaining issue costs at runtime]
+
+Options:
+  skip   — proceed anyway (your responsibility)
+  stop   — abort
+──────────────────────────────────────────────────────────
+```
+
+Wait for response. `skip` → continue to the next step with the issues unresolved, and log
+them. `stop` → abort, leave files uncommitted.
+
+**The caller supplies `$WHAT_WAS_RETRIED`, `$N` and `$PASS_TYPE`** — a fixed string cannot
+serve callers with four different budgets (2 validator passes, 3 reviewer passes, 3 verifier
+iterations, 3 planner passes).
+
+**The `Skipping ships:` line is mandatory, not decoration.** Measured 2026-08-21 by A/B-ing
+this gate against the inline option bullets it replaces: both forms offered the same two
+options, but the inline arm volunteered what skipping would cost ("a per-frame allocation and
+a broken DIP seam that also blocks NSubstitute mocking") while the pointer arm emitted the
+bare box and nothing else. A gate that pauses for a human decision and then withholds the
+basis for it is worse than the restatement it replaced.
+
+> **`fix` is deliberately absent — do not add it.** This gate is only reachable once the fix
+> loop has already spent its full budget, so `fix` is not a missing option; it is the option
+> that just failed N times. The pass counts in `## Retry and Pass Limits` count passes
+> *before* the gate, not gate visits — so a `fix` offered here decrements nothing and
+> forbids no fourth, fifth or tenth visit. Measured 2026-08-21: given a block that did offer
+> `fix` past exhaustion, an agent reported `BOUNDED: no` and reached that reasoning
+> independently. Stronger still: when the finding set is **unchanged** across rounds, the
+> fixer demonstrably cannot resolve those findings, so another `fix` cannot help by
+> construction. A user who wants another attempt picks `stop` and re-runs the command with
+> the findings in hand.
+>
+> If a loop genuinely needs more attempts, raise its budget in `## Retry and Pass Limits`.
+> That keeps the bound in one place instead of moving it to the call site, where it becomes
+> unbounded.
+
+---
+
+### EVIDENCE_GATE
+
+**When:** An automated reproduction attempt produced no evidence, and only the human at the
+keyboard can produce it. Fires in `/fix-deep` — **its only caller.**
+**Purpose:** The agent cannot reproduce the bug itself. Rather than guess a cause from no
+evidence, ask the human to supply it.
+
+Show the user:
+```
+EVIDENCE_GATE ────────────────────────────────────────────
+⚠ No debug logs appeared. The bug was not reproduced this session.
+
+Options:
+  retry              — reproduce it in the editor, then type this
+  manual: <text>     — describe what you did in the editor; the text becomes the evidence
+  stop               — abort
+──────────────────────────────────────────────────────────
+```
+
+Wait for response. `retry` → re-run the reproduction step. `manual: <text>` → continue with
+that text as the evidence. `stop` → abort and remove any debug logs already added.
+
+**`manual:` takes free-form input** — it is the only option in this file that is a prefix
+rather than a fixed word. Parse everything after the first `:` as the evidence text; do not
+require quoting. An empty description is not evidence — re-show the gate.
+
+**A diagnosis with no evidence is the failure this gate exists to prevent.** Do not fall
+through to "proceed anyway": there is no third path here, which is why the option set has no
+`skip`.
+
+---
+
+### HYPOTHESIS_GATE
+
+**When:** The evidence refuted the current hypothesis. Fires in `/fix-deep` — **its only
+caller.**
+**Purpose:** Decide whether to spend another investigation cycle on a revised hypothesis.
+
+Show the user:
+```
+HYPOTHESIS_GATE ──────────────────────────────────────────
+Hypothesis REFUTED. Revised hypothesis:
+[the revised hypothesis]
+
+Cycles used: $N of 2
+
+Options:
+  retry  — investigate the revised hypothesis
+  stop   — abort, remove debug logs
+──────────────────────────────────────────────────────────
+```
+
+Wait for response. `retry` → re-enter the investigation step with the revised hypothesis.
+`stop` → abort and remove debug logs.
+
+**Bound: 2 revision cycles.** The number lives here, and the call site must not restate a
+different one — a loop whose gate says 2 and whose call site says 3 is a defect even though
+both numbers are individually plausible (see `## Retry and Pass Limits`). Once the 2 cycles
+are spent, this gate is exhausted: fall through to **EXHAUSTION_GATE**.
 
 ---
 
@@ -162,12 +296,14 @@ These gates spawn a subagent or run a check automatically. They do not pause for
 
 **Verdict:** `PASS` — architecture is sound. `FAIL: [file:line] issue` — specific violation.
 
-Checks:
-- VContainer DI: no singletons, no static mutable state, no service locators
-- Interface-driven: consumers depend on interfaces, not concrete types
-- IEventBus: cross-module communication only through events, not direct calls
-- Provider pattern: UnityEngine API in Games/Concretes/ only, services are pure C#
-- Module boundaries: no concrete cross-module dependencies
+Checks — all five, every pass. The rule each one enforces is cited so a disagreement can be settled against the rule rather than argued:
+- VContainer DI: no singletons, no static mutable state, no service locators (`rules/architecture.md:28` — `FindObjectOfType` is a singleton in disguise; `rules/csharp-unity.md:202`)
+- Interface-driven: consumers depend on interfaces, not concrete types (`rules/architecture.md:348`, and Interface-First Registration at 812)
+- IEventBus: cross-module communication only through events, not direct calls (`rules/architecture.md:202`)
+- Provider pattern: UnityEngine API in Games/Concretes/ only, services are pure C# (`rules/architecture.md:32-58`, Card 2)
+- Module boundaries: no concrete cross-module dependencies (`rules/architecture.md:532-533`, Module Portability Checklist)
+
+> **The list is the coverage contract — do not collapse it into a pointer.** Measured 2026-08-21 on a planted-defect fixture: with the five bullets a reviewer emitted a verdict for **5/5** axes; given only a prose pointer to the same rules it emitted **3/5**, silently skipping IEventBus and module boundaries because nothing told it those axes existed. Both arms caught the primary defect, so the loss is in coverage, not in sharpness. Duplication with `rules/` is not a cost here: these five lines name axes, they do not restate rule content, so they do not rot when a rule changes.
 
 ---
 
@@ -192,28 +328,27 @@ Checks:
 
 **Verdict:** `PASS` or `FAIL: [file:line] [allocation-type]`
 
-Checks:
-- Zero heap allocations in Update/FixedUpdate/LateUpdate (no `new`, no boxing, no LINQ, no string ops)
-- `renderer.material` not used (clones material) — use `sharedMaterial` or `MaterialPropertyBlock`
-- ECS structural changes use ECB, not direct `EntityManager` calls inside systems
-- Addressables handles stored as fields and released in `Dispose()`
-- `Camera.main`, `GetComponent<T>()` cached in Awake — not called per frame
+Checks — all five, every pass. Note the rules live in **three** different files, so "see performance.md" would miss two of them:
+- Zero heap allocations in Update/FixedUpdate/LateUpdate (no `new`, no boxing, no LINQ, no string ops) — `rules/performance.md`, the golden rule at the top
+- `renderer.material` not used (clones material) — use `sharedMaterial` or `MaterialPropertyBlock` (`rules/performance.md:142-159`)
+- ECS structural changes use ECB, not direct `EntityManager` calls inside systems (`rules/ecs-dots.md:209-214`)
+- Addressables handles stored as fields and released in `Dispose()` (`rules/addressables.md:60-84`)
+- `Camera.main` (`rules/performance.md:54`) and `GetComponent<T>()` (`:13-33`) assigned in the Inspector, not called per frame
+
+Four hooks already enforce parts of this mechanically, so this gate is a second line of defence rather than the only one: `check-no-hotpath-expensive-calls.sh`, `check-no-linq-hotpath.sh`, `check-getcomponent-in-awake.sh`, `check-ecs-structural-changes.sh`.
 
 ---
 
 ### TD-COMPILE
 
-**Trigger:** After every coder pass — mandatory before reviewer.
+**Trigger:** After every coder pass — mandatory before the reviewer runs.
 **Context to pass:** Files changed.
 
 **Verdict:** `VALIDATED` — clean compile and all tests pass. `COMPILE FAILED: [errors]` or `TEST FAILED: [tests]`
 
-Steps:
-1. `mcp__unityMCP__refresh_unity` — trigger recompile
-2. Poll `editor_state` until `isCompiling` is false
-3. `mcp__unityMCP__read_console` with type `Error` — check for errors
-4. If clean → `mcp__unityMCP__run_tests` — run Edit Mode tests
-5. Report VALIDATED or list failures
+Steps: the Unity Validator step in the pipeline that spawned you — `implement.md` Step 2.5 and `fix.md` Step 4.5 (`fix-deep.md` inherits it by reference). The MCP call sequence lives there, operationally, next to its own fix loop; it is deliberately not duplicated here. See also `## Retry and Pass Limits` → order between the two loop kinds.
+
+> This gate was briefly deleted on the grounds that nothing named it and its body was a third copy of the two Validator steps. Both halves of that were true, but the conclusion was wrong: the fix for "nothing names it" is to name it — which is exactly what was done for `TD-ARCHITECTURE` and `TD-PERFORMANCE` in the same pass. Deleting it instead left the automated-gate list with no compile gate at all, which reads as though compile validation is not gated. The body stays a pointer; the name stays.
 
 ---
 
@@ -238,6 +373,8 @@ Every retry loop in a pipeline command uses one of exactly two bounds. Which one
 
 - **Reviewer-verdict loops — max 3 passes.** A reviewer, linter, or auditor returns APPROVED / CHANGES NEEDED. A judgement call can legitimately improve across iterations, so a third attempt has expected value.
 - **Compile/test-fix loops — max 2 passes.** A validator or verifier reports COMPILE FAILED / TEST FAILED. A compile error is deterministic: if two passes cannot fix it, a third is usually the same agent making the same wrong guess, and the human should see the errors instead.
+
+**Order between the two:** in every pipeline that has both, the compile/test validator runs *before* the reviewer — a reviewer verdict on code that has not compiled is void, because the reviewer is judging text that the compiler has not yet agreed is a program. The two Validator step headers state this at their own call sites; do not add a third copy of the validator's MCP call sequence anywhere.
 
 When a loop exhausts its passes the pipeline **stops and shows the human what is left** — it never silently proceeds. For the reviewer case that stop is QUALITY_GATE (above); state the remaining findings there rather than inventing a second options list.
 
