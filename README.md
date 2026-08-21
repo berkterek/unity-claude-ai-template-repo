@@ -713,20 +713,46 @@ DISABLE_HOOK_CHECK_PURE_CSHARP=1 claude
 
 Full profile documentation: `.claude/docs/hook-profiles.md`
 
-### Hook Self-Tests
+### Self-Tests — three layers, three different things measured
 
-The hook suite has automated bats-core tests at `.claude/hooks/tests/`:
+Do not read a green run in one layer as evidence about another. Measured 2026-08-21: two
+edits to the reviewer criteria passed all 417 hook tests, every cited line number and a
+symmetric gate inventory while making the reviewer measurably worse. Hook tests cannot see a
+prompt; that is not a gap in them, it is the boundary of what they measure.
+
+| Layer | Where | Measures | Deterministic? |
+|---|---|---|---|
+| Hook behaviour | `.claude/hooks/tests/` | a hook's exit code for a given input | **Yes** — same input, same result |
+| Reviewer prompts | `.claude/tests/reviewer-fixtures/` | which criteria fire against planted defects, and whether a `GAP` verdict has a real violation behind it | No — LLM output varies |
+| Pipeline sequencing | `.claude/tests/pipeline-dry-run/` | gate order, and whether a pipeline creates its state file at the right step and removes it at the end | No — LLM output varies |
 
 ```bash
-# Run all hook tests (requires bats-core)
+# Layer 1 — hook self-tests (requires bats-core)
 ./.claude/hooks/tests/run-tests.sh
-
-# Install bats-core
 brew install bats-core   # macOS
 npm install -g bats      # Linux
+
+# Layer 2 — reviewer fixture (generates defective .cs into a temp dir)
+FIXTURE_DIR="$(.claude/tests/reviewer-fixtures/make-fixture.sh)"
+
+# Layer 3 — pipeline dry run (generates a fake Unity project into a temp dir)
+SB="$(.claude/tests/pipeline-dry-run/make-sandbox.sh)"
 ```
 
-12 test files cover every blocking hook with happy path, blocking trigger, profile skip, and warn-mode scenarios.
+**36 bats files / 417 tests** cover every blocking hook with happy path, blocking trigger,
+profile skip, and warn-mode scenarios — and all six `guard-*.sh` are covered there *and*
+verified as registered in `settings.json`.
+
+Layers 2 and 3 each cost an agent invocation and are **not** CI-able; run them when a
+reviewer prompt or a pipeline's step order changes. Both are generators rather than committed
+fixtures, for the same reason: their inputs are deliberately rule-violating C# and
+deliberately artificial gate state, and committing either would mean either defeating the
+content hooks that correctly block such files, or leaving a stale `gate-cleared` that locks
+the next real run out. Each directory's `README.md` carries its answer key, its pass
+conditions, its recorded runs and its limits.
+
+Not covered by any of the three: `TD-COMPILE`, PlayMode tests, prefab/scene work — all three
+need the Unity Editor and MCP. Nothing here compiles anything.
 
 ### Blocking (exit 2 — stops the write)
 
@@ -1066,8 +1092,17 @@ Human-pause checkpoints defined in `.claude/docs/director-gates.md`. Every pipel
 | `ARCHITECTURE_GATE` | `/implement`, `/scene-setup`, `/new-module` | When new module folder detected, or always in `/new-module` | Approve proposed module structure |
 | `BREAKING_GATE` | `/fix` (>3 files), `/fix-deep` (>3 files), `/migrate` (>5 files) | After affected files identified | Confirm wide-blast-radius change is intentional |
 | `BREAKING_REVISION_GATE` | `/create-plan`, `/update-plan` | When reviewer classifies a plan revision as BREAKING (structural change, contradicts prior decision) | `re-research` / `accept` / `stop` — prevents cascading fix cycles from bad plans |
-| `QUALITY_GATE` | All pipeline commands | After reviewer returns CHANGES NEEDED | Choose: `fix` / `skip` / `stop` |
+| `QUALITY_GATE` | All pipeline commands | After reviewer returns CHANGES NEEDED, while the fix budget still has passes left | Choose: `fix` / `skip` / `stop`, plus display-only `list` |
+| `EXHAUSTION_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/orchestrate`, `/qa`, `/create-prefab-scene`, `/create-plan`, `/update-plan` (13 sites) | A bounded retry loop spent its budget and the work still fails | Ship the known-bad state or abandon the run: `skip` / `stop`. **`fix` is deliberately absent** — the loop already spent it |
+| `EVIDENCE_GATE` | `/fix-deep` | Automated reproduction produced no debug logs | Supply the evidence yourself: `retry` / `manual: <text>` / `stop` |
+| `HYPOTHESIS_GATE` | `/fix-deep` | Evidence refuted the hypothesis (bound: 2 revision cycles) | Spend another investigation cycle or stop: `retry` / `stop` |
 | `COMMIT_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/create-prefab-scene` | After all verification, immediately before committer | Final sign-off on staged files — type `go` or `stop` |
+
+Every "budget spent" in the table above refers to one place: `.claude/docs/director-gates.md`
+→ **Retry and Pass Limits** (reviewer-verdict loops max 3, compile/test-fix loops max 2). The
+budgets live there and nowhere else — a loop whose call site restates a different number is a
+defect even when both numbers look plausible on their own. `EXHAUSTION_GATE` is what every one
+of those loops falls through to once its budget is gone, which is why it offers no `fix`.
 
 ### Hook-Enforced Gates
 
