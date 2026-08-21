@@ -621,17 +621,15 @@ If nothing found: CLEAN
 
 If hunter reports **CLEAN** → proceed to Committer.
 
-If hunter reports findings → show them to the user. Ask:
-```
-Silent failure issues found. Options:
-  fix   — spawn unity-coder to address findings, then re-audit once
-  skip  — accept and proceed to commit
-  stop  — abort
-```
+If hunter reports findings → show **QUALITY_GATE**.
 
-- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run hunter once. Proceed to committer regardless of result.
+Show the QUALITY_GATE block from `.claude/docs/director-gates.md`, passing the hunter's findings as the CHANGES NEEDED items. Then:
+
+- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run the hunter **exactly once** — no further re-audit. Proceed to committer regardless of that second result.
 - `skip` → proceed to committer.
 - `stop` → abort.
+
+> The one-re-audit cap is caller-specific and deliberately **not** part of the QUALITY_GATE definition, which describes only the human decision surface. Do not delete it as redundant.
 
 ---
 

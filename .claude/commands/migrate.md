@@ -385,7 +385,7 @@ Then a final line:
 > defect it guards against is the same one measured there: a reviewer that answers a
 > checklist with a bare APPROVED has not been shown to have read anything.
 
-If CHANGES NEEDED → spawn **unity-migrator** to fix, then re-run unity-developer (max 2 passes).
+If CHANGES NEEDED → spawn **unity-migrator** to fix, then re-run unity-developer (max 3 passes — reviewer-verdict bound, see `.claude/docs/director-gates.md` → Retry and Pass Limits; `unity-developer` returns a verdict, so this is a reviewer loop, not a compile loop). After 3 failed passes → show remaining issues to the user at QUALITY_GATE.
 
 ---
 

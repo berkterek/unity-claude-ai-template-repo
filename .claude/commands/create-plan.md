@@ -374,23 +374,14 @@ If reviewer reports **CHANGES NEEDED**:
   2. Re-spawn the **Planner** (opus) with original inputs + researcher output + reviewer feedback.
   3. Re-spawn the **Reviewer** on the new planner output.
 
-- **REVISION_TYPE: BREAKING** → stop immediately and show the user:
-  ```
-  ⚠️  BREAKING REVISION DETECTED (v[N])
+- **REVISION_TYPE: BREAKING** → stop immediately and show **BREAKING_REVISION_GATE**.
 
-  The reviewer flagged a structural change — this means the codebase
-  was not fully read before planning. Proceeding risks another round
-  of breaking fixes during implementation.
+  Show the BREAKING_REVISION_GATE block from `.claude/docs/director-gates.md`, passing the plan version as `v[N]` and the full CHANGES NEEDED list. Wait for user input before continuing.
 
-  Reviewer feedback:
-  [INSERT HERE: the full CHANGES NEEDED list]
-
-  Options:
-    re-research  — re-run Researcher with expanded scope, then re-plan
-    accept       — proceed with breaking revision (user accepts risk)
-    stop         — abort
-  ```
-  Wait for user input before continuing.
+  This command's branches:
+  - `re-research` → re-spawn the **Researcher** (Step 1) with expanded scope, then re-plan and re-review
+  - `accept` → proceed to Step 4 with the breaking revision (user accepts risk)
+  - `stop` → abort, do not save
 
 Repeat INCREMENTAL passes up to **2 more times** (3 total reviewer passes).
 
@@ -521,7 +512,7 @@ Then a final line:
 > **Why this prompt is shaped this way — do not simplify it.** See the measurement
 > note in `orchestrate.md` Step 3.
 
-If **CHANGES NEEDED** → spawn a **coder** subagent to fix each issue, then re-run the reviewer (max 2 fix passes). After 2 failed passes → show remaining issues to the user.
+If **CHANGES NEEDED** → spawn a **coder** subagent to fix each issue, then re-run the reviewer (max 3 fix passes — reviewer-verdict bound, see `.claude/docs/director-gates.md` → Retry and Pass Limits). After 3 failed passes → show remaining issues to the user at QUALITY_GATE.
 
 If **APPROVED** → spawn a **committer** subagent:
 

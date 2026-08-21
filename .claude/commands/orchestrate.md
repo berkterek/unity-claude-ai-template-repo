@@ -286,6 +286,12 @@ Exit.
 
 #### Step 2 — Coder (or Unity Setup)
 
+**FIRST — SPARC_GATE (blocking, before any coder spawn).**
+
+Show the SPARC_GATE block from `.claude/docs/director-gates.md` → Hook-Enforced Gates: the Specification (what this task builds) and the Architecture (which files, interfaces, data flow). Wait for `go`, then create the state file exactly as that entry specifies (absolute path — a relative `touch` creates a file the hook never reads). Delete it after the coder agent completes.
+
+`guard-sparc-approved.sh` exits **2** for any `coder` / `unity-coder` spawn while `.claude/state/sparc-approved` is absent. It gates **only** those two agent types — a `unity-setup` spawn passes untouched, so a setup-only task needs no SPARC_GATE. The file is independent of `gate-cleared`: opening one does not open the other.
+
 If `Agent: unity-setup` → spawn a **unity-setup** subagent.
 
 **Coder agent — use routing table from Step 0b.3:**
@@ -655,9 +661,9 @@ Run a full compile and test check for the end of a phase.
 Report: GREEN (compile clean, tests pass) or ERRORS (list all failures).
 ```
 
-If failures found → spawn **unity-fixer** to fix, re-verify (max 3 passes). If still failing after 3 passes → **stop and report to user. Do not proceed to Step 2 until green.**
+If failures found → spawn **unity-fixer** to fix, re-verify (max 2 passes — compile/test-fix bound, see `.claude/docs/director-gates.md` → Retry and Pass Limits; this also matches the "Attempt fixes (max 2)" instruction inside the verifier prompt above, which the old outer bound of 3 contradicted). If still failing after 2 passes → **stop and report to user. Do not proceed to Step 2 until green.**
 
-Print: `✓ Ralph passed — compile and tests green.` or `⛔ Ralph failed after 3 passes — [issues]. Fix before proceeding.`
+Print: `✓ Ralph passed — compile and tests green.` or `⛔ Ralph failed after 2 passes — [issues]. Fix before proceeding.`
 
 #### Step 2 — Silent Failure Hunt
 

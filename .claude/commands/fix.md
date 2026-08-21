@@ -284,6 +284,12 @@ If test writer reports **BLOCKED** → stop and show the blocker to the user.
 
 ## Step 4 — Coder
 
+**FIRST — SPARC_GATE (blocking, before any coder spawn; fires when complexity ≥ 0.4).**
+
+Show the SPARC_GATE block from `.claude/docs/director-gates.md` → Hook-Enforced Gates: the Specification (what will be fixed) and the Architecture (which files, interfaces, data flow). Wait for `go`, then create the state file exactly as that entry specifies (absolute path — a relative `touch` creates a file the hook never reads). Delete it after the coder agent completes.
+
+Note the hook does **not** know the complexity score: `guard-sparc-approved.sh` exits **2** for every `coder` / `unity-coder` spawn while `.claude/state/sparc-approved` is absent, including a below-threshold fix. Below 0.4, state that the gate is being cleared as a formality rather than skipping it silently.
+
 **Agent routing — decide before spawning:**
 
 | Target location | Agent |
@@ -576,17 +582,15 @@ If nothing found: CLEAN
 
 If hunter reports **CLEAN** → proceed to Committer.
 
-If hunter reports findings → show them to the user. Ask:
-```
-Silent failure issues found. Options:
-  fix   — spawn unity-coder to address findings, then re-audit once
-  skip  — accept and proceed to commit
-  stop  — abort
-```
+If hunter reports findings → show **QUALITY_GATE**.
 
-- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run hunter once. Proceed to committer regardless of result.
+Show the QUALITY_GATE block from `.claude/docs/director-gates.md`, passing the hunter's findings as the CHANGES NEEDED items. Then:
+
+- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run the hunter **exactly once** — no further re-audit. Proceed to committer regardless of that second result.
 - `skip` → proceed to committer.
 - `stop` → abort.
+
+> The one-re-audit cap is caller-specific and deliberately **not** part of the QUALITY_GATE definition, which describes only the human decision surface. Do not delete it as redundant.
 
 ---
 

@@ -106,10 +106,10 @@ Keep this output as `GRAPH_CONTEXT` and embed it into the Stage 2 (unity-linter)
 
 Spawn a **unity-verifier** subagent to compile and run all tests.
 
-If failures found → spawn **unity-fixer** subagent to fix each issue, then re-verify. Repeat up to **3 passes**.
+If failures found → spawn **unity-fixer** subagent to fix each issue, then re-verify. Repeat up to **2 passes** (compile/test-fix bound — see `.claude/docs/director-gates.md` → Retry and Pass Limits).
 
 - `PASS` → proceed to Stage 2.
-- `FAIL after 3 passes` → stop. Print all remaining failures. Ask: `Fix these issues manually and re-run /qa, or type "skip" to continue anyway.`
+- `FAIL after 2 passes` → stop. Print all remaining failures. Ask: `Fix these issues manually and re-run /qa, or type "skip" to continue anyway.`
   - `skip` → proceed with warning
   - *(anything else)* → abort
 
