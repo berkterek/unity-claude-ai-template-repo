@@ -97,17 +97,6 @@ diyerek dur.
 
 ### Step 2 — ARCHITECTURE_GATE
 
-**First (BLOCKING):** after spec/design/tasks are written and before showing the gate, run:
-
-```bash
-.claude/scripts/validate-plan-paths.sh <module plan folder>
-.claude/scripts/validate-plan-facts.sh <module plan folder>
-```
-
-exit 2 → the plan contradicts `rules/architecture.md`. Do not continue silently, and do not invent a folder of your own: show the conflict inside the ARCHITECTURE_GATE block with three options (change the plan / write the exception into `.claude/path-allowlist.txt` + `rules/architecture.md` / stop). The user decides. `NO PATHS FOUND` is not a pass. A silent hook never means "verified" — writing "compliant, verified" as an AC in the spec requires an explicit `checked:` line.
-
-`validate-plan-facts.sh` exit 2 → at least one task is missing `Callers:`/`Wiring:`, or the source it declares does not resolve in the plan or on disk. Do not continue silently: show the violation in the ARCHITECTURE_GATE block, then fix the plan or stop — the user decides. `NO TASKS FOUND` is not a pass — in the script's own words, "this is NOT a pass"; verify by hand.
-
 Show the user the following and ask for approval:
 
 ```
@@ -127,7 +116,7 @@ Do not proceed to the next step until the gate is approved (the user types `go`)
 
 ### Step 3 — Planning Subagent
 
-Spawn the `Plan` subagent (`subagent_type: "Plan"`, `model: opus`) — the same agent as `/create-plan` Step 2. **Do not use `lean-planner`:** by definition that agent produces no acceptance criteria, no `parallel_group` annotations and no code skeletons, and its output is a single 3-5 row table; this command needs three separate documents (spec/design/tasks), the Given/When/Then ACs the Step 4 reviewer looks for, and the `Callers:`/`Wiring:` lines Step 2's `validate-plan-facts.sh` requires. Give the subagent:
+Spawn the `Plan` subagent (`subagent_type: "Plan"`, `model: opus`) — the same agent as `/create-plan` Step 2. **Do not use `lean-planner`:** by definition that agent produces no acceptance criteria, no `parallel_group` annotations and no code skeletons, and its output is a single 3-5 row table; this command needs three separate documents (spec/design/tasks), the Given/When/Then ACs the Step 4 reviewer looks for, and the `Callers:`/`Wiring:` lines Step 5's `validate-plan-facts.sh` requires. Give the subagent:
 - The module's GDD summary
 - TDD'deki ilgili mimari kararlar
 - The results of the existing codebase scan
@@ -153,6 +142,10 @@ Spawn the `reviewer` subagent (`model: sonnet`). Ask it to check:
 - Are `spec.md`'s acceptance criteria testable? (Given/When/Then format)
 - Do `design.md`'s interface signatures comply with the current architecture rules?
 
+The reviewer must end with exactly one verdict line: `APPROVED` or `CHANGES NEEDED`.
+
+On `CHANGES NEEDED`, show **QUALITY_GATE** — definition and exact format in `.claude/docs/director-gates.md` → QUALITY_GATE. Do not restate the options here; that file owns them. If the user picks `fix`, hand the feedback back to the Step 3 `Plan` subagent and re-review — at most **3 reviewer passes** total. Never reach Step 5 on an unresolved `CHANGES NEEDED`, and never fix the plan yourself instead of showing the gate: that decision is the user's.
+
 ### Step 5 — SAVE
 
 Save the three files under `docs/modules/<n>-<name>/`:
@@ -160,7 +153,18 @@ Save the three files under `docs/modules/<n>-<name>/`:
 - `design.md`
 - `tasks.md`
 
-Update the matching row in `docs/ROADMAP.md`: Status → `⏳ Pending`, and add a link in the Plan column.
+**Then run, BLOCKING — the plan must exist on disk before either script can see it:**
+
+```bash
+.claude/scripts/validate-plan-paths.sh docs/modules/<n>-<name>/
+.claude/scripts/validate-plan-facts.sh docs/modules/<n>-<name>/
+```
+
+- `validate-plan-paths.sh` exit 2 → the plan declares a folder that contradicts `rules/architecture.md`. Do not print the success block and do not update `docs/ROADMAP.md`. Show the conflict with three options (change the plan / write the exception into `.claude/path-allowlist.txt` **and** `rules/architecture.md` / stop). The user decides — never invent a folder of your own. `NO PATHS FOUND` is **not** a pass; confirm by hand.
+- `validate-plan-facts.sh` exit 2 → at least one task creating a new `.cs` is missing `Callers:`/`Wiring:`, or a declared caller/module resolves neither on disk nor in this plan. Do not print the success block. Show the violation, then fix the plan or stop — the user decides. `NO TASKS FOUND` is **not** a pass — in the script's own words, "this is NOT a pass"; confirm by hand. `NO TASKS EXAMINED` is not a pass either — it means every task line found was `/Tests/`-exempt.
+- Paste each script's `checked:` receipt line into the output. A silent hook is never evidence, and "compliant, verified" may not appear as an AC in the spec without one.
+
+Only after both scripts pass (or the user explicitly accepts a declared exception), update the matching row in `docs/ROADMAP.md`: Status → `⏳ Pending`, and add a link in the Plan column.
 
 Show the user:
 ```
