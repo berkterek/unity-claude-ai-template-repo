@@ -57,7 +57,7 @@ Task 1 precedes 3. Task 2 precedes 4 and 5. Tasks 3 and 5 touch the same two fil
 | .claude/commands/implement.md | edit | 515-522 silent-failure block (mirror group) |
 | .claude/commands/fix.md | edit | 580-587 byte-identical mirror |
 | .claude/commands/fix-deep.md | edit | 625-632 third verbatim duplicate |
-| .claude/commands/migrate.md | no change | Reviewer loop at 306 already 3; coupling risk only |
+| .claude/commands/migrate.md | edit | Reviewer loop at 306 already 3 — but the *second* one at 388 was 2. Found by Task 7's sweep, fixed in Task 8; this row said "no change" in v1 and was wrong |
 | .claude/commands/scene-setup.md | no change | Reviewer loop at 242 already 3; coupling risk only |
 
 ## Out of Scope
@@ -174,3 +174,33 @@ Task 1 precedes 3. Task 2 precedes 4 and 5. Tasks 3 and 5 touch the same two fil
 - No gate is referenced anywhere in .claude/ without a definition in director-gates.md.
 - Every retry loop in .claude/commands/ conforms to the recorded convention.
 - No file outside the File Map was modified.
+
+---
+
+## Task 8 — `migrate.md:388` reviewer loop is 2, must be 3 (found by Task 7)
+**Files:** .claude/commands/migrate.md
+**Test Type:** NoTest.
+**Steps:**
+1. [ ] `migrate.md:388` reads "re-run unity-developer (max 2 passes)". `unity-developer` returns a verdict, so this is a **reviewer** loop and the bound is 3, not 2.
+2. [ ] Change to 3, cite the convention, and add the missing stop-and-show branch (the line had no exhaustion branch at all).
+3. [ ] Correct this plan's File Map row for `migrate.md` — v1 said "no change" and was wrong. A plan that contradicts what was actually done is the defect this whole plan is about.
+**Acceptance Criteria:**
+- No reviewer loop anywhere in `.claude/commands/` states a bound other than 3.
+- The File Map row matches what was edited.
+
+## Task 9 — SPARC_GATE is defined and hook-enforced but referenced by no command (found by Task 7)
+**Files:** .claude/commands/implement.md (Step 2), .claude/commands/fix.md (Step 4), .claude/commands/orchestrate.md (Step 2)
+**Test Type:** NoTest.
+
+> This is the mirror image of Item 1. There, the gate had callers but no definition. Here it has a definition (`director-gates.md` → Hook-Enforced Gates → `#### SPARC_GATE`, a full property table) **and** live enforcement (`guard-sparc-approved.sh`, registered in `settings.json`, `exit 2` for every `coder`/`unity-coder` spawn while `.claude/state/sparc-approved` is absent) — but zero commands mention it. Measured: `grep -rc SPARC .claude/commands/*.md` returned nothing. The pipelines were not dead, because the hook's own stderr tells the Director what to do; the gate's only documentation was its own failure message.
+
+**Steps:**
+1. [ ] Add a blocking SPARC_GATE step at the top of each coder step, before any spawn, referencing the definition rather than restating it.
+2. [ ] State in each that the hook exits 2 — so a reader understands skipping the step does not skip the gate, it produces an unexplained blocked spawn.
+3. [ ] `/fix`: note that the hook does not know the complexity score, so it fires below 0.4 too — clear the gate as a formality rather than skipping it silently.
+4. [ ] `/orchestrate`: note the hook gates only `coder`/`unity-coder`, so a `unity-setup`-only task needs no SPARC_GATE, and that `sparc-approved` is independent of `gate-cleared`.
+5. [ ] Do NOT edit the hook or `director-gates.md` — the definition and the enforcement were both already correct; only the callers were missing.
+**Acceptance Criteria:**
+- `grep -rl SPARC .claude/commands/` returns implement.md, fix.md, orchestrate.md.
+- No command restates the gate's contents; each references the definition.
+- `guard-sparc-approved.sh` and `director-gates.md`'s SPARC_GATE entry are unchanged.
