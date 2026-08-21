@@ -323,6 +323,7 @@ You are a senior C# Unity developer. Fix the following bug.
 ## Project Rules
 - Read .claude/CLAUDE.md before writing any code
 - Follow all rules in .claude/rules/
+- Before using an unfamiliar Unity API, check `docs/engine-reference/unity/deprecated-apis.md` — the reviewer applies gate `TD-UNITY-RISK` and will return CHANGES NEEDED on a deprecated call
 - No singletons — VContainer only
 - No coroutines — UniTask only
 - Fix only what is broken — do not refactor surrounding code
@@ -338,7 +339,7 @@ If coder reports **BLOCKED** → stop and show the blocker to the user.
 
 ---
 
-## Step 4.5 — Unity Validator (MANDATORY — runs before Reviewer)
+## Step 4.5 — Unity Validator (gate `TD-COMPILE`) (MANDATORY — runs before Reviewer)
 
 Spawn a **unity-verifier** subagent with this prompt:
 
@@ -397,9 +398,10 @@ List every file you changed. Report: DONE or BLOCKED.
 
 After unity-coder fixes → re-run the **Unity Validator** on the updated files.
 
-If still failing after **2 fix passes** → stop and show the user all errors. Ask:
-- `skip` → proceed to reviewer anyway (user accepts responsibility)
-- `stop` → abort
+If still failing after **2 fix passes** → show **EXHAUSTION_GATE** (`.claude/docs/director-gates.md`) with
+`$WHAT_WAS_RETRIED` = the Unity validator, `$N` = 2, `$PASS_TYPE` = fix, and every remaining
+compile error or test failure listed. Fill `Skipping ships:` from the errors themselves —
+`skip` here hands the reviewer code that does not compile, so say so.
 
 ---
 
@@ -435,16 +437,20 @@ must never be reported as a scope violation: `.claude/**`, `docs/**`, `*.json`,
 1. Regression test passes — the pre-written test now passes; test file was not modified
 2. Does the fix actually address the root cause (not just the symptom)?
 3. Does the fix introduce any new bugs or regressions?
-4. Architecture — VContainer DI, no singletons, interfaces only across modules
-5. Performance — no allocations in Update/FixedUpdate
+4. Architecture (gate `TD-ARCHITECTURE`) — VContainer DI, no singletons, interfaces only across modules
+5. Performance (gate `TD-PERFORMANCE`) — no allocations in Update/FixedUpdate
 6. UniTask — no async void, CancellationToken on every async method
 7. Unity null safety — no ?. or is null on UnityEngine objects
+8. Unity engine risk (gate `TD-UNITY-RISK`) — no API listed in `docs/engine-reference/unity/deprecated-apis.md` is used; the change does not fall in an area listed in `breaking-changes.md`; where `current-best-practices.md` names a better alternative, it was used or the deviation is stated
+9. Scope discipline (gate `CD-SCOPE`) — **count the callers of every type, method and field this change introduces.** **Zero callers anywhere is a violation** — name it, including an interface nobody implements or consumes, a private method nothing invokes, and a field nothing reads. **Exactly one production caller is not a violation** — the test suite is the second caller (`rules/architecture.md` → one-caller rule); do not read this exception as "never flag an abstraction". Also: no file was changed that the task did not require, and no unrelated code was refactored
 
 ## Output contract (MANDATORY — a verdict that violates this is invalid)
-Emit one line per item, for every one of the 7 review criteria above. No item may be
+Emit one line per item, for every one of the 9 review criteria above. No item may be
 omitted, merged, or answered "n/a" without a stated reason. Format:
 
   <N> | CONFIRMED or GAP | <file>:<line> | <one sentence of evidence you actually read>
+
+**`GAP` requires a violation you can point at.** If you looked and the criterion is met, the verdict is `CONFIRMED` — write it and move on. A `GAP` whose own evidence sentence says no violation is present ("no `?.` misuse found", "namespace format itself is fine") is **invalid**, and so is a `GAP` for something that merely *could* have been done differently. Measured 2026-08-21 on a planted-defect fixture: 4 of 10 criteria came back `GAP` with evidence that contradicted the verdict — the per-item line requirement pressures invention. Filling every line is mandatory; finding a fault on every line is not.
 
 A CONFIRMED with no `file:line` is invalid. Restating the criterion back is not
 evidence — cite what is actually in the file. "The root cause is addressed" needs the
@@ -488,9 +494,10 @@ Repeat until APPROVED or stopped (max 3 passes):
 
 3. If APPROVED → proceed to Step 4.5.
 
-4. If still **CHANGES NEEDED** after 3 passes → stop and show the user all remaining issues. Ask:
-   - `skip` → proceed to verifier (user accepts responsibility)
-   - `stop` → abort, leave files uncommitted
+4. If still **CHANGES NEEDED** after 3 passes → show **EXHAUSTION_GATE** (`.claude/docs/director-gates.md`)
+   with `$WHAT_WAS_RETRIED` = the reviewer loop, `$N` = 3, `$PASS_TYPE` = reviewer, and every
+   remaining finding listed. Fill `Skipping ships:` from the reviewer's own findings — it
+   already named the rule each one violates. `skip` proceeds to the verifier.
 
 ---
 
@@ -527,9 +534,10 @@ VERIFY FAILED:
 - [issue description]
 ```
 
-If unity-verifier reports **VERIFY FAILED** → stop and show the user all remaining issues. Ask:
-- `skip` → proceed to commit (user accepts responsibility)
-- `stop` → abort
+If unity-verifier reports **VERIFY FAILED** → show **EXHAUSTION_GATE** (`.claude/docs/director-gates.md`) with
+`$WHAT_WAS_RETRIED` = the verifier, `$N` = 3, `$PASS_TYPE` = iteration, and every remaining
+issue listed. Fill `Skipping ships:` from those issues — `skip` commits code the verifier
+could not get compiling and passing in three tries, so name what is still broken.
 
 ---
 

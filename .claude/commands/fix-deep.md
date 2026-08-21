@@ -341,18 +341,11 @@ STATIC_EVIDENCE: [from unity-scout]
 ```
 Pass both to Step 4 — Evidence Gate.
 
-If **NO_EVIDENCE** → print:
-```
-⚠ No debug logs appeared. The bug was not reproduced during this session.
-Options:
-1. Reproduce the bug in the editor and type "retry"
-2. Describe what you did in the editor and type "manual: <description>"
-3. Abort: type "stop"
-```
+If **NO_EVIDENCE** → show **EVIDENCE_GATE** (`.claude/docs/director-gates.md`).
 
-Wait for user input.
+Per-option behaviour for this caller:
 - `retry` → repeat Step 3
-- `manual: <description>` → continue with user's description as evidence
+- `manual: <description>` → continue with the user's description as the evidence
 - `stop` → abort
 
 ---
@@ -394,9 +387,27 @@ Suggested action: <what the developer should do next in the editor>
 
 **PROVEN** → if the number of affected files reported by the evidence gate is **more than 3**: fire **BREAKING_GATE** (see `.claude/docs/director-gates.md`) before proceeding. Show the full affected file list and wait for `go` or `stop`. Then proceed to Step 5 (Fix).
 
-**REFUTED** → print the revised hypothesis. Ask:
-- `retry` → go back to Step 2 with the revised hypothesis (max 2 revision cycles)
+**REFUTED** → show **HYPOTHESIS_GATE** (`.claude/docs/director-gates.md`) with the revised
+hypothesis. The 2-cycle bound lives in the gate — do not restate a different number here.
+- `retry` → go back to Step 2 with the revised hypothesis
 - `stop` → abort, remove debug logs
+
+Once the 2 cycles are spent → show **EXHAUSTION_GATE** with `$WHAT_WAS_RETRIED` = the
+hypothesis loop, `$N` = 2, `$PASS_TYPE` = revision, and the last revised hypothesis listed.
+Both options need spelling out here, because neither is obvious at this particular gate:
+
+- `skip` → proceed to Step 5 (Fix) against the **last revised hypothesis, explicitly unproven**.
+  This is the one place in `/fix-deep` where a fix is attempted without evidence, so label it
+  as such in the handoff to the fixer and in the final report. `Skipping ships:` must say
+  exactly that — a fix aimed at an unverified cause, which may not be the bug.
+- `stop` → abort.
+
+**Remove the debug logs on both paths, not just `stop`.** Two investigation cycles have added
+logging; `skip` moves on to a fix and `stop` aborts, and in neither case does that logging
+belong in the code afterwards. This was missed until a test run flagged it: asked to fill
+`Skipping ships:`, an agent noted on its own that "any debug logging added during the two
+investigation cycles remains in the code unless removed" — the `stop` branch said to remove it
+and the fall-through said nothing.
 
 **INCONCLUSIVE** → print:
 ```
@@ -457,6 +468,7 @@ You are a senior C# Unity developer. Fix a confirmed bug.
 ## Rules
 - Read .claude/CLAUDE.md before writing any code
 - Follow all rules in .claude/rules/
+- Before using an unfamiliar Unity API, check `docs/engine-reference/unity/deprecated-apis.md` — the reviewer applies gate `TD-UNITY-RISK` and will return CHANGES NEEDED on a deprecated call
 - Fix ONLY the proven root cause — do not refactor surrounding code
 - Remove ALL "[FIX-DEEP]" debug log lines as part of this fix
 - No singletons — VContainer only
@@ -545,16 +557,20 @@ must never be reported as a scope violation: `.claude/**`, `docs/**`, `*.json`,
 1. Fix addresses the proven root cause — not a broader change
 2. No [FIX-DEEP] debug logs remain
 3. No new bugs introduced
-4. Architecture — VContainer DI, no singletons, interfaces only across modules
+4. Architecture (gate `TD-ARCHITECTURE`) — VContainer DI, no singletons, interfaces only across modules
 5. UniTask — no async void, CancellationToken on every async method
 6. Unity null safety — no ?. or is null on UnityEngine objects
-7. Performance — no allocations in Update/FixedUpdate
+7. Performance (gate `TD-PERFORMANCE`) — no allocations in Update/FixedUpdate
+8. Unity engine risk (gate `TD-UNITY-RISK`) — no API listed in `docs/engine-reference/unity/deprecated-apis.md` is used; the change does not fall in an area listed in `breaking-changes.md`; where `current-best-practices.md` names a better alternative, it was used or the deviation is stated
+9. Scope discipline (gate `CD-SCOPE`) — **count the callers of every type, method and field this change introduces.** **Zero callers anywhere is a violation** — name it, including an interface nobody implements or consumes, a private method nothing invokes, and a field nothing reads. **Exactly one production caller is not a violation** — the test suite is the second caller (`rules/architecture.md` → one-caller rule); do not read this exception as "never flag an abstraction". Also: no file was changed that the task did not require, and no unrelated code was refactored
 
 ## Output contract (MANDATORY — a verdict that violates this is invalid)
-Emit one line per item, for every one of the 7 review criteria above. No item may be
+Emit one line per item, for every one of the 9 review criteria above. No item may be
 omitted, merged, or answered "n/a" without a stated reason. Format:
 
   <N> | CONFIRMED or GAP | <file>:<line> | <one sentence of evidence you actually read>
+
+**`GAP` requires a violation you can point at.** If you looked and the criterion is met, the verdict is `CONFIRMED` — write it and move on. A `GAP` whose own evidence sentence says no violation is present ("no `?.` misuse found", "namespace format itself is fine") is **invalid**, and so is a `GAP` for something that merely *could* have been done differently. Measured 2026-08-21 on a planted-defect fixture: 4 of 10 criteria came back `GAP` with evidence that contradicted the verdict — the per-item line requirement pressures invention. Filling every line is mandatory; finding a fault on every line is not.
 
 A CONFIRMED with no `file:line` is invalid. Restating the criterion back is not
 evidence — cite what is actually in the file. Criterion 2 (no `[FIX-DEEP]` logs

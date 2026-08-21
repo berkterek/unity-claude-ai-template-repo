@@ -326,6 +326,7 @@ Description: [full task description from tasks.md]
 ## Project Rules
 - Read .claude/CLAUDE.md before writing any code
 - Follow all rules in .claude/rules/ (architecture, csharp-unity, performance, serialization, unity-specifics)
+- Before using an unfamiliar Unity API, check `docs/engine-reference/unity/deprecated-apis.md` — the reviewer applies gate `TD-UNITY-RISK` and will return CHANGES NEEDED on a deprecated call
 - No singletons — VContainer only
 - No coroutines — UniTask only
 - No legacy Input API
@@ -453,21 +454,25 @@ must never be reported as a scope violation: `.claude/**`, `docs/**`, `*.json`,
 ## Review Criteria
 1. Tests pass — all pre-written tests pass; no test files were modified
 2. Acceptance criteria — does the implementation satisfy all of them?
-3. Architecture — VContainer DI, no singletons, interfaces only across modules
+3. Architecture (gate `TD-ARCHITECTURE`) — VContainer DI, no singletons, interfaces only across modules
 4. Naming — PascalCase types, _camelCase private fields
-5. Performance — no allocations in Update/FixedUpdate, no LINQ on hot paths
+5. Performance (gate `TD-PERFORMANCE`) — no allocations in Update/FixedUpdate, no LINQ on hot paths
 6. Events — IEvent structs past-tense + Event suffix, published via IEventBus
 7. UniTask — no async void outside lifecycle, CancellationToken on every async method
 8. Unity null safety — no ?. or is null on UnityEngine objects
 9. Serialization — FormerlySerializedAs on any renamed [SerializeField]
 10. **Architecture drift (BLOCKING)** — implementation must match the TDD: no new singletons, no `ServiceLocator`, no `FindObjectOfType`, no new folders under `_GameFolders/Scripts/` that aren't in the TDD, and no new event structs when an existing `IEvent` covers the case. If the diff introduces any of these without a paired ADR entry, the review must return **CHANGES NEEDED** with reason "Architecture drift: `<specific drift>` — open an ADR or revert."
+11. Unity engine risk (gate `TD-UNITY-RISK`) — no API listed in `docs/engine-reference/unity/deprecated-apis.md` is used; the change does not fall in an area listed in `breaking-changes.md`; where `current-best-practices.md` names a better alternative, it was used or the deviation is stated
+12. Scope discipline (gate `CD-SCOPE`) — **count the callers of every type, method and field this change introduces.** **Zero callers anywhere is a violation** — name it, including an interface nobody implements or consumes, a private method nothing invokes, and a field nothing reads. **Exactly one production caller is not a violation** — the test suite is the second caller (`rules/architecture.md` → one-caller rule); do not read this exception as "never flag an abstraction". Also: no file was changed that the task did not require, and no unrelated code was refactored. This overlaps item 10 on "no new folders not in the TDD"; item 10 is stricter (BLOCKING, needs a paired ADR) and stays — do not delete either as redundant
 
 ## Output contract (MANDATORY — a verdict that violates this is invalid)
-Emit one line per item, for EVERY acceptance criterion AND every one of the 10 review
+Emit one line per item, for EVERY acceptance criterion AND every one of the 12 review
 criteria above. No item may be omitted, merged, or answered "n/a" without a stated
 reason. Format:
 
   <ID> | CONFIRMED or GAP | <file>:<line> | <one sentence of evidence you actually read>
+
+**`GAP` requires a violation you can point at.** If you looked and the criterion is met, the verdict is `CONFIRMED` — write it and move on. A `GAP` whose own evidence sentence says no violation is present ("no `?.` misuse found", "namespace format itself is fine") is **invalid**, and so is a `GAP` for something that merely *could* have been done differently. Measured 2026-08-21 on a planted-defect fixture: 4 of 10 criteria came back `GAP` with evidence that contradicted the verdict — the per-item line requirement pressures invention. Filling every line is mandatory; finding a fault on every line is not.
 
 A CONFIRMED with no `file:line` is invalid. Restating the criterion back is not
 evidence — cite what is actually in the file. Presence of a symbol is not evidence
@@ -516,9 +521,10 @@ On **CHANGES NEEDED** → automatically enter the review loop (no user prompt ne
 
 3. If APPROVED → proceed to Step 3.5 (Verifier).
 
-4. If still **CHANGES NEEDED** after 3 passes → stop. Print remaining issues and ask:
-   - `skip` → proceed to commit (user accepts responsibility)
-   - `stop` → abort, leave files uncommitted
+4. If still **CHANGES NEEDED** after 3 passes → show **EXHAUSTION_GATE** (`.claude/docs/director-gates.md`)
+   with `$WHAT_WAS_RETRIED` = the reviewer loop, `$N` = 3, `$PASS_TYPE` = reviewer, and every
+   remaining finding listed. Fill `Skipping ships:` from the reviewer's own findings — it
+   already named the rule each one violates. `skip` proceeds to commit.
 
 ---
 
@@ -705,9 +711,14 @@ FAIL:
 - [task] [criterion] — [what's missing]
 ```
 
-If **FAIL** → print failures, ask user: `Validation failed. Fix issues and type "retry" to re-run QA, or "skip" to proceed anyway.`
+If **FAIL** → print failures, then show **QUALITY_GATE** (`.claude/docs/director-gates.md`)
+with the failures as the CHANGES NEEDED items, **substituting `retry` for `fix`**: what failed
+here is a whole validation stage, not a file a coder can be pointed at, so the retry re-runs
+the stage instead of spawning a coder. Omit the optional `list` line — the failures are
+already printed in full above.
 - `retry` → restart from Step 1
 - `skip` → proceed with warning logged
+- `stop` → abort
 
 If **PASS** → proceed to developer prompt.
 

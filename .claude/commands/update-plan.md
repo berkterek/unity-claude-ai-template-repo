@@ -297,9 +297,11 @@ If reviewer reports **CHANGES NEEDED**:
 
 Repeat INCREMENTAL passes up to **2 more times** (3 total reviewer passes).
 
-After 3 failed INCREMENTAL passes → stop and show the user all accumulated feedback. Ask:
-- `skip` → save the last planner output as-is (user accepts responsibility)
-- `stop` → abort, do not save
+After 3 failed INCREMENTAL passes → show **EXHAUSTION_GATE** (`.claude/docs/director-gates.md`) with
+`$WHAT_WAS_RETRIED` = the plan reviewer loop, `$N` = 3, `$PASS_TYPE` = reviewer, and all
+accumulated feedback listed. Fill `Skipping ships:` from that feedback — `skip` saves a plan
+carrying known defects, and every task downstream of a wrong path inherits it. `skip` saves
+the last planner output as-is; `stop` saves nothing.
 
 ---
 

@@ -328,9 +328,10 @@ Repeat until APPROVED or stopped (max 3 passes):
 
 3. If APPROVED → proceed to Step 3.
 
-4. If still **CHANGES NEEDED** after 3 passes → stop and show the user all remaining issues. Ask:
-   - `skip` → proceed to commit (user accepts responsibility)
-   - `stop` → abort, leave files uncommitted
+4. If still **CHANGES NEEDED** after 3 passes → show **EXHAUSTION_GATE** (`.claude/docs/director-gates.md`)
+   with `$WHAT_WAS_RETRIED` = the reviewer loop, `$N` = 3, `$PASS_TYPE` = reviewer, and every
+   remaining finding listed. Fill `Skipping ships:` from the reviewer's own findings — it
+   already named the rule each one violates. `skip` proceeds to commit.
 
 ### unity-developer Pass (Complex only)
 

@@ -285,9 +285,9 @@ APPROVED or FAIL: list every violation as [asset:path] description
 
 If **FAIL** → spawn **unity-setup** subagent again with only the failing items to fix. Re-run unity-developer. Max 3 passes.
 
-If still FAIL after 3 passes → stop, show user all remaining issues. Ask:
-- `skip` → proceed to commit (user accepts responsibility)
-- `stop` → abort, leave files uncommitted
+If still FAIL after 3 passes → show **EXHAUSTION_GATE** (`.claude/docs/director-gates.md`) with
+`$WHAT_WAS_RETRIED` = the unity-developer review loop, `$N` = 3, `$PASS_TYPE` = review, and
+every remaining item listed. Fill `Skipping ships:` from those items. `skip` proceeds to commit.
 
 ---
 

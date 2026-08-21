@@ -109,9 +109,10 @@ Spawn a **unity-verifier** subagent to compile and run all tests.
 If failures found → spawn **unity-fixer** subagent to fix each issue, then re-verify. Repeat up to **2 passes** (compile/test-fix bound — see `.claude/docs/director-gates.md` → Retry and Pass Limits).
 
 - `PASS` → proceed to Stage 2.
-- `FAIL after 2 passes` → stop. Print all remaining failures. Ask: `Fix these issues manually and re-run /qa, or type "skip" to continue anyway.`
-  - `skip` → proceed with warning
-  - *(anything else)* → abort
+- `FAIL after 2 passes` → show **EXHAUSTION_GATE** (`.claude/docs/director-gates.md`) with
+  `$WHAT_WAS_RETRIED` = compile and tests, `$N` = 2, `$PASS_TYPE` = fix, and every remaining
+  failure listed. Fill `Skipping ships:` from those failures. `skip` proceeds to Stage 2 with
+  a warning logged; `stop` aborts.
 
 Print: `✓ Stage 1 — Ralph: compile and tests green.` or `⚠ Stage 1 — Ralph: [N] issues remain.`
 
@@ -205,16 +206,14 @@ Overall: CLEAN ✓  |  ISSUES FOUND ⚠
 
 If **CLEAN** → print: `Project is clean. Safe to proceed.`
 
-If **ISSUES FOUND** → list all issues grouped by stage. Ask:
-```
-Issues found. Options:
-  fix   — spawn unity-fixer/unity-coder to address findings automatically
-  list  — show full issue details
-  skip  — accept current state and proceed
-```
+If **ISSUES FOUND** → list all issues grouped by stage, then show **QUALITY_GATE**
+(`.claude/docs/director-gates.md`) with the issues as the CHANGES NEEDED items. Include the
+optional `list` line — the issues are summarised by stage here, not printed in full.
 
-- `fix` → spawn **unity-coder** subagent with all findings as a fix list, then re-run `/qa`
-- `list` → print full details for each finding
-- `skip` → exit with warning logged to the relevant tasks.md
+Per-option behaviour for this caller:
+- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run `/qa`
+- `list` → print full details for each finding, then **re-show the gate** (non-terminal)
+- `skip` → exit with a warning logged to the relevant `tasks.md`
+- `stop` → abort
 
 $ARGUMENTS
