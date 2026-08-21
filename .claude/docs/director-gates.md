@@ -2,7 +2,7 @@
 
 Named review gates used across pipeline commands. Two kinds:
 
-- **Human-pause gates** (SCOPE_GATE, ARCHITECTURE_GATE, BREAKING_GATE, QUALITY_GATE, COMMIT_GATE) — stop the pipeline and wait for user approval before continuing.
+- **Human-pause gates** (SCOPE_GATE, ARCHITECTURE_GATE, BREAKING_GATE, QUALITY_GATE, COMMIT_GATE, BREAKING_REVISION_GATE) — stop the pipeline and wait for user approval before continuing.
 - **Automated check gates** (TD-ARCHITECTURE, TD-UNITY-RISK, TD-PERFORMANCE, TD-COMPILE, CD-SCOPE) — spawn a reviewer subagent and evaluate verdict automatically.
 
 ---
@@ -121,6 +121,34 @@ Wait for response. `go` → spawn committer. `stop` → leave files staged, prin
 
 ---
 
+### BREAKING_REVISION_GATE
+
+**When:** A plan reviewer returns CHANGES NEEDED carrying `REVISION_TYPE: BREAKING` — fires in `/create-plan` and `/update-plan`.
+**Purpose:** A breaking revision means the codebase was not fully read before planning. Let the human choose to re-research now, rather than cascade breaking fixes into implementation.
+
+Show the user:
+```
+BREAKING_REVISION_GATE ───────────────────────────────────
+⚠️  BREAKING REVISION DETECTED (v$PLAN_VERSION)
+
+The reviewer flagged a structural change — this means the codebase
+was not fully read before planning. Proceeding risks another round
+of breaking fixes during implementation.
+
+Reviewer feedback:
+[list all CHANGES NEEDED items]
+
+Options:
+  re-research  — re-run the research stage with expanded scope, then re-plan
+  accept       — proceed with the breaking revision (your responsibility)
+  stop         — abort, do not save the plan
+──────────────────────────────────────────────────────────
+```
+
+Wait for response. `re-research` → re-run this command's upstream research stage, then re-plan and re-review; the caller names which agent that is (`/create-plan` → Researcher, `/update-plan` → Analyzer). `accept` → proceed to save with the breaking revision. `stop` → abort, save nothing.
+
+---
+
 ## Automated Check Gates
 
 These gates spawn a subagent or run a check automatically. They do not pause for user input unless the verdict is FAIL/RISK.
@@ -201,6 +229,21 @@ Checks:
 - Is the task trying to refactor unrelated code? Flag it.
 - Are new abstractions being created that have no current callers? Flag it.
 - YAGNI: is everything being implemented actually needed right now?
+
+---
+
+## Retry and Pass Limits
+
+Every retry loop in a pipeline command uses one of exactly two bounds. Which one depends on what the loop is waiting for:
+
+- **Reviewer-verdict loops — max 3 passes.** A reviewer, linter, or auditor returns APPROVED / CHANGES NEEDED. A judgement call can legitimately improve across iterations, so a third attempt has expected value.
+- **Compile/test-fix loops — max 2 passes.** A validator or verifier reports COMPILE FAILED / TEST FAILED. A compile error is deterministic: if two passes cannot fix it, a third is usually the same agent making the same wrong guess, and the human should see the errors instead.
+
+When a loop exhausts its passes the pipeline **stops and shows the human what is left** — it never silently proceeds. For the reviewer case that stop is QUALITY_GATE (above); state the remaining findings there rather than inventing a second options list.
+
+State the bound once per loop. A loop whose body says "max 2" and whose failure branch says "after 3 passes" is a defect even though both numbers are individually plausible — the two must be the same number.
+
+> Placed here, immediately before the referencing rules, because both sections answer the same question: what a command author must write rather than invent. Deliberately no per-command line numbers — those rot; grep for `passes` in `.claude/commands/` instead.
 
 ---
 
