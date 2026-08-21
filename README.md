@@ -744,7 +744,7 @@ npm install -g bats      # Linux
 | `guard-critical-files` | Edits to `AppScope`, `InputService`, `*Installer`, `EventBus`, `AppModules`, `ConfigCatalog`, `.asmdef` — released outright when a Director Gate is open and a task in the plan names that file (`unity_plan_covers`). Otherwise a deny-then-allow gate: first edit attempt per file blocks and demands investigation, the Director's retry passes; inside a subagent it blocks every time. Creating a brand-new file is never blocked |
 | `check-config-protection` | Modifications to `.asmdef`, `.claude/settings.json`, `.inputactions`, `manifest.json` — exceptions: test assemblies, and creating a new `.asmdef`. An existing `.asmdef` edit is released when the open plan covers it, otherwise it blocks once and passes on the Director's retry; inside a subagent it blocks every time. `settings.json` / `manifest.json` / `.inputactions` stay hard-blocked on every attempt, plan coverage or not |
 | `guard-gate-cleared` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
-| `gateguard` (PreToolUse) | Stage 1 = the unread-file check above; Guard 2 = the fact gate. Guard 2 is released when the open plan covers the file. The fact demands themselves live at plan time now: `.claude/scripts/validate-plan-facts.sh` runs BLOCKING in `/create-plan`, `/plan-module` and `/orchestrate` before their gates, sharing `hooks/lib-gateguard-facts.sh` with this hook — one library, two callers, no cache and no receipt file. This is what makes the `strict` profile usable inside `/orchestrate`; before it, `guard-pipeline-direct-work` blocked the Director while this blocked the subagent, so with a gate open nobody could write a `.cs` at all |
+| `gateguard` (PreToolUse) | Stage 1 = the unread-file check above; Guard 2 = the fact gate. Guard 2 is released when the open plan covers the file. The fact demands themselves live at plan time now: `.claude/scripts/validate-plan-facts.sh` runs BLOCKING in `/create-plan`, `/plan-module` and `/orchestrate` (see Plan-Time Validation for where in each — the plan must be on disk first), sharing `hooks/lib-gateguard-facts.sh` with this hook — one library, two callers, no cache and no receipt file. This is what makes the `strict` profile usable inside `/orchestrate`; before it, `guard-pipeline-direct-work` blocked the Director while this blocked the subagent, so with a gate open nobody could write a `.cs` at all |
 | `guard-pipeline-direct-work` (PreToolUse Edit\|MultiEdit\|Write\|Bash) | Blocks direct `Edit`/`Write` to `_GameFolders/Scripts/**/*.cs` and direct `git commit` while a Director Gate is open (`gate-cleared` exists) but no subagent is currently running (`subagent-depth` == 0) — closes the "gate was shown but pipeline agent was never spawned" loophole. The depth counter leaks, so a count untouched for 15 min is read as 0 (fails toward enforcing). Escape valve: `.claude/state/pipeline-override` for explicit user-approved bypasses |
 | `guard-reviewer-order` (PreToolUse) | `unity-reviewer` spawn if Codex CLI is installed but `codex:codex-rescue` has not reviewed the current pipeline pass |
 | `check-no-runtime-instantiate` | `new GameObject()` — blocked everywhere in runtime code; use `Instantiate(prefab)` or `Addressables.InstantiateAsync()` |
@@ -843,7 +843,7 @@ Both JSONL files are persistent (not auto-expired) and gitignored. See `.claude/
 | `/refine-gdd` | Manual — single step | Iterate on an existing GDD |
 | `/refine-tdd` | Manual — single step | Iterate on an existing TDD |
 | `/roadmap` | Manual — single step | Read GDD + TDD + existing modules → produce `docs/ROADMAP.md` module table with gap analysis. Run once after TDD is approved. |
-| `/plan-module <n>` | Manual — single step | Just-in-time module planner: ARCHITECTURE_GATE → `Plan` (Opus) + reviewer → writes `docs/modules/<n>-<name>/spec.md`, `design.md`, `tasks.md` → updates ROADMAP.md. Run immediately before orchestrating that module. |
+| `/plan-module <n>` | Manual — single step | Just-in-time module planner: ARCHITECTURE_GATE → `Plan` (Opus) → reviewer (QUALITY_GATE on CHANGES NEEDED) → writes `docs/modules/<n>-<name>/spec.md`, `design.md`, `tasks.md` → two BLOCKING plan validators → updates ROADMAP.md. Run immediately before orchestrating that module. |
 
 ### Pipelines (multi-agent)
 
@@ -1087,9 +1087,19 @@ State file: `.claude/state/sparc-approved` (independent of `gate-cleared`). Writ
 rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"
 ```
 
-### Plan-Time Validation (runs before the gates, not after)
+### Plan-Time Validation (runs while the plan is still editable, not at write time)
 
-`/create-plan`, `/plan-module` and `/orchestrate` run two BLOCKING validators against the plan document before SCOPE_GATE / ARCHITECTURE_GATE. Both follow the same shape: one library, two callers (plan time + write time), no cached state.
+`/create-plan`, `/plan-module` and `/orchestrate` run two BLOCKING validators against the plan document. Both follow the same shape: one library, two callers (plan time + write time), no cached state.
+
+**Where in the pipeline depends on who authors the plan** — a validator cannot read a document that does not exist yet:
+
+| Command | Runs the validators at | Relative to its gate |
+|---|---|---|
+| `/orchestrate` | Step 0b — the plan arrived as an argument, already on disk | **before** SCOPE_GATE (0b.5) |
+| `/create-plan` | Step 4 SAVE — right after writing the plan file | after the reviewer approves; this command has no gate of its own |
+| `/plan-module` | Step 5 SAVE — right after writing the spec/design/tasks trio | after ARCHITECTURE_GATE (Step 2), which approves the *shape* before the plan is authored |
+
+Pointed at a folder that does not exist yet, `validate-plan-facts.sh` prints `not found` and exits **0** — a silent green, never a block. So "run it before the gate" is only correct for `/orchestrate`; for a command that authors its own plan it would mean the gate has no teeth at all.
 
 | Script | Shares its rules with | Rejects |
 |--------|----------------------|---------|
@@ -1422,7 +1432,7 @@ Arts/
 - Every scene GO is a prefab instance; root=logic components, `Body` child=visual components
 - `Games/Abstracts/` = interfaces and abstract base classes ONLY — no concrete implementations
 - `Games/Concretes/` = ALL concrete classes, both pure C# (MoveHandler, DamageHandler) and MonoBehaviours — organized by domain (Players/, Enemies/, Audio/…), never by layer
-- Only valid top-level folders under `Scripts/`: `Games/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/` or other folders alongside `Games/`. A fourth folder is legitimate only when it needs its own `.asmdef` (assembly flags are per-assembly, so an assembly boundary is a folder boundary); it must then be declared in `.claude/path-allowlist.txt` **and** added to the table in `rules/architecture.md`. "The hook did not complain" is never a reason — the rule is fail-closed and validated at plan time by `.claude/scripts/validate-plan-paths.sh` before SCOPE_GATE/ARCHITECTURE_GATE
+- Only valid top-level folders under `Scripts/`: `Games/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/` or other folders alongside `Games/`. A fourth folder is legitimate only when it needs its own `.asmdef` (assembly flags are per-assembly, so an assembly boundary is a folder boundary); it must then be declared in `.claude/path-allowlist.txt` **and** added to the table in `rules/architecture.md`. "The hook did not complain" is never a reason — the rule is fail-closed and validated at plan time by `.claude/scripts/validate-plan-paths.sh` — at Step 0b in `/orchestrate` (before SCOPE_GATE), and at the SAVE step in `/create-plan` and `/plan-module` (see Plan-Time Validation)
 - Every `_Framework` subfolder has its own `.asmdef` — never a single root-level assembly covering all subfolders
 - All prefabs under `_GameFolders/Prefabs/<Domain>/` (`Bootstrap/`, `CoreObjects/`, `Enemies/`, `UI/Canvases/`, `VFX/`, `Environment/`…); shared-base objects use Prefab Variants; all Canvas prefabs are Prefab Variants of `BaseCanvas`
 - All material assets (.mat) under `Arts/Materials/<Domain>/` — never inside `Prefabs/`; shader files (.shader / .shadergraph) under `_GameFolders/Arts/Shaders/`; never use Built-in Standard shader in a URP project — use the `unity-shader-dev` agent for shader authoring (automatically routes to HLSL or ShaderGraph based on complexity); use the `unity-particle-designer` agent for particle VFX (`Arts/Materials/VFX/` + `_GameFolders/Prefabs/VFX/` + pooling)

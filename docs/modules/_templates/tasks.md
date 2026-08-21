@@ -5,7 +5,7 @@
 > **Every task that creates a new `.cs` file MUST declare `Callers:` and `Wiring:`.**
 > Files under `Tests/` are exempt. Edit tasks need no fields, except
 > `FormerlySerializedAs:` when the task renames a `[SerializeField]`.
-> Validated before SCOPE_GATE by `.claude/scripts/validate-plan-facts.sh`.
+> Validated at plan time by `.claude/scripts/validate-plan-facts.sh` — by `/plan-module` at SAVE, and by `/orchestrate` before SCOPE_GATE.
 >
 > **These fields are cross-verified by a machine, not just read by a human —**
 > only specific shapes earn `cross-verified` in the validator's receipt, and
