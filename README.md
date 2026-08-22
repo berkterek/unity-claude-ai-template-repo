@@ -476,7 +476,7 @@ When `hybrid_graph` is `false` (default), behaviour is **byte-for-byte identical
 **To enable:** Run `/setup-project` with `graph=true` — Step 5.6 handles everything automatically:
 
 1. Checks if the `mcp` Python package is importable; installs it if not.
-2. Registers `graph-mcp-server.py` as a project-scoped MCP server (`claude mcp add --scope project`), creating `.mcp.json` in the repo root (gitignored — machine-specific).
+2. Registers `graph-mcp-server.py` in `.mcp.json` at the repo root. That file is **committed**, not gitignored — both entries use a repo-relative path and a bare `python3`, exactly like every hook script here, so it is portable across clones. Keeping it untracked is what made every clone re-hit the session-freeze problem below.
 3. Writes `hybrid_graph: true` to `.claude/project-features.json`.
 4. Restart Claude Code. If `mcp__graph_mcp__*` tools appear in the session, the server is running.
 
@@ -532,13 +532,32 @@ Tests cover: builder flags (`--full`, `--incremental`, `--skip-mcp`, `--output`,
 
 | Tool | Role | Wiring |
 |------|------|--------|
-| **Blender 5.1+** with the built-in `MCP` add-on (Blender Lab) | Authoring and exporting 3D assets from Claude Code | The add-on is **not** an MCP server — it is a raw TCP socket on `localhost:9876`. `.claude/scripts/blender-mcp-bridge.py` is the stdio MCP server that fronts it. Register once: `claude mcp add blender -- python3 "$(git rev-parse --show-toplevel)/.claude/scripts/blender-mcp-bridge.py"` |
+| **Blender 5.1+** with the built-in `MCP` add-on (Blender Lab) | Authoring and exporting 3D assets from Claude Code | The add-on is **not** an MCP server — it is a raw TCP socket on `localhost:9876`. `.claude/scripts/blender-mcp-bridge.py` is the stdio MCP server that fronts it. Already registered in the committed `.mcp.json` — nothing to run. If you also added it at user scope on this machine, remove that one (`claude mcp remove blender`) so the bridge is not started twice against the same port. |
 
 Not selected by `/setup-project` and not part of `project-features.json` — it needs no Unity
 package and affects no rule, so nothing has to be skipped when it is absent. Full contract,
 setup and the measured export flags: `.claude/skills/third-party/blender-mcp/SKILL.md`.
 Do **not** wire `uvx blender-mcp` here — that is the bridge for a different third-party add-on
 that binds the same port and speaks a different protocol.
+
+### MCP servers are frozen at session start (NON-NEGOTIABLE)
+
+A session's tool list is fixed when the session opens. A server added **mid-session** with
+`claude mcp add` starts fine and answers fine — and its `mcp__<server>__*` tools are still absent
+from that session, because the list was already built. Nothing in the transcript says so; the
+tools are simply not there. This is a harness property, not a Blender or Unity one, and it
+applies to every server equally.
+
+Two consequences, both load-bearing:
+
+- **The fix is `.mcp.json`, not a restart.** A restart rescues one session; a committed
+  `.mcp.json` means no session ever starts without the server. That is why the file is tracked.
+- **Never reach past a missing bridge to its transport.** With `mcp__blender__*` absent it is
+  trivially possible to talk to `localhost:9876` over Bash and call `bpy.ops.export_scene.fbx`
+  by hand — and that skips the bridge's pre-flight checks (missing UV layer, wrong unit scale,
+  non-uniform scale) in one move. Those three fail *silently* in Unity, and no content hook can
+  catch them because a `.fbx` is binary. The bridge's pre-flight is the only detector. Restart
+  the session instead.
 
 ---
 

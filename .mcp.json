@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "graph_mcp": {
+      "command": "python3",
+      "args": [
+        ".claude/graph/graph-mcp-server.py"
+      ]
+    },
+    "blender": {
+      "command": "python3",
+      "args": [
+        ".claude/scripts/blender-mcp-bridge.py"
+      ]
+    }
+  }
+}
