@@ -233,10 +233,31 @@ blender_scene_info          → read units, scale, UV, tri count. Never skip.
    ↓ problems?              → fix in Blender (blender_execute) or hand back to the artist
 blender_export_fbx          → Assets/_GameFolders/Arts/Models/<Domain>/<Name>.fbx
    ↓
-Unity import settings       → see rules/performance.md; material must be URP (never Standard)
+Unity import settings       → materialImportMode = None; the project assigns the material (see below)
    ↓
 prefab                      → logic on root, visuals on a Body child (rules/unity-prefabs.md)
 ```
+
+### The importer cannot give you a URP material — measured, not predicted
+
+`materialImportMode` defaults to `ImportViaMaterialDescription`, and an import measured under Unity
+2022.3.62f2 produced `material count 1 → 'Default-Material' shader='Standard'`. That is not a
+misconfiguration to correct: **FBX has no concept of a shader.** The format carries a Lambert/Phong
+description, so whatever the Blender material was — Principled BSDF, a node graph, anything — the
+importer can only map it onto a built-in shader. There is no export setting that makes a URP or a
+third-party material come out the other side. In URP a Standard material renders magenta.
+
+So set `materialImportMode = None` and let the project assign the material. Two consequences follow:
+
+- **The URP Render Pipeline Converter is the wrong tool here.** It converts Standard →
+  `Universal Render Pipeline/Lit`, which is still not the material a project using a third-party
+  toon/stylised shader wants — the manual assignment happens either way, so the convert step only adds
+  one. It is a one-off migration tool for an existing project, not a per-import step.
+- **Leaving the default on accumulates orphans.** Every import mints another `Default-Material`
+  reference that nobody assigned and nobody deletes, and each one is a future magenta render.
+
+Where the material comes from is a project question, not a Blender one — a palette/catalog asset if the
+domain has one, otherwise `Arts/Materials/<Domain>/` per `rules/performance.md`.
 
 The FBX lands as an asset, not a prefab. Turning it into one is ordinary Unity work and follows
 `rules/unity-prefabs.md` — Logic/Visual separation, domain folder, and Card 5 (extract before the
@@ -266,5 +287,10 @@ verbatim in the new project.
   plain-mesh result of Card 5a, and the harness's first run disproved it. A **real multi-bone animated
   character** — multiple influences per vertex, non-identity rest pose, actual animation clips — is
   still unverified, and the export says so in its `problems` list rather than going quiet.
+- **The 2022.3 measurements above are one-off, with no regression coverage.**
+  `.claude/tests/blender-fbx-probe/` drives Unity 6; the material and transform figures cited above were
+  measured by hand against 2022.3.62f2 in a scratchpad and nothing re-runs them. A future change to the
+  export contract will be checked against Unity 6 only. Adding 2022.3 as a second probe target is the
+  fix; until then, do not read a green probe run as evidence about 2022.3.
 - **No Unity-side import-settings automation.** `audio-clip-agent` is the shape this would take
   (a temporary Editor script applying settings in bulk) if model import settings ever need it.
