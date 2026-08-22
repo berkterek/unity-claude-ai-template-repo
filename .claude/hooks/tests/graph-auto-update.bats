@@ -212,3 +212,21 @@ setup_conc() {
     grep -q "graph_cluster.py failed" "$SDIR/graph-rebuild.err"
     rm -rf "$PROJ" "$SDIR"
 }
+
+# ── Unbounded log growth (regression) ───────────────────────────────────────
+# graph-updates.log is appended to on every matching Write/Edit with no trim
+# anywhere in this hook, unlike hook-logger.sh's tail -n 500 pattern
+# (hook-logger.sh:49-55) or instinct-capture.sh:88-92.
+@test "graph-updates.log is trimmed to 500 lines, newest kept" {
+    mkdir -p .claude/graph
+    echo '{"codebase":{"scanned_files":42,"classes":[{"name":"A"},{"name":"B"},{"name":"C"},{"name":"D"},{"name":"E"}]}}' > .claude/graph/graph.json
+    touch "$UNITY_HOOK_STATE_DIR/graph-health-warned-$(date +%Y-%m-%d)"
+    for i in $(seq 1 600); do echo "line-$i"; done > "$UNITY_HOOK_STATE_DIR/graph-updates.log"
+    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"Assets/Test.cs\"}}' | CLAUDE_PROJECT_DIR= UNITY_HOOK_STATE_DIR='$UNITY_HOOK_STATE_DIR' bash $HOOK 2>&1"
+    [ "$status" -eq 0 ]
+    [ "$(wc -l < "$UNITY_HOOK_STATE_DIR/graph-updates.log" | tr -d ' ')" -le 500 ]
+    # newest kept: the just-appended trigger line must survive the trim
+    tail -n 1 "$UNITY_HOOK_STATE_DIR/graph-updates.log" | grep -q "Assets/Test.cs"
+    # oldest lines must be gone
+    ! grep -q "^line-1$" "$UNITY_HOOK_STATE_DIR/graph-updates.log"
+}

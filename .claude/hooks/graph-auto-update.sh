@@ -110,6 +110,15 @@ fi
 mkdir -p "$_STATE_DIR"
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $FILE_PATH" >> "$_STATE_DIR/graph-updates.log"
 
+# Trim to the last 500 lines — same pattern as hook-logger.sh:49-55 and
+# instinct-capture.sh:88-92. This hook fires on every matching Write/Edit with
+# no other trim point, so the log grows unbounded otherwise.
+_GU_LOG="$_STATE_DIR/graph-updates.log"
+_gu_lines=$(wc -l < "$_GU_LOG" 2>/dev/null || echo 0)
+if [ "$_gu_lines" -gt 500 ]; then
+    tail -n 500 "$_GU_LOG" > "${_GU_LOG}.tmp" && mv "${_GU_LOG}.tmp" "$_GU_LOG"
+fi
+
 # ── Template-mode guard: skip builder when Assets/ does not exist ─────────────
 # Health warning and log write still happen above; only the background builder
 # is suppressed — prevents graph.json timestamp churn in the template repo.

@@ -58,7 +58,7 @@ Three hooks produce two persistent JSONL audit files in `.claude/state/`:
 {"event":"TaskCompleted","task_id":"t1","task_title":"Add AudioService","task_subject":"audio","session_id":"xyz","team_name":"","logged_at":"2026-06-04T10:01:00Z"}
 ```
 
-**Persistence:** Both JSONL files accumulate across sessions (project-level state dir). They are NOT auto-expired by `session-save.sh`. `session.json` captures all-time totals in `subagent_summary`:
+**Persistence:** Both JSONL files accumulate across sessions (project-level state dir). They are trimmed to the newest 500 lines by `session-restore.sh` at every SessionStart — not by `session-save.sh`, and not by either writer (a writer-side trim would race `agent-stop-log.sh`'s backwards search for the matching `SubagentStart` line, silently yielding `duration_approx_s: -1` for an in-flight agent). `session.json` captures the count **since the last SessionStart trim** in `subagent_summary` — not all-time once a log has ever exceeded 500 lines:
 ```json
 "subagent_summary": {"spawned": 12, "stopped": 11, "tasks_completed": 5}
 ```

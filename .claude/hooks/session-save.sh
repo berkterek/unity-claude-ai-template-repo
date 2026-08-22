@@ -67,7 +67,9 @@ if [ -f "${UNITY_HOOK_STATE_DIR}/agent-context.json" ]; then
     AGENT_CONTEXT=$(cat "${UNITY_HOOK_STATE_DIR}/agent-context.json" 2>/dev/null || echo '{}')
 fi
 
-# Gather subagent / task audit counters (all-time totals — JSONL files persist across sessions by design)
+# Gather subagent / task audit counters (counts since the last SessionStart trim —
+# session-restore.sh trims these JSONL files to the newest 500 lines at SessionStart,
+# so these are not true all-time totals once a log has ever exceeded that threshold)
 SUBAGENT_LOG="${UNITY_HOOK_STATE_DIR}/subagent-log.jsonl"
 TASK_LOG="${UNITY_HOOK_STATE_DIR}/task-log.jsonl"
 

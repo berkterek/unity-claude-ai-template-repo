@@ -44,7 +44,38 @@ unset _hook
 echo 0 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
 
 # Clear stale gateguard state from previous sessions
-rm -f "$UNITY_READS_FILE" "$UNITY_EDITS_FILE" "$UNITY_COST_FILE" "$UNITY_LEARNING_FILE"
+rm -f "$UNITY_READS_FILE" "$UNITY_EDITS_FILE" "$UNITY_COST_FILE" "$UNITY_LEARNING_FILE" \
+      "${UNITY_HOOK_STATE_DIR}/session-warnings.txt" "${UNITY_HOOK_STATE_DIR}/skills-invoked.txt"
+
+# ── Trim unbounded JSONL audit logs ──────────────────────────────────────────
+# subagent-log.jsonl and task-log.jsonl are append-only with no writer-side
+# trim (agent-start-log.sh / agent-stop-log.sh / task-completed-log.sh must
+# not trim — see CLAUDE.md). Same tail -n 500 pattern as hook-logger.sh:49-55
+# and instinct-capture.sh:88-92, applied here at SessionStart instead.
+_trim_state_file() {
+    local f="$1" max="$2"
+    [ -f "$f" ] || return 0
+    local lines
+    lines=$(wc -l < "$f" 2>/dev/null || echo 0)
+    if [ "$lines" -gt "$max" ]; then
+        tail -n "$max" "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+    fi
+}
+
+_trim_state_file "${UNITY_HOOK_STATE_DIR}/subagent-log.jsonl" 500
+_trim_state_file "${UNITY_HOOK_STATE_DIR}/task-log.jsonl" 500
+
+# ── Remove stale graph-health-warned sentinels ──────────────────────────────
+# Sentinel is date-keyed (graph-health-warned-YYYY-MM-DD) and re-fires each new
+# calendar day; nothing ever removed prior days' sentinels, so they accumulated
+# forever. Keep only today's.
+_TODAY="$(date -u +%Y-%m-%d 2>/dev/null || echo "")"
+for _sentinel in "${UNITY_HOOK_STATE_DIR}"/graph-health-warned-*; do
+    [ -e "$_sentinel" ] || continue
+    [ "$_sentinel" = "${UNITY_HOOK_STATE_DIR}/graph-health-warned-${_TODAY}" ] && continue
+    rm -f "$_sentinel"
+done
+unset _sentinel _TODAY
 
 # ── Expire every deny-then-allow grant ──────────────────────────────────────
 # gateguard.sh, guard-critical-files.sh and check-config-protection.sh all block

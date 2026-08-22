@@ -67,3 +67,74 @@ teardown() {
     [ "$status" -eq 0 ]
     [ -x "$target" ]               # session-restore restored it
 }
+
+# ── Unbounded state file growth (regression) ────────────────────────────────
+# Several writers accumulate lines forever with no trim, unlike hook-logger.sh's
+# tail -n 500 pattern (hook-logger.sh:49-55) or instinct-capture.sh:88-92.
+# session-restore.sh is expected to apply the same trim at SessionStart.
+
+@test "session-restore trims subagent-log.jsonl to 500 lines" {
+    for i in $(seq 1 600); do echo "line-$i"; done > "$UNITY_HOOK_STATE_DIR/subagent-log.jsonl"
+    run bash $HOOK < /dev/null
+    [ "$status" -eq 0 ]
+    [ "$(wc -l < "$UNITY_HOOK_STATE_DIR/subagent-log.jsonl" | tr -d ' ')" -eq 500 ]
+}
+
+@test "session-restore trim on subagent-log.jsonl keeps the newest lines" {
+    for i in $(seq 1 600); do echo "line-$i"; done > "$UNITY_HOOK_STATE_DIR/subagent-log.jsonl"
+    run bash $HOOK < /dev/null
+    [ "$status" -eq 0 ]
+    [ "$(head -n 1 "$UNITY_HOOK_STATE_DIR/subagent-log.jsonl")" = "line-101" ]
+    [ "$(tail -n 1 "$UNITY_HOOK_STATE_DIR/subagent-log.jsonl")" = "line-600" ]
+}
+
+@test "session-restore leaves subagent-log.jsonl under the threshold untouched" {
+    for i in $(seq 1 400); do echo "line-$i"; done > "$UNITY_HOOK_STATE_DIR/subagent-log.jsonl"
+    run bash $HOOK < /dev/null
+    [ "$status" -eq 0 ]
+    [ "$(wc -l < "$UNITY_HOOK_STATE_DIR/subagent-log.jsonl" | tr -d ' ')" -eq 400 ]
+    [ "$(head -n 1 "$UNITY_HOOK_STATE_DIR/subagent-log.jsonl")" = "line-1" ]
+    [ "$(tail -n 1 "$UNITY_HOOK_STATE_DIR/subagent-log.jsonl")" = "line-400" ]
+}
+
+@test "session-restore trims task-log.jsonl to 500 lines" {
+    for i in $(seq 1 600); do echo "line-$i"; done > "$UNITY_HOOK_STATE_DIR/task-log.jsonl"
+    run bash $HOOK < /dev/null
+    [ "$status" -eq 0 ]
+    [ "$(wc -l < "$UNITY_HOOK_STATE_DIR/task-log.jsonl" | tr -d ' ')" -eq 500 ]
+}
+
+@test "session-restore removes session-warnings.txt" {
+    echo "some warning" > "$UNITY_HOOK_STATE_DIR/session-warnings.txt"
+    run bash $HOOK < /dev/null
+    [ "$status" -eq 0 ]
+    [ ! -e "$UNITY_HOOK_STATE_DIR/session-warnings.txt" ]
+}
+
+@test "session-restore removes skills-invoked.txt" {
+    echo "some-skill" > "$UNITY_HOOK_STATE_DIR/skills-invoked.txt"
+    run bash $HOOK < /dev/null
+    [ "$status" -eq 0 ]
+    [ ! -e "$UNITY_HOOK_STATE_DIR/skills-invoked.txt" ]
+}
+
+@test "session-restore removes stale graph-health-warned sentinels but keeps today's" {
+    touch "$UNITY_HOOK_STATE_DIR/graph-health-warned-2020-01-01"
+    local today
+    today="$(date -u +%Y-%m-%d)"
+    touch "$UNITY_HOOK_STATE_DIR/graph-health-warned-${today}"
+    run bash $HOOK < /dev/null
+    [ "$status" -eq 0 ]
+    [ ! -e "$UNITY_HOOK_STATE_DIR/graph-health-warned-2020-01-01" ]
+    [ -e "$UNITY_HOOK_STATE_DIR/graph-health-warned-${today}" ]
+}
+
+@test "session-restore is safe when none of the trimmed/cleared files exist" {
+    rm -f "$UNITY_HOOK_STATE_DIR/subagent-log.jsonl" \
+          "$UNITY_HOOK_STATE_DIR/task-log.jsonl" \
+          "$UNITY_HOOK_STATE_DIR/session-warnings.txt" \
+          "$UNITY_HOOK_STATE_DIR/skills-invoked.txt"
+    rm -f "$UNITY_HOOK_STATE_DIR"/graph-health-warned-*
+    run bash $HOOK < /dev/null
+    [ "$status" -eq 0 ]
+}

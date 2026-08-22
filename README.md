@@ -863,9 +863,11 @@ need the Unity Editor and MCP. Nothing here compiles anything.
 | `agent-stop-log` (SubagentStop) | Appends stop record with approximate duration to `.claude/state/subagent-log.jsonl`. Duration computed from matching SubagentStart timestamp; `-1` when no match. No `exit_code` in payload — pure audit trail. |
 | `task-completed-log` (TaskCompleted) | Appends success record to `.claude/state/task-log.jsonl` — `task_id`, `task_title`, `task_subject`, `team_name`. Fires on success only (no `status` field). |
 
+Neither writer caps its own file — `agent-stop-log` reads it backwards to find the matching `SubagentStart` line, and trimming there could drop that line out from under an in-flight agent. `session-restore.sh` trims both `subagent-log.jsonl` and `task-log.jsonl` to the newest 500 lines once, at SessionStart, when nothing is in flight — same `tail -n 500` pattern as `hook-logger.sh`/`instinct-capture.sh`.
+
 ### Subagent Audit Trail
 
-`agent-start-log`, `agent-stop-log`, and `task-completed-log` together give visibility into multi-agent pipeline runs (`/implement`, `/fix`, `/orchestrate`):
+`agent-start-log`, `agent-stop-log`, and `task-completed-log` together give visibility into multi-agent pipeline runs (`/implement`, `/fix`, `/orchestrate`). Queries below only see the newest 500 lines once a log has ever exceeded that threshold (SessionStart trim, above):
 
 ```bash
 # Which agents ran this session
