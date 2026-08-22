@@ -199,7 +199,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 |------|--------|
 | `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputService, AppScope; **Scripts/ folder rules** (only `Games/`, `Tests/`, `Editors/` at the top level; only `Abstracts/`, `Concretes/`, `Ecs/` under `Games/` — enforced fail-closed, with declared exceptions in `.claude/path-allowlist.txt`); **domain folder convention** (the first folder under `Games/Abstracts\|Concretes/` is a domain — never a layer like `Services/`, never a catch-all like `Core/`; free below it); **`Concretes/<Domain>/ARCHITECTURE.md` intent contract** (English, ≤40 lines, four fixed headings, no class names) |
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; namespace collision rule (`Game.Concretes.<Domain>` vs UnityEngine aliases) |
-| `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; material folder structure (`Arts/Materials/<Domain>/`); shader file structure (`_GameFolders/Arts/Shaders/`); URP shader rule (Standard forbidden) |
+| `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; material folder structure (`Arts/Materials/<Domain>/`); mesh folder structure (`Arts/Models/<Domain>/` — Blender exports land here); shader file structure (`_GameFolders/Arts/Shaders/`); URP shader rule (Standard forbidden) |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
@@ -528,6 +528,18 @@ Tests cover: builder flags (`--full`, `--incremental`, `--skip-mcp`, `--output`,
 
 `/setup-project` asks about each optional feature upfront and writes `.claude/project-features.json`. Hooks and commands automatically skip disabled features — no false warnings, no irrelevant rules.
 
+### Optional external tooling (not a Unity package)
+
+| Tool | Role | Wiring |
+|------|------|--------|
+| **Blender 5.1+** with the built-in `MCP` add-on (Blender Lab) | Authoring and exporting 3D assets from Claude Code | The add-on is **not** an MCP server — it is a raw TCP socket on `localhost:9876`. `.claude/scripts/blender-mcp-bridge.py` is the stdio MCP server that fronts it. Register once: `claude mcp add blender -- python3 "$(git rev-parse --show-toplevel)/.claude/scripts/blender-mcp-bridge.py"` |
+
+Not selected by `/setup-project` and not part of `project-features.json` — it needs no Unity
+package and affects no rule, so nothing has to be skipped when it is absent. Full contract,
+setup and the measured export flags: `.claude/skills/third-party/blender-mcp/SKILL.md`.
+Do **not** wire `uvx blender-mcp` here — that is the bridge for a different third-party add-on
+that binds the same port and speaks a different protocol.
+
 ---
 
 ## Usage Modes
@@ -713,7 +725,7 @@ DISABLE_HOOK_CHECK_PURE_CSHARP=1 claude
 
 Full profile documentation: `.claude/docs/hook-profiles.md`
 
-### Self-Tests — three layers, three different things measured
+### Self-Tests — four layers, four different things measured
 
 Do not read a green run in one layer as evidence about another. Measured 2026-08-21: two
 edits to the reviewer criteria passed all 417 hook tests, every cited line number and a
@@ -725,6 +737,7 @@ prompt; that is not a gap in them, it is the boundary of what they measure.
 | Hook behaviour | `.claude/hooks/tests/` | a hook's exit code for a given input | **Yes** — same input, same result |
 | Reviewer prompts | `.claude/tests/reviewer-fixtures/` | which criteria fire against planted defects, and whether a `GAP` verdict has a real violation behind it | No — LLM output varies |
 | Pipeline sequencing | `.claude/tests/pipeline-dry-run/` | gate order, and whether a pipeline creates its state file at the right step and removes it at the end | No — LLM output varies |
+| Binary asset contract | `.claude/tests/blender-fbx-probe/` | an exported `.fbx` after a real Unity import — world size, root scale, root euler, mesh/material/bone counts | **Yes** — real Blender + `Unity -batchmode`, no model in the loop |
 
 ```bash
 # Layer 1 — hook self-tests (requires bats-core)
@@ -737,7 +750,20 @@ FIXTURE_DIR="$(.claude/tests/reviewer-fixtures/make-fixture.sh)"
 
 # Layer 3 — pipeline dry run (generates a fake Unity project into a temp dir)
 SB="$(.claude/tests/pipeline-dry-run/make-sandbox.sh)"
+
+# Layer 4 — Blender -> FBX -> Unity probe (needs Blender + MCP add-on on an empty file,
+# and a Unity 6 Editor). Exit 0 = green. Run after changing the FBX export contract.
+.claude/tests/blender-fbx-probe/run-probe.sh
 ```
+
+Layer 4 is the only one besides the hook tests that is deterministic, and the only one that
+opens Unity. It exists because a `.fbx` is binary — no content hook can read it, so the
+pre-flight checks inside the export tool are the entire enforcement surface, and this harness
+is what verifies they are pointed at the right thing. Measured 2026-08-22: the export shipped
+with `apply_scale_options="FBX_SCALE_NONE"` and a size-only assertion; **all four** values of
+that flag pass a size-only check, including the two that import with a `scale=100` root and a
+`270.020°` rotation. On its first run the harness then disproved a claim in the skill it tests.
+Still covered by no layer: `TD-COMPILE` against real project code, PlayMode, prefab/scene work.
 
 **36 bats files / 417 tests** cover every blocking hook with happy path, blocking trigger,
 profile skip, and warn-mode scenarios — and all six `guard-*.sh` are covered there *and*
@@ -1304,6 +1330,7 @@ All skills under `skills/third-party/`, `skills/plugins/`, `skills/learned/`, an
 | `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
 | `netcode` | NGO 2.x — NetworkBehaviour, RPC, NetworkVariable, Spawn/Despawn, Scene management, VContainer + UniTask integration — 7 sub-docs |
 | `probuilder` | In-editor mesh modeling — shape generation, face/edge/vertex ops, UV unwrapping, Boolean ops, bake-to-asset workflow — api.md + integration.md |
+| `blender-mcp` | Blender → Unity asset pipeline — the official MCP add-on's raw-socket protocol, the stdio bridge, the Unity-verified FBX export contract, and the pre-flight refusals that replace the hook no binary asset can have |
 | `vcontainer` | Scope hierarchy, registration patterns, `IInitializable`/`IDisposable` lifecycle, DI failure diagnosis |
 
 **`skills/plugins/`** (flat `.md` skills + `/discover` output)
