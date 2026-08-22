@@ -94,6 +94,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid — + PITFALLS.md, CANCELLATION.md sub-docs |
 | `unity-editor-tools` | AssetDatabase, AssetPostprocessor, InitializeOnLoad, EditorPrefs, PrefabUtility, build pipeline hooks |
 | `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
+| `blender-mcp` | Blender → Unity asset pipeline — official MCP add-on protocol, the stdio bridge, Unity-correct FBX export contract, pre-flight refusals |
 | `vcontainer` | Scope hierarchy, registration, lifecycle interfaces, DI failure diagnosis |
 | `netcode` | NGO 2.x architecture rules — NetworkBehaviour, RPC, NetworkVariable, Spawn/Despawn, VContainer integration — + 7 sub-docs |
 | `probuilder` | ProBuilder in-editor mesh modeling — shape generation, face/edge/vertex ops, UV unwrapping, Boolean ops, bake-to-asset workflow — + api.md, integration.md |

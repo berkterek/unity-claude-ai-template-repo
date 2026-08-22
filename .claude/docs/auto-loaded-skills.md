@@ -25,3 +25,4 @@
 @.claude/skills/third-party/probuilder/SKILL.md
 @.claude/skills/third-party/probuilder/api.md
 @.claude/skills/third-party/probuilder/integration.md
+@.claude/skills/third-party/blender-mcp/SKILL.md
