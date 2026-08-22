@@ -102,6 +102,10 @@ Arts/
 │   ├── Characters/     ← Player, Enemy materials
 │   ├── VFX/            ← Particle, Effect materials
 │   └── UI/             ← UI-specific materials (rare)
+├── Models/             ← all .fbx meshes, by domain (Blender exports land here)
+│   ├── Items/
+│   ├── Environment/
+│   └── Characters/
 ├── Shaders/            ← all .shader (HLSL) and .shadergraph files
 └── Textures/           ← textures by domain
 ```
@@ -110,6 +114,7 @@ Arts/
 - Material files (.mat) are never placed inside `Prefabs/` folders
 - Shader files (.shader / .shadergraph) live in `_GameFolders/Arts/Shaders/` — never alongside materials or prefabs
 - Textures that belong to a material live in `Arts/Textures/<Domain>/`
+- Mesh files (.fbx) live in `Arts/Models/<Domain>/` — never inside `Prefabs/`. Blender exports go here; see `skills/third-party/blender-mcp/SKILL.md` for the export contract. **No hook verifies a mesh** — a `.fbx` is binary and every content hook reads text, so the pre-flight checks in the export tool are the only enforcement
 
 ## URP Shader Rule (NON-NEGOTIABLE)
 
