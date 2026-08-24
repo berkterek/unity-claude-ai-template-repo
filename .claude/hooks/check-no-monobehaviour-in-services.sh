@@ -19,7 +19,8 @@ _hook_log() {
     local lines; lines=$(wc -l < "$log" 2>/dev/null || echo 0)
     if [ "$lines" -gt 500 ]; then tail -n 500 "$log" > "${log}.tmp" && mv "${log}.tmp" "$log"; fi
 }
-trap '_hook_log $?' EXIT
+_cleanup_effective_file() { rm -f "${EFFECTIVE_FILE:-}" "${OLD_STRING_FILE:-}" "${NEW_STRING_FILE:-}"; }
+trap '_exit_code=$?; _cleanup_effective_file; _hook_log $_exit_code' EXIT
 # --- End Hook Audit Logging ---
 # Hook: Validates that service/domain C# files don't leak real Unity engine/scene API.
 # A `using UnityEngine` import is allowed when the file's only UnityEngine surface is the
@@ -45,34 +46,79 @@ fi
 # Skip Editor / third-party / test paths
 should_skip_path "$FILE_PATH" && exit 0
 
+# --- Compute the EFFECTIVE post-tool-call content ---
+# This hook runs PreToolUse: $FILE_PATH on disk is the file's state BEFORE the
+# pending Edit/Write is applied. Every check below used to grep/strip "$FILE_PATH"
+# directly, which means it validated the OLD file, not the one the agent is about
+# to produce. Concretely: once a file has ANY blocked line on disk, an Edit whose
+# whole purpose is to REMOVE that line still sees the unmodified disk content and
+# gets blocked forever — the file becomes permanently unfixable via Edit/Write.
+# Build the effective file here and run every check against it instead.
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+EFFECTIVE_FILE=$(mktemp)
+
+case "$TOOL_NAME" in
+    Write)
+        echo "$INPUT" | jq -j '.tool_input.content // empty' > "$EFFECTIVE_FILE"
+        ;;
+    Edit)
+        if [ -f "$FILE_PATH" ]; then
+            cp "$FILE_PATH" "$EFFECTIVE_FILE"
+        fi
+        OLD_STRING_FILE=$(mktemp)
+        NEW_STRING_FILE=$(mktemp)
+        echo "$INPUT" | jq -j '.tool_input.old_string // empty' > "$OLD_STRING_FILE"
+        echo "$INPUT" | jq -j '.tool_input.new_string // empty' > "$NEW_STRING_FILE"
+        REPLACE_ALL=$(echo "$INPUT" | jq -r '.tool_input.replace_all // false')
+        if [ -s "$OLD_STRING_FILE" ]; then
+            python3 - "$EFFECTIVE_FILE" "$OLD_STRING_FILE" "$NEW_STRING_FILE" "$REPLACE_ALL" <<'PYEOF' 2>/dev/null || true
+import sys
+target_path, old_path, new_path, replace_all = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "true"
+with open(target_path, "r", encoding="utf-8", errors="surrogateescape") as f:
+    content = f.read()
+with open(old_path, "r", encoding="utf-8", errors="surrogateescape") as f:
+    old = f.read()
+with open(new_path, "r", encoding="utf-8", errors="surrogateescape") as f:
+    new = f.read()
+content = content.replace(old, new) if replace_all else content.replace(old, new, 1)
+with open(target_path, "w", encoding="utf-8", errors="surrogateescape") as f:
+    f.write(content)
+PYEOF
+        fi
+        ;;
+    *)
+        # Unknown tool shape (shouldn't happen given the Edit|Write matcher) — fall
+        # back to disk content rather than validating an empty file.
+        if [ -f "$FILE_PATH" ]; then
+            cp "$FILE_PATH" "$EFFECTIVE_FILE"
+        fi
+        ;;
+esac
+
 # --- Check 1: *Handler : MonoBehaviour is forbidden (blocking) ---
 # Handler must be pure C# — never MonoBehaviour.
-if [ -f "$FILE_PATH" ]; then
-    HANDLER_MONO=$(grep -nE "class\s+\w+Handler\s*:\s*(MonoBehaviour|UnityEngine\.MonoBehaviour)" "$FILE_PATH" 2>/dev/null | head -5)
-    if [ -n "$HANDLER_MONO" ]; then
-        VIOLATION=$(echo "$HANDLER_MONO" | head -1 | sed 's/^[[:space:]]*//')
-        unity_hook_block "Handler classes must be pure C# — not MonoBehaviour.
+HANDLER_MONO=$(grep -nE "class\s+\w+Handler\s*:\s*(MonoBehaviour|UnityEngine\.MonoBehaviour)" "$EFFECTIVE_FILE" 2>/dev/null | head -5)
+if [ -n "$HANDLER_MONO" ]; then
+    VIOLATION=$(echo "$HANDLER_MONO" | head -1 | sed 's/^[[:space:]]*//')
+    unity_hook_block "Handler classes must be pure C# — not MonoBehaviour.
 File: $FILE_PATH
 
 Found: $VIOLATION
 
 Rule (solid-oop.md Card 1): *Handler suffix is forbidden on MonoBehaviour. Handler must be pure C# sealed class."
-    fi
 fi
 
 # --- Check 2: *Module : ScriptableObject is forbidden (blocking) ---
 # Module classes must be static — not ScriptableObject.
-if [ -f "$FILE_PATH" ]; then
-    MODULE_SO=$(grep -nE "class\s+\w+Module\s*:\s*(ScriptableObject|UnityEngine\.ScriptableObject)" "$FILE_PATH" 2>/dev/null | head -5)
-    if [ -n "$MODULE_SO" ]; then
-        VIOLATION=$(echo "$MODULE_SO" | head -1 | sed 's/^[[:space:]]*//')
-        unity_hook_block "*Module classes must be static — not ScriptableObject.
+MODULE_SO=$(grep -nE "class\s+\w+Module\s*:\s*(ScriptableObject|UnityEngine\.ScriptableObject)" "$EFFECTIVE_FILE" 2>/dev/null | head -5)
+if [ -n "$MODULE_SO" ]; then
+    VIOLATION=$(echo "$MODULE_SO" | head -1 | sed 's/^[[:space:]]*//')
+    unity_hook_block "*Module classes must be static — not ScriptableObject.
 File: $FILE_PATH
 
 Found: $VIOLATION
 
 Rule (bootstrap-pattern.md): Modules are static classes. Use [Module]Module.Install(builder, config) pattern."
-    fi
 fi
 
 # --- Check 3: UnityEngine imports in domain/service files (blocking) ---
@@ -99,14 +145,14 @@ if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.
         exit 0
     fi
 
-    if [ -f "$FILE_PATH" ]; then
-        STRIPPED=$(strip_cs_noise "$FILE_PATH")
+    if [ -s "$EFFECTIVE_FILE" ]; then
+        STRIPPED=$(strip_cs_noise "$EFFECTIVE_FILE")
         # Structural justification: a real MonoBehaviour ([SerializeField] or lifecycle
         # callback) is allowed to touch UnityEngine even in a domain folder.
         if echo "$STRIPPED" | unity_monobehaviour_is_justified; then
             exit 0
         fi
-        UNITY_IMPORTS=$(grep -n "using UnityEngine" "$FILE_PATH" 2>/dev/null)
+        UNITY_IMPORTS=$(grep -n "using UnityEngine" "$EFFECTIVE_FILE" 2>/dev/null)
         if [ -n "$UNITY_IMPORTS" ]; then
             # `using UnityEngine` is present and this is NOT a justified MonoBehaviour.
             # It is a LEAK only if the file references real engine/scene/asset/input/time API.

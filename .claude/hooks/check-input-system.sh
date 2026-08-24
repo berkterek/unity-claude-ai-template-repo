@@ -19,7 +19,8 @@ _hook_log() {
     local lines; lines=$(wc -l < "$log" 2>/dev/null || echo 0)
     if [ "$lines" -gt 500 ]; then tail -n 500 "$log" > "${log}.tmp" && mv "${log}.tmp" "$log"; fi
 }
-trap '_hook_log $?' EXIT
+_cleanup_effective_file() { rm -f "${EFFECTIVE_FILE:-}" "${OLD_STRING_FILE:-}" "${NEW_STRING_FILE:-}"; }
+trap '_exit_code=$?; _cleanup_effective_file; _hook_log $_exit_code' EXIT
 # --- End Hook Audit Logging ---
 # Hook: Validates Input System usage patterns
 # Catches: legacy Input API, missing Enable/Disable, input in FixedUpdate
@@ -43,10 +44,51 @@ fi
 # Skip Editor / third-party / test paths
 should_skip_path "$FILE_PATH" && exit 0
 
+# --- Compute the EFFECTIVE post-tool-call content ---
+# This hook runs PreToolUse: $FILE_PATH on disk is the file's state BEFORE the
+# pending Edit/Write is applied. Checking that stale content means a BLOCKING
+# violation already on disk can never be cleared — even an edit that removes
+# the offending line still sees the unmodified disk file. Build the effective
+# post-edit file and run every check against it instead.
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+EFFECTIVE_FILE=$(mktemp)
+
+case "$TOOL_NAME" in
+    Write)
+        echo "$INPUT" | jq -j '.tool_input.content // empty' > "$EFFECTIVE_FILE"
+        ;;
+    Edit)
+        cp "$FILE_PATH" "$EFFECTIVE_FILE"
+        OLD_STRING_FILE=$(mktemp)
+        NEW_STRING_FILE=$(mktemp)
+        echo "$INPUT" | jq -j '.tool_input.old_string // empty' > "$OLD_STRING_FILE"
+        echo "$INPUT" | jq -j '.tool_input.new_string // empty' > "$NEW_STRING_FILE"
+        REPLACE_ALL=$(echo "$INPUT" | jq -r '.tool_input.replace_all // false')
+        if [ -s "$OLD_STRING_FILE" ]; then
+            python3 - "$EFFECTIVE_FILE" "$OLD_STRING_FILE" "$NEW_STRING_FILE" "$REPLACE_ALL" <<'PYEOF' 2>/dev/null || true
+import sys
+target_path, old_path, new_path, replace_all = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "true"
+with open(target_path, "r", encoding="utf-8", errors="surrogateescape") as f:
+    content = f.read()
+with open(old_path, "r", encoding="utf-8", errors="surrogateescape") as f:
+    old = f.read()
+with open(new_path, "r", encoding="utf-8", errors="surrogateescape") as f:
+    new = f.read()
+content = content.replace(old, new) if replace_all else content.replace(old, new, 1)
+with open(target_path, "w", encoding="utf-8", errors="surrogateescape") as f:
+    f.write(content)
+PYEOF
+        fi
+        ;;
+    *)
+        cp "$FILE_PATH" "$EFFECTIVE_FILE"
+        ;;
+esac
+
 ISSUES=""
 
 # Strip comments and string literals to avoid false positives
-STRIPPED=$(strip_cs_noise "$FILE_PATH")
+STRIPPED=$(strip_cs_noise "$EFFECTIVE_FILE")
 
 # --- Check 1: Legacy Input API usage ---
 LEGACY_INPUT=$(echo "$STRIPPED" | grep -nE "\bInput\.(GetKey|GetAxis|GetButton|GetMouseButton|mousePosition|touches|GetTouch|touchCount|anyKey|inputString)\b")
