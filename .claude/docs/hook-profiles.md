@@ -122,7 +122,13 @@ job — the decision is recorded, not forgotten.
 
 | Script | Why it is not wired |
 |--------|--------------------|
-| `check-new-service.sh` | Blocks `new *Service()` / `new *Provider()` anywhere and `new *Handler()` outside a `*Controller`/`*View` file (`csharp-unity.md` → Constructor Injection Rule). It reads the file from **disk**, so it can only run as PostToolUse — which would mean the offending C# is written first and blocked after. That contract is acceptable for a markdown doc (`check-architecture-doc.sh`) but not for source code: the block would leave rule-violating C# on disk with no way to prevent it. Registering it requires first rewriting it to read `tool_input.content`/`new_string` so it can run as PreToolUse. Until then the rule stays prose-enforced, with `check-vcontainer-singleton.sh` covering the singleton half. |
 
 **Not a valid reason to leave a hook here:** "it has no tests" or "nobody registered it yet." Both are
 fixable in one sitting. Only a genuine design blocker belongs in this table, stated explicitly.
+
+> **2026-08-29 correction:** `check-new-service.sh` used to be listed here as unregistered/disk-reading.
+> That description was stale — the hook was already rewritten to read the effective post-edit content
+> (see `check-new-service.sh`'s Check 1/2/3 and `CLAUDE.md`'s `PreToolUse`-effective-content finding)
+> and is registered in `settings.json` as `PreToolUse` on `Edit|Write`. Full behavior now documented
+> in `hooks-blocking.md`. Table left empty rather than deleted so a future audit can see the slot exists
+> when a genuinely-unwired hook needs recording again.
