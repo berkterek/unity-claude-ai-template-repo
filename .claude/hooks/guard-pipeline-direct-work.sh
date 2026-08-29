@@ -51,7 +51,11 @@ if [ -f "$OVERRIDE_FILE" ]; then
     exit 0
 fi
 
-CURRENT_DEPTH=$(cat "$DEPTH_FILE" 2>/dev/null || echo 0)
+# unity_subagent_depth() (not a raw `cat`) — it applies any scheduled decrement
+# whose grace window has elapsed first (see agent-stop-log.sh / _lib.sh's
+# unity_subagent_schedule_decrement: Stop fires on async dispatch ack, not on
+# actual subagent completion, so decrements are deferred rather than immediate).
+CURRENT_DEPTH=$(unity_subagent_depth)
 
 # Staleness guard. The depth counter leaks (see agent-start-log.sh): any spawn
 # whose PostToolUse Stop never fires leaves the count permanently high, and a high

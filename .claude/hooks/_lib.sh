@@ -199,9 +199,10 @@ UNITY_ENGINE_LEAK_RE='\b(SceneManager|Addressables|GameObject|MonoBehaviour|Tran
 # unity_subagent_depth — how many subagents are currently on the stack.
 #
 # Echoes a sanitized integer: 0 when the file is missing, empty, or non-numeric.
-# The counter is written by agent-start-log.sh / agent-stop-log.sh and it LEAKS
-# (see agent-start-log.sh for the measurement) — treat the value as a hint, never
-# as fact.
+# The counter is written by agent-start-log.sh (increment) / agent-stop-log.sh
+# (schedules a delayed decrement — see unity_subagent_apply_pending_decrements)
+# and it LEAKS (see agent-start-log.sh for the measurement) — treat the value
+# as a hint, never as fact.
 #
 # Deliberately does NOT apply a staleness rule, because the safe direction is not
 # the same for every caller:
@@ -214,12 +215,75 @@ UNITY_ENGINE_LEAK_RE='\b(SceneManager|Addressables|GameObject|MonoBehaviour|Tran
 #     like the Director.
 # Each caller layers its own direction on top of this value.
 unity_subagent_depth() {
+    unity_subagent_apply_pending_decrements
     local depth
     depth=$(cat "${UNITY_HOOK_STATE_DIR}/subagent-depth" 2>/dev/null || echo 0)
     case "$depth" in
         ''|*[!0-9]*) depth=0 ;;
     esac
     echo "$depth"
+}
+
+# unity_subagent_stop_grace_seconds — how long a Stop's decrement is deferred
+# past the matching Start, before it's allowed to actually apply. Override with
+# UNITY_SUBAGENT_STOP_GRACE_SECONDS (tests point this at 0 for immediate decrement).
+UNITY_SUBAGENT_STOP_GRACE_SECONDS="${UNITY_SUBAGENT_STOP_GRACE_SECONDS:-180}"
+
+# unity_subagent_schedule_decrement <not_before_epoch> — called by
+# agent-stop-log.sh instead of decrementing subagent-depth immediately.
+#
+# Root cause (found 2026-08-29): in this harness the Agent tool dispatches
+# asynchronously — PostToolUse:Agent fires on dispatch acknowledgement, not on
+# the subagent's actual completion. Measured: duration_approx_s (Start→Stop, the
+# only interval agent-stop-log.sh could see) was 1-3s for three subagents whose
+# own reported usage.duration_ms was 45,000-54,000ms. Decrementing depth at Stop
+# time therefore reads depth back to 0 while the subagent is still genuinely
+# running — including at the exact moment it calls Write — which is what made
+# guard-pipeline-direct-work.sh block real coder/tester subagents.
+#
+# There is no reliable "subagent actually finished" event available to hooks in
+# this harness (native SubagentStart/SubagentStop don't fire consistently either
+# — see agent-start-log.sh; TaskCompleted tracks todo-list items, not Agent
+# dispatches, and does not correlate 1:1 with them). So the decrement is deferred
+# by a heuristic grace window anchored to the Start timestamp — not exact, but
+# closer than trusting the async Stop signal. Recorded, never applied inline,
+# so a caller in the middle of computing a decision doesn't pay a sleep.
+unity_subagent_schedule_decrement() {
+    local not_before="$1"
+    local pending="${UNITY_HOOK_STATE_DIR}/subagent-depth-pending.jsonl"
+    case "$not_before" in ''|*[!0-9]*) return 0 ;; esac
+    unity_subagent_depth_lock
+    jq -nc --argjson not_before "$not_before" '{not_before:$not_before}' >> "$pending"
+    unity_subagent_depth_unlock
+}
+
+# unity_subagent_apply_pending_decrements — applies every scheduled decrement
+# whose grace window has elapsed, then drops those entries from the pending
+# file. Called lazily by unity_subagent_depth() on every read — there is no
+# background timer in a stateless hook system, so "later" means "the next time
+# anything asks what the depth is".
+unity_subagent_apply_pending_decrements() {
+    local depth_file="${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    local pending="${UNITY_HOOK_STATE_DIR}/subagent-depth-pending.jsonl"
+    [ -s "$pending" ] || return 0
+
+    local now due remaining
+    now=$(date +%s)
+
+    unity_subagent_depth_lock
+    due=$(jq -c --argjson now "$now" 'select(.not_before <= $now)' "$pending" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${due:-0}" -gt 0 ] 2>/dev/null; then
+        remaining=$(jq -c --argjson now "$now" 'select(.not_before > $now)' "$pending" 2>/dev/null)
+        local current new
+        current=$(cat "$depth_file" 2>/dev/null || echo 0)
+        case "$current" in ''|*[!0-9]*) current=0 ;; esac
+        new=$(( current - due ))
+        [ "$new" -lt 0 ] && new=0
+        echo "$new" > "$depth_file"
+        printf '%s\n' "$remaining" > "$pending"
+        [ -s "$pending" ] || : > "$pending"
+    fi
+    unity_subagent_depth_unlock
 }
 
 # unity_subagent_depth_lock / _unlock — mutual exclusion around the

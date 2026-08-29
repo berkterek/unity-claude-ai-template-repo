@@ -42,6 +42,7 @@ unset _hook
 # no-op with nothing on screen to say so. Resetting here bounds the leak to one
 # session.
 echo 0 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
+rm -f "${UNITY_HOOK_STATE_DIR}/subagent-depth-pending.jsonl"
 
 # Clear stale gateguard state from previous sessions
 rm -f "$UNITY_READS_FILE" "$UNITY_EDITS_FILE" "$UNITY_COST_FILE" "$UNITY_LEARNING_FILE" \

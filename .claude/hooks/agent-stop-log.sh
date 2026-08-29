@@ -27,6 +27,7 @@ STOPPED_EPOCH=$(date +%s)
 SUBAGENT_LOG="${UNITY_HOOK_STATE_DIR}/subagent-log.jsonl"
 
 DURATION_APPROX_S=-1
+START_EPOCH=0
 if [ -f "$SUBAGENT_LOG" ]; then
     START_TS=$(jq -rs --arg desc "$DESCRIPTION" \
         '[.[] | select(.event=="SubagentStart" and .description==$desc)] | last | .started_at // empty' \
@@ -40,6 +41,12 @@ if [ -f "$SUBAGENT_LOG" ]; then
         fi
     fi
 fi
+# Anchor the decrement's grace window on the matched Start, not "now" — Stop
+# fires on async dispatch ack, seconds after Start, so scheduling from "now"
+# would barely differ from not scheduling at all. Falls back to STOPPED_EPOCH
+# only when no matching Start was found (unmatched Stop, e.g. mid-session hook
+# reload) — same conservative default the old immediate-decrement code used.
+[ "${START_EPOCH:-0}" -gt 0 ] 2>/dev/null || START_EPOCH=$STOPPED_EPOCH
 
 jq -nc \
     --arg  event         "SubagentStop" \
@@ -60,14 +67,16 @@ jq -nc \
 # pipeline's own final step — backed by the 45-minute TTL and the session-restore.sh
 # SessionStart safety net. This hook is a pure audit trail and mutates no gate state.
 
-# Depth counter — mirror of the increment in agent-start-log.sh. Floors at 0 so
-# an unmatched Stop (e.g. mid-session hook reload) can't go negative.
-DEPTH_FILE="${UNITY_HOOK_STATE_DIR}/subagent-depth"
-unity_subagent_depth_lock
-CURRENT_DEPTH=$(cat "$DEPTH_FILE" 2>/dev/null || echo 0)
-NEW_DEPTH=$(( CURRENT_DEPTH - 1 ))
-[ "$NEW_DEPTH" -lt 0 ] && NEW_DEPTH=0
-echo "$NEW_DEPTH" > "$DEPTH_FILE"
-unity_subagent_depth_unlock
+# Depth counter — the decrement mirroring agent-start-log.sh's increment is NOT
+# applied here. Found 2026-08-29: this Stop fires on the Agent tool's async
+# dispatch acknowledgement, not on the subagent's actual completion (measured
+# duration_approx_s of 1-3s against a real usage.duration_ms of 45-54s for the
+# same calls) — decrementing immediately read depth back to 0 while the
+# subagent was still genuinely running, which is exactly what let
+# guard-pipeline-direct-work.sh block real coder/tester subagents mid-Write.
+# The decrement is scheduled instead, anchored on the matched Start timestamp
+# plus a grace window (see unity_subagent_schedule_decrement in _lib.sh), and
+# applied lazily the next time anything reads unity_subagent_depth().
+unity_subagent_schedule_decrement $(( START_EPOCH + UNITY_SUBAGENT_STOP_GRACE_SECONDS ))
 
 exit 0
