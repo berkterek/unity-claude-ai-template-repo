@@ -5,7 +5,12 @@ source "${SCRIPT_DIR}/_lib.sh"
 
 # Feature gate — only run when ECS is enabled. Redirectable via UNITY_FEATURES_FILE
 # (tests point this at a temp file). enum-byte-base is an ECS/IEvent-only rule.
-UNITY_FEATURES_FILE="${UNITY_FEATURES_FILE:-$(git rev-parse --show-toplevel 2>/dev/null)/.claude/project-features.json}"
+# CLAUDE_PROJECT_DIR first, git rev-parse fallback (2026-08-29, same class of bug as
+# _lib.sh's _resolve_state_dir): a subagent's cwd is not guaranteed to be the repo root,
+# so an empty git rev-parse here silently produced "/.claude/project-features.json" —
+# jq fails to find it, .ecs reads as not "true", and this check silently no-ops inside
+# a subagent even when ECS is genuinely enabled project-wide.
+UNITY_FEATURES_FILE="${UNITY_FEATURES_FILE:-${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/project-features.json}"
 [ "$(jq -r '.ecs // false' "$UNITY_FEATURES_FILE" 2>/dev/null)" = "true" ] || exit 0
 
 # --- Hook Audit Logging ---

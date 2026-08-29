@@ -58,11 +58,15 @@ esac
 [ ! -f "$FILE_PATH" ] || exit 0
 
 # --- Degrade gate 1: graph feature disabled ---
-UNITY_FEATURES_FILE="${UNITY_FEATURES_FILE:-$(git rev-parse --show-toplevel 2>/dev/null)/.claude/project-features.json}"
+# CLAUDE_PROJECT_DIR first, git rev-parse fallback (2026-08-29): a bare git rev-parse
+# here is cwd-dependent, and a subagent's cwd is not guaranteed to be the repo root —
+# an empty result silently mis-resolves both files below and this check no-ops inside
+# a subagent even when the graph feature and graph.json genuinely exist.
+UNITY_FEATURES_FILE="${UNITY_FEATURES_FILE:-${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/project-features.json}"
 [ "$(jq -r '.graph // false' "$UNITY_FEATURES_FILE" 2>/dev/null)" = "true" ] || exit 0
 
 # --- Degrade gate 2: graph file missing ---
-UNITY_GRAPH_FILE="${UNITY_GRAPH_FILE:-$(git rev-parse --show-toplevel 2>/dev/null)/.claude/graph/graph.json}"
+UNITY_GRAPH_FILE="${UNITY_GRAPH_FILE:-${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}/.claude/graph/graph.json}"
 [ -f "$UNITY_GRAPH_FILE" ] || exit 0
 
 # --- Degrade gate 3: no symbols extracted yet (the shipped-template case) ---

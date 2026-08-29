@@ -32,9 +32,21 @@ UNITY_ALLOWED_SCRIPTS_FOLDERS="Games Tests Editors"
 UNITY_ALLOWED_GAMES_FOLDERS="Abstracts Concretes Ecs"
 
 # unity_path_allowlist_file — resolves .claude/path-allowlist.txt
+#
+# CLAUDE_PROJECT_DIR first (same fix as _lib.sh's _resolve_state_dir, 2026-08-29):
+# git rev-parse depends on cwd, and a subagent's tool-execution context is not
+# guaranteed to run from the repo root. Falling through to "." there resolves
+# the allowlist relative to whatever cwd the subagent happens to have, so a
+# real, reviewed allowlist entry silently stops matching inside a subagent —
+# check-domain-folder-structure.sh then blocks a path that plan/architecture.md
+# already approved.
 unity_path_allowlist_file() {
     local root
-    root="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+    if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR/.claude" ]; then
+        root="$CLAUDE_PROJECT_DIR"
+    else
+        root="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+    fi
     echo "$root/.claude/path-allowlist.txt"
 }
 

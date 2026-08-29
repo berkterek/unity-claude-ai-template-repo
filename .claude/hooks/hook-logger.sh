@@ -28,8 +28,12 @@ log_hook() {
     local timestamp
     timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+    # CLAUDE_PROJECT_DIR first, git rev-parse/pwd fallback (2026-08-29): inside a
+    # subagent whose cwd isn't the repo root, a bare git rev-parse (or pwd) resolves
+    # to the wrong directory, so relative_path below fails to strip and every audit
+    # line logs a full absolute path under the wrong "project" label instead.
     local project_root
-    project_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+    project_root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 
     local relative_path="${file_path#$project_root/}"
 

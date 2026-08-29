@@ -49,8 +49,11 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-# Resolve project root (portable across any repo layout)
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+# Resolve project root (portable across any repo layout).
+# CLAUDE_PROJECT_DIR first, git rev-parse fallback (2026-08-29): a subagent's cwd is
+# not guaranteed to be the repo root, so a bare git rev-parse can come back empty and
+# silently exit this guard for a Read that should have been blocked.
+PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 if [ -z "$PROJECT_ROOT" ]; then
     exit 0
 fi
