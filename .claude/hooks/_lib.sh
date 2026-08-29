@@ -56,7 +56,24 @@ fi
 
 # --- Shared paths ---
 # Resolve project-local state directory, falling back to /tmp
+#
+# CLAUDE_PROJECT_DIR first, git rev-parse as fallback (fixed 2026-08-29).
+# Every hook is invoked by the harness as "$CLAUDE_PROJECT_DIR"/.claude/hooks/<script>.sh
+# (settings.json), so that variable is proven correct on every single invocation — including
+# from inside a spawned subagent's own tool-execution context, where `pwd` is not guaranteed
+# to be the repo root. `git rev-parse --show-toplevel` depends on cwd: a subagent whose tool
+# calls execute from a different working directory silently resolves to a DIFFERENT git root
+# (or none), and this function then falls through to /tmp/unity-claude-hooks — an
+# always-fresh, always-zero directory. Every reader of subagent-depth in that subagent's
+# process then reads 0 no matter what the main session already incremented it to.
+# Root-caused 2026-08-29: guard-pipeline-direct-work.sh blocked real coder/tester subagent
+# Writes during /orchestrate because their hook invocations were silently writing to (and
+# reading from) this /tmp fallback instead of the repo's real .claude/state/.
 _resolve_state_dir() {
+    if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -d "$CLAUDE_PROJECT_DIR/.claude/state" ]; then
+        echo "$CLAUDE_PROJECT_DIR/.claude/state"
+        return
+    fi
     local git_root
     git_root="$(git rev-parse --show-toplevel 2>/dev/null)" || true
     if [ -n "$git_root" ] && [ -d "$git_root/.claude/state" ]; then
