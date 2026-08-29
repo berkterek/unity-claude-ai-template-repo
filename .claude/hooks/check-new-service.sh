@@ -96,10 +96,17 @@ esac
 # Strip comments and string literals to avoid false positives
 STRIPPED=$(strip_cs_noise "$EFFECTIVE_FILE")
 
-# --- Check 1: new *Service( — forbidden everywhere ---
+# --- Check 1: new *Service( — forbidden, except inside *Module.cs factory registrations ---
+# *Module.cs is exempt for the same reason as the Handler check below: architecture.md →
+# "Handler Factory — VContainer Func<> Pattern" requires constructing dependencies with
+# raw/config parameters inside a factory lambda registered in the module's Install() method,
+# e.g. builder.RegisterFactory<int, ILevelService>(c => id => new LevelService(id, c.Resolve<IFoo>()), ...).
+# The exemption is filename-wide, not factory-scoped, for the same reason as Check 3.
 SERVICE_VIOLATIONS=$(echo "$STRIPPED" | grep -nE "\bnew\s+\w+Service\s*\(" | head -10)
 if [ -n "$SERVICE_VIOLATIONS" ]; then
-    unity_hook_block "Forbidden: 'new *Service()' or 'new *Provider()' in runtime code.
+    FILENAME=$(basename "$FILE_PATH")
+    if ! echo "$FILENAME" | grep -qiE "Module\.cs$"; then
+        unity_hook_block "Forbidden: 'new *Service()' or 'new *Provider()' in runtime code.
 File: $FILE_PATH
 
 Lines:
@@ -107,12 +114,16 @@ $SERVICE_VIOLATIONS
 
 VContainer handles construction and injection. Declare as constructor parameter instead.
 Rule: csharp-unity.md → Constructor injection rule."
+    fi
 fi
 
-# --- Check 2: new *Provider( — forbidden everywhere ---
+# --- Check 2: new *Provider( — forbidden, except inside *Module.cs factory registrations ---
+# Same exemption and rationale as Check 1.
 PROVIDER_VIOLATIONS=$(echo "$STRIPPED" | grep -nE "\bnew\s+\w+Provider\s*\(" | head -10)
 if [ -n "$PROVIDER_VIOLATIONS" ]; then
-    unity_hook_block "Forbidden: 'new *Service()' or 'new *Provider()' in runtime code.
+    FILENAME=$(basename "$FILE_PATH")
+    if ! echo "$FILENAME" | grep -qiE "Module\.cs$"; then
+        unity_hook_block "Forbidden: 'new *Service()' or 'new *Provider()' in runtime code.
 File: $FILE_PATH
 
 Lines:
@@ -120,6 +131,7 @@ $PROVIDER_VIOLATIONS
 
 VContainer handles construction and injection. Declare as constructor parameter instead.
 Rule: csharp-unity.md → Constructor injection rule."
+    fi
 fi
 
 # --- Check 3: new *Handler( — only allowed inside *Controller, *View or *Module files ---
