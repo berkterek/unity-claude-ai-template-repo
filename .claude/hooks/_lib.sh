@@ -205,6 +205,38 @@ unity_subagent_depth() {
     echo "$depth"
 }
 
+# unity_subagent_depth_lock / _unlock — mutual exclusion around the
+# read-modify-write on subagent-depth.
+#
+# Root cause fixed here: agent-start-log.sh and agent-stop-log.sh each did
+# `read current -> add/subtract 1 -> write` with no atomicity. Two PreToolUse
+# hooks firing for a parallel Agent dispatch (or a Start racing a Stop) could
+# both read the same value before either write landed — a classic lost-update.
+# Measured 2026-08-29: 4 parallel Agent spawns left the counter at 1 instead
+# of 4, and guard-pipeline-direct-work.sh subsequently treated a genuinely
+# running subagent's first Write as if no subagent existed.
+#
+# mkdir is atomic on every POSIX filesystem this project targets (single
+# syscall, exactly one caller wins) — used here as a lock, not a marker-per-
+# agent scheme, to keep the on-disk shape (one scalar file) and every existing
+# reader/remediation string ("echo 0 > .../subagent-depth") unchanged.
+# Bounded to ~5s (50 * 0.1s) so a crashed holder can't wedge every future
+# Agent spawn — on timeout the caller proceeds unlocked, which reintroduces
+# the race only in that pathological case instead of hanging the pipeline.
+unity_subagent_depth_lock() {
+    local lockdir="${UNITY_HOOK_STATE_DIR}/subagent-depth.lock"
+    local tries=0
+    while ! mkdir "$lockdir" 2>/dev/null; do
+        tries=$((tries + 1))
+        [ "$tries" -ge 50 ] && break
+        sleep 0.1
+    done
+}
+
+unity_subagent_depth_unlock() {
+    rmdir "${UNITY_HOOK_STATE_DIR}/subagent-depth.lock" 2>/dev/null || true
+}
+
 # unity_track_edit — record a file edit for session tracking
 unity_track_edit() {
     local file_path="$1"

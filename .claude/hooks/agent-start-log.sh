@@ -76,8 +76,10 @@ jq -nc \
 # that Stop fires on every path.
 if [ "$IS_RETRY" -eq 0 ]; then
     DEPTH_FILE="${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    unity_subagent_depth_lock
     CURRENT_DEPTH=$(cat "$DEPTH_FILE" 2>/dev/null || echo 0)
     echo $(( CURRENT_DEPTH + 1 )) > "$DEPTH_FILE"
+    unity_subagent_depth_unlock
 fi
 
 exit 0
