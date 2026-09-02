@@ -17,7 +17,7 @@ _hook_log() {
     else status="WARN"; fi
     printf '{"ts":"%s","hook":"%s","status":"%s","file":"%s","project":"%s"}\n' "$ts" "check-getcomponent-in-awake" "$status" "$file" "$proj" >> "$log"
     local lines; lines=$(wc -l < "$log" 2>/dev/null || echo 0)
-    if [ "$lines" -gt 500 ]; then tail -n 500 "$log" > "${log}.tmp" && mv "${log}.tmp" "$log"; fi
+    if [ "$lines" -gt 500 ]; then local tmp="${log}.$$.tmp"; tail -n 500 "$log" > "$tmp" 2>/dev/null && mv "$tmp" "$log" 2>/dev/null; rm -f "$tmp"; fi
 }
 trap '_hook_log $?' EXIT
 # --- End Hook Audit Logging ---
