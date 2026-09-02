@@ -92,10 +92,19 @@ rm -f "${UNITY_HOOK_STATE_DIR}/gateguard-facts-passed.txt" \
       "${UNITY_HOOK_STATE_DIR}/config-asmdef-passed.txt" \
       "${UNITY_HOOK_STATE_DIR}/config-asmdef-denied.txt"
 
-# Expire the Director Gate from the previous session. Gate is scoped to exactly
-# one session: written on user approval, deleted by agent-stop-log.sh when the
-# committer finishes, and force-expired here at SessionStart as a safety net.
-rm -f "${UNITY_HOOK_STATE_DIR}/gate-cleared"
+# Expire every human-approval gate from the previous session. Each is scoped to
+# exactly one session: written on user approval, torn down by the pipeline step
+# that opened it, bounded by its own TTL, and force-expired here at SessionStart
+# as the safety net for a pipeline that was interrupted or errored out.
+#
+# agent-stop-log.sh does NOT delete these and must not — it once deleted
+# gate-cleared when the committer stopped, which tore the gate down mid-pipeline
+# in /orchestrate (it commits after every phase and then continues).
+#
+# sparc-approved was missing from this line. It was invisible only because
+# session-save.sh deleted it on every turn-end, which was itself the bug.
+rm -f "${UNITY_HOOK_STATE_DIR}/gate-cleared" \
+      "${UNITY_HOOK_STATE_DIR}/sparc-approved"
 
 # Prune stale agent worktrees from interrupted sessions.
 # When a session is force-killed (Cmd+C, crash, OS kill), the Claude Code process

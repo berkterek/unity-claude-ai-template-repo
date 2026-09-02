@@ -437,8 +437,13 @@ PYEOF
 # a gate on a stale approval.
 UNITY_GATE_TTL=2700
 
+# Takes an optional gate name so every human-approval gate shares one TTL policy
+# instead of each hook inventing its own. Defaults to gate-cleared, so existing
+# no-argument callers are unchanged. Added when sparc-approved turned out to have
+# NO expiry at all — it was being deleted on every turn-end instead, which is a
+# different bug wearing the same clothes (see session-save.sh).
 unity_gate_cleared_valid() {
-    local gate_file="${UNITY_HOOK_STATE_DIR}/gate-cleared"
+    local gate_file="${UNITY_HOOK_STATE_DIR}/${1:-gate-cleared}"
     [ -f "$gate_file" ] || return 1
 
     local age

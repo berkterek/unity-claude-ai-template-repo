@@ -134,12 +134,23 @@ if [ -n "$SESSION_DURATION" ]; then
 fi
 
 # --- Auto-expire ephemeral pipeline gate state ---
-# gate-cleared is intentionally excluded here: Stop fires after every Claude turn,
-# so expiring it here would delete the gate between pipeline agents in the same
-# session — causing re-approval on every turn. Gate lifecycle is hook-managed:
-# agent-stop-log.sh deletes it when committer finishes; session-restore.sh
-# force-expires it at SessionStart as a safety net for interrupted pipelines.
-for _gate in graph-empty-warned sparc-approved codex-reviewed plan-state.json verify-state.json agent-context.json; do
+# HUMAN-APPROVAL gates are excluded here. Stop fires after every Claude turn, so
+# expiring one here deletes it between the agents of a single pipeline and forces
+# re-approval every turn. Their lifecycle is: written on user approval, expired by
+# their own TTL (unity_gate_cleared_valid), force-cleared at SessionStart by
+# session-restore.sh as the safety net for interrupted pipelines. Teardown belongs
+# to whoever opened the gate — the pipeline's own final step.
+#
+# gate-cleared was excluded from the start. sparc-approved was NOT, and the effect
+# was measured in a real project: a multi-turn phase had to re-open SPARC_GATE on
+# every single turn. Excluding it needed two companion changes, or the fix would
+# just swap one bug for another — it had no TTL and session-restore.sh did not
+# clear it, so on its own this line would have made an approval immortal.
+#
+# The remaining entries are per-turn scratch (a warn-once flag, a review receipt,
+# transient pipeline state). If you add a gate that a HUMAN approves, it does not
+# belong in this list.
+for _gate in graph-empty-warned codex-reviewed plan-state.json verify-state.json agent-context.json; do
     _path="${UNITY_HOOK_STATE_DIR}/${_gate}"
     if [ -e "$_path" ]; then
         rm -f "$_path"

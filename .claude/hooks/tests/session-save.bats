@@ -22,10 +22,24 @@ teardown() {
     [ -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
 }
 
-@test "session-save auto-expires sparc-approved" {
+# Reversed 2026-09-02, deliberately. This test asserted the bug: Stop fires after
+# every Claude turn, so expiring a HUMAN-approval gate here forced a multi-turn phase
+# to re-open SPARC_GATE once per turn — measured in a real project. sparc-approved is
+# the same class as gate-cleared, which was excluded from this list from the start.
+# The bound that replaced the deletion is a TTL in guard-sparc-approved.sh plus a
+# SessionStart clear in session-restore.sh; both are asserted in their own suites.
+@test "session-save does NOT expire sparc-approved — it is a human-approval gate" {
+    touch "$UNITY_HOOK_STATE_DIR/sparc-approved"
     run bash .claude/hooks/session-save.sh < /dev/null
     [ "$status" -eq 0 ]
-    [ ! -e "$UNITY_HOOK_STATE_DIR/sparc-approved" ]
+    [ -e "$UNITY_HOOK_STATE_DIR/sparc-approved" ]
+}
+
+@test "session-save does NOT expire gate-cleared either — same class, same reason" {
+    touch "$UNITY_HOOK_STATE_DIR/gate-cleared"
+    run bash .claude/hooks/session-save.sh < /dev/null
+    [ "$status" -eq 0 ]
+    [ -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
 }
 
 @test "session-save auto-expires codex-reviewed" {
