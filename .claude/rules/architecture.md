@@ -517,6 +517,56 @@ Concrete type names come from `/knowledge-graph implementers <interface>`, not f
 
 Missing doc → warning (`check-architecture-doc.sh`, exit 0). Malformed doc → block (exit 2). The reading side of this convention — which agents and commands consult these docs — is tracked in `docs/PLAN_architecture_doc_consumption.md`.
 
+### `_Framework/<Subfolder>/` — the same contract, for a stricter boundary
+
+**Every `_Framework/` subfolder that owns an `.asmdef` carries an `ARCHITECTURE.md` too**, with the identical
+four headings, the identical 40-line cap, and the identical ban on class-name-like symbols.
+
+The reason differs from the `Concretes/` case, and the difference is what makes it non-negotiable rather than
+tidy. A `Concretes/<Domain>/` doc records a **feature** boundary — a convention, enforced by review. A
+`_Framework/<Subfolder>/` doc records an **assembly** boundary, and an assembly boundary is a physical fact:
+`noEngineReferences`, platform filters and `defineConstraints` are per-`.asmdef`, therefore per-folder, and
+unenforceable per-file. The folder *is* the boundary, so the folder is what gets documented.
+
+The `.asmdef` is also the scope test, which is why there is no skip list. `Installers/` holds one interface
+and owns no `.asmdef`, so it is not a boundary and is exempt automatically; a folder that later gains an
+`.asmdef` starts being asked for a doc on the same day it becomes one.
+
+**No doc at the `_Framework/` root.** Same reason `Concretes/` has none: one doc per boundary, and the root is
+not one — it is a container for independent assemblies whose whole point is that they do not reference each
+other. `check-architecture-doc.sh` blocks a root doc explicitly.
+
+### A declared top-level folder gets the same gate, automatically
+
+A folder added to `.claude/path-allowlist.txt` is in scope too. This is not a third rule: the allowlist's own
+stated grounds for an entry is *"the folder needs its own `.asmdef`"*, which is the assembly-boundary
+criterion above, word for word. One rule, applied wherever that criterion holds.
+
+The unit is resolved mechanically — **the nearest directory at or below the scope root that owns an
+`.asmdef`** — so both real layouts work with no configuration: a folder split into per-domain assemblies
+documents each subfolder; a folder that is itself one assembly documents its own root. A subfolder that owns
+no `.asmdef` is not a boundary and is exempt.
+
+**The mechanism is `_arch_doc_scope()` in `check-architecture-doc.sh`, plus `path-allowlist.txt`.** Adding a
+project folder to the gate means adding a line to the allowlist and nothing else — no hook edit, no registry,
+and **no marker to register**. If you find a reference anywhere to registering a marker with a function named
+`arch_doc_marker()`, delete it: that function has never existed in this repo. It was invented mid-conversation
+as a plausible-sounding mechanism and repeated until it read like fact. A named function is exactly the kind
+of detail that survives a summary while the check that would have caught it does not — verify before you
+propagate.
+
+**What this was fixing.** The convention was written when `_Framework/` held only `Events/`, and stayed
+scoped that way after `/setup-project` began generating `Logging/` and `SaveLoadSystems/`. The evidence that
+the gap was real, rather than theoretical: the reason `DLog.Error` is deliberately neither `[Conditional]`
+nor tag-filtered lived **only** as a comment inside `DLog.cs`, because there was nowhere else to put it — and
+a project that inherited the framework carried the defect that comment describes for months, unnoticed. A
+load-bearing decision parked in a source comment survives exactly as long as nobody tidies the file.
+
+One measurement correction against `docs/PLAN_framework_architecture_docs.md`, which recorded that the hook
+**blocked** such a doc and therefore had to change first: it did not. It fell through to `exit 0` — silently
+accepted, never validated. That is worse than a block, because nothing tells the author the doc went
+unchecked. The hook now validates both scopes.
+
 ---
 
 **`[Module]Events.cs` must live inside `Concretes/<Domain>/`. NEVER outside `Concretes/` — do not create a top-level `Scripts/Games/Events/` or `Scripts/Events/` folder.**
