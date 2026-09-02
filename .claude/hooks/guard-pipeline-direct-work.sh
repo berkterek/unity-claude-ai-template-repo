@@ -101,12 +101,41 @@ _blocked() {
     echo "  PIPELINE BYPASS BLOCKED ────────────────────────────────────" >&2
     echo "  $reason" >&2
     echo "" >&2
-    echo "  A Director Gate is open but no pipeline subagent is running." >&2
+    echo "  A Director Gate is open and the subagent depth counter reads 0." >&2
     echo "  Doing this directly instead of spawning coder/tester/reviewer/" >&2
     echo "  committer defeats the point of the gate — it was cleared for a" >&2
     echo "  pipeline, not for you to do the work yourself." >&2
     echo "" >&2
     echo "  Fix: spawn the correct pipeline agent for this step instead." >&2
+    echo "" >&2
+    echo "  IF YOU *ARE* A SPAWNED SUBAGENT and are seeing this, the counter" >&2
+    echo "  is wrong, not you. TWO known causes, both measured in real" >&2
+    echo "  projects. First: you were resumed via SendMessage, which fires no" >&2
+    echo "  PreToolUse/Agent, so nothing ever incremented for you. Second:" >&2
+    echo "  agent-start-log.sh treats a second Agent call with the SAME" >&2
+    echo "  session_id + description as the tool's own internal retry and" >&2
+    echo "  skips the increment. A Director that respawns an agent with an" >&2
+    echo "  identical description inside the retry window is indistinguishable" >&2
+    echo "  from that, so depth stays 0 while you really are running." >&2
+    echo "" >&2
+    echo "  Remedy, in order:" >&2
+    echo "    1. If this was a retry-dedupe collision, respawn with a" >&2
+    echo "       DIFFERENT description. That is the fix and it costs one word." >&2
+    echo "    1b. If you were resumed via SendMessage there is no description" >&2
+    echo "       to change. Correcting the counter is legitimate — the guard's" >&2
+    echo "       question is 'is a subagent running', and the true answer is" >&2
+    echo "       yes. Do NOT write pipeline-override instead: that file claims" >&2
+    echo "       the user approved SKIPPING the pipeline, which is false when" >&2
+    echo "       the pipeline is what is doing the work. Clear the companion" >&2
+    echo "       queue in the same breath or the correction evaporates on the" >&2
+    echo "       next read, and put the counter back when you finish." >&2
+    echo "    2. Do NOT hand-reset the counter — it was tried twice and was" >&2
+    echo "       the wrong fix both times; the counter has a companion queue" >&2
+    echo "       (subagent-depth-pending.jsonl) that must be cleared with it." >&2
+    echo "       If you must, clear BOTH or start a new session." >&2
+    echo "    3. Never switch to Bash (cat >, tee, sed -i) to get past this." >&2
+    echo "       That skips every content hook at once, which is a worse" >&2
+    echo "       outcome than the block you are trying to clear." >&2
     echo "" >&2
     echo "  Or, if the user explicitly approved skipping the pipeline for" >&2
     echo "  this specific task in this response, run:" >&2

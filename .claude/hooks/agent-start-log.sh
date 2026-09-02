@@ -34,13 +34,60 @@ SUBAGENT_LOG="${UNITY_HOOK_STATE_DIR}/subagent-log.jsonl"
 # Start for this exact session_id+description is already pending (logged, no
 # matching Stop yet), this is a retry of that same logical call — log the
 # audit line for duration-matching, but do NOT double-count depth for it.
+# The detector is heuristic and it has a KNOWN false positive, measured in a real
+# project: a Director that legitimately respawns an agent with the SAME description
+# (a per-phase `committer`, a retried task worded identically) looks exactly like a
+# retry. The increment is skipped, depth stays 0, and that subagent's own Write is
+# then blocked by guard-pipeline-direct-work.sh as "no pipeline subagent is
+# running". It cost two misdiagnoses and two manual counter resets, both wrong.
+#
+# Nothing at this layer can separate the two cases by identity — they are identical.
+# What separates them is TIME: the Agent tool's internal retry fires seconds to
+# minutes after the attempt it replaces, while a deliberate respawn comes later, on
+# the far side of the previous agent's actual work. So the pending Start also has to
+# be RECENT. Beyond the window this is treated as a new logical call and counted.
+#
+# The window fails in the safe direction for the reported symptom: too short means
+# a slow retry double-counts (depth reads high — guard-pipeline-direct-work.sh
+# over-permits for a bounded time, the pre-existing leak behaviour), while too long
+# means a fast respawn is under-counted, which is the blocked-subagent deadlock this
+# was written to stop. Prefer over-permitting.
+UNITY_RETRY_WINDOW_SECONDS="${UNITY_RETRY_WINDOW_SECONDS:-600}"
+
 IS_RETRY=0
 if [ -f "$SUBAGENT_LOG" ]; then
     PENDING=$(jq -s --arg desc "$DESCRIPTION" --arg sid "$SESSION_ID" '
         [.[] | select(.session_id == $sid and .description == $desc)]
         | (map(select(.event=="SubagentStart")) | length) - (map(select(.event=="SubagentStop")) | length)
     ' "$SUBAGENT_LOG" 2>/dev/null || echo 0)
-    [ "${PENDING:-0}" -gt 0 ] 2>/dev/null && IS_RETRY=1
+
+    if [ "${PENDING:-0}" -gt 0 ] 2>/dev/null; then
+        # Age of the most recent unmatched Start for this exact pair.
+        LAST_START=$(jq -rs --arg desc "$DESCRIPTION" --arg sid "$SESSION_ID" '
+            [.[] | select(.session_id == $sid and .description == $desc and .event == "SubagentStart")]
+            | last | .started_at // empty
+        ' "$SUBAGENT_LOG" 2>/dev/null || echo "")
+
+        if [ -n "$LAST_START" ]; then
+            START_AGE=$(python3 -c "
+import sys, time, calendar
+try:
+    t = calendar.timegm(time.strptime(sys.argv[1], '%Y-%m-%dT%H:%M:%SZ'))
+    print(int(time.time() - t))
+except Exception:
+    print(-1)
+" "$LAST_START" 2>/dev/null || echo -1)
+            # -1 means the timestamp could not be parsed. Resolve an unreadable age
+            # toward COUNTING it: a missed retry over-permits briefly, a missed real
+            # spawn deadlocks the subagent that is about to write.
+            case "$START_AGE" in
+                ''|*[!0-9-]*) START_AGE=-1 ;;
+            esac
+            if [ "$START_AGE" -ge 0 ] && [ "$START_AGE" -le "$UNITY_RETRY_WINDOW_SECONDS" ]; then
+                IS_RETRY=1
+            fi
+        fi
+    fi
 fi
 
 jq -nc \
