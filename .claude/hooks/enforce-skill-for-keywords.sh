@@ -144,6 +144,8 @@ fi
 
 MISSING_SKILLS=()
 
+SKILLS_ROOT="${CLAUDE_PROJECT_DIR:-.}/.claude/skills"
+
 for entry in "${KEYWORD_MAP[@]}"; do
     keyword="${entry%%:*}"
     skill="${entry##*:}"
@@ -155,6 +157,20 @@ for entry in "${KEYWORD_MAP[@]}"; do
         fi
         # Skip if the skill is auto-loaded into context (any path containing the skill name)
         if echo "$AUTO_LOADED_CONTENT" | grep -qF "$skill"; then
+            continue
+        fi
+        # Skip if no skill file backs this mapping. Demanding a skill that cannot be
+        # invoked is a block with no exit: the injected message says "invoke it before
+        # writing any code", the Skill tool answers "Unknown skill", and there is no
+        # third move. Measured 2026-09-02: 5 of 75 mappings pointed at absent files
+        # (dreamteck, feel, jmo-assets, layer-lab-gui-pro-casual-game, particle-image).
+        #
+        # These are template-level mappings for packages a given project may not have
+        # installed, so absence is NORMAL, not a defect to repair by writing 5 stub
+        # skills. The mapping simply has nothing to enforce — say so on stderr for the
+        # maintainer and move on, rather than blocking the turn.
+        if ! find "$SKILLS_ROOT" -maxdepth 3 \( -type d -name "$skill" -o -type f -name "${skill}.md" \) -print -quit 2>/dev/null | grep -q .; then
+            echo "[enforce-skill-for-keywords] '$keyword' maps to skill '$skill', which has no file under $SKILLS_ROOT — mapping skipped." >&2
             continue
         fi
         # Deduplicate
