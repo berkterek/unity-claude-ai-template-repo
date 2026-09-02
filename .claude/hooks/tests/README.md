@@ -57,3 +57,16 @@ Every `.bats` file includes:
 - **Warn mode** — `UNITY_HOOK_MODE=warn` downgrades exit 2 to exit 0 (where applicable)
 
 Tests use a temporary `UNITY_HOOK_STATE_DIR` (`mktemp -d`) so they never pollute real session state.
+
+## Run the suite with a clean environment
+
+`env -u CLAUDE_PROJECT_DIR -u UNITY_HOOK_STATE_DIR bats .claude/hooks/tests/*.bats`
+
+An inherited `CLAUDE_PROJECT_DIR` or `UNITY_HOOK_STATE_DIR` — easily left behind by a shell
+where you were exercising a hook by hand — points some tests at the real `.claude/state` and
+the real `path-allowlist.txt` instead of their own fixtures. Measured 2026-09-02: it produced
+two reproducible-looking failures (`blocks direct read of graph.json when hybrid_graph is
+true`, `path-allowlist.txt entry turns a block into a pass`) that vanish with a clean
+environment. Both were chased as regressions before the cause was found.
+
+If a failure will not reproduce for someone else, check this before anything else.
