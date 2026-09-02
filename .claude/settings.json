@@ -274,6 +274,28 @@
             "statusMessage": "Checking for duplicate symbols..."
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-save-load.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking save/load rules..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-dlog-usage.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking DLog usage..."
+          }
+        ]
       }
     ],
     "PostToolUse": [

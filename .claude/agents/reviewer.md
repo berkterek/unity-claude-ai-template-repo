@@ -90,6 +90,20 @@ If your task prompt includes a **Mailbox** or **Heartbeat** section, follow thes
 - [ ] **Handler boundary**: Handler not injected across prefab boundaries? If another class takes a Handler constructor parameter → **FAIL**, Handler must be promoted to Service.
 - [ ] **Interface-first on injectables**: Every Handler, Service, and Provider has an interface? Test suite is a caller; single production caller is not justification to omit → **FAIL**.
 
+### Persistence & Logging Compliance (CRITICAL — blocks PASS)
+
+`check-save-load.sh` and `check-dlog-usage.sh` already block the mechanical half (direct `PlayerPrefs`/`File`,
+a struct or version-less `*SaveData`, inline key strings, `Debug.*` in game code). **Those hooks exiting 0 is not
+evidence about anything below** — every item here is a judgment the hook cannot make, which is why it is your job.
+
+- [ ] **Persisted vs session state named apart**: a class written to disk is `*SaveData`; session-only state is `*Model`. Most domains need both and they are different shapes — a combo counter must not reach disk, a `Version` field is meaningless at runtime. One name serving both → **FAIL** (`rules/save-load.md` Card 3).
+- [ ] **One key and one type per domain**: no shared root object that every module widens. A single root is correct only when two fields genuinely must be written or not written together — say which two, or split → **FAIL** (Card 5).
+- [ ] **Read path is `HasKey` → `Load`, else the domain's config default**: a `Load` with no existence check throws on first launch, which is 100% of players exactly once. A hardcoded starting value instead of a `*Configuration` field is the same failure a designer cannot tune → **FAIL** (Card 6).
+- [ ] **First-launch branch is actually tested**: a test that only runs against an existing save never executes the no-save path. If the no-save branch has no test → **FAIL** (Card 6).
+- [ ] **Deviation from `unity-async.md` recorded, not assumed**: save/load is synchronous on purpose. If this change widens I/O (cloud, large blobs, per-frame autosave) without a decision record, → **FAIL** (Card 9).
+- [ ] **No silent fallback**: a catch or guard that returns a default without logging it → **FAIL** (`rules/logging.md` Card 4). `DLog.Error` does survive into release builds (unlike `Log`/`Warning`), so a log line there is real evidence — but if the caught object is an exception, the three-argument overload must be used; `exception.Message` alone loses file and line.
+- [ ] **A new `LogTag` is enabled, not just declared**: `_enabledTags` ships with `General` only, so a newly added tag is silent from birth. Declared but never enabled → **FAIL** (Card 3).
+
 ### UI Compliance (CRITICAL — blocks PASS)
 - [ ] All UI elements under a Canvas use RectTransform, NOT plain Transform
 - [ ] All text uses TextMeshPro (`TextMeshProUGUI` / `TextMeshPro`), NOT legacy `UnityEngine.UI.Text`
