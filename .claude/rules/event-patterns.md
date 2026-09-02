@@ -140,6 +140,13 @@ public void Dispose()   => _eventBus.Unsubscribe<EnemyDiedEvent>(OnEnemyDied);
 private void OnEnemyDied(EnemyDiedEvent e) { }
 ```
 
+**Dispatch guarantee:** `Publish` isolates each subscriber. One that throws is logged through
+`DLog.Error(LogTag.EventBus, …, exception)` and the remaining subscribers still run. Two consequences for
+callers: a publisher never sees a subscriber's exception, so `try`/`catch` around `Publish` buys nothing and
+hides nothing; and a subscriber that swallows its own exceptions is hiding a report that would otherwise have
+been made for it. Do not add a `try`/`catch` inside a handler just to be safe — the bus already did it, and
+yours will be the one that logs nothing.
+
 **Rules:**
 - Event structs are `readonly` — no mutable state
 - Name: past tense + `Event` suffix (`LevelStartedEvent`, `CoinsChangedEvent`)

@@ -85,11 +85,11 @@ var service = Substitute.For<PlayerService>();
 ### Configuring Return Values
 
 ```csharp
-saveLoad.LoadDataProcess<int>("coins").Returns(100);
-saveLoad.HasKeyAvailable("coins").Returns(true);
+saveLoad.Load<int>(SaveKeyHelper.COINS).Returns(100);
+saveLoad.HasKey(SaveKeyHelper.COINS).Returns(true);
 
 // Throw an exception
-saveLoad.When(x => x.SaveDataProcess(Arg.Any<string>(), Arg.Any<object>()))
+saveLoad.When(x => x.Save(Arg.Any<string>(), Arg.Any<int>()))
         .Do(_ => throw new IOException());
 ```
 
@@ -163,8 +163,8 @@ public class PlayerServiceTests
     public void Initialize_WhenSaveDataExists_LoadsPersistedHealth()
     {
         // Arrange
-        _saveLoad.HasKeyAvailable("player_health").Returns(true);
-        _saveLoad.LoadDataProcess<int>("player_health").Returns(75);
+        _saveLoad.HasKey(SaveKeyHelper.HEALTH).Returns(true);
+        _saveLoad.Load<int>(SaveKeyHelper.HEALTH).Returns(75);
 
         // Act
         _sut.Initialize();

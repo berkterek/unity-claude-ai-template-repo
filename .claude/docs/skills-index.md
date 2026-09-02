@@ -28,7 +28,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `input-system` | New Input System — pull-based InputService + per-prefab InputHandler, Initialize/Dispose lifecycle, FixedUpdate latch rule, action map switching |
 | `scene-hierarchy` | 6-container scene structure, GO classification table, prefab domain mapping |
 | `logging` | Project-specific DLog pattern — logging implementation, location, and usage |
-| `save-load` | Project-specific SaveLoadSystem pattern — location, namespace, and usage |
+| `save-load` | SaveLoadSystem API surface — location, namespace, the four `ISaveLoadService` methods, registration. Rules themselves live in `rules/save-load.md` |
 | `tdd-nsubstitute` | Project-specific TDD pattern — assembly structure, test templates, and mock rules |
 | `hud-statusline` | In-session status line rendering for pipeline progress |
 | `object-pooling` | ObjectPool<T> setup, return-to-pool patterns, warm-up |
