@@ -497,7 +497,7 @@ claude mcp add --scope project graph-mcp python3 "$(pwd)/.claude/graph/graph-mcp
 
 ```bash
 bash .claude/graph/test/verify-graphify.sh
-# Expected: 52 PASS, 1 KNOWN_FAIL, 0 FAIL (template mode — C#-dependent tests skip until source files exist)
+# Expected: 57 PASS, 1 KNOWN_FAIL, 0 FAIL (template mode — C#-dependent tests skip until source files exist)
 ```
 
 Tests cover: scan-root parity with the builder, builder flags (`--full`, `--incremental`, `--skip-mcp`, `--output`, `--quiet`), all six validator rules (R1–R6), pivot integrity, MCP prefab merge, `/knowledge-graph` subcommands, call-edge resolution, PostToolUse and post-commit triggers, v1.2.0 modules (cluster/analyze/validate/csharp_extractor), incremental purge, `graph-viz.py`, registration semantics, the validator's `interface_only` guard, disk/graph reconciliation, and `extraction_version` staleness promotion. Sandbox backup/restore ensures the live `graph.json` is never corrupted by a test run.
