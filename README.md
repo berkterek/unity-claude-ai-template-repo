@@ -497,10 +497,12 @@ claude mcp add --scope project graph-mcp python3 "$(pwd)/.claude/graph/graph-mcp
 
 ```bash
 bash .claude/graph/test/verify-graphify.sh
-# Expected: 29 PASS, 0 FAIL (template mode — C#-dependent tests skip until source files exist)
+# Expected: 52 PASS, 1 KNOWN_FAIL, 0 FAIL (template mode — C#-dependent tests skip until source files exist)
 ```
 
-Tests cover: builder flags (`--full`, `--incremental`, `--skip-mcp`, `--output`, `--quiet`), all six validator rules (R1–R6), MCP prefab merge, `/knowledge-graph` subcommands, PostToolUse and post-commit triggers, v1.2.0 modules (cluster/analyze/validate/csharp_extractor). Sandbox backup/restore ensures the live `graph.json` is never corrupted by a test run.
+Tests cover: scan-root parity with the builder, builder flags (`--full`, `--incremental`, `--skip-mcp`, `--output`, `--quiet`), all six validator rules (R1–R6), pivot integrity, MCP prefab merge, `/knowledge-graph` subcommands, call-edge resolution, PostToolUse and post-commit triggers, v1.2.0 modules (cluster/analyze/validate/csharp_extractor), incremental purge, `graph-viz.py`, registration semantics, the validator's `interface_only` guard, disk/graph reconciliation, and `extraction_version` staleness promotion. Sandbox backup/restore ensures the live `graph.json` is never corrupted by a test run.
+
+**A `KNOWN_FAIL` in template mode is expected, not a regression.** The count above is what an empty template produces: checks that need real C# under the builder's scan roots (disk/graph reconciliation, the T10b incremental-purge group) cannot run until a project has source files, so they report `KNOWN_FAIL` or `SKIP` rather than silently passing. Re-run the harness once the project has code — the same checks then run for real, and `PASS` there is the number that means something.
 
 ### Confidence levels
 
