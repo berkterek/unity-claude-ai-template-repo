@@ -998,6 +998,18 @@ public class ProbeInstaller {
     builder.Register<Bar>(Lifetime.Singleton);
     builder.Register<Baz>(Lifetime.Singleton).As<IBaz>().As<IQux>();  // multi-As: `as` must be the STRING "IBaz"
     builder.RegisterInstance(SomeStatic.Opaque());
+    // Factory-delegate overload: the generic slot is the SERVICE type and the concrete type
+    // lives in the lambda body. Both extractors used to take the generic as the concrete, so
+    // an interface landed in `type` — the exact thing reg.1 forbids. reg.1 could never catch
+    // it because no factory-delegate call existed in this fixture; these three lines are what
+    // make the existing invariant bite. Deliberately covers all three shapes:
+    //   Quux   interface generic, resolvable body  -> type=Quux,  as=IQuux
+    //   Corge  concrete  generic, resolvable body  -> type=Corge, as=""      (generic == concrete)
+    //   Grault interface generic, opaque body      -> type="",    as=IGrault (unresolved)
+    // Nested `new` is intentional on Quux: the OUTERMOST one is the registered type.
+    builder.Register<IQuux>(resolver => new Quux(new QuuxOptions()), Lifetime.Singleton);
+    builder.Register<Corge>(r => new Corge(), Lifetime.Singleton);
+    builder.Register<IGrault>(r => GraultFactory.Create(), Lifetime.Singleton);
   }
 }
 CS
@@ -1017,6 +1029,32 @@ CS
                          | select(.type=="Baz") | .as] == ["IBaz"]' >/dev/null \
       && pass "reg.1b: .As<T>() chain read on the tree-sitter side" \
       || fail "reg.1b: .As<T>() chain NOT read (tree-sitter) — parity gate reg.4 cannot pass"
+
+    # reg.7: the POSITIVE half of the factory-delegate rule. reg.1/reg.2 only say an interface
+    # must not land in `type`; they are equally satisfied by dropping the record or blanking
+    # both fields. These three assert the record actually carries the right pair, so a fix that
+    # merely silences reg.1 cannot pass. Discrimination is STRUCTURAL — "first argument is a
+    # lambda" — never the generic's name: `Corge` proves the same code path handles a concrete
+    # generic, and a name-based rule (`^I[A-Z]` => interface) would have mangled it. Measured in
+    # a sibling project: 3 of 5 factory-delegate calls there name a concrete generic.
+    echo "$py" | jq -e '[.vcontainer.installers[].registrations[]
+                         | select(.type=="Quux") | {type, as}] == [{"type":"Quux","as":"IQuux"}]' >/dev/null \
+      && pass "reg.7a: factory-delegate resolves concrete from the lambda body (outermost new)" \
+      || fail "reg.7a: factory-delegate concrete NOT resolved — expected {Quux, IQuux}"
+
+    echo "$py" | jq -e '[.vcontainer.installers[].registrations[]
+                         | select(.type=="Corge") | {type, as}] == [{"type":"Corge","as":""}]' >/dev/null \
+      && pass "reg.7b: factory-delegate with a concrete generic keeps as=\"\" (no name-based rule)" \
+      || fail "reg.7b: concrete-generic factory-delegate mangled — expected {Corge, \"\"}"
+
+    # Opaque body: `type` MUST stay empty rather than fall back to the generic. Claiming the
+    # interface as concrete is what raised the two false INSTALLER_MISSING_CLASS warnings this
+    # whole fix exists to remove, so the unresolved shape is pinned, not left to taste.
+    echo "$py" | jq -e '[.vcontainer.installers[].registrations[]
+                         | select(.as=="IGrault") | {type, unresolved}]
+                         == [{"type":"","unresolved":true}]' >/dev/null \
+      && pass "reg.7c: unresolvable lambda body yields an unresolved record, not a false concrete" \
+      || fail "reg.7c: unresolvable lambda body did not produce {type:\"\", unresolved:true}"
   fi
 
   # csharp-extractor.sh:70-82 proxies straight to csharp_extractor.py FIRST and only runs
@@ -1106,17 +1144,41 @@ SHIM
   # reg.6: the unresolvable form is asserted PER-EXTRACTOR, never as parity — if either
   # side's behaviour on this shape ever changes, reg.6 fails and the divergence is
   # re-decided deliberately, which is the outcome reg.4's select() must not swallow.
+  # Scoped to the SHAPE it names, not to a global count. The fixture now holds two distinct
+  # unresolvable shapes — RegisterInstance(SomeStatic.Opaque()) and the opaque-bodied
+  # factory-delegate (reg.7c) — so `length == 1` over all unresolved records stopped
+  # identifying either one; it failed the moment the second shape was added, reporting a
+  # "count changed" that said nothing about which. The RegisterInstance shape names no
+  # service at all (`as` empty); the factory shape carries its generic in `as`.
   if [[ -n "$py" ]]; then
     echo "$py" | jq -e '[.vcontainer.installers[].registrations[]
-                          | select(.unresolved == true)] | length == 1' >/dev/null \
+                          | select(.unresolved == true and .as == "")] | length == 1' >/dev/null \
       && pass "reg.6: tree-sitter emits exactly one unresolved record for RegisterInstance(SomeStatic.Opaque())" \
-      || fail "reg.6: tree-sitter unresolved-record count changed"
+      || fail "reg.6: tree-sitter unresolved-record count changed for the RegisterInstance shape"
+
+    # Total is pinned separately so a THIRD unresolvable shape appearing still trips a test
+    # instead of hiding inside the scoped count above.
+    echo "$py" | jq -e '[.vcontainer.installers[].registrations[]
+                          | select(.unresolved == true)] | length == 2' >/dev/null \
+      && pass "reg.6b: tree-sitter total unresolved-record count is 2 (both known shapes)" \
+      || fail "reg.6b: tree-sitter total unresolved-record count changed — a new shape appeared"
   fi
+  # Same scoping as the tree-sitter half, and for the same reason: a bare `type == ""` count was
+  # standing in for "the RegisterInstance shape produced nothing", and the opaque-bodied
+  # factory-delegate now legitimately produces its own empty-`type` record. The two are told
+  # apart by `as` — the RegisterInstance shape names no service, the factory shape carries its
+  # generic. The fallback emitting an unresolved record here (where it previously emitted
+  # nothing at all) is the intended new behaviour: it matches the tree-sitter shape.
   if [[ -n "$sh" ]]; then
     echo "$sh" | jq -e '[.vcontainer.installers[].registrations[]
-                          | select(.type == "")] | length == 0' >/dev/null \
+                          | select(.type == "" and .as == "")] | length == 0' >/dev/null \
       && pass "reg.6: fallback emits no record for RegisterInstance(SomeStatic.Opaque()) (asymmetry pinned)" \
       || fail "reg.6: fallback started emitting a record for the unresolvable RegisterInstance shape"
+
+    echo "$sh" | jq -e '[.vcontainer.installers[].registrations[]
+                          | select(.unresolved == true) | .as] == ["IGrault"]' >/dev/null \
+      && pass "reg.6c: fallback marks the opaque-bodied factory-delegate unresolved, keeping its generic in 'as'" \
+      || fail "reg.6c: fallback lost the unresolved factory-delegate record"
   fi
 
   rm -rf "$work"

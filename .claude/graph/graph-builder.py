@@ -79,10 +79,21 @@ def log(msg, quiet=False):
 #       statement of intent; a wildcard that happens to cover T is a side effect), and every
 #       expansion carries as_resolution full/partial so an incomplete list is never read as
 #       exhaustive.
+#   6 — the VContainer factory-delegate overload, Register<TService>(r => new Impl(..), lt), is
+#       read correctly: `type` is the type the lambda constructs and the generic slot moves to
+#       `as`, where before the generic was taken as the concrete type. That put an interface in
+#       `type` and raised INSTALLER_MISSING_CLASS against types that are interfaces by design.
+#       An opaque lambda body (block body, or `Factory.Create()`) now yields an unresolved
+#       record rather than a false concrete. Same input file, different record. The regex
+#       fallback learned the same rule, and its installer detection became structural to match
+#       the tree-sitter side — it had been matching the file NAME against "Installer", a name
+#       bootstrap-pattern.md deliberately abolished, so it had reported zero installers for
+#       every project built from this template.
 # Usually this is bumped WITHOUT schema_version, because the shape is unchanged and only the
 # meaning moves. Versions 3, 4 and 5 are all exceptions — each also added fields — so
-# schema_version moved with them (1.5.0, 1.6.0, 1.7.0). Bumping both is not the default.
-EXTRACTION_VERSION = 5
+# schema_version moved with them (1.5.0, 1.6.0, 1.7.0). Bumping both is not the default, and
+# 6 is the first version to follow the rule: no field was added, so schema_version stays 1.7.0.
+EXTRACTION_VERSION = 6
 
 
 def _stored_extraction_version(output_path):

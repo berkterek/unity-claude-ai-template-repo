@@ -456,6 +456,43 @@ def _resolve_concrete(inv, src, symbols):
     return _first_arg_new_type(inv, src) or symbols.get(_first_arg_identifier(inv, src), "") or ""
 
 
+_LAMBDA_NODES = ("lambda_expression", "anonymous_method_expression")
+
+
+def _factory_delegate_concrete(inv, src):
+    """Concrete type built by a factory-delegate registration's lambda, or None if not one.
+
+    Three-valued ON PURPOSE, because the caller must tell three cases apart:
+      None  -> the first argument is not a delegate; this is NOT the factory overload, so the
+               caller keeps its existing rule (generic slot IS the concrete).
+      ""    -> it IS the factory overload but the body names no constructible type (block body,
+               or `Factory.Create()`). The caller must then emit an unresolved record — falling
+               back to the generic is what put an interface in `type` to begin with.
+      "Foo" -> the type the lambda constructs.
+
+    A bool return cannot express that: "not this overload" and "this overload, unresolvable"
+    need opposite handling, and collapsing them is exactly the conflation being fixed.
+
+    `_walk` is pre-order, so the FIRST object_creation_expression is the OUTERMOST one —
+    `new Foo(new Bar())` yields Foo, which is what gets registered. Do not switch to a
+    last-match or deepest-match scan.
+    """
+    args = inv.child_by_field_name("arguments")
+    if not args:
+        return None
+    arg = next((c for c in args.named_children if c.type == "argument"), None)
+    if not arg:
+        return None
+    lam = next((c for c in arg.named_children if c.type in _LAMBDA_NODES), None)
+    if lam is None:
+        return None
+    oce = next(iter(_walk(lam, "object_creation_expression")), None)
+    if oce is None:
+        return ""
+    tnode = next((c for c in oce.named_children if c.type in _TYPE_NODES), None)
+    return _type_name(tnode, src) or ""
+
+
 def _as_chain(inv, src, hops=8):
     """Exposed service from a trailing chain: `.As<IBar>()` / `.AsImplementedInterfaces()`.
     Walks UP through parents because `_detect_member` only ever sees one invocation at a
@@ -512,6 +549,30 @@ def _detect_member(member_body, src, symbols, registrations, pub_sub):
                            "interface_only": True, "confidence": "INFERRED"}
                 else:
                     reg = {"type": "", "as": chained, "lifetime": "",
+                           "unresolved": True, "confidence": "AMBIGUOUS"}
+            elif (factory_concrete := _factory_delegate_concrete(inv, src)) is not None:
+                # Factory-delegate overload: Register<TService>(resolver => new Impl(..), lt).
+                # Here the generic slot is the SERVICE type, not the concrete one — the concrete
+                # type is the object the lambda constructs. Reading the generic as concrete put
+                # an interface in `type` (violating reg.1's invariant) and, because that is a
+                # full-strength claim, raised INSTALLER_MISSING_CLASS against a type that is an
+                # interface by design and will never be in classes[].
+                #
+                # The discriminator is STRUCTURAL — the first argument is a lambda — never the
+                # generic's name. `Register<Foo>(r => new Foo())` is the same overload with a
+                # concrete generic and is common in practice (3 of 5 sites in a sibling
+                # project), so an `^I[A-Z]` test would corrupt those records. It is also the
+                # hand-maintained-blacklist failure CLAUDE.md documents twice.
+                if factory_concrete:
+                    reg = {"type": factory_concrete,
+                           "as": chained or (type_arg if type_arg and type_arg != factory_concrete else ""),
+                           "lifetime": ""}
+                else:
+                    # Lambda body constructs nothing we can name (block body, or a call like
+                    # `Factory.Create()`). Leave `type` EMPTY: an unresolved record is the
+                    # honest answer and the validator already exempts it, whereas falling back
+                    # to the generic would reintroduce the very false positive above.
+                    reg = {"type": "", "as": chained or type_arg, "lifetime": "",
                            "unresolved": True, "confidence": "AMBIGUOUS"}
             elif type_arg:
                 # Register/RegisterComponent/RegisterEntryPoint/RegisterComponentInHierarchy:

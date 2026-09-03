@@ -442,6 +442,50 @@ for m in re.finditer(
 ):
     if m.group(1) == "RegisterInstance" and m.start() in consumed_starts:
         continue
+    # Factory-delegate overload: Register<TService>(resolver => new Impl(..), lifetime).
+    # The generic slot is the SERVICE type here, not the concrete one — taking it as concrete
+    # put an interface in `type`, which reg.2 forbids and which raised false
+    # INSTALLER_MISSING_CLASS warnings. Mirrors _factory_delegate_concrete() on the
+    # tree-sitter side, including the three-valued outcome, so reg.4 parity stays meaningful
+    # instead of being two extractors agreeing on the same wrong answer (which is exactly
+    # what reg.4 reported while both sides carried this bug).
+    # Detection is STRUCTURAL — a `=>` right after the opening paren — never the generic's
+    # name: `Register<Corge>(r => new Corge())` is the same overload with a concrete generic.
+    # m.end() sits just after `<TService>` for this shape: the optional Lifetime group needs
+    # `\(\s*Lifetime\.` right there and a lambda argument does not match it, so the group
+    # fails and the args are still ahead of us. Bound the scan at the statement terminator
+    # for the same reason _chain_as does — an unbounded window reads the next statement.
+    _tail = text[m.end():m.end() + 600]
+    _semi = _tail.find(";")
+    if _semi != -1:
+        _tail = _tail[:_semi]
+
+    if re.match(r'\s*\(\s*(?:\([^)]*\)|[A-Za-z_][A-Za-z0-9_]*)\s*=>', _tail):
+        # First `new X(` in the body is the OUTERMOST one: `new Foo(new Bar())` -> Foo.
+        _new = re.search(r'\bnew\s+([A-Za-z0-9_.]+)\s*[({]', _tail)
+        _concrete = _new.group(1).split(".")[-1] if _new else ""
+        _generic = m.group(2)
+        if _concrete:
+            reg = {
+                "type": _concrete,
+                "as": _chain_as(m.end()) or (_generic if _generic != _concrete else ""),
+                "lifetime": m.group(3) or "Singleton",
+                "scope": ""
+            }
+        else:
+            # Body names no constructible type. Empty `type` is the honest record; falling
+            # back to the generic is the defect. Matches the tree-sitter unresolved shape.
+            reg = {
+                "type": "",
+                "as": _chain_as(m.end()) or _generic,
+                "lifetime": m.group(3) or "Singleton",
+                "scope": "",
+                "unresolved": True,
+                "confidence": "AMBIGUOUS"
+            }
+        results.append(reg)
+        continue
+
     reg = {
         "type": m.group(2),
         "as": "",
@@ -642,8 +686,25 @@ process_file_regex() {
   done < <(extract_interfaces "$f")
 
   # Installer registrations
+  #
+  # Detection MIRRORS _declares_container_install() on the tree-sitter side, deliberately
+  # including its two legacy name tests, so the two extractors cannot disagree about what a
+  # registration belongs to. Before this, the test here was `grep -q 'Installer'` on the FILE
+  # NAME — and `bootstrap-pattern.md` mandates the name `*Module`, having deliberately deleted
+  # the ModuleInstaller/AppInstaller types this test looks for. Measured across four projects
+  # built from this template: zero files named *Installer*, nine real installers in this one.
+  # So the fallback reported `installers: []` for every project, and `reg.4` parity passed only
+  # because the probe fixture happens to be called ProbeInstaller.cs — the fixture was shaped to
+  # the bug, which is why the factory-delegate defect could sit behind a green parity test.
+  #
+  # This is the same failure CLAUDE.md already records for the tree-sitter side ("Installer
+  # detection is structural … Not a name suffix"); that fix simply never reached this file.
+  # Do NOT "repair" a future miss by adding `Module` to a name pattern — that is the
+  # hand-maintained-blacklist trap the same note warns about. The structural clause is the rule;
+  # the name clauses only keep already-detected files detected.
   local installer_json="null"
-  if echo "$f" | grep -q 'Installer'; then
+  if grep -Eq '\bInstall[A-Za-z0-9_]*[[:space:]]*\([^)]*IContainerBuilder' "$f" \
+     || basename "$f" .cs | grep -Eq 'Installer$|Module$'; then
     local iname
     iname=$(basename "$f" .cs)
     installer_json=$(jq -nc \

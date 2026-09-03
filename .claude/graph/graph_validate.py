@@ -93,6 +93,7 @@ def run_consistency(g):
     # Installer references non-existent class
     unresolved_registrations = 0
     interface_only_registrations = 0
+    inferred_registrations = 0
     vcontainer = codebase.get("vcontainer", {})
     for installer in vcontainer.get("installers", []):
         for reg in installer.get("registrations", []):
@@ -110,6 +111,25 @@ def run_consistency(g):
             # Defect 0's failure mode.
             if reg.get("interface_only") is True:
                 interface_only_registrations += 1
+                continue
+            # `inferred` is the regex fallback's Form 2 name-guess: `RegisterInstance(config)`
+            # with no field-type match becomes type "Config", and `RegisterInstance(config.Catalog)`
+            # becomes "Config.Catalog" — a member access, never a type name. Same category as
+            # interface_only: the extractor is telling us it guessed, so the record cannot
+            # support a dangling-class accusation.
+            #
+            # These records are not new, but they were unreachable: the fallback identified an
+            # installer by the filename containing "Installer", and bootstrap-pattern.md mandates
+            # *Module, so it found none and discarded every registration it had parsed. Making
+            # that detection structural (csharp-extractor.sh) exposed them, and without this
+            # exemption every tree-sitter-less build would emit a run of false
+            # INSTALLER_MISSING_CLASS — the same "teach the reader to ignore this warning class"
+            # damage the factory-delegate fix exists to remove.
+            #
+            # Only the fallback ever sets this flag, so a tree-sitter build is unaffected and
+            # nothing that was previously checked stops being checked.
+            if reg.get("inferred") is True:
+                inferred_registrations += 1
                 continue
             cls_name = reg.get("class", "") or reg.get("type", "")
             if cls_name and cls_name not in class_names:
@@ -132,6 +152,17 @@ def run_consistency(g):
             f"graph_validate: {interface_only_registrations} interface-only registration(s) "
             f"(RegisterInstance<IFoo> with an unresolvable argument) — known-incomplete, "
             f"not dangling",
+            file=sys.stderr,
+        )
+
+    # Reported, never silent: the count is how a reader notices the regex fallback ran at all
+    # and that this build's registration data is a guess. Silently skipping them would trade a
+    # false positive for an invisible gap, which is the worse of the two.
+    if inferred_registrations:
+        print(
+            f"graph_validate: {inferred_registrations} inferred registration(s) "
+            f"(regex-fallback name guess, e.g. RegisterInstance(config)) — known-incomplete, "
+            f"not dangling; rebuild with tree-sitter for exact types",
             file=sys.stderr,
         )
 
