@@ -259,6 +259,26 @@ when the graph is stale (> 24h), empty, or disabled.
 
 **v1.3.0 partition architecture** (unchanged since)**:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
 
+**extraction v6 — the factory-delegate overload no longer records an interface as the concrete type:**
+
+- `Register<TService>(resolver => new Impl(..), lifetime)` puts the **service** type in the generic
+  slot, not the concrete one. Both extractors read the generic as concrete, so an interface landed
+  in `registrations[].type` and raised `INSTALLER_MISSING_CLASS` against a type that is an
+  interface by design and will never appear in `classes[]`. `type` is now the type the lambda
+  constructs, with the generic moved to `as`; an opaque body (block body, or `Factory.Create()`)
+  yields an unresolved record instead of a false concrete. The discriminator is structural — is
+  the first argument a lambda — never the generic's name, because `Register<Foo>(r => new Foo())`
+  is the same overload with a concrete generic.
+- Two defects surfaced with it. The regex fallback identified an installer by testing the **file
+  name** for `Installer` — the name `rules/bootstrap-pattern.md` deliberately abolished in favour
+  of `*Module` — so it reported `installers: []` for every project built from this template and
+  discarded every registration it had parsed. And making that detection structural exposed the
+  fallback's pre-existing name guesses, which the validator did not exempt; `inferred` records are
+  now exempt from `INSTALLER_MISSING_CLASS`, with their count printed to stderr so a
+  tree-sitter-less build is visible rather than silently approximate.
+- `EXTRACTION_VERSION` **6**, `schema_version` unchanged at **1.7.0** — the first version to follow
+  the documented default (meaning changed, no field added) rather than the exception.
+
 **v1.7.0 — `.AsImplementedInterfaces()` registrations are findable by interface name:**
 
 - That call names no type, so the extractor stores the literal string `"AsImplementedInterfaces"`
@@ -786,7 +806,7 @@ that flag pass a size-only check, including the two that import with a `scale=10
 `270.020°` rotation. On its first run the harness then disproved a claim in the skill it tests.
 Still covered by no layer: `TD-COMPILE` against real project code, PlayMode, prefab/scene work.
 
-**36 bats files / 417 tests** cover every blocking hook with happy path, blocking trigger,
+**49 bats files / 562 tests** cover every blocking hook with happy path, blocking trigger,
 profile skip, and warn-mode scenarios — and all six `guard-*.sh` are covered there *and*
 verified as registered in `settings.json`.
 
