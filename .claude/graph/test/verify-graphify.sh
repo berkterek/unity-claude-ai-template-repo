@@ -876,13 +876,22 @@ run_incremental_purge_tests() {
     else
       fail "10b.1: path-norm regression — class count dropped with abs path (full=$full_classes incr=$incr_classes)"
     fi
-    # Also verify no duplicates: each class name must appear exactly once.
+    # Also verify no duplicates.  The key is (namespace, name, source_file), NOT the
+    # bare class name: C# lets one partial class span several files, and lets two
+    # namespaces each hold a class of the same name — both are legal and both would
+    # trip a name-only check.  What this test is actually looking for is one FILE
+    # recorded twice under two path forms (abs + rel), which the full key catches and
+    # the name-only key could only guess at.  Measured 2026-09-03 in a project built
+    # from this template: the name-only version failed CI on `BoardDecorProvider`, a
+    # partial class split across BoardDecorProvider.cs and BoardDecorProvider.Debug.cs
+    # — a false positive, and it reported it as "path normalization failed", pointing
+    # at the wrong subsystem.
     local dup_count
-    dup_count=$(jq '[.codebase.classes[].name] | group_by(.) | map(select(length > 1)) | length' "$incr_out" 2>/dev/null || echo 0)
+    dup_count=$(jq '[.codebase.classes[] | "\(.namespace)|\(.name)|\(.source_file)"] | group_by(.) | map(select(length > 1)) | length' "$incr_out" 2>/dev/null || echo 0)
     if [[ "$dup_count" -eq 0 ]]; then
       pass "10b.1: no duplicate class entries after absolute-path incremental"
     else
-      fail "10b.1: $dup_count duplicate class name(s) found — path normalization failed"
+      fail "10b.1: $dup_count class record(s) duplicated on (namespace, name, source_file) — path normalization failed"
     fi
   fi
 
