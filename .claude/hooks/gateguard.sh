@@ -234,12 +234,44 @@ if ! grep -qxF "$FILE_PATH" "$FACTS_PASSED_FILE" 2>/dev/null; then
             echo "  no timeout does it silently, because a timeout would also release a" >&2
             echo "  genuinely long-running subagent." >&2
         else
-            echo "  After presenting these facts to the user, retry the same edit — it will pass." >&2
+            # Game code (_GameFolders/Scripts/**.cs) is the region
+            # guard-pipeline-direct-work.sh also guards. There, a gate open plus
+            # depth 0 means THAT hook blocks the Director before this one's retry
+            # branch is ever reached — so "retry and it will pass" is false, and
+            # measurably costly: a session spent four attempts on it (2026-09-07)
+            # because the message named a door that does not exist. Plan coverage
+            # is the only door in that region; say so instead of guessing.
+            case "$FILE_PATH" in
+                *_GameFolders/Scripts/*.cs)
+                    echo "  Retrying this edit will NOT clear the gate — this path is game code," >&2
+                    echo "  which guard-pipeline-direct-work.sh guards as well. Two doors exist:" >&2
+                    echo "" >&2
+                    echo "    1. declare this path in the plan — one checkbox task in a" >&2
+                    echo "       docs/**/tasks.md whose FIRST backticked token is this file," >&2
+                    echo "       with Callers:/Wiring: for a new file. Then the write proceeds." >&2
+                    echo "    2. spawn the pipeline agent for this step (coder/tester) instead" >&2
+                    echo "       of writing it here." >&2
+                    echo "" >&2
+                    echo "  Present the facts above either way — they are what the plan task" >&2
+                    echo "  must contain, so gathering them is not wasted work." >&2
+                    ;;
+                *)
+                    echo "  After presenting these facts to the user, retry the same edit — it will pass." >&2
+                    ;;
+            esac
             echo "  Presenting them means printing them where the user can read them, not" >&2
             echo "  satisfying yourself that you know them." >&2
         fi
         echo "" >&2
-        unity_hook_block "GateGuard: present facts above, then retry the edit."
+        # The summary line is the last thing a reader sees, so it must not
+        # contradict the branch above by re-offering the retry that does not
+        # exist for game code.
+        case "$FILE_PATH" in
+            *_GameFolders/Scripts/*.cs)
+                unity_hook_block "GateGuard: declare $FILE_PATH in the plan, or spawn the pipeline agent." ;;
+            *)
+                unity_hook_block "GateGuard: present facts above, then retry the edit." ;;
+        esac
     fi
 fi
 

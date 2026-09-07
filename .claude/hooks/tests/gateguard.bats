@@ -239,3 +239,47 @@ EOF
     UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $isolated/gateguard.sh"
     [ "$status" -eq 2 ]
 }
+
+# ---------------------------------------------------------------------------
+# The depth-0 "retry and it will pass" branch is UNREACHABLE for game code.
+#
+# Measured: with a gate open, `_GameFolders/Scripts/**.cs` is blocked at BOTH
+# depths — guard-pipeline-direct-work.sh stops the Director before gateguard's
+# retry branch can ever be reached, and gateguard stops the subagent because its
+# retry branch is depth-0 only. Plan coverage is therefore not merely the
+# preferred door there, it is the only one.
+#
+# Telling the Director "retry and it will pass" in that region is a false
+# instruction, and following it cost a full session on 2026-09-07. These tests
+# pin the message to what is actually possible.
+# ---------------------------------------------------------------------------
+
+@test "message: game-code path does NOT promise that a retry will pass" {
+    P="$PWD/_GameFolders/Scripts/Games/Concretes/Zz/ZzThing.cs"
+    printf 0 > "$UNITY_HOOK_STATE_DIR/subagent-depth"
+    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
+    [ "$status" -eq 2 ]
+    [ -z "$(printf '%s' "$output" | grep -F 'it will pass')" ]
+}
+
+@test "message: game-code path names the two doors that actually exist" {
+    P="$PWD/_GameFolders/Scripts/Games/Concretes/Zz/ZzThing.cs"
+    printf 0 > "$UNITY_HOOK_STATE_DIR/subagent-depth"
+    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
+    printf '%s' "$output" | grep -qF "declare this path in the plan"
+    printf '%s' "$output" | grep -qF "spawn the pipeline agent"
+}
+
+@test "message: a NON-game-code path keeps the retry instruction, which is true there" {
+    P="$PWD/Assets/Editor/ZzTool.cs"
+    printf 0 > "$UNITY_HOOK_STATE_DIR/subagent-depth"
+    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
+    printf '%s' "$output" | grep -qF "it will pass"
+}
+
+@test "message: the final BLOCKED summary line does not say 'retry' for game code" {
+    P="$PWD/_GameFolders/Scripts/Games/Concretes/Zz/ZzThing.cs"
+    printf 0 > "$UNITY_HOOK_STATE_DIR/subagent-depth"
+    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
+    [ -z "$(printf '%s' "$output" | grep -F 'BLOCKED' | grep -F 'retry')" ]
+}
