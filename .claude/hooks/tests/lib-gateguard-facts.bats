@@ -364,7 +364,7 @@ EOF
 
 @test "gateguard: an unresolvable plan root is named in the block message" {
     export UNITY_PLAN_ROOT="$TMPDIR_TEST/no-such-docs"
-    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/zz-nope/Foo.cs\"}}' | bash .claude/hooks/gateguard.sh"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/zz-nope/Foo.cs\"}}' | bash .claude/hooks/gateguard.sh"
     [ "$status" -eq 2 ]
     printf '%s' "$output" | grep -qF "PLAN ROOT NOT FOUND"
 }

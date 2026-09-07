@@ -257,7 +257,7 @@ EOF
 @test "message: game-code path does NOT promise that a retry will pass" {
     P="$PWD/_GameFolders/Scripts/Games/Concretes/Zz/ZzThing.cs"
     printf 0 > "$UNITY_HOOK_STATE_DIR/subagent-depth"
-    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
     [ "$status" -eq 2 ]
     [ -z "$(printf '%s' "$output" | grep -F 'it will pass')" ]
 }
@@ -265,7 +265,7 @@ EOF
 @test "message: game-code path names the two doors that actually exist" {
     P="$PWD/_GameFolders/Scripts/Games/Concretes/Zz/ZzThing.cs"
     printf 0 > "$UNITY_HOOK_STATE_DIR/subagent-depth"
-    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
     printf '%s' "$output" | grep -qF "declare this path in the plan"
     printf '%s' "$output" | grep -qF "spawn the pipeline agent"
 }
@@ -273,13 +273,13 @@ EOF
 @test "message: a NON-game-code path keeps the retry instruction, which is true there" {
     P="$PWD/Assets/Editor/ZzTool.cs"
     printf 0 > "$UNITY_HOOK_STATE_DIR/subagent-depth"
-    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
     printf '%s' "$output" | grep -qF "it will pass"
 }
 
 @test "message: the final BLOCKED summary line does not say 'retry' for game code" {
     P="$PWD/_GameFolders/Scripts/Games/Concretes/Zz/ZzThing.cs"
     printf 0 > "$UNITY_HOOK_STATE_DIR/subagent-depth"
-    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$P\"}}' | bash .claude/hooks/gateguard.sh"
     [ -z "$(printf '%s' "$output" | grep -F 'BLOCKED' | grep -F 'retry')" ]
 }
