@@ -12,6 +12,27 @@
 # ============================================================================
 
 # Root under which tasks.md files are searched. Overridable for tests only.
+#
+# CLAUDE_PROJECT_DIR first, bare relative "docs" only as a last resort — the
+# same fix already applied to _lib.sh's _resolve_state_dir() and
+# lib-path-rules.sh's unity_path_allowlist_file() (both 2026-08-29), and missed
+# here. A bare relative root resolves against the CALLER's cwd, and a subagent's
+# tool-execution cwd is not guaranteed to be the repo root. When it is not,
+# `find docs` matches nothing and unity_find_task_line returns empty for a path
+# the plan DOES declare.
+#
+# That failure is silent and it is the worst possible direction: coverage is the
+# ONLY door gateguard.sh leaves open to a subagent (its retry branch is depth-0
+# only), while guard-pipeline-direct-work.sh simultaneously blocks the Director.
+# So a cwd that is merely different deadlocks the whole pipeline, and reports it
+# as "no task declares this path" — pointing at the plan, which is correct.
+# Measured 2026-09-07 against a real plan whose tasks were properly declared:
+# COVERED from the repo root, NOT COVERED from anywhere else, same input.
+if [ -z "${UNITY_PLAN_ROOT:-}" ] \
+   && [ -n "${CLAUDE_PROJECT_DIR:-}" ] \
+   && [ -d "$CLAUDE_PROJECT_DIR/docs" ]; then
+    UNITY_PLAN_ROOT="$CLAUDE_PROJECT_DIR/docs"
+fi
 UNITY_PLAN_ROOT="${UNITY_PLAN_ROOT:-docs}"
 
 # UNITY_PLAN_FILES — OPTIONAL explicit corpus, newline-separated file list.
@@ -39,6 +60,30 @@ unity_plan_task_files() {
         return 0
     fi
     find "$UNITY_PLAN_ROOT" -name 'tasks.md' -not -path '*/_templates/*' 2>/dev/null | sort
+}
+
+# unity_plan_root_status — 0 = the corpus is resolvable, 1 = it is not.
+#
+# Exists because the failure it names is otherwise INVISIBLE and points at the
+# wrong place: an unresolvable root makes `find` match nothing, so every path
+# reads as "no task declares this" — a verdict about the plan, delivered when
+# the plan was never opened. That is what made a cwd bug read as a planning
+# defect for a full session. The cwd fix above makes this rare; this makes it
+# self-reporting when it does happen.
+#
+# An explicit UNITY_PLAN_FILES corpus is always ok: the caller was handed the
+# documents, so there is no root to resolve.
+unity_plan_root_status() {
+    if [ -n "${UNITY_PLAN_FILES:-}" ]; then
+        echo "ok (explicit corpus)"
+        return 0
+    fi
+    if [ -d "$UNITY_PLAN_ROOT" ]; then
+        echo "ok (${UNITY_PLAN_ROOT})"
+        return 0
+    fi
+    echo "PLAN ROOT NOT FOUND: ${UNITY_PLAN_ROOT}"
+    return 1
 }
 
 # unity_find_task_line <script-path>

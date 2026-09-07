@@ -176,6 +176,17 @@ if ! grep -qxF "$FILE_PATH" "$FACTS_PASSED_FILE" 2>/dev/null; then
         esac
 
         echo "" >&2
+        # An unresolvable plan root is reported HERE, not left to be inferred.
+        # Without this line the block below is indistinguishable from a genuine
+        # "the plan does not declare this path" — and the reader goes to fix a
+        # plan that was never read. See unity_plan_root_status().
+        if ! ROOT_STATUS=$(unity_plan_root_status); then
+            echo "  GateGuard — $ROOT_STATUS" >&2
+            echo "  Plan coverage could NOT be evaluated: no plan corpus was reachable." >&2
+            echo "  This is NOT a statement that the plan omits this path. Check the root" >&2
+            echo "  (CLAUDE_PROJECT_DIR / UNITY_PLAN_ROOT) before editing any tasks.md." >&2
+            echo "" >&2
+        fi
         echo "  GateGuard — STAGE 2 (FACT DEMAND)" >&2
         if [ "$IS_WRITE" = "true" ]; then
             echo "  New file: $FILE_PATH" >&2

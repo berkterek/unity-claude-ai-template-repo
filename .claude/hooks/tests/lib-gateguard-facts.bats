@@ -288,3 +288,83 @@ EOF
     assert_output_contains "T004"
     assert_output_contains "Wiring: PlayerModule.Install"
 }
+
+# ---------------------------------------------------------------------------
+# Default plan-root resolution (cwd independence).
+#
+# Every test above sets UNITY_PLAN_ROOT explicitly, so the DEFAULT branch was
+# never exercised — which is how a bare relative "docs" survived here after the
+# same bug class was fixed twice elsewhere (_lib.sh _resolve_state_dir and
+# lib-path-rules.sh unity_path_allowlist_file, both 2026-08-29).
+#
+# A subagent's tool-execution cwd is not guaranteed to be the repo root. When it
+# is not, `find docs` matches nothing, unity_find_task_line returns empty, and
+# unity_plan_covers reports "no task declares this path" for a path the plan DOES
+# declare — a silent, cwd-dependent failure that closes gateguard's only door for
+# a subagent while guard-pipeline-direct-work.sh closes the Director's.
+# ---------------------------------------------------------------------------
+
+@test "default plan root: resolves from CLAUDE_PROJECT_DIR, not the caller's cwd" {
+    unset UNITY_PLAN_ROOT
+    export CLAUDE_PROJECT_DIR="$TMPDIR_TEST"
+    LIB="$(pwd)/.claude/hooks/lib-gateguard-facts.sh"
+    cd /tmp || exit 1
+    run bash -c "source '$LIB'; unity_find_task_line '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
+    printf '%s' "$output" | grep -qF "T004"
+}
+
+@test "default plan root: coverage does not depend on cwd" {
+    unset UNITY_PLAN_ROOT
+    export CLAUDE_PROJECT_DIR="$TMPDIR_TEST"
+    LIB="$(pwd)/.claude/hooks/lib-gateguard-facts.sh"
+    P="_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs"
+
+    run bash -c "cd '$TMPDIR_TEST' && source '$LIB' && unity_find_task_line '$P'"
+    FROM_ROOT="$output"
+    run bash -c "cd /tmp && source '$LIB' && unity_find_task_line '$P'"
+    [ "$output" = "$FROM_ROOT" ]
+}
+
+@test "default plan root: an explicit UNITY_PLAN_ROOT still wins" {
+    export CLAUDE_PROJECT_DIR="/nonexistent-project-dir"
+    LIB="$(pwd)/.claude/hooks/lib-gateguard-facts.sh"
+    run bash -c "source '$LIB'; unity_find_task_line '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
+    printf '%s' "$output" | grep -qF "T004"
+}
+
+# ---------------------------------------------------------------------------
+# Plan-root resolution must be OBSERVABLE, not silent.
+#
+# When the root cannot be resolved, `find` matches nothing and every path reads
+# as "not declared by any task" — a message that points at the plan, which is
+# the one place the reader will not find the fault. The cwd fix above makes this
+# rare; it does not make it self-reporting. unity_plan_root_status() is what a
+# caller consults to tell the two apart.
+# ---------------------------------------------------------------------------
+
+@test "root status: reports ok when the plan root exists" {
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_plan_root_status"
+    [ "$status" -eq 0 ]
+    printf '%s' "$output" | grep -qF "ok"
+}
+
+@test "root status: reports missing, and names the path it looked for" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/no-such-docs"
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_plan_root_status"
+    [ "$status" -eq 1 ]
+    printf '%s' "$output" | grep -qF "no-such-docs"
+}
+
+@test "root status: an explicit UNITY_PLAN_FILES corpus is always ok" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/no-such-docs"
+    export UNITY_PLAN_FILES="$TMPDIR_TEST/docs/modules/02-players/tasks.md"
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_plan_root_status"
+    [ "$status" -eq 0 ]
+}
+
+@test "gateguard: an unresolvable plan root is named in the block message" {
+    export UNITY_PLAN_ROOT="$TMPDIR_TEST/no-such-docs"
+    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/zz-nope/Foo.cs\"}}' | bash .claude/hooks/gateguard.sh"
+    [ "$status" -eq 2 ]
+    printf '%s' "$output" | grep -qF "PLAN ROOT NOT FOUND"
+}
