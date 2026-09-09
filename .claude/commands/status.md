@@ -17,7 +17,29 @@ Shows the project pipeline's current state at a glance.
    - **GDD + TDD + ROADMAP** → the roadmap is ready. Next: `/plan-module <n>`
    - **Module plans exist** → read each tasks.md checkbox state and summarize it.
 
-3. If `docs/ROADMAP.md` exists, show the module table with its current statuses.
+   The checkboxes are the arbiter at rest. The `> Status:` header and the ROADMAP Status
+   cell are mirrors — if either disagrees with the checkboxes, report the disagreement and
+   name the checkboxes as correct; do not silently prefer a header.
+
+   **Check every module, not the one being asked about, and report the disagreements as a
+   list.** A stale header is a class: `/orchestrate` only started writing both places
+   recently, so every plan authored before that is a candidate, and a missing `> Status:`
+   line counts as a disagreement too. Do not conclude from a correct-looking ROADMAP table
+   that the mirrors agree — measured in a downstream project, 10 of 19 plans disagreed
+   with their own checkboxes while the table read fine, because one row had been repaired
+   by hand and that repair is what hid the rest. Output the sweep as:
+
+   ```
+   ### Status mirror disagreements (checkboxes are correct)
+   - docs/modules/09-x/tasks.md — header ⏳ Pending, checkboxes 23/23 → should be ✅ Complete
+   - docs/modules/01-y/tasks.md — no `> Status:` line, checkboxes 12/12 → add ✅ Complete
+   ```
+
+   Report them; do not fix them silently. Backfilling is an edit to a plan document and
+   belongs to the developer's call, not to a status read.
+
+3. If `docs/ROADMAP.md` exists, show the module table with its current statuses, and the
+   open milestone (`← OPEN`) with the modules still Pending against it.
 
 4. Show the last 10 EVENTS.jsonl events (if present):
    ```
