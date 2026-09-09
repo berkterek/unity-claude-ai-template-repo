@@ -65,7 +65,32 @@ For each auto-fixable issue:
 Read and apply `.claude/skills/core/mcp-preflight.md` before calling any MCP tool.
 
 **State 1 (connected):**
+- Call `refresh_unity` to force a recompile, then poll the `editor_state` resource until
+  `isCompiling` is false. Reading the console without this reports on the *previous* compile.
 - Call `read_console` to check for compilation errors
+- **Prove the loaded assembly is not stale before believing anything above.** When a compile
+  fails, Unity keeps the last good DLL loaded — so a clean console and a green suite are both
+  true statements about an assembly that predates the fixes you just applied in Step 3. This
+  matters more here than anywhere else in the pipeline: this agent runs inside `/qa` and
+  `/ralph` with **no reviewer behind it**, and its own Exit Condition 3 ("all tests pass")
+  would otherwise close the loop on an old DLL.
+
+  Ask the assembly what it holds, in both directions, naming a type your fixes changed:
+  ```
+  unity_reflect(action: "search", query: "<a type the change DELETED>", scope: "all")
+  unity_reflect(action: "search", query: "<a type the change ADDED>",   scope: "all")
+  ```
+  A deleted type that still resolves, or an added type that does not, means the DLL is stale:
+  report it as **STALE ASSEMBLY**, do not count it as a fixed or a failing issue, and do not
+  let it satisfy any exit condition. If the change added and deleted no types, say the probe
+  was not applicable rather than skipping it silently.
+
+  Measured 2026-09-03: `358/358 passed` with four call sites broken. All three usual defences
+  failed together — `refresh_unity(mode:"force", compile:"request", wait_for_ready:true)`
+  returned success without recompiling, `read_console(types:["error"])` returned 0 entries on
+  the first ask, and the test-count baseline was useless because the stale assembly's count
+  *was* the baseline. Do not substitute `run_tests(test_names: [...])` for the probe: it
+  silently matched 0 tests even with correct fully-qualified names.
 - If `run_tests` is available, run the test suite
 
 **State 2 (disconnected):**
@@ -89,7 +114,11 @@ If tests fail due to a fix you just made, **revert that specific fix** and flag 
 Stop the loop when ANY of these are true:
 1. No auto-fixable issues found
 2. Max iterations (3) reached
-3. All tests pass and no critical issues remain
+3. All tests pass, the assembly probe confirmed the DLL is current, and no critical issues remain
+
+**A STALE ASSEMBLY result satisfies none of the three.** It is not "no issues found" — it is
+"nothing was measured". Report it as the outcome and stop; do not report success, and do not
+apply more fixes on the strength of results that describe an old DLL.
 
 ## Final Report
 

@@ -8,7 +8,7 @@ Usage: `/orchestrate docs/modules/01-core-loop/tasks.md`
 ## Step 0 — Argument Parsing & Plugin Preflight
 
 **Parse $ARGUMENTS first:**
-- `$ARGUMENTS` → tasks.md dosya yolu (zorunlu). Eksikse dur:
+- `$ARGUMENTS` → the tasks.md path (required). Stop if it is missing:
   ```
   A tasks.md path is required. Usage: /orchestrate docs/modules/01-core-loop/tasks.md
   ```
@@ -26,18 +26,34 @@ Print availability status before proceeding:
 Plugins: superpowers:verification-before-completion [✓/✗]
 ```
 
+**Then run `.claude/skills/core/mcp-preflight.md` — MANDATORY, and pin the instance
+before any agent is spawned.**
+
+This is the longest MCP-driving pipeline in the project and it was the only one that never
+ran the preflight. State 1.5 of that skill is the reason: with more than one Unity Editor
+open, the bridge picks a default that may be **another project**, and every write and
+`execute_code` then succeeds silently against it. Measured in a downstream `/orchestrate`
+run — MCP was pointed at an unrelated project for part of the session; the visible symptom
+was `run_tests` returning `tests_running` twice, whose obvious diagnosis ("a stuck job",
+fixed with `clear_stuck`) would have been the wrong move on the right-looking evidence, and
+two assembly measurements taken meanwhile had to be thrown away as invalid.
+
+Pin it once, here, and repeat the pinned instance in every MCP agent's prompt — a subagent
+does not inherit the Director's pin. Do not delegate this to the agents: by the time an
+agent notices, it has already written somewhere.
+
 ---
 
-## Step 0b — Tasks.md Okuma & Complexity Scoring & SCOPE_GATE
+## Step 0b — Read tasks.md & Complexity Scoring & SCOPE_GATE
 
-**Step 0b.1 — Tasks.md Okuma**
+**Step 0b.1 — Read tasks.md**
 
 1. Read the tasks.md file given in `$ARGUMENTS`. If the file does not exist, stop:
    ```
    tasks.md not found: [path]
    Create the module plan first.
    ```
-2. Checkbox'lardan durumu parse et:
+2. Parse the state from the checkboxes:
    - `- [x]` → COMPLETE (skip)
    - `- [ ]` → PENDING (run it)
 3. Already-completed tasks are marked with an `[x]` checkbox — they are skipped.
@@ -154,8 +170,9 @@ Show the user the SCOPE_GATE block from `.claude/docs/director-gates.md`.
 ```
 ## SCOPE_GATE — Module Orchestration
 
-Plan: [tasks.md dosya yolu]
+Plan: [tasks.md file path]
 Module: [from the tasks.md title]
+Milestone: [this module's milestone from ROADMAP.md] — open milestone is [Mn], [k] module(s) still Pending
 Total tasks: [count]
 Pending: [count] (completed [count] will be skipped)
 Complexity: [score] — [Label]
@@ -165,6 +182,11 @@ Type `go` to continue:
 ```
 
 Wait for `go` before spawning any agents.
+
+Read the `Milestone` line's values from `docs/ROADMAP.md`. This command does **not** enforce
+the milestone constraint — it displays it, because this gate is the only enforcement point
+`rules/roadmap-milestones.md` has. If the module's milestone is not the open one, say so in
+one sentence above the block rather than leaving the human to compare two identifiers.
 
 After receiving `go` → run:
 ```bash
@@ -662,9 +684,20 @@ Run a full compile and test check for the end of a phase.
    - "is not allowed to reference" — assembly violation
 4. If ANY compile/assembly error found → list all errors. Attempt fixes (max 2). Re-check after each fix.
 5. If errors persist → Report: COMPILE ERRORS with full list. Do NOT run tests.
-6. If compile is clean → call MCP `run_tests` and report results.
+6. **A clean console is not proof the DLL is current — probe it before running tests.** On a
+   failed compile Unity keeps the last good assembly loaded, and a green suite then describes
+   code that predates this phase (measured: `358/358` green with four call sites broken).
+   Name a type this phase changed and ask both directions:
+   - `unity_reflect(action: "search", query: "<a type this phase DELETED>", scope: "all")`
+   - `unity_reflect(action: "search", query: "<a type this phase ADDED>", scope: "all")`
 
-Report: GREEN (compile clean, tests pass) or ERRORS (list all failures).
+   A deleted type still resolving, or an added type not resolving → Report: STALE ASSEMBLY
+   and stop. Do not run the tests and do not spawn a fixer: there may be no code defect, and
+   a fix pass spent here edits correct code. If nothing was added or deleted, say the probe
+   was not applicable.
+7. If the assembly is current → call MCP `run_tests` and report results.
+
+Report: GREEN (compile clean, assembly current, tests pass), STALE ASSEMBLY, or ERRORS (list all failures).
 ```
 
 If failures found → spawn **unity-fixer** to fix, re-verify (max 2 passes — compile/test-fix bound, see `.claude/docs/director-gates.md` → Retry and Pass Limits; this also matches the "Attempt fixes (max 2)" instruction inside the verifier prompt above, which the old outer bound of 3 contradicted). If still failing after 2 passes → **stop and report to user. Do not proceed to Step 2 until green.**
@@ -765,13 +798,33 @@ Devam? (yes / no / stop)
 
 Run: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"`
 
-Update `docs/ROADMAP.md` — find the module's row and set its Status: `→ ✅ Complete`
+Update the module's status — **both places, tasks.md first**:
+1. In the module's own `tasks.md`, set the header line: `> Status: ✅ Complete`
+2. In `docs/ROADMAP.md`, find the module's row and set its Status: `→ ✅ Complete`
+
+Both are **mirrors of the checkboxes in `tasks.md`**, which are what a status is derived
+from at rest. Update them in that order and never the reverse. A ROADMAP-only update is
+silently reverted by the next `/roadmap` run, because `/roadmap` reads the module's own
+header; and a header that disagrees with its own checkboxes is the stale side. (Measured in
+a downstream project: a `tasks.md` header read `⏳ Pending` while all 41 of its checkboxes
+were ticked, and the stale header carried a wrong status into the table for weeks.)
+
+> **That measurement was re-run and it is a class, not one file.** In the same project,
+> 10 of 19 module plans disagreed with their own checkboxes — three headers read
+> `⏳ Pending` against a fully-ticked list, six others had no `> Status:` line at all. The
+> ROADMAP table nonetheless looked correct, because exactly one row had been hand-fixed
+> earlier; the single repair is what hid the other nine. Writing both places here stops
+> the class from growing, and does nothing about the files authored before it did — those
+> need a one-time backfill from their checkboxes (`/status` reports them, see below).
+> Generalizes past status: a derived field is stale for every artifact created before the
+> writer that derives it, and a spot-check that lands on the one repaired row reads as
+> "the table is fine".
 
 ```
 ## Orchestration Complete
 
 tasks.md: [path]
-Tamamlanan task'lar: [N]
+Completed tasks: [N]
 Skipped (already complete): [M]
 
 Next step: update ROADMAP.md with /roadmap

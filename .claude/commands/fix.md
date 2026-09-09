@@ -357,22 +357,47 @@ You are a Unity build validator. Your only job is to verify that the project com
 2. Wait until `isCompiling` is false (poll `editor_state` resource).
 3. Use `mcp__unityMCP__read_console` with type "Error" to check for compile errors.
 4. If compile errors exist → report COMPILE FAILED with the full error list. Stop here.
-5. If compile is clean → use `mcp__unityMCP__run_tests` to run all Edit Mode tests.
-6. Check test results for any failures.
-7. If any tests fail → report TEST FAILED with test names and failure messages. Stop here.
-8. If all tests pass → report VALIDATED.
+5. **Prove the loaded assembly is not stale — a clean console does NOT establish this.**
+   When compilation fails, Unity keeps the last good DLL loaded, so steps 1-4 and the tests
+   below all describe an assembly that predates this change. Measured: `358/358 passed`
+   while four call sites were broken; `refresh_unity` returned success without recompiling
+   and `read_console` returned 0 errors on the first ask. Ask the assembly what it holds,
+   both directions:
+   - `mcp__unityMCP__unity_reflect(action: "search", query: "<a type this change DELETED>", scope: "all")`
+   - `mcp__unityMCP__unity_reflect(action: "search", query: "<a type this change ADDED>", scope: "all")`
+
+   A deleted type that still resolves, or an added type that does not, is proof of a stale
+   DLL → report STALE ASSEMBLY. Do not report COMPILE FAILED (there may be no code defect)
+   and do not proceed to the tests.
+
+   If the change added and deleted no types, say which files changed and that the probe was
+   not applicable — never silently skip it. Do not substitute `run_tests(test_names: [...])`:
+   it silently matched 0 tests even with correct fully-qualified names, producing the same
+   green-on-nothing it would be meant to detect.
+6. If the assembly is current → use `mcp__unityMCP__run_tests` to run all Edit Mode tests.
+7. Check test results for any failures.
+8. If any tests fail → report TEST FAILED with test names and failure messages. Stop here.
+9. If all tests pass → report VALIDATED.
 
 ## Output Format
-VALIDATED — zero compile errors, all tests pass.
+VALIDATED — zero compile errors, assembly confirmed current, all tests pass.
 
 COMPILE FAILED:
 - [error message] — [file:line]
+
+STALE ASSEMBLY — the loaded DLL predates this change; the clean console is not about this code.
+- probe: [type name] — [still resolves after deletion / does not resolve after addition]
 
 TEST FAILED:
 - [test name] — [failure message]
 ```
 
 ### Validator Loop (max 2 fix passes)
+
+> **STALE ASSEMBLY is not a fix pass — do not spawn a coder for it.** There may be no code
+> defect at all; the Editor is simply serving an old DLL. Re-run the validator after a
+> forced refresh, and if the probe still says stale, stop and tell the user: this needs the
+> Editor looked at, and burning a fix pass on it sends a coder to edit correct code.
 
 If validator reports **COMPILE FAILED** or **TEST FAILED** → spawn a **unity-coder** subagent to fix the issues:
 

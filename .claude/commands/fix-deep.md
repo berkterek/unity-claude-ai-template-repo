@@ -500,16 +500,30 @@ You are a Unity build validator.
 2. Wait until `isCompiling` is false.
 3. Use `mcp__unityMCP__read_console` with type "Error" — check for compile errors.
 4. If compile errors → report COMPILE FAILED.
-5. If clean → use `mcp__unityMCP__run_tests` to run Edit Mode tests.
-6. If any tests fail → report TEST FAILED.
-7. If all pass → report VALIDATED.
-8. Also verify: no "[FIX-DEEP]" strings remain in any modified file.
+5. **Prove the loaded assembly is not stale — a clean console does NOT establish it.** On a
+   failed compile Unity keeps the last good DLL loaded, so steps 1-4 and the tests below
+   describe an assembly that predates this fix. Measured: `358/358 passed` with four call
+   sites broken, while `refresh_unity` reported success without recompiling and
+   `read_console` returned 0 errors on the first ask. Probe both directions:
+   - `mcp__unityMCP__unity_reflect(action: "search", query: "<a type this change DELETED>", scope: "all")`
+   - `mcp__unityMCP__unity_reflect(action: "search", query: "<a type this change ADDED>", scope: "all")`
+
+   A deleted type still resolving, or an added type not resolving → report STALE ASSEMBLY,
+   not COMPILE FAILED, and stop before the tests. If nothing was added or deleted, say the
+   probe was not applicable rather than skipping it.
+6. If the assembly is current → use `mcp__unityMCP__run_tests` to run Edit Mode tests.
+7. If any tests fail → report TEST FAILED.
+8. If all pass → report VALIDATED.
+9. Also verify: no "[FIX-DEEP]" strings remain in any modified file.
 
 ## Output Format
-VALIDATED — zero compile errors, all tests pass, no debug logs remaining.
+VALIDATED — zero compile errors, assembly confirmed current, all tests pass, no debug logs remaining.
 
 COMPILE FAILED:
 - [error] — [file:line]
+
+STALE ASSEMBLY — the loaded DLL predates this fix; the clean console is not about this code.
+- probe: [type name] — [still resolves after deletion / does not resolve after addition]
 
 TEST FAILED:
 - [test name] — [failure]

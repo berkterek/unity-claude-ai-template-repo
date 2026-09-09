@@ -44,6 +44,37 @@ After completing the code review checklist, you MUST verify that the code compil
 
 **Compile errors are CRITICAL severity and always block PASS.** A phase cannot be accepted with compile errors present.
 
+### Step 5 — prove the assembly is NOT stale (MANDATORY, and steps 1-4 cannot do it)
+
+When compilation **fails**, Unity keeps the last good DLL loaded and everything downstream
+runs against *that*. A clean console and a green test run are then both true statements
+about an assembly that predates your change.
+
+Measured 2026-09-03 in a downstream project: `358/358 passed` while four call sites were
+broken. All three of the usual defences failed on the same run —
+`refresh_unity(mode="force", compile="request", wait_for_ready=true)` returned success
+("recovered after Unity disconnect/retry") without recompiling; `read_console(types:
+["error"])` returned **0 entries** on the first ask and only produced the errors after a
+second refresh; and comparing the test count against the baseline was useless because the
+stale assembly's count *was* the baseline.
+
+So ask the assembly what it contains, both halves:
+
+```
+unity_reflect(action: "search", query: "<a type this change DELETED>", scope: "all")
+unity_reflect(action: "search", query: "<a type this change ADDED>",   scope: "all")
+```
+
+`search` requires `query` — `scope` is the optional half. Naming only the scope is not a
+call, and an agent copying it verbatim gets an error and starts improvising inside a step
+marked MANDATORY.
+
+A deleted type still resolving, or an added type not resolving, is unambiguous proof of a
+stale DLL → **FAIL, and say it is a stale assembly rather than a code defect.** Do not
+substitute `run_tests(test_names: [...])` for this: it silently matched 0 tests even with
+correct fully-qualified names, so it produces the same green-on-nothing it is meant to
+detect.
+
 ## Runtime Validation (MANDATORY)
 
 Compilation passing does NOT mean the game works. After confirming zero compile errors, you MUST verify runtime behavior:
@@ -192,6 +223,22 @@ During Play mode runtime validation, specifically check:
 - [ ] Output files are at the correct paths
 - [ ] Namespaces match folder structure
 
+> **An unmet criterion is not a defect until the criterion itself is checked.** Before
+> reporting `NOT MET`, verify the criterion is true of this codebase — against the rule or
+> hook it invokes, not against your reading of the plan. If the criterion is wrong, report
+> **the criterion** as the finding and say what it should be; do not send the coder to
+> satisfy it.
+>
+> Measured 2026-09-10 in a downstream module: four of a plan's acceptance criteria were
+> falsified by measurement, and **none was an agent error** — each was written without
+> knowing what the hook or the serializer actually does. One demanded `Debug.LogError`
+> where `check-dlog-usage.sh` was right to block (its carve-out does not reach
+> `Initialize()`); one demanded a justification on a GameObject name that no reader can
+> structurally reach, because every scene instance is a variant; one budgeted an override
+> count that omitted the unavoidable `m_Name`; one expected `check-duplicate-siblings.py`
+> to exit 0 where exit 1 was the correct output of a script blind spot. A reviewer that
+> takes an AC as ground truth converts each of these into work on correct code.
+
 ## Unused Code Detection (MANDATORY)
 
 After reading all files in the review scope, you MUST actively search for unused members. This is not a passive observation — it requires cross-referencing callers. Unused code is a **MAJOR** issue that blocks PASS.
@@ -248,6 +295,9 @@ All acceptance criteria met. Code is production quality.
 
 ### Minor Suggestions (non-blocking)
 - [Optional improvements for future consideration]
+
+### What I Did Not Verify
+- [Claim or behaviour I accepted without checking, and what would check it]
 ```
 
 ### If FAIL:
@@ -276,7 +326,28 @@ All acceptance criteria met. Code is production quality.
 - [x] Criterion 1 — Met
 - [ ] Criterion 2 — NOT MET: [reason]
 - [x] Criterion 3 — Met
+
+### What I Did Not Verify
+- [Claim or behaviour I accepted without checking, and what would check it]
 ```
+
+### `What I Did Not Verify` is MANDATORY (both verdicts)
+
+Never omit the section and never write "nothing" into it. A review always rests on
+something taken on trust — a third-party library's dispatch order, a Unity lifecycle
+guarantee, an assumption stated in the task text. Naming those is the highest-value line
+in the whole report, and it is the only part a reader cannot reconstruct from the diff.
+
+**A citation that confirms a location does not confirm a premise.** Measured in a
+downstream project 2026-09-09: a plan asserted that a VContainer entry point's
+`Initialize()` "may not be dispatched". The reviewer verified that the cited line said
+what the plan claimed it said, approved the shape as matching precedent, and never asked
+whether the premise itself was true. It was not — the dispatcher is registered
+unconditionally on every scope — and the false premise had already grown into the plan's
+highest-severity risk, one functional requirement, a spec note and a three-branch
+comment table. Six artifacts were deleted. So: when a finding rests on an external
+behaviour, either read the behaviour's own source and say you did, or list it here as
+unverified. "The quoted line exists" is not verification of anything but the quote.
 
 ## Review Standards
 
