@@ -156,9 +156,9 @@ _unity_has_field() {
 # NEW  : Callers: and Wiring: are both required. Files under Tests/ are exempt —
 #        the question is structurally empty for them (no callers, no wiring).
 # EDIT : fields are not required. FormerlySerializedAs: becomes required only
-#        when the task text signals a rename AND the target file contains
+#        when the task's TITLE LINE signals a rename AND the target file contains
 #        [SerializeField]. Known gap, documented in the spec: a rename nobody
-#        wrote into the task text is not detectable at plan time.
+#        wrote into the task title is not detectable at plan time.
 unity_validate_task_facts() {
     local target="$1" mode="$2" body
     body=$(unity_find_task_line "$target")
@@ -178,7 +178,28 @@ unity_validate_task_facts() {
         return 0
     fi
 
-    if printf '%s\n' "$body" | grep -qiE 'rename|yeniden adlandır|eski ad|→'; then
+    # Rename detection reads the task's TITLE LINE ONLY, and no longer treats "→"
+    # as a signal. Both narrowings fix the same false positive, measured 2026-09-09:
+    # the body capture includes every sub-bullet, and this project's own task
+    # template mandates a `Wiring:` field shaped
+    #   Wiring: registered in `XModule.cs` via `Install()` → `Register<X>()...`
+    # so the arrow alternative matched the template's own required field. Result:
+    # EVERY edit task written from the template, targeting a file that contains
+    # [SerializeField], demanded FormerlySerializedAs — not an edge case, the
+    # default shape. The arrow is ordinary prose punctuation in this repo, never a
+    # rename signal. Restricting to the title line closes the second half: an
+    # acceptance criterion mentioning an unrelated rename ("level_1.npy temporarily
+    # renamed") describes the test setup, not a field rename, and a field rename is
+    # by definition what the task DOES — which is the title.
+    #
+    # Why this survived: the rule fires only at mode=edit, and plan-time validation
+    # runs before any target exists, so every task is `new` there. It first fires
+    # during the fix pass — after the file is on disk — which made a newly created
+    # file uneditable by its own creation. Same class as the PreToolUse
+    # effective-content bug in CLAUDE.md, one layer up. All four existing bats tests
+    # used a body whose title was a real field rename, so the branch was green with
+    # this hole in it; the arrow case now has its own regression guard.
+    if printf '%s\n' "$body" | head -n 1 | grep -qiE 'rename|yeniden adlandır|eski ad'; then
         if grep -q '\[SerializeField\]' "$target" 2>/dev/null; then
             _unity_has_field "$body" "FormerlySerializedAs" || {
                 echo "task signals a rename on a file containing [SerializeField] but declares no 'FormerlySerializedAs:' field — without it every configured value in every scene, prefab and ScriptableObject silently resets to default"

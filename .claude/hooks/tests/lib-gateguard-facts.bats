@@ -182,6 +182,46 @@ EOF
     [ "$status" -eq 0 ]
 }
 
+# --- rename-detector false-positive guards (added 2026-09-09) ------------------
+# The detector used to grep the WHOLE task body, arrow included. Both of these
+# passed a rename demand on a task that renames nothing; neither was covered by
+# the four tests above, because every one of them titles a real field rename.
+
+@test "validate: an arrow in the template's mandated Wiring field is not a rename signal" {
+    mkdir -p "$TMPDIR_TEST/dom"
+    printf '[SerializeField] private int _settings;\n' > "$TMPDIR_TEST/dom/Importer.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T011 \`$TMPDIR_TEST/dom/Importer.cs\` — add a validation guard
+  - Callers: \`ImporterWindow.cs\`
+  - Wiring: registered in \`ImportModule.cs\` via \`Install()\` → \`Register<ImportService>().AsImplementedInterfaces()\`
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '$TMPDIR_TEST/dom/Importer.cs' edit"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate: 'renamed' inside an acceptance criterion is not a field rename" {
+    mkdir -p "$TMPDIR_TEST/dom"
+    printf '[SerializeField] private int _settings;\n' > "$TMPDIR_TEST/dom/Importer.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T012 \`$TMPDIR_TEST/dom/Importer.cs\` — log the import failure path
+  - Acceptance: an error is logged when level_1.npy is temporarily renamed and Import is pressed
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '$TMPDIR_TEST/dom/Importer.cs' edit"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate: a real rename in the title is STILL blocked (regression guard)" {
+    mkdir -p "$TMPDIR_TEST/dom"
+    printf '[SerializeField] private float _speed;\n' > "$TMPDIR_TEST/dom/Mover.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF
+- [ ] T021 \`$TMPDIR_TEST/dom/Mover.cs\` — rename _speed to _moveSpeed
+  - Wiring: registered in \`MoveModule.cs\` via \`Install()\` → \`Register<MoveService>()\`
+EOF
+    run bash -c "source .claude/hooks/lib-gateguard-facts.sh; unity_validate_task_facts '$TMPDIR_TEST/dom/Mover.cs' edit"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"FormerlySerializedAs"* ]]
+}
+
 @test "plan_covers: false with no gate-cleared, even for a declared path" {
     run bash -c "source .claude/hooks/_lib.sh; unity_plan_covers '_GameFolders/Scripts/Games/Concretes/Players/PlayerService.cs'"
     [ "$status" -ne 0 ]
