@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 #
-# Pins the six cases that shaped check-duplicate-siblings.py.
+# Pins the eleven cases that shaped check-duplicate-siblings.py.
 #
-# Two of them exist because the script FAILED them on first measurement, and both
+# Three of them exist because the script FAILED them on measurement, and all three
 # failures were false positives — the expensive kind, because a noisy gate gets
 # ignored and then stops protecting anything:
 #
@@ -18,7 +18,16 @@
 #                                but not RectTransform (224), so two empty UI
 #                                grouping nodes read as a duplicate.
 #
-# The other four pin behaviour that must not regress: a real duplicate is caught,
+#   "nested prefab instances"    a nested instance serializes as *stripped* blocks
+#                                with no m_Name and no components, so two of them
+#                                shared the signature (parent, ()) and reported
+#                                ['?', '?']. Measured 2026-09-10 on a real
+#                                CanvasHUD.prefab whose two source GUIDs differed —
+#                                and the verdict is backwards even when they match,
+#                                because repeated instances under a layout parent
+#                                are what Card 5 PRESCRIBES.
+#
+# The rest pin behaviour that must not regress: a real duplicate is caught,
 # Unity's own Cmd+D naming is caught (the name-based grep this script replaced was
 # blind to it), scene containers are never flagged, and "same components" alone is
 # not enough without "same parent".
@@ -57,6 +66,16 @@ transform() {
 # $1 fileID, $2 owning GameObject, $3 script guid, $4 optional editor class identifier
 mono() {
     printf -- '--- !u!114 &%s\nMonoBehaviour:\n  m_GameObject: {fileID: %s}\n  m_Script: {fileID: 11500000, guid: %s, type: 3}\n  m_EditorClassIdentifier: %s\n' "$1" "$2" "$3" "${4:-}"
+}
+
+# A nested prefab instance: Unity emits the instance's GameObject and Transform as
+# *stripped* blocks — no m_Name, no component entries — plus a PrefabInstance (1001)
+# holding the source GUID. This is the shape that produced ['?', '?'] and exit 1.
+# $1 GameObject fileID, $2 Transform fileID, $3 parent transform fileID, $4 source GUID
+nested_instance() {
+    printf -- '--- !u!1 &%s stripped\nGameObject:\n  m_PrefabInstance: {fileID: 900%s}\n' "$1" "$1"
+    printf -- '--- !u!4 &%s stripped\nTransform:\n  m_GameObject: {fileID: %s}\n  m_Father: {fileID: %s}\n  m_PrefabInstance: {fileID: 900%s}\n' "$2" "$1" "$3" "$1"
+    printf -- '--- !u!1001 &900%s\nPrefabInstance:\n  m_Modification:\n    m_Modifications:\n    - target: {fileID: 0}\n      propertyPath: m_Name\n      value: Heart\n  m_SourcePrefab: {fileID: 100100000, guid: %s, type: 3}\n' "$1" "$4"
 }
 
 run_check() {
@@ -150,4 +169,47 @@ run_check() {
     run_check
     [ "$status" -eq 0 ]
     [[ "$output" == *"duplicate sibling groups: 0"* ]]
+}
+
+# --- nested prefab instances: the third false positive (measured 2026-09-10) ---
+
+@test "two nested prefab instances under one parent are NOT a duplicate hit" {
+    # CanvasHUD.prefab reported ['?', '?'] with an empty component list and exited 1.
+    # Stripped blocks carry no components, so Card 5's second condition is unmet --
+    # a vacuum, not a match. Here the two source GUIDs even differ.
+    { printf '%s' "$HDR"
+      nested_instance 10 11 99 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      nested_instance 20 21 99 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    } > "$FIXTURE"
+    run_check
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"['?', '?']"* ]]
+    [[ "$output" == *"duplicate sibling groups: 0"* ]]
+}
+
+@test "the skip is reported, never silent" {
+    # A checker that declines to look must say so -- otherwise 'groups: 0' reads as
+    # 'inspected and clean' for objects it never inspected.
+    { printf '%s' "$HDR"
+      nested_instance 10 11 99 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      nested_instance 20 21 99 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    } > "$FIXTURE"
+    run_check
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"nested prefab instances skipped: 2"* ]]
+    [[ "$output" == *"NOT inspected"* ]]
+}
+
+@test "a real duplicate is still caught alongside nested instances in the same file" {
+    # Regression guard: the exemption must not swallow inline siblings that sit in
+    # the same parent as a nested instance.
+    { printf '%s' "$HDR"
+      nested_instance 10 11 99 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      go 30 Pip1 31 32; rect 31 30 99; mono 32 30 cccccccc
+      go 40 Pip2 41 42; rect 41 40 99; mono 42 40 cccccccc
+    } > "$FIXTURE"
+    run_check
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Pip1"* && "$output" == *"Pip2"* ]]
+    [[ "$output" == *"nested prefab instances skipped: 1"* ]]
 }

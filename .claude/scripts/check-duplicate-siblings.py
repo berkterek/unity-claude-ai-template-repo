@@ -45,6 +45,28 @@ import sys
 # Measured: without the 224 case, two sibling grouping nodes are reported as a duplicate.
 ORGANIZER_ONLY = ("4", "224")
 
+# A NESTED PREFAB INSTANCE is not a Card 5 subject, and cannot be judged from this file.
+# Unity serializes one as a `PrefabInstance` (class 1001) holding m_SourcePrefab plus a
+# modification list, and emits the instance's GameObject/Transform as *stripped* blocks:
+# `!u!1 &<id> stripped` carries no m_Name and no `component:` entries at all. So the name
+# lands in the modification list and the components live in the referenced asset, and this
+# parser sees an EMPTY component set.
+#
+# An empty set is a vacuum, not a match: Card 5's second measurable condition ("same
+# component set") is unmet, not met. Measured 2026-09-10 in a downstream project —
+# CanvasHUD.prefab reported `['?', '?']` with an empty component list and exited 1, on two
+# instances whose m_SourcePrefab GUIDs were in fact DIFFERENT. Worse, the verdict is
+# backwards even when the GUIDs match: two instances of one prefab under a layout parent
+# is precisely the shape Card 5 prescribes as the FIX, so flagging it points the reader at
+# already-correct work. Every hand-duplicated sibling that is not a prefab instance still
+# carries its own components inline and is still caught.
+#
+# Skipping is therefore correct — but it is skipped COVERAGE, so it is counted and printed.
+# A checker that silently declines to look reads as "clean" (CLAUDE.md: an empty result is
+# not a verdict), and this blind spot can hide a real duplication of the *nested* prefabs
+# themselves. Judging that needs an m_SourcePrefab comparison, which this script does not
+# do; the printed count is what tells a reader to look by hand.
+
 EXCLUDED_PARTS = ("Library", "Packages", "Plugins", "_AssetFolders", "PackageCache")
 
 
@@ -85,14 +107,24 @@ def parse(text):
 
 
 def groups_in(path):
+    """Return (hit_groups, nested_instances_skipped)."""
     gos, types, father = parse(path.read_text(errors="ignore"))
     signature = collections.defaultdict(list)
+    skipped = 0
     for object_id, (name, components) in gos.items():
         component_set = tuple(sorted(types.get(c, "?") for c in components))
+        if not component_set:  # stripped block -- a nested prefab instance, see above
+            skipped += 1
+            continue
         if len(component_set) == 1 and component_set[0] in ORGANIZER_ONLY:
             continue
         signature[(father.get(object_id, "?"), component_set)].append(name)
-    return [(sorted(names), key[1]) for key, names in sorted(signature.items()) if len(names) > 1]
+    hits = [
+        (sorted(names), key[1])
+        for key, names in sorted(signature.items())
+        if len(names) > 1
+    ]
+    return hits, skipped
 
 
 def roots_from(argv):
@@ -125,13 +157,24 @@ def main(argv):
         return 1
 
     hits = 0
+    skipped = 0
     for path in files:
-        for names, component_set in groups_in(path):
+        groups, nested = groups_in(path)
+        skipped += nested
+        for names, component_set in groups:
             hits += 1
             print("%s\n    %s  [%s]" % (path, names, ",".join(component_set)))
 
     print("\nchecked: %d prefab/scene files (unity-prefabs.md Card 5, structural)" % len(files))
     print("duplicate sibling groups: %d" % hits)
+    if skipped:
+        print(
+            "nested prefab instances skipped: %d — NOT inspected, not a pass for them.\n"
+            "  Their components live in the referenced asset, so 'same component set' cannot\n"
+            "  be measured from here. Duplication BETWEEN nested instances is unchecked; if a\n"
+            "  parent holds repeated instances of the same prefab, that is Card 5's fix, not a\n"
+            "  hit — compare m_SourcePrefab by hand if you need to know which case it is." % skipped
+        )
     if hits:
         print(
             "\nEach group is a question, not a verdict: same parent and same component set are\n"
