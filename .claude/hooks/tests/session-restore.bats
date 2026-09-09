@@ -20,6 +20,34 @@ teardown() {
     [ ! -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
 }
 
+@test "session-restore KEEPS gate-cleared when SessionStart source is compact" {
+    # A compaction is not a new session — the pipeline and the human approval both
+    # survive it. Deleting here revoked an approved gate mid-/orchestrate.
+    touch "$UNITY_HOOK_STATE_DIR/gate-cleared" "$UNITY_HOOK_STATE_DIR/sparc-approved"
+    run bash $HOOK <<< '{"hook_event_name":"SessionStart","source":"compact"}'
+    [ "$status" -eq 0 ]
+    [ -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
+    [ -e "$UNITY_HOOK_STATE_DIR/sparc-approved" ]
+}
+
+@test "session-restore still deletes gate-cleared for a real session boundary" {
+    for src in startup resume clear; do
+        touch "$UNITY_HOOK_STATE_DIR/gate-cleared"
+        run bash $HOOK <<< "{\"source\":\"$src\"}"
+        [ "$status" -eq 0 ]
+        [ ! -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
+    done
+}
+
+@test "session-restore fails closed on a payload it cannot parse" {
+    # An unreadable source must never be treated as compact — that would keep a
+    # stale approval alive across a genuine session boundary.
+    touch "$UNITY_HOOK_STATE_DIR/gate-cleared"
+    run bash $HOOK <<< 'not json at all'
+    [ "$status" -eq 0 ]
+    [ ! -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
+}
+
 @test "session-restore is safe when gate-cleared is already absent" {
     rm -f "$UNITY_HOOK_STATE_DIR/gate-cleared"
     run bash $HOOK < /dev/null

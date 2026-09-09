@@ -103,8 +103,34 @@ rm -f "${UNITY_HOOK_STATE_DIR}/gateguard-facts-passed.txt" \
 #
 # sparc-approved was missing from this line. It was invisible only because
 # session-save.sh deleted it on every turn-end, which was itself the bug.
-rm -f "${UNITY_HOOK_STATE_DIR}/gate-cleared" \
-      "${UNITY_HOOK_STATE_DIR}/sparc-approved"
+#
+# NOT ON COMPACTION. Claude Code fires SessionStart with source="compact" after
+# /compact, so until 2026-09-10 every compaction silently revoked the human's gate
+# approval mid-pipeline. Measured twice in one downstream /orchestrate run: the
+# next agent spawn was blocked with exit 2, and that block is indistinguishable
+# from "the gate was never shown" — so the session re-showed a gate the human had
+# already approved. TTL was ruled out (it had expired the first time, not the
+# second; guard-gate-cleared.sh rejects a stale gate rather than deleting it), and
+# compaction was the only event common to both.
+#
+# The fix belongs HERE, not in a PreCompact hook: PreCompact runs *before* this,
+# so preserving the file there cannot stop this rm, and re-writing it afterwards
+# would resurrect gates a pipeline had legitimately torn down. A compaction is not
+# a new session — the pipeline, the approval and the human are all still the same.
+# "resume" and "clear" are deliberately still cleared: those cross a real session
+# boundary, and the TTL is the bound that matters there.
+_session_source=""
+if [ ! -t 0 ]; then
+    _hook_payload=$(cat 2>/dev/null || true)
+    _session_source=$(printf '%s' "$_hook_payload" | jq -r '.source // empty' 2>/dev/null || true)
+fi
+
+if [ "$_session_source" = "compact" ]; then
+    echo "  Kept: gate-cleared / sparc-approved (SessionStart source=compact — same session)" >&2
+else
+    rm -f "${UNITY_HOOK_STATE_DIR}/gate-cleared" \
+          "${UNITY_HOOK_STATE_DIR}/sparc-approved"
+fi
 
 # Prune stale agent worktrees from interrupted sessions.
 # When a session is force-killed (Cmd+C, crash, OS kill), the Claude Code process
