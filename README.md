@@ -201,6 +201,8 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; namespace collision rule (`Game.Concretes.<Domain>` vs UnityEngine aliases) |
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; material folder structure (`Arts/Materials/<Domain>/`); mesh folder structure (`Arts/Models/<Domain>/` — Blender exports land here); shader file structure (`_GameFolders/Arts/Shaders/`); URP shader rule (Standard forbidden) |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
+| `logging.md` | Runtime game code logs through `DLog`, never `UnityEngine.Debug` (Editor/test code keeps `Debug`); one `LogTag` per domain and it must be **enabled** — a new tag is silent by default for `Log`/`Warning`, while `Error` is deliberately neither stripped nor tag-filtered; an error path never falls back without logging, and a caught exception is passed as an object, not `.Message` |
+| `save-load.md` | `ISaveLoadService`/`ISaveLoadDal` chain (never `PlayerPrefs`/`File` in game code); `*SaveData` = `[Serializable]` **class** with `int Version` (never a struct — the DAL's `object` parameter boxes it); `*SaveData` vs `*Model` split; `SaveKeyHelper` key contract, one key per domain; `HasKey`→`Load`→config-default read path; atomic write (temp file + `File.Replace`); corrupt-save fallback catches `JsonException`, never `Exception` |
 | `unity-lifecycle.md` | Editor guards, platform defines, lifecycle order, threading, Time, `.meta` files |
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
 | `unity-input.md` | New Input System, InputService (pure C#, pull-based — no tick) + InputHandler (per-prefab), action map switching, `FixedUpdate` latch rule |
@@ -215,6 +217,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 | `web-tool-data-contract.md` | **Web authoring tools only** — export schema single-source, enum int map, version field, unit/scale contract, parity fixture lock, importer error-on-missing, tool-side import validation (version + required-field checks before hydrating) |
 | `web-tool-architecture.md` | **Web authoring tools only** — zero-build `file://` constraint, single model source of truth, pure-core/DOM-shell split, ~400 line limit, event delegation, idempotent render, runner-less tests, stable row identity (never array index) |
 | `web-tool-design-system.md` | **Web authoring tools only** — design tokens, fixed spacing scale, control-type decision table, viewport primacy, unit display, destructive actions undoable-or-confirmed, keyboard access with visible focus, visible unsaved/invalid/empty state, bounded undo history, localStorage draft persistence across reloads |
+| `roadmap-milestones.md` | **First Playable discipline** — milestones are a *design* decision born in the GDD; `/roadmap` maps modules onto them and **stops and asks** if the GDD defines none. Exactly one milestone is `← OPEN` (lowest-numbered with an empty verdict); nothing outside it is planned or started without explicit confirmation. A milestone closes **only** on a dated written human verdict — not a green suite, not a count of ✅ Complete modules, not an Editor play session, not a debug trigger. M0 stays small and stubs are legal currency. Written because a real project produced 87k lines of markdown, 29k of C#, 12 Complete modules and 459/459 green tests with **zero playable runs** — dependency order answers what *can* be built next, never what *should* be |
 
 ### `.claude/docs/` — Key reference docs (not loaded at startup)
 
@@ -241,7 +244,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 |------|---------|
 | `ARCHITECTURE.md` | High-level system architecture diagram and pipeline flow |
 | `SETUP.md` | Quick start, adding to existing project, hook audit log, model tiers |
-| `ROADMAP.md` | Module roadmap table — status rollup for all modules (`/roadmap` creates it) |
+| `ROADMAP.md` | Milestone mapping + module table — status rollup for all modules (`/roadmap` maintains it; **edited in place, never regenerated**, because it holds human verdict lines and hand-written annotations that exist nowhere else) |
 | `modules/<n>-<name>/` | Per-module vertical slices: `spec.md`, `design.md`, `tasks.md` (`/plan-module <n>` creates them) |
 | `CATCH_UP.md` | Auto-generated codebase guide (created by `/catch-up`, not committed) |
 | `archive/WORKFLOW.md` | Archived — old horizontal phase-based pipeline (replaced by modules/ system) |
@@ -645,8 +648,8 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 
 | Command | How it runs | What it does |
 |---------|------------|-------------|
-| `/game-idea` | Manual — single step | Refines a raw idea into a GDD — surfaces assumptions, defines scope, creates a "Not Doing" list |
-| `/architect` | Manual — single step | Converts the GDD into a TDD — `unity-critic` adversarially challenges the design before you review |
+| `/game-idea` | Manual — single step | Refines a raw idea into a GDD — surfaces assumptions, defines scope, creates a "Not Doing" list, and defines **Milestones** (mandatory Category 6: *"what do we need to SEE on screen?"* → M0 First Playable + smoke-test checklist + target device/input + a dated ordering rationale) |
+| `/architect` | Manual — single step | Converts the GDD into a TDD — `unity-critic` adversarially challenges the design before you review. Adds **§14 Milestone Acceptance**: the stub table (`system` / `accepted stub` / `real module that replaces it`) that `/plan-module` later reads as its scope ceiling, plus the four things that do **not** close a milestone |
 | `/grill-me [plan or file]` | Manual — single step | Stress-tests a plan or decision — one pointed question at a time, recommends an answer, ends with a Decision Record. Auto-delegates to Opus (heavy tier) regardless of current session model. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed. |
 | `/debate <idea \| plan-file \| thesis>` | Manual — single step | Adversarial stress-test — 3 Opus agents (`debate-proposer` steelmans → `debate-critic` refutes → `debate-moderator` triages) return a rule-grounded verdict: **REFUTED / CONFIRMED / ESCALATE**. Single pass, no rebuttal loop. GROUNDED (plan/real code) or UNGROUNDED (bare idea, flagged). Read-only — prints the verdict, writes nothing. Unattended, unlike `/grill-me`. **Next:** `/grill-me` on the ESCALATE items, or `/create-plan`. |
 
@@ -654,8 +657,8 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 
 | Command | How it runs | What it does |
 |---------|------------|-------------|
-| `/roadmap` | Manual — single step | Reads GDD + TDD + existing `docs/modules/` → produces `docs/ROADMAP.md` module table with gap analysis. Creates the list of modules to build; shows done vs. missing. Run once after TDD is approved. |
-| `/plan-module <n>` | Manual — single step | Just-in-time planner for a single module. ARCHITECTURE_GATE fires before spawning agents. Produces `docs/modules/<n>-<name>/spec.md`, `design.md`, and `tasks.md`. Run immediately before you orchestrate that module. |
+| `/roadmap` | Manual — single step | Reads GDD + TDD + existing `docs/modules/` → maintains `docs/ROADMAP.md`: milestone mapping, module table, gap analysis. **Milestone-gated** — stops and asks if the GDD defines no milestones, and priority follows the open milestone rather than the bare dependency graph. **Edits the file in place, never regenerates it**: verdict lines, the `← OPEN` marker and hand-written row annotations are preserved (a verdict has no other home, so overwriting one silently reopens a closed milestone). Run once after TDD is approved, and again whenever the milestone mapping goes stale. |
+| `/plan-module <n>` | Manual — single step | Just-in-time planner for a single module. ARCHITECTURE_GATE fires before spawning agents. Produces `docs/modules/<n>-<name>/spec.md`, `design.md`, and `tasks.md`. Scopes the plan to the module's **stub ceiling** — the inline `NN (minimal — …)` qualifier in the ROADMAP milestone entry plus TDD §14's stub row, both read *before* the module's full system section — and warns (never blocks) if the module sits outside the open milestone. Run immediately before you orchestrate that module. |
 | `/dry-run` | Manual — single step | *(optional)* Preview pending tasks in a `tasks.md` without executing |
 | `/plan-summary <file>` | Manual — single step | *(optional)* Reads a plan file and produces a 3-section human-readable summary — what we're doing, how, and what you'll see at the end. |
 
@@ -669,7 +672,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 
 | Command | How it runs | What it does |
 |---------|------------|-------------|
-| `/orchestrate docs/modules/<n>/tasks.md` | Manual to start. **Within each task:** tester → coder → verifier → reviewer → committer run **automatically**. **Checkpoint lines** pause for `Proceed?`. | Executes a module's `tasks.md` end-to-end; marks `- [ ]` → `- [x]` and updates `ROADMAP.md` on completion |
+| `/orchestrate docs/modules/<n>/tasks.md` | Manual to start. **Within each task:** tester → coder → verifier → reviewer → committer run **automatically**. **Checkpoint lines** pause for `Proceed?`. | Executes a module's `tasks.md` end-to-end; marks `- [ ]` → `- [x]`, then on completion updates the module's own `> Status:` header **and** the `ROADMAP.md` row — both are mirrors of the checkboxes, and a ROADMAP-only update is silently reverted by the next `/roadmap`. Its SCOPE_GATE prints the module's milestone and the open one, since that gate is the milestone rule's only enforcement point |
 | `/continue docs/modules/<n>/tasks.md` | Manual — resumes interrupted orchestrate | Resumes an interrupted orchestration run from the EVENTS.jsonl journal |
 
 ### Phase 5 — Quality
@@ -713,6 +716,13 @@ Every command is **manually triggered** — there is no automatic chaining betwe
                                            ↓
                                   /learn → /smart-commit
 ```
+
+The module loop is **milestone-ordered, not dependency-ordered.** `/roadmap` maps every
+module to a milestone and marks exactly one `← OPEN`; you plan and orchestrate that
+milestone's modules first, and a polish or decor module does not jump ahead of a
+loop-closing one. The milestone then closes on a **human verdict** — you play the M0 smoke
+checklist on the target device and write one dated line in `docs/ROADMAP.md`. A green test
+suite does not close it. See `.claude/rules/roadmap-milestones.md`.
 
 #### When to run `/qa`
 
@@ -806,7 +816,7 @@ that flag pass a size-only check, including the two that import with a `scale=10
 `270.020°` rotation. On its first run the harness then disproved a claim in the skill it tests.
 Still covered by no layer: `TD-COMPILE` against real project code, PlayMode, prefab/scene work.
 
-**49 bats files / 576 tests** cover every blocking hook with happy path, blocking trigger,
+**49 bats files / 582 tests** cover every blocking hook with happy path, blocking trigger,
 profile skip, and warn-mode scenarios — and all six `guard-*.sh` are covered there *and*
 verified as registered in `settings.json`.
 
@@ -873,11 +883,11 @@ need the Unity Editor and MCP. Nothing here compiles anything.
 | `cost-tracker` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `hook-logger` | Central audit logger — appends newline-delimited JSON to `~/.claude/hook-audit.log`. Project-root resolution prefers `$CLAUDE_PROJECT_DIR` (2026-08-29 — cosmetic only: a bare `git rev-parse`/`pwd` fallback logged the wrong project label and an unstripped absolute path inside a subagent's cwd) |
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
-| `session-restore` (SessionStart) | Restores session state from `.claude/state/` on session start. Also resets `subagent-depth` to 0 (the counter can still leak on an interrupted/errored agent, and a stale count silently disables `guard-pipeline-direct-work`), expires every deny-then-allow grant file so a gate is one-per-session rather than one-per-lifetime, and self-heals any hook missing its exec bit |
+| `session-restore` (SessionStart) | Restores session state from `.claude/state/` on session start. Also resets `subagent-depth` to 0 (the counter can still leak on an interrupted/errored agent, and a stale count silently disables `guard-pipeline-direct-work`), expires every deny-then-allow grant file so a gate is one-per-session rather than one-per-lifetime, and self-heals any hook missing its exec bit. **Reads the payload's `source` and keeps `gate-cleared`/`sparc-approved` when it is `compact`** — a compaction is not a session boundary, and clearing there silently revoked an approved gate mid-pipeline (measured twice in one `/orchestrate` run); `startup`/`resume`/`clear` still clear, and an unparseable payload fails closed |
 | `session-save` (Stop) | Saves current session state to `.claude/state/` on stop. Also **auto-expires ephemeral gate files** (`gate-cleared`, `sparc-approved`, `codex-reviewed`, etc.) so they never leak into the next session. Subagent counters are read only when log files exist — prevents `0\n0` jq parse error on sessions without subagents |
 | `stop-verify` (Stop) | Drains the edit accumulator at session end — runs batch verifiers (shell syntax, JSON validity, one `dotnet build` for all `.cs` files written this session). ECC pattern: catches subagent writes whose PostToolUse hooks never fired in the main session. Must be listed after `session-save` in the Stop array. |
 | `notify` (Notification) | OS-level notification when Claude finishes a task — macOS via `osascript`, Linux via `notify-send`. Persists last notification to `.claude/state/last-notify.json` for `/catch-up` |
-| `pre-compact` (PreCompact) | Snapshots branch, recent commits, and edited files to `.claude/state/precompact-state.md` before `/compact` discards conversation history — consumed by `session-restore.sh` and `/catch-up` |
+| `pre-compact` (PreCompact) | Snapshots branch, recent commits, and edited files to `.claude/state/precompact-state.md` before `/compact` discards conversation history — consumed by `session-restore.sh` and `/catch-up`. Deliberately does **not** touch gate state: it runs *before* the `SessionStart` that compaction fires, so it cannot prevent a deletion there, and re-writing a gate afterwards would resurrect one a pipeline had legitimately torn down — that fix belongs in `session-restore.sh` |
 | `block-projectsettings` (PreToolUse Edit\|Write) | Blocks direct edits to `ProjectSettings/*.asset`, `Packages/manifest.json`, and `packages-lock.json` — these files must be changed through the Unity Editor or Package Manager, not raw text edits |
 | `check-ls-grep` (PreToolUse Bash) | Blocks `ls \| grep/awk/sed` patterns used for directory listing — forces use of `tree` instead |
 | `graph-auto-update` (PostToolUse Write\|Edit) | Incremental graph rebuild in background on file change — never blocks. Warns once per session when `scanned_files == 0` (empty graph). One rebuild at a time (lock); a write arriving mid-rebuild is logged and skipped, and the run's stderr is kept in `.claude/state/graph-rebuild.err` |
@@ -1028,7 +1038,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 |-------|------|
 | `coder` | **Pure C# only — no Unity API.** Used for `_Framework/`, `Games/Abstracts/`, and pure C# targets in `Games/Concretes/` in complexity-scored pipelines. |
 | `tester` | NUnit + NSubstitute test writer — AAA pattern, interface-only mocks. Spawned as an isolated `claude` subagent (clean context window) so test writing is not polluted by implementation context. |
-| `reviewer` | Principal-level code review — architecture, naming, performance |
+| `reviewer` | Principal-level code review — architecture, naming, performance. Verdict carries a mandatory `What I Did Not Verify` section, and an unmet acceptance criterion is checked against the rule it invokes before being reported as a defect |
 | `unity-developer` | Unity 6 specialist — second reviewer for complex tasks; checks hot paths, draw calls, ECS safety, Addressables lifecycle, prefab structure |
 | `committer` | Smart phase commit manager — semantic git commits. Runs **inline** in the nine commit-capable pipelines (a subagent would see the diff but not the conversation, and the commit body has to explain *why*); spawned as a real `sonnet` subagent by `/create-plan`, `/update-plan`, and `audio-clip-agent`, where the plan file already carries that context. |
 | `unity-setup` | Scene, prefab, ScriptableObject configuration via Unity MCP — enforces prefab rules |
@@ -1061,7 +1071,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
 | `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
 | `unity-test-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, wires TestBootstrap in scene via MCP, and adds the test scene to Build Settings automatically; used by `/create-test` |
-| `unity-verifier` | Post-implementation verification — compile + test + prefab/scene integrity |
+| `unity-verifier` | Post-implementation verification — recompile + **stale-assembly probe** + test + prefab/scene integrity. Runs with no reviewer behind it in `/qa`, `/ralph`, `/validate`, `/scene-setup`, so the probe is what stops it closing the loop on an old DLL |
 
 ---
 
@@ -1234,7 +1244,7 @@ A plan that passes `validate-plan-facts.sh` also unlocks the write-time gates fo
 | `TD-ARCHITECTURE` | VContainer DI, interface-driven, IEventBus, Provider pattern, module boundaries |
 | `TD-UNITY-RISK` | Post-cutoff API risk — reads `docs/engine-reference/unity/` before any architecture decision |
 | `TD-PERFORMANCE` | Zero-alloc hot paths, draw call budget, ECS ECB usage, Addressables handle lifecycle |
-| `TD-COMPILE` | Unity MCP compile + Edit Mode test pass — mandatory before reviewer |
+| `TD-COMPILE` | Unity MCP recompile + **stale-assembly probe** + Edit Mode test pass — mandatory before reviewer. A failed compile leaves the last good DLL loaded, so a clean console and a green suite are both true about the *previous* build; `unity_reflect` is asked in both directions (a deleted type must stop resolving, an added one must start) and a mismatch reports `STALE ASSEMBLY` — neither a pass nor a code defect, and never a fix pass |
 | `CD-SCOPE` | YAGNI check — flags out-of-scope files, unnecessary abstractions, speculative features |
 
 ---
@@ -1319,9 +1329,9 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `object-pooling` | ObjectPool<T> setup, return-to-pool patterns, warm-up |
 | `scriptable-objects` | ScriptableObject config authoring, CreateAssetMenu, validation |
 | `serialization-safety` | FormerlySerializedAs, SerializeReference, Unity null semantics |
-| `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations |
+| `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations, plus four measured Play-mode/test traps (Rule 9) — each produces a plausible wrong diagnosis, so it names the boring cause to rule out first |
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope, UnityTest patterns |
-| `mcp-preflight` | 3-state MCP availability check — connected / disconnected / not installed |
+| `mcp-preflight` | MCP availability + active-instance check — connected (verify the instance targets this repo) / wrong-or-multiple instance / disconnected / not installed. Every MCP-driving pipeline must run it before the first write; `/orchestrate` calls it at Step 0 |
 | `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Programmatic / PlayMode-Scene / NoTest) from class name or file path |
 | `unity-ugui` | Runtime UGUI implementation — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area, Canvas split strategy, performance rules |
 | `unity-git` | Unity git conventions — .meta hygiene, .gitattributes (YAML merge / binary), LFS patterns, conventional commits, commit grouping by dependency order; loaded by `committer` and `unity-git-master` agents |
