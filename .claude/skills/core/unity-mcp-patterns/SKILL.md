@@ -127,3 +127,77 @@ set_active_instance → route commands to specific editor
 ```
 
 Always check which instance is active before sending commands.
+
+## Rule 9: Play-Mode & Test Traps (four measured symptoms; each invites a wrong diagnosis)
+
+Every trap here produces a **plausible wrong diagnosis**, and acting on that diagnosis is
+more expensive than the trap. Rule out the boring cause before believing the interesting one.
+
+### 9.1 Play from the boot scene, not the scene you are testing
+
+`play` on the gameplay scene can hang in `is_changing: true` for ~30s and return an empty
+console. That reads as "the Editor lost focus" or "MCP is stuck" — both wrong.
+
+Most likely cause — inferred, not measured; the remedy is the same either way: the scene's
+`LifetimeScope` has its parent in the bootstrap scene, so nothing initialises. Open the boot
+scene (`Bootstrap.unity`) and play from there.
+
+Two cheap measurements that kill the wrong diagnoses first: a `Debug.Log` probe proves
+`read_console` is alive (silence then means *the game never ran*, not that logging failed),
+and `Application.runInBackground` tells you whether focus is even relevant. Do both before
+touching Editor settings.
+
+### 9.2 `execute_code` does not *reliably* drop Play mode — chain it, and check
+
+**Measured:** five consecutive `execute_code` calls inside one Play session, all `codedom`,
+all returning `isPlaying=True`. A whole win/lose/next/restart sequence was driven over that
+chain. So read `isPlaying` out of each call's return value instead of assuming the session
+died — the one-call rule is a fallback, not a constraint. The original note said it *can*
+drop Play mode; reading that as "chaining is impossible" closed off Play-mode verification
+entirely.
+
+**Not measured — the cause.** A domain reload comes from recompiling *project* scripts, not
+from CodeDom's in-memory assembly, so the likely story is that Play died in sessions where
+agents were writing `.cs` files and `execute_code` was merely what ran at the time. That was
+never reproduced on purpose. It also cannot be stated as fact for a second reason: whether a
+mid-Play recompile stops Play at all is a **per-user Editor preference that lives outside the
+repo** — Preferences → General → `Script Changes While Playing` takes
+`RecompileAndContinuePlaying`, `RecompileAfterFinishedPlaying` or `StopPlayingAndRecompile`.
+Under the first, writing a `.cs` mid-Play stops nothing.
+
+> Provenance, because the first version of this note got it wrong: the three values were
+> read by reflection on 2026-09-10 from a type named `ScriptCompilationDuringPlay` — which
+> resolves out of `JetBrains.Rider.Unity.Editor.Plugin`, i.e. **Rider's model of the Unity
+> setting, not a Unity API**. The values are right and the load-bearing claim (a three-mode
+> per-user preference outside the repo) stands; the authority did not. Cite the Preferences
+> UI, and if you need the API, verify it against `UnityEditor` yourself.
+
+**So the practical rule is about the recompile, not about `execute_code`:** avoid writing
+`.cs` files during a Play session you intend to keep, because you cannot know which of the
+three modes the machine is set to — and if Play does die mid-chain, that preference is the
+first thing to check, not the MCP tool.
+
+### 9.3 `GraphicRaycaster` cannot see a graphic activated in the same call
+
+Activate a panel and raycast in one call → **0 hits**. The next call returns the correct
+hit stack.
+
+This produces a false negative identical to a genuinely broken raycast target — so an
+automated UI check that activates and raycasts in one call will report working UI as broken.
+Split them across two calls, always. Use `ExecuteHierarchy` with a real `GraphicRaycaster`
+for the click, not a synthetic event.
+
+### 9.4 `tests_running` has two causes, and the fix for one is wrong for the other
+
+`run_tests` returning `blocked_reason: "tests_running"` looks like a single condition. It is
+two, and they need opposite responses:
+
+| Cause | Signal | Response |
+|---|---|---|
+| A PlayMode job stalled because the Editor window is not focused | `stuck_suspected: true`, `blocked_reason: "editor_unfocused"` | `run_tests(clear_stuck=true)`, then ask the user to keep the Unity window in front |
+| MCP is pointed at **another Unity project** | nothing local looks wrong — the block is real, in a different Editor | Run the `mcp-preflight` skill: pin the instance and verify `Application.dataPath` resolves inside this repo |
+
+Both were measured. The second is the dangerous one: `clear_stuck` on a wrong-instance block
+is a plausible move on right-looking evidence, and it clears a job in a project you were not
+supposed to be touching. Verify `dataPath` before reaching for `clear_stuck` — and treat any
+measurement taken while the instance was unverified as invalid, not merely suspect.

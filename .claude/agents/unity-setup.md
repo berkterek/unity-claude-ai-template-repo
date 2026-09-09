@@ -216,6 +216,26 @@ public class SystemNameView : MonoBehaviour
 6. **Execute setup** using Unity MCP tools or by writing setup scripts
 7. **Verify wiring** — re-read scene/prefab state after saving to confirm references are assigned
 8. **Runtime smoke test** — press Play (`manage_editor(action: "play")`), wait for initialization, check console for errors (`read_console(types: ["error"])`), then stop (`manage_editor(action: "stop")`). Fix any runtime errors before reporting task complete
+9. **Leave every open scene as clean as you found it** — see below
+
+### Scene hygiene: "do not save" is not the same as "leave no mess" (MANDATORY)
+
+**First action of any scene or prefab task:** check whether the scene you are inheriting is
+already dirty, and say so in your report. You did not cause it, and the next agent will
+blame you for it.
+
+**Last action:** if you created, moved, reparented or deleted anything in an open scene that
+your task did not ask you to keep, undo it before you report — even when you were told not
+to save. Then state which scenes you touched and whether each is clean.
+
+An instruction like "do not save any scene" is about the *disk*, and it is routinely
+followed to the letter while still leaving a wrecked in-memory scene behind. Measured in a
+downstream `/orchestrate` run: an agent obeyed "save nothing" exactly, and still left a
+stray canvas parented at the root of `Bootstrap.unity`. That state is invisible to git, to
+every content hook, and to every disk-reading verification in this repo — and the next
+agent inherits it, so one careless `manage_scene save` later it is on disk with no commit
+that explains it. Dirty in-memory scene state is the one failure class this project has no
+mechanical detector for; your report is the detector.
 
 ## Progress Reporting
 
