@@ -28,12 +28,20 @@ Show the user:
 SCOPE_GATE ──────────────────────────────────────────────
 Task:       $TASK_DESCRIPTION
 Complexity: [score] — [Label]
+Milestone:  [module's milestone] — open milestone is [Mn], [k] module(s) still Pending
 Files expected to change: [list if known, else "TBD"]
 ─────────────────────────────────────────────────────────
 Type `go` to proceed, or describe what should change.
 ```
 
 Wait for response. `go` (or equivalent) → proceed to next step. Any other input → update understanding and re-show gate with revised scope.
+
+> **Why the `Milestone` line is in the block and not just in the roadmap.** This gate is
+> the *only* enforcement point `rules/roadmap-milestones.md` has — that rule ships with no
+> hook, so the human here is the stop. A gate that displays no milestone asks the human to
+> stop on something it never showed them, from memory. Print the line whenever the work maps
+> to a module (omit it for ad-hoc `/fix` work with no module); if the module's milestone is
+> not the open one, that is exactly the case the human is being asked to catch.
 
 ---
 

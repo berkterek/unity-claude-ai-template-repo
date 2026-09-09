@@ -83,6 +83,36 @@ Based on previous answers, drill into EACH identified system:
 - What is the acceptance criteria for "done"?
 - Known risks or concerns?
 
+**Category 6: Milestones & First Playable (MANDATORY — do not skip this round)**
+Per `.claude/rules/roadmap-milestones.md` Card 1, milestones are born HERE, in this
+conversation — not later at planning time.
+
+**Ask the observable question first, and ask it in exactly this shape:**
+> "For the simplest playable version of this game — **what do we need to SEE on screen?**"
+
+Do NOT ask "what is the smallest thing a human can play" or any other abstract framing —
+the abstract version returns a scope opinion, the observable one returns a checkable list.
+Provenance and the measurement behind it: `rules/roadmap-milestones.md` Card 1.
+
+Then follow up:
+- Walk their answer into 4-6 **observable** checklist items (what is visible, what can be
+  pressed, what happens when it is pressed). Each item must be verifiable by looking.
+- **In what environment must that checklist be run?** Device, orientation, input — write
+  the answer on the milestone's own entry, because that is the only place it is declared;
+  the TDD restates it and the rule never pins it. If the answer is "the Editor is enough
+  for M0", that is a legitimate call and it must still be written, together with what the
+  Editor cannot show (touch-drag feel, portrait layout, device performance). Leaving the
+  environment unstated is the defect — choosing a weaker one is not.
+- What may M0 fake with a stub? (hand-authored levels instead of a generator, a
+  two-button panel instead of the full HUD, silence instead of audio…)
+- What does each later milestone let a human SEE or DO that the previous one didn't?
+- **Why this order?** Ask for one sentence justifying the sequence of milestones, and write
+  it into the GDD verbatim with the date. In the source project the developer's single
+  line — *working mechanic + polished visuals before content* — was the only justification
+  for M1 preceding M2, and it demonstrably moved modules between milestones. Without a
+  recorded reason the "polish later" default returns, and that default is half of what the
+  four-week failure was made of.
+
 ### Step 2.5: Assumption Surfacing
 
 Before gap analysis, explicitly list the key assumptions being made:
@@ -186,27 +216,41 @@ Each system gets its own subsection:
 - Exact content inventory for v1
 - Priority tiers (must-have, should-have, nice-to-have)
 
-## 13. Monetization
+## 13. Milestones (MANDATORY — see .claude/rules/roadmap-milestones.md)
+Written in player-experience terms — NO module or class names (modules don't exist yet).
+### M0 — First Playable
+- One sentence: what a human does, start to finish (e.g. "opens the game, plays one
+  level, wins or loses on screen, starts the next level — on target input")
+- Smoke test checklist: 4-6 observable items (what is visible, what can be pressed)
+- Evidence environment: device, orientation, input — declared HERE and restated by the TDD,
+  plus what that environment cannot show
+- Stub policy: what M0 explicitly does NOT require (full HUD, solver, audio, meta…)
+- Ordering rationale: one sentence, dated, on why the milestones are in this order
+### M1..Mn
+- Each milestone's closing sentence must name something a human sees or does.
+  "Infrastructure done" is a status, not a milestone.
+
+## 14. Monetization
 (if applicable)
 
-## 14. Accessibility
+## 15. Accessibility
 - Supported accessibility features
 
-## 15. Analytics & KPIs
+## 16. Analytics & KPIs
 - Key events
 - Funnels
 - Success metrics
 
-## 16. Not Doing (and Why)
+## 17. Not Doing (and Why)
 Explicit list of features/systems that are OUT of scope for this version, with the reason for each exclusion. This prevents scope creep and aligns expectations.
 
-## 17. Key Assumptions to Validate
+## 18. Key Assumptions to Validate
 List of assumptions the design rests on, each with a validation strategy:
 - Assumption: [what we're betting is true]
 - Risk if wrong: [what breaks]
 - How to validate: [spike, playtest, analytics, etc.]
 
-## 18. Glossary
+## 19. Glossary
 Domain-specific terms used in this document.
 ```
 
@@ -218,6 +262,7 @@ Domain-specific terms used in this document.
 - **Flag scope creep** — if something sounds like it'll balloon, say so.
 - **Be thorough but not wasteful** — don't ask questions whose answers don't affect implementation.
 - **The final GDD must be implementation-ready** — any senior Unity dev should be able to build from it with zero additional questions.
+- **A GDD without a Milestones section is not complete.** M0 — First Playable must be defined in player-experience terms with a smoke-test checklist, the device/input it runs on, and a dated one-sentence ordering rationale (Category 6). `/roadmap` will refuse to run without it (`.claude/rules/roadmap-milestones.md`).
 - **After generating the GDD**, ask the developer to review it and confirm. Make any requested changes.
 - **Once confirmed**, inform the developer: "GDD is complete. Run `/architect` to generate the Technical Design Document."
 

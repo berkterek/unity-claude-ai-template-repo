@@ -61,6 +61,19 @@ If ROADMAP exists and module plans exist:
 - Note which module plans may be affected
 - Suggest running `/plan-module <n>` to regenerate affected ones
 
+If the change touches the Milestone Acceptance section (or what M0 may stub):
+- Warn that the ROADMAP milestone mapping is stale — suggest rerunning `/roadmap`
+  (`.claude/rules/roadmap-milestones.md`)
+- A changed stub definition also changes `/plan-module`'s scope ceiling for that system,
+  so any already-written plan for an affected module needs `/update-plan`
+
+**This command owns the TDD retrofit path.** If the TDD predates the milestone rule and has
+no Milestone Acceptance section, add it here — **appended as a trailing section, never
+inserted with renumbering** (same reason as the GDD side: existing section numbers are
+cited from the roadmap and the module plans). Ask the developer for the device/input and
+the stub table; never invent either. Note in the document why the number diverges from the
+`/architect` template.
+
 ## Rules
 - **All constraints still apply** — no relaxing rules during refinement
 - **Prefer additive changes** — extend interfaces, don't break them

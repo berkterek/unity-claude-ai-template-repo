@@ -80,13 +80,42 @@ for inst in installers:
 
 Store this output as `GRAPH_CONTEXT` and embed it in the Step 3 `Plan` subagent prompt. If `GRAPH_CONTEXT` is empty, the planning stage behaves exactly as before — no regression.
 
-### Step 1 — Okuma
+### Step 1 — Read
 
 1. Parse the module number/name from $ARGUMENTS
-2. Read `docs/ROADMAP.md` — find this module's name, dependencies and priority
+2. Read `docs/ROADMAP.md` — find this module's name, dependencies, **milestone** and priority
 3. Read `docs/GDD.md` — find the section covering this module
-4. Read `docs/TDD.md` — find the architecture decisions belonging to this module
+4. Read `docs/TDD.md` — find the architecture decisions belonging to this module, **and
+   read its Milestone Acceptance section** (the one carrying the per-milestone stub policy).
+   If the module's milestone allows a stub for this system, that stub definition is the
+   **scope ceiling for this plan** — not the module's full system section. Read it before
+   the full section, not after: an agent holding a rich full spec first will rationalize
+   its way back to it.
 5. Scan the existing codebase: list the .cs files that already relate to this module
+
+**Milestone scope check (`.claude/rules/roadmap-milestones.md`) — warn, do not block.**
+If `docs/ROADMAP.md` carries a `Milestone` column:
+- The module belongs to a milestone **other than the open one** → say so plainly and name
+  the open milestone's still-Pending modules, then ask the developer to confirm before
+  planning (rule Card 2: polish never outranks loop-closing work). Their `go` is the
+  authority; this command does not enforce.
+- The module belongs to the **open** milestone → the plan's scope ceiling is the
+  intersection of two written things, and **both are read before the module's full system
+  section**:
+  1. the module's inline stub scope in the ROADMAP milestone entry — `15 (minimal — two
+     panels, two buttons)`; the parenthetical, not the number
+  2. the stub definition for this system in TDD's Milestone Acceptance section
+
+  Plan to that ceiling and nothing beyond it. In the plan header, list what the full spec
+  contains that this plan deliberately omits, and name the milestone that owns each omitted
+  item. If neither document names a stub for this system, the module is planned in full —
+  say so explicitly rather than leaving it ambiguous.
+
+  **Why this is written as a ceiling and not an aspiration:** the source project flagged
+  this exact layer as unmeasured — the rule demonstrably reordered the roadmap, but whether
+  it survives into a plan's *scope* was never tested. The failure mode is specific: given a
+  bare module number and a one-sentence milestone entry against a rich TDD system section,
+  the full spec wins. Both inputs above exist to make the small scope the written one.
 
 If the module already exists under `docs/modules/<n>-<name>/`:
 ```

@@ -138,6 +138,11 @@ Before finalizing, ask the developer questions about:
 - Performance budget questions (target FPS, max entities, etc.)
 - Preferences where multiple patterns fit equally well
 - Scale questions (max concurrent X, expected data volumes)
+- **Milestone acceptance (`.claude/rules/roadmap-milestones.md`):** confirm the GDD has a
+  Milestones section — match the heading **text at any level**, never the hash count, since
+  a retrofitted GDD nests it as `### Milestones` (if absent, STOP — send the developer to
+  `/refine-gdd`). Then ask what device and input the M0 smoke test runs on, and which
+  systems M0 may stub
 
 Do NOT proceed until all questions are answered.
 
@@ -250,21 +255,57 @@ List every manual Unity Editor step the developer must complete for rendering op
 
 These steps should be ordered: what to do first, what depends on what. Agents will block and prompt the developer when these assets are needed but don't exist.
 
-## 14. Testing Strategy
+## 14. Milestone Acceptance (MANDATORY — see .claude/rules/roadmap-milestones.md)
+Technical acceptance for the GDD's Milestones, especially M0 — First Playable:
+- **Restate the evidence environment the milestone itself declares** — device, orientation,
+  input — and name what that environment cannot show. Do not dictate one here: the
+  environment is the milestone's own field (GDD §13), so that changing it is a one-line
+  edit. Hardcoding "on device, portrait, touch" into this section cost a downstream project
+  a five-file edit when the developer decided an Editor session was enough evidence for M0.
+  A human runs it either way — never a test suite.
+- **Stub table** — one row per system the milestone may fake:
+
+  | System | Stub that is accepted | Real module that replaces it, and in which milestone |
+  |---|---|---|
+
+  The third column is what makes a stub a plan rather than a shortcut, and it is the
+  document `/plan-module` reads as its scope ceiling — so the stub must be described
+  concretely enough to plan against ("a two-button panel: Restart, Next"), not as a
+  category ("minimal UI").
+- What closes M0: the human smoke-test checklist from the GDD, run in the environment the
+  milestone declares.
+- What does **NOT** close M0 — all four have been mistaken for closure in a real project:
+  1. green EditMode/PlayMode suites
+  2. a count of ✅ Complete modules, or a completed task list
+  3. **an environment weaker than the one the milestone declares.** If the milestone says
+     device + touch, an Editor Play-mode session does not close it — mouse-dragging is not
+     the measurement, and the Editor also cannot show portrait layout or device
+     performance. If the milestone declares the Editor as sufficient, the Editor closes it
+     and those three gaps get recorded as known-unmeasured. State the delta either way;
+     the failure mode is an environment nobody wrote down, not a lenient one.
+  4. **a debug trigger as the only evidence** — a QA button that fires the event proves the
+     panel renders; it does not prove a *player* can reach that state. Every smoke-test
+     item needs a real, non-debug trigger path.
+- Which TDD systems belong to which milestone (a hint for /roadmap's mapping — final
+  mapping happens there)
+If the GDD has no Milestones section (heading text, any level), STOP and send the developer
+back to /refine-gdd — do not invent milestones here.
+
+## 15. Testing Strategy
 - Unit test structure and conventions
 - Integration test approach
 - Test data factories
 - Mocking strategy (interfaces, not concrete mocking frameworks)
 
-## 15. Design Patterns Summary
+## 16. Design Patterns Summary
 Table mapping each system to its patterns with justification.
 
-## 16. Class Index
+## 17. Class Index
 Concise table of all expected classes/interfaces with:
 - Name, assembly, one-line purpose
 - (No full namespaces or method listings — the coder agent decides implementation details)
 
-## 17. Open Questions / Risks
+## 18. Open Questions / Risks
 Any remaining technical risks or decisions deferred to implementation.
 ```
 
@@ -288,9 +329,9 @@ If any axis scores below 7: rewrite that section inline and re-score.
 
 ### Pass 2: Consistency Check
 
-- Do class names in Section 16 (Class Index) match names used in system sections?
+- Do class names in Section 17 (Class Index) match names used in system sections?
 - Do event names match between publisher sections and subscriber sections?
-- Does the assembly layout (Section 5) cover all classes in Section 16?
+- Does the assembly layout (Section 5) cover all classes in Section 17?
 
 Fix any inconsistencies inline.
 

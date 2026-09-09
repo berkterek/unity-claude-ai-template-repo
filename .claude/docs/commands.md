@@ -34,7 +34,7 @@
 - `/create-prefab-scene` — **Legacy migration:** scan existing scenes for bare GameObjects, build a prefab inventory, create proper prefabs via MCP, review, commit. Use for scenes built before the prefab rules were in place.
 
 ### Design & Architecture
-- `/game-idea` — Refine a raw game idea into a GDD (includes assumption surfacing + "Not Doing" list)
+- `/game-idea` — Refine a raw game idea into a GDD (includes assumption surfacing + "Not Doing" list + **mandatory Milestones section** — M0 First Playable defined in the conversation, in player-experience terms; `/roadmap` refuses to run without it)
 - `/architect` — Create a Technical Design Document from a GDD (auto-runs Phase 7 self-critique → **unity-critic** adversarial challenge → developer review)
 - `/grill-me [plan or file]` — Stress-test a plan or design decision — asks one pointed question at a time, offers a recommended answer, resolves every branch; ends with a Decision Record. **Next:** if the plan changed, run `/update-plan` to reflect the decisions; skip if the plan was only confirmed.
 - `/debate <idea | plan-file | thesis>` — **Standalone adversarial stress-test** — 3-agent debate (**debate-proposer** steelmans → **debate-critic** refutes → **debate-moderator** triages) returns a rule-grounded verdict: **REFUTED / CONFIRMED / ESCALATE**. Single pass (no rebuttal loop — the moderator settles verifiable clashes itself and ESCALATEs genuine value calls). GROUNDED mode (plan/real code → Explore grounding pass) or UNGROUNDED (bare idea → reasoning-only, flagged). Read-only: prints the verdict, writes/commits nothing. **Unlike `unity-critic`** (one-pass Unity impl-plan review inside `/architect`) it debates any thesis; **unlike `/grill-me`** it runs unattended and only ESCALATEs genuine human trade-offs. **Next:** `/grill-me` on the ESCALATE items, or `/create-plan`.
@@ -42,7 +42,7 @@
 - `/refine-tdd` — Iterate on an existing TDD
 
 ### Development
-- `/roadmap` — reads the GDD, the TDD and the existing modules, then builds the module table in `docs/ROADMAP.md`. Gap analysis: which systems have a plan and which are missing one.
+- `/roadmap` — reads the GDD, the TDD and the existing modules, then builds the module table in `docs/ROADMAP.md`. Gap analysis: which systems have a plan and which are missing one. **Milestone-gated** (`rules/roadmap-milestones.md`): stops and asks if the GDD defines no milestones, maps every module to one (Step 2.5), and priority follows the open milestone — never the bare dependency graph.
 - `/plan-module <n>` — generates one module's `spec.md + design.md + tasks.md` trio just-in-time. Direct input for `/orchestrate`.
 - `/new-module` — Generate the 5-file module structure (Interface, Service, Config, Installer, Events)
 
