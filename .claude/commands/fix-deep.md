@@ -519,6 +519,10 @@ You are a Unity build validator.
 ## Output Format
 VALIDATED — zero compile errors, assembly confirmed current, all tests pass, no debug logs remaining.
 
+VALIDATED (assembly unprobed) — zero compile errors, all tests pass, no debug logs remaining;
+the change added and deleted no types, so the stale-assembly probe was not applicable and
+assembly freshness is NOT established. Files changed: [list].
+
 COMPILE FAILED:
 - [error] — [file:line]
 
@@ -655,11 +659,19 @@ If hunter reports findings → show **QUALITY_GATE**.
 
 Show the QUALITY_GATE block from `.claude/docs/director-gates.md`, passing the hunter's findings as the CHANGES NEEDED items. Then:
 
-- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run the hunter **exactly once** — no further re-audit. Proceed to committer regardless of that second result.
+- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run the hunter **exactly once** — no further re-audit. Then **re-validate before COMMIT_GATE** (see below); the second hunter result never blocks on its own.
 - `skip` → proceed to committer.
 - `stop` → abort.
 
 > The one-re-audit cap is caller-specific and deliberately **not** part of the QUALITY_GATE definition, which describes only the human decision surface. Do not delete it as redundant.
+
+**A coder ran here, so every verification result on the table is now about the previous code.** Step 5.5 said VALIDATED and Step 6 said APPROVED about a tree that no longer exists; carrying those verdicts into COMMIT_GATE hands the human a sign-off on code nobody compiled. Whenever the audit's `fix` branch is taken:
+
+1. Re-run **Step 5.5 — Unity Validator** on the files the audit coder changed. This is the whole gate, stale-assembly probe included — a silent-failure fix routinely deletes a `catch` or adds a type, so the probe is applicable more often here than anywhere else.
+2. Re-run **Step 6 — Reviewer** on those same files only, once, with the audit findings as context.
+3. If either comes back failing, the fix budget is already spent → show **EXHAUSTION_GATE** (`skip` ships the known-bad state, `stop` abandons). Do not open another fix loop.
+
+Take the same three steps after **any** later coder spawn, not only this one — the Play Mode smoke-test fix at Step 6.6 changes code under exactly the same conditions.
 
 ---
 

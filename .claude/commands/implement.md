@@ -225,7 +225,9 @@ If test writer reports **BLOCKED** → stop, show the blocker to the user, do no
 
 **FIRST — SPARC_GATE (blocking, before any coder spawn).**
 
-Show the SPARC_GATE block from `.claude/docs/director-gates.md` → Hook-Enforced Gates: the Specification (what will be built) and the Architecture (which files, interfaces, data flow). Wait for `go`, then create the state file exactly as that entry specifies (absolute path — a relative `touch` creates a file the hook never reads). Delete it after the coder agent completes.
+Show the SPARC_GATE block from `.claude/docs/director-gates.md` → Hook-Enforced Gates: the Specification (what will be built) and the Architecture (which files, interfaces, data flow). Wait for `go`, then create the state file exactly as that entry specifies (absolute path — a relative `touch` creates a file the hook never reads). **Do not delete it when the coder returns — delete it at Completion, with `gate-cleared`.**
+
+> Deleting it here deadlocks the first fix pass, and does so deterministically. Steps 2.5, 3, 3.6 and 3.7 all spawn a `coder` / `unity-coder` again, `guard-sparc-approved.sh` exits **2** for every one of them while the file is absent, and none of those steps re-opens the gate — so the pipeline blocks itself on an approval the human already gave. The approval does not need the deletion to be bounded: `guard-sparc-approved.sh` calls `unity_gate_cleared_valid "sparc-approved"`, so the same 45-minute `UNITY_GATE_TTL` as `gate-cleared` applies, plus `session-restore.sh`'s SessionStart clear. Same shape as the compaction-revokes-`gate-cleared` bug: the file had a bound already, and a second, eager teardown was the defect.
 
 This step is not optional and not merely documentation: `guard-sparc-approved.sh` is registered on `PreToolUse`/`Agent` and exits **2** for any `coder` / `unity-coder` spawn while `.claude/state/sparc-approved` is absent. Skipping it does not skip the gate — it turns the gate into a blocked spawn whose only explanation is the hook's stderr.
 
@@ -323,6 +325,10 @@ You are a Unity build validator. Your only job is to verify that the project com
 
 ## Output Format
 VALIDATED — zero compile errors, assembly confirmed current, all tests pass.
+
+VALIDATED (assembly unprobed) — zero compile errors, all tests pass; the change added and
+deleted no types, so the stale-assembly probe was not applicable and assembly freshness is
+NOT established. Files changed: [list].
 
 COMPILE FAILED:
 - [error message] — [file:line]
@@ -554,11 +560,29 @@ If hunter reports findings → show **QUALITY_GATE**.
 
 Show the QUALITY_GATE block from `.claude/docs/director-gates.md`, passing the hunter's findings as the CHANGES NEEDED items. Then:
 
-- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run the hunter **exactly once** — no further re-audit. Proceed to committer regardless of that second result.
+- `fix` → spawn **unity-coder** with all findings as a fix list, then re-run the hunter **exactly once** — no further re-audit. Then **re-validate before COMMIT_GATE** (see below); the second hunter result never blocks on its own.
 - `skip` → proceed to committer.
 - `stop` → abort.
 
 > The one-re-audit cap is caller-specific and deliberately **not** part of the QUALITY_GATE definition, which describes only the human decision surface. Do not delete it as redundant.
+
+**A coder ran here, so every verification result on the table is now about the previous code.** Step 2.5 said VALIDATED and Step 3 said APPROVED about a tree that no longer exists; carrying those verdicts into COMMIT_GATE hands the human a sign-off on code nobody compiled. Whenever the audit's `fix` branch is taken:
+
+1. Re-run **Step 2.5 — Unity Validator** on the files the audit coder changed. This is the whole gate, stale-assembly probe included — a silent-failure fix routinely deletes a `catch` or adds a type, so the probe is applicable more often here than anywhere else.
+2. Re-run **Step 3 — Reviewer** on those same files only, once, with the audit findings as context.
+3. If either comes back failing, the fix budget is already spent → show **EXHAUSTION_GATE** (`skip` ships the known-bad state, `stop` abandons). Do not open another fix loop.
+
+Take the same three steps after **any** later coder spawn, not only this one — the Play Mode smoke-test fix at Step 3.6 changes code under exactly the same conditions.
+
+---
+
+## Step 3.8 — Simplification (before the commit, never after)
+
+If `code-simplifier` is available → run a final simplification pass on all changed files.
+
+It sits here and not under Completion for one reason: it **edits code**. Run after Step 4, its edits are not in the commit the user was just shown, and they carry no compile, no test and no review — the two defects the audit re-validation above exists to prevent, arriving one step later through a different door.
+
+If it changed anything, it is a code-writing step like any other: re-run **Step 2.5 — Unity Validator** on what it touched before continuing to COMMIT_GATE. If it changed nothing, say so and continue.
 
 ---
 
@@ -587,13 +611,14 @@ Wait for `go` before spawning the committer. `stop` → leave files staged, prin
 
 ## Completion
 
-Run: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"`
+Run: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared" "$(git rev-parse --show-toplevel)/.claude/state/sparc-approved"`
+
+Both, and only here — `sparc-approved` is held open for the whole pipeline (Step 2) precisely so the fix passes can re-spawn a coder.
 
 If `superpowers:verification-before-completion` is available → invoke it before reporting done.
 
 If `claude-md-management:revise-claude-md` is available → invoke it to update CLAUDE.md with any new patterns or constraints discovered during this implementation.
 
-If `code-simplifier` is available → run a final simplification pass on all changed files.
 
 Print:
 ```

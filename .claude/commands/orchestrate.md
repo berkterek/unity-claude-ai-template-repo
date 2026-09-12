@@ -310,7 +310,9 @@ Exit.
 
 **FIRST — SPARC_GATE (blocking, before any coder spawn).**
 
-Show the SPARC_GATE block from `.claude/docs/director-gates.md` → Hook-Enforced Gates: the Specification (what this task builds) and the Architecture (which files, interfaces, data flow). Wait for `go`, then create the state file exactly as that entry specifies (absolute path — a relative `touch` creates a file the hook never reads). Delete it after the coder agent completes.
+Show the SPARC_GATE block from `.claude/docs/director-gates.md` → Hook-Enforced Gates: the Specification (what this task builds) and the Architecture (which files, interfaces, data flow). Wait for `go`, then create the state file exactly as that entry specifies (absolute path — a relative `touch` creates a file the hook never reads). **Do not delete it when the coder returns — delete it at Completion, with `gate-cleared`.**
+
+> Deleting it here deadlocks the first fix pass, and does so deterministically: every later step that spawns a `coder` / `unity-coder` again — the validator fix pass, the reviewer fix pass, the Ralph loop — hits `guard-sparc-approved.sh` exit **2** while the file is absent, and none of them re-opens the gate, so the pipeline blocks itself on an approval the human already gave. This bites hardest here, because `/orchestrate` runs many tasks per approval. The approval does not need the deletion to be bounded: `guard-sparc-approved.sh` calls `unity_gate_cleared_valid "sparc-approved"`, so the same 45-minute `UNITY_GATE_TTL` as `gate-cleared` applies, plus `session-restore.sh`'s SessionStart clear. Same shape as the compaction-revokes-`gate-cleared` bug: the file had a bound already, and a second, eager teardown was the defect.
 
 `guard-sparc-approved.sh` exits **2** for any `coder` / `unity-coder` spawn while `.claude/state/sparc-approved` is absent. It gates **only** those two agent types — a `unity-setup` spawn passes untouched, so a setup-only task needs no SPARC_GATE. The file is independent of `gate-cleared`: opening one does not open the other.
 
@@ -697,7 +699,11 @@ Run a full compile and test check for the end of a phase.
    was not applicable.
 7. If the assembly is current → call MCP `run_tests` and report results.
 
-Report: GREEN (compile clean, assembly current, tests pass), STALE ASSEMBLY, or ERRORS (list all failures).
+Report: GREEN (compile clean, assembly current, tests pass), GREEN (ASSEMBLY UNPROBED) — compile
+clean and tests pass, but nothing was added or deleted, so assembly freshness is NOT established —
+STALE ASSEMBLY, or ERRORS (list all failures). Never report the plain GREEN when the probe did not
+run: the whole point of the probe is that a clean console and a green suite are both true about the
+*previous* build.
 ```
 
 If failures found → spawn **unity-fixer** to fix, re-verify (max 2 passes — compile/test-fix bound, see `.claude/docs/director-gates.md` → Retry and Pass Limits; this also matches the "Attempt fixes (max 2)" instruction inside the verifier prompt above, which the old outer bound of 3 contradicted). If still failing after 2 passes → **stop and report to user. Do not proceed to Step 2 until green.**
@@ -796,7 +802,9 @@ Devam? (yes / no / stop)
 
 ## On Completion
 
-Run: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"`
+Run: `rm -f "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared" "$(git rev-parse --show-toplevel)/.claude/state/sparc-approved"`
+
+Both, and only here — `sparc-approved` is held open for the whole run (SPARC_GATE) precisely so the fix passes can re-spawn a coder.
 
 Update the module's status — **both places, tasks.md first**:
 1. In the module's own `tasks.md`, set the header line: `> Status: ✅ Complete`
