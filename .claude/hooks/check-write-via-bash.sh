@@ -82,14 +82,68 @@ $_segments
 EOF
 fi
 
-# --- 4. cp / mv INTO a project file (last argument is the destination) ---
-if [ -z "$VIOLATION" ] && echo "$CMD" | grep -qE "\b(cp|mv|install)\b[^|;&]*[[:space:]][^[:space:]'\"|;&]*\.($EXT_RE)([[:space:]]|['\"]|$)"; then
-    DEST=$(echo "$CMD" | sed -E 's/[|;&].*$//' | awk '{print $NF}' | tr -d "'\"")
-    case "$DEST" in
-        *.cs|*.asmdef|*.asmref|*.unity|*.prefab|*.asset|*.meta|*.inputactions|*.shader|*.shadergraph|*.mat|*.controller|*.uxml|*.uss)
-            echo "$DEST" | grep -qE '^(/tmp/|/private/tmp/|/var/folders/)' || VIOLATION="cp/mv into a project file ($DEST)"
-            ;;
-    esac
+# --- 4. cp / mv / install INTO a project file ---
+# Two things this must get right, both measured as holes on 2026-09-12:
+#
+#   cp /tmp/Foo.cs Assets/              → a DIRECTORY destination. The written
+#     file is Assets/Foo.cs, but the command never spells it, so testing the last
+#     argument for an extension matched nothing and the write sailed through.
+#   true && cp /tmp/Foo.cs Assets/Foo.cs → a COMPOUND command. Truncating at the
+#     first ; | & left "true" as the destination, so the real cp was never read.
+#
+# Both are fixed the same way block 3 fixes its own version of this: split on
+# ; | & first and judge each segment on its own, then resolve a directory
+# destination to the file it will actually produce.
+if [ -z "$VIOLATION" ]; then
+    _segments=$(echo "$CMD" | tr ';|&' '\n')
+    while IFS= read -r _seg; do
+        echo "$_seg" | grep -qE "\b(cp|mv|install)\b" || continue
+        echo "$_seg" | grep -qE "\.($EXT_RE)([[:space:]]|['\"]|\$)" || continue
+
+        _args=$(echo "$_seg" | sed -E 's/^.*\b(cp|mv|install)\b//' | tr -d "'\"")
+        # shellcheck disable=SC2086
+        set -- $_args
+
+        # Drop option flags; what remains is sources... dest
+        _pos=""
+        for _a in "$@"; do
+            case "$_a" in -*) continue ;; esac
+            _pos="$_pos $_a"
+        done
+        # shellcheck disable=SC2086
+        set -- $_pos
+        [ "$#" -lt 2 ] && continue
+
+        _dest=""
+        for _a in "$@"; do _dest="$_a"; done
+
+        # A trailing slash says "directory" with no filesystem access; -d covers
+        # the slashless form. Either way the real targets are dest/<basename>.
+        _targets=""
+        if [ -d "$_dest" ] || case "$_dest" in */) true ;; *) false ;; esac; then
+            _i=0
+            for _s in "$@"; do
+                _i=$((_i + 1))
+                [ "$_i" -eq "$#" ] && break
+                _targets="$_targets ${_dest%/}/$(basename "$_s")"
+            done
+        else
+            _targets="$_dest"
+        fi
+
+        for _t in $_targets; do
+            case "$_t" in
+                *.cs|*.asmdef|*.asmref|*.unity|*.prefab|*.asset|*.meta|*.inputactions|*.shader|*.shadergraph|*.mat|*.controller|*.uxml|*.uss)
+                    echo "$_t" | grep -qE '^(/tmp/|/private/tmp/|/var/folders/)' && continue
+                    VIOLATION="cp/mv into a project file ($_t)"
+                    break
+                    ;;
+            esac
+        done
+        [ -n "$VIOLATION" ] && break
+    done <<EOF
+$_segments
+EOF
 fi
 
 if [ -n "$VIOLATION" ]; then

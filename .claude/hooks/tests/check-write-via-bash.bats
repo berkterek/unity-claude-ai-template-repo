@@ -148,3 +148,39 @@ EOF"
     run bash -c "echo '{}' | bash $HOOK"
     [ "$status" -eq 0 ]
 }
+
+# --- block 4 regression guards (measured holes, 2026-09-12) -------------------
+# Both of these exited 0 before the per-segment rewrite. Neither is exotic: a
+# directory destination is the ordinary way to copy a file, and a compound
+# command is the ordinary way an agent chains one.
+
+@test "blocks cp into a DIRECTORY destination (target name never spelled)" {
+    run bash -c "jq -n '{tool_input:{command:\"cp /tmp/Foo.cs Assets/Scripts/\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"Assets/Scripts/Foo.cs"* ]]
+}
+
+@test "blocks cp in a COMPOUND command (dest is not the first segment)" {
+    run bash -c "jq -n '{tool_input:{command:\"true && cp /tmp/Foo.cs Assets/Scripts/Foo.cs\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
+@test "blocks cp into a directory named after a later segment's pipe" {
+    run bash -c "jq -n '{tool_input:{command:\"echo hi; cp /tmp/Foo.cs Assets/\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
+@test "allows cp into a /tmp directory destination" {
+    run bash -c "jq -n '{tool_input:{command:\"cp /tmp/Foo.cs /tmp/sub/\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
+@test "allows copying a project file OUT to /tmp" {
+    run bash -c "jq -n '{tool_input:{command:\"cp Assets/Scripts/Foo.cs /tmp/\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
+@test "allows a recursive copy with no project extension anywhere" {
+    run bash -c "jq -n '{tool_input:{command:\"cp -r /tmp/dir Assets/Scripts/\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
