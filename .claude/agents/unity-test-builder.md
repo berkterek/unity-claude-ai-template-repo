@@ -3,7 +3,7 @@ name: unity-test-builder
 description: "Builds Play Mode test scenes for a given feature. Creates the test scene via MCP, places the TestBootstrap prefab, generates TestScope and TestInstaller C# scripts, and writes the stub PlayMode test file. Use when /create-test is invoked."
 model: sonnet
 color: cyan
-tools: Read, Write, Edit, Glob, Grep, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, mcp__UnityMCP__*
 ---
 
 # Unity Test Scene Builder

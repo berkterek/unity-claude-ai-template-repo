@@ -121,9 +121,9 @@ Follow your agent definition exactly:
 - Read .claude/skills/systems/urp-quality-settings/SKILL.md before making any decisions
 - Read .claude/skills/systems/urp-lighting-shadows/SKILL.md for shadow settings
 - Read .claude/skills/systems/urp-post-processing/SKILL.md for post-processing decisions
-- Use mcp__unityMCP__manage_asset to create and configure assets
-- Use mcp__unityMCP__refresh_unity after all assets are created
-- Use mcp__unityMCP__read_console to verify no errors
+- Use mcp__UnityMCP__manage_asset to create and configure assets
+- Use mcp__UnityMCP__refresh_unity after all assets are created
+- Use mcp__UnityMCP__read_console to verify no errors
 - Do NOT push anything to git
 
 ## When Done

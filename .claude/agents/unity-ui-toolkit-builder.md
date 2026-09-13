@@ -3,7 +3,7 @@ name: unity-ui-toolkit-builder
 description: "Builds Unity Editor tools using UI Toolkit — custom inspectors, EditorWindows, UXML layouts, USS stylesheets, and data binding via SerializedObject. Runtime UI uses UGUI (Canvas-based); this agent handles Editor-only UI Toolkit work."
 model: sonnet
 color: purple
-tools: Read, Write, Edit, Glob, Grep, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, mcp__UnityMCP__*
 ---
 
 # Unity UI Toolkit Builder

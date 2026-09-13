@@ -3,7 +3,7 @@ name: graphics-setup-agent
 description: "Creates and configures URP Pipeline Assets (Low/Medium/High) for a target platform (mobile/pc), wires them into Quality Settings, and fills the URPQualityConfiguration ScriptableObject."
 model: sonnet
 color: cyan
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__UnityMCP__*
 skills: urp-quality-settings, urp-lighting-shadows, urp-post-processing
 ---
 
@@ -161,10 +161,10 @@ Set the default quality level:
 ## Step 6 — Verify
 
 ```
-1. mcp__unityMCP__refresh_unity        → trigger asset import
+1. mcp__UnityMCP__refresh_unity        → trigger asset import
 2. Wait for isCompiling = false
-3. mcp__unityMCP__read_console type:"Error"  → must be zero errors
-4. mcp__unityMCP__read_console type:"Warning" → note any warnings
+3. mcp__UnityMCP__read_console type:"Error"  → must be zero errors
+4. mcp__UnityMCP__read_console type:"Warning" → note any warnings
 ```
 
 If errors exist → fix before reporting DONE.

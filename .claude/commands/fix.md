@@ -355,9 +355,9 @@ You are a Unity build validator. Your only job is to verify that the project com
 [INSERT HERE: the list of files modified by the Coder agent]
 
 ## Instructions
-1. Use `mcp__unityMCP__refresh_unity` to trigger a script recompile.
+1. Use `mcp__UnityMCP__refresh_unity` to trigger a script recompile.
 2. Wait until `isCompiling` is false (poll `editor_state` resource).
-3. Use `mcp__unityMCP__read_console` with type "Error" to check for compile errors.
+3. Use `mcp__UnityMCP__read_console` with type "Error" to check for compile errors.
 4. If compile errors exist → report COMPILE FAILED with the full error list. Stop here.
 5. **Prove the loaded assembly is not stale — a clean console does NOT establish this.**
    When compilation fails, Unity keeps the last good DLL loaded, so steps 1-4 and the tests
@@ -365,8 +365,8 @@ You are a Unity build validator. Your only job is to verify that the project com
    while four call sites were broken; `refresh_unity` returned success without recompiling
    and `read_console` returned 0 errors on the first ask. Ask the assembly what it holds,
    both directions:
-   - `mcp__unityMCP__unity_reflect(action: "search", query: "<a type this change DELETED>", scope: "all")`
-   - `mcp__unityMCP__unity_reflect(action: "search", query: "<a type this change ADDED>", scope: "all")`
+   - `mcp__UnityMCP__unity_reflect(action: "search", query: "<a type this change DELETED>", scope: "all")`
+   - `mcp__UnityMCP__unity_reflect(action: "search", query: "<a type this change ADDED>", scope: "all")`
 
    A deleted type that still resolves, or an added type that does not, is proof of a stale
    DLL → report STALE ASSEMBLY. Do not report COMPILE FAILED (there may be no code defect)
@@ -376,7 +376,7 @@ You are a Unity build validator. Your only job is to verify that the project com
    not applicable — never silently skip it. Do not substitute `run_tests(test_names: [...])`:
    it silently matched 0 tests even with correct fully-qualified names, producing the same
    green-on-nothing it would be meant to detect.
-6. If the assembly is current → use `mcp__unityMCP__run_tests` to run all Edit Mode tests.
+6. If the assembly is current → use `mcp__UnityMCP__run_tests` to run all Edit Mode tests.
 7. Check test results for any failures.
 8. If any tests fail → report TEST FAILED with test names and failure messages. Stop here.
 9. If all tests pass → report VALIDATED.
@@ -550,9 +550,9 @@ You are a Unity post-fix verifier. Perform a final bounded check on the delivere
 
 ## Instructions
 Run up to 3 internal fix-check iterations. In each iteration:
-1. Use `mcp__unityMCP__refresh_unity` and wait for compile to finish.
-2. Check `mcp__unityMCP__read_console` for errors.
-3. Run `mcp__unityMCP__run_tests` and check for failures.
+1. Use `mcp__UnityMCP__refresh_unity` and wait for compile to finish.
+2. Check `mcp__UnityMCP__read_console` for errors.
+3. Run `mcp__UnityMCP__run_tests` and check for failures.
 4. Verify prefab structure is intact: root holds logic components, Body child holds visual components.
 5. If compile errors or test failures exist and iterations remain — fix and re-check.
 6. If clean after any iteration → stop and report VERIFIED.

@@ -3,7 +3,7 @@ name: unity-prototyper
 description: "The star agent. Rapid end-to-end prototyping — given a mechanic description, writes C# scripts, builds the test scene via MCP, sets up physics/colliders/camera, wires everything together. One prompt to playable prototype."
 model: sonnet
 color: magenta
-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, Bash, Agent, mcp__UnityMCP__*
 skills: character-controller, physics, state-machine
 ---
 

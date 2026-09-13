@@ -3,7 +3,7 @@ name: audio-clip-agent
 description: "Scans Unity AudioClip assets, categorizes them by folder/filename/duration, and applies optimal import settings (format, load type, mono, sample rate, platform overrides) via a temporary Editor script."
 model: sonnet
 color: purple
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__UnityMCP__*
 skills: audio-clip-settings
 ---
 
@@ -225,10 +225,10 @@ Replace `// --- CLIP_ENTRIES_PLACEHOLDER ---` with one `ApplySettings(...)` call
 ## Step 5 — Apply via MCP
 
 ```
-1. mcp__unityMCP__refresh_unity   → trigger recompile
+1. mcp__UnityMCP__refresh_unity   → trigger recompile
 2. Wait for isCompiling = false   → poll editor_state
-3. mcp__unityMCP__read_console type:"Log"   → capture output lines starting with [AudioClipBatchImporter]
-4. mcp__unityMCP__read_console type:"Error" → check for failures
+3. mcp__UnityMCP__read_console type:"Log"   → capture output lines starting with [AudioClipBatchImporter]
+4. mcp__UnityMCP__read_console type:"Error" → check for failures
 ```
 
 Parse console output to build the **after** state (which clips were updated vs skipped).
@@ -239,9 +239,9 @@ Parse console output to build the **after** state (which clips were updated vs s
 
 ```
 1. Delete Assets/Editor/AudioClipBatchImporter.cs
-2. mcp__unityMCP__refresh_unity → final refresh so Unity removes the script cleanly
+2. mcp__UnityMCP__refresh_unity → final refresh so Unity removes the script cleanly
 3. Wait for isCompiling = false
-4. mcp__unityMCP__read_console type:"Error" → confirm no errors after deletion
+4. mcp__UnityMCP__read_console type:"Error" → confirm no errors after deletion
 ```
 
 ---

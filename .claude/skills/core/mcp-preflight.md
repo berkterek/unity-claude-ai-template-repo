@@ -12,7 +12,19 @@ Run this check at the start of any command that spawns MCP agents (unity-setup, 
 
 ## How to Run the Check
 
-Call `mcp__unityMCP__unity_get_project_info` with no arguments.
+Call `mcp__UnityMCP__unity_get_project_info` with no arguments.
+
+> **The `UnityMCP` segment is the registered server name, and it is case-sensitive.** A tool
+> name is a literal string: if the server was added as `unity-mcp` or `unitymcp`, every
+> `mcp__UnityMCP__*` call in this repo's agents and commands resolves to nothing — and an
+> agent frontmatter `tools:` entry that matches no tool is not an error, it is simply an
+> agent with no MCP tools, which reads as "MCP is disconnected" rather than "the name is
+> wrong". Measured 2026-09-13: this template shipped `mcp__unityMCP__` (lower-case *u*) in
+> **28 files** while all 14 real projects on this machine register `UnityMCP`. It survived
+> because this template's own `.mcp.json` registers `graph_mcp` and `blender` only — the
+> Unity tools are never exercised here, so nothing in the template could fail on it. Check
+> `claude mcp list` (or the project's entry in `~/.claude.json`) before assuming a
+> disconnection, and if the name differs, rename the **server**, not these 28 files.
 
 ---
 
@@ -66,7 +78,7 @@ Wait for user response before continuing.
 ---
 
 ### State 3 — MCP Not Installed ❌
-**Signal:** The tool call fails with "tool not found" / "unknown tool", or the `mcp__unityMCP__` prefix is not recognized in this session.
+**Signal:** The tool call fails with "tool not found" / "unknown tool", or the `mcp__UnityMCP__` prefix is not recognized in this session.
 
 **Action:** Silently switch to code-only mode. Do NOT stop the pipeline. Print this once:
 
@@ -89,7 +101,7 @@ Then continue the pipeline, replacing every MCP step with:
 | Tool returns error about Unity Editor / connection | State 2 |
 | Tool returns timeout or no response | State 2 |
 | Tool name not recognized / "tool not found" | State 3 |
-| `mcp__unityMCP__*` prefix absent from tool list | State 3 |
+| `mcp__UnityMCP__*` prefix absent from tool list | State 3 |
 
 ---
 

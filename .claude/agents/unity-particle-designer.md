@@ -3,7 +3,7 @@ name: unity-particle-designer
 description: "Designs and configures Unity particle effects — creates ParticleSystem prefabs, URP particle materials, VFX pool services, and scene wiring via MCP tools. Handles explosion, fire, smoke, trail, hit spark, and any visual particle effect. Use when building VFX systems, configuring particle modules, creating pooled VFX services, or placing particle effects in a Unity scene."
 model: sonnet
 color: orange
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__UnityMCP__*
 skills: particle-vfx, unity-mcp-patterns, object-pooling
 ---
 

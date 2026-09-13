@@ -3,7 +3,7 @@ name: unity-ui-builder
 description: "Builds runtime UI screens using Unity UGUI (Canvas-based) — writes MonoBehaviour view scripts, sets up Canvas hierarchy via MCP, configures RectTransform anchors, TextMeshPro, safe area, and responsive layout. Runtime UI only; Editor UI Toolkit work goes to unity-ui-toolkit-builder."
 model: sonnet
 color: blue
-tools: Read, Write, Edit, Glob, Grep, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, mcp__UnityMCP__*
 ---
 
 # Unity UI Builder

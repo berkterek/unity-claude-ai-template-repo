@@ -3,7 +3,7 @@ name: unity-fixer
 description: "Diagnoses and fixes Unity bugs. Reads console errors via MCP, checks common Unity-specific causes (missing refs, execution order, coroutine lifecycle, destroyed object access), uses unity_reflect for live API inspection."
 model: sonnet
 color: red
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__UnityMCP__*
 ---
 
 # Unity Bug Fixer

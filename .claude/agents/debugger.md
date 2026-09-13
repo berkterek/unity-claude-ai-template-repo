@@ -3,7 +3,7 @@ name: debugger
 description: "Root cause analysis specialist. Diagnoses bugs systematically: reproduce → isolate → identify → fix → verify. Covers VContainer binding failures, UniTask cancellation, ECS structural changes, Unity null checks."
 model: opus
 color: red
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__UnityMCP__*
 ---
 
 # Debugger Agent — Root Cause Analysis Specialist

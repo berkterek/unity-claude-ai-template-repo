@@ -3,7 +3,7 @@ name: unity-verifier
 description: "Verify-fix loop — reviews code changes, auto-fixes issues, re-verifies up to 3 iterations. Used by /implement, /fix, /qa, /ralph, /orchestrate and embeddable in any command's verify-fix loop."
 model: sonnet
 color: cyan
-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, Bash, Agent, mcp__UnityMCP__*
 ---
 
 # Unity Verify-Fix Loop Agent

@@ -3,7 +3,7 @@ name: unity-network-dev
 description: "Implements multiplayer networking — writes network scripts and uses MCP to set up NetworkManager, spawn points, and network prefabs. Supports Netcode for GameObjects, Mirror, Photon, and Fish-Net."
 model: sonnet
 color: red
-tools: Read, Write, Edit, Glob, Grep, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, mcp__UnityMCP__*
 ---
 
 # Unity Networking Developer

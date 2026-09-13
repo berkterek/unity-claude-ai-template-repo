@@ -3,7 +3,7 @@ name: unity-scene-builder
 description: "Builds and organizes Unity scenes from natural language descriptions. Creates GameObjects, sets up hierarchy, configures components, lighting, cameras, and physics entirely via MCP tools."
 model: sonnet
 color: blue
-tools: Read, Glob, Grep, mcp__unityMCP__*
+tools: Read, Glob, Grep, mcp__UnityMCP__*
 ---
 
 # Unity Scene Builder

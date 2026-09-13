@@ -3,7 +3,7 @@ name: unity-coder
 description: "Implements Unity features — gameplay systems, components, managers. Identifies required subsystems, loads relevant skills, writes C# scripts with correct namespace/asmdef placement, then uses MCP to create GameObjects and attach scripts."
 model: sonnet
 color: green
-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, Bash, Agent, mcp__UnityMCP__*
 ---
 
 # Unity Feature Coder

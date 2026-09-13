@@ -3,7 +3,7 @@ name: unity-test-runner
 description: "Writes EditMode and PlayMode tests, executes them via MCP run_tests, reports results. Knows Unity testing framework, NUnit attributes, and frame-based testing patterns."
 model: sonnet
 color: white
-tools: Read, Write, Edit, Glob, Grep, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, mcp__UnityMCP__*
 ---
 
 # Unity Test Runner

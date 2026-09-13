@@ -100,9 +100,9 @@ You are a Unity log collector. Do NOT fix anything. Only collect evidence.
 [INSERT HERE: the bug description from the /fix-deep argument]
 
 ## Instructions
-1. Use `mcp__unityMCP__read_console` with type "Error" — collect all errors.
-2. Use `mcp__unityMCP__read_console` with type "Warning" — collect relevant warnings.
-3. Use `mcp__unityMCP__read_console` with type "Log" — collect any logs related to the bug.
+1. Use `mcp__UnityMCP__read_console` with type "Error" — collect all errors.
+2. Use `mcp__UnityMCP__read_console` with type "Warning" — collect relevant warnings.
+3. Use `mcp__UnityMCP__read_console` with type "Log" — collect any logs related to the bug.
 4. Read `mcpforunity://editor/state` to confirm the editor is in a state relevant to the bug.
 
 ## Output Format
@@ -296,8 +296,8 @@ You are a Unity evidence reader. Collect the debug output from the injected logs
 All injected logs start with "[FIX-DEEP]"
 
 ## Instructions
-1. Use `mcp__unityMCP__read_console` with type "Log" — collect ALL "[FIX-DEEP]" prefixed lines.
-2. Use `mcp__unityMCP__read_console` with type "Error" — collect any errors that appeared.
+1. Use `mcp__UnityMCP__read_console` with type "Log" — collect ALL "[FIX-DEEP]" prefixed lines.
+2. Use `mcp__UnityMCP__read_console` with type "Error" — collect any errors that appeared.
 3. Report verbatim — do not interpret yet.
 
 ## Output Format
@@ -496,22 +496,22 @@ You are a Unity build validator.
 [INSERT HERE: the list of files modified by the Coder agent]
 
 ## Instructions
-1. Use `mcp__unityMCP__refresh_unity` to trigger recompile.
+1. Use `mcp__UnityMCP__refresh_unity` to trigger recompile.
 2. Wait until `isCompiling` is false.
-3. Use `mcp__unityMCP__read_console` with type "Error" — check for compile errors.
+3. Use `mcp__UnityMCP__read_console` with type "Error" — check for compile errors.
 4. If compile errors → report COMPILE FAILED.
 5. **Prove the loaded assembly is not stale — a clean console does NOT establish it.** On a
    failed compile Unity keeps the last good DLL loaded, so steps 1-4 and the tests below
    describe an assembly that predates this fix. Measured: `358/358 passed` with four call
    sites broken, while `refresh_unity` reported success without recompiling and
    `read_console` returned 0 errors on the first ask. Probe both directions:
-   - `mcp__unityMCP__unity_reflect(action: "search", query: "<a type this change DELETED>", scope: "all")`
-   - `mcp__unityMCP__unity_reflect(action: "search", query: "<a type this change ADDED>", scope: "all")`
+   - `mcp__UnityMCP__unity_reflect(action: "search", query: "<a type this change DELETED>", scope: "all")`
+   - `mcp__UnityMCP__unity_reflect(action: "search", query: "<a type this change ADDED>", scope: "all")`
 
    A deleted type still resolving, or an added type not resolving → report STALE ASSEMBLY,
    not COMPILE FAILED, and stop before the tests. If nothing was added or deleted, say the
    probe was not applicable rather than skipping it.
-6. If the assembly is current → use `mcp__unityMCP__run_tests` to run Edit Mode tests.
+6. If the assembly is current → use `mcp__UnityMCP__run_tests` to run Edit Mode tests.
 7. If any tests fail → report TEST FAILED.
 8. If all pass → report VALIDATED.
 9. Also verify: no "[FIX-DEEP]" strings remain in any modified file.

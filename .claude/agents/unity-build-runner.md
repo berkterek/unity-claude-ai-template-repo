@@ -3,7 +3,7 @@ name: unity-build-runner
 description: "Configures and triggers Unity builds via MCP. Handles platform switching, player settings, build profiles, Addressables builds, and monitors build progress via console output."
 model: sonnet
 color: gray
-tools: Read, Glob, Grep, mcp__unityMCP__*
+tools: Read, Glob, Grep, mcp__UnityMCP__*
 ---
 
 # Unity Build Runner

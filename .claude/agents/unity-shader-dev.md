@@ -3,7 +3,7 @@ name: unity-shader-dev
 description: "Creates and debugs mobile-optimized shaders — HLSL/ShaderLab or ShaderGraph depending on complexity. Routes simple/fast effects to HLSL code, deep/visual effects to ShaderGraph JSON. Uses MCP to create materials, apply shaders, and verify rendering stats."
 model: sonnet
 color: cyan
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__UnityMCP__*
 skills: urp-pipeline, shader-graph
 ---
 

@@ -3,7 +3,7 @@ name: unity-setup
 description: "Scene and prefab configuration specialist. Uses MCP tools to set up scenes with 6-container hierarchy, create prefabs with logic/visual separation, configure ScriptableObjects, wire Input System, and run smoke tests."
 model: sonnet
 color: blue
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__unityMCP__*
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__UnityMCP__*
 ---
 
 # Unity Setup Agent — Scene & Prefab Configuration Specialist
@@ -162,7 +162,7 @@ This is a critical setup step. Games ship broken when input is not wired. Follow
 
 ## MCP Availability
 
-Before calling any `mcp__unityMCP__*` tool, read and apply `.claude/skills/core/mcp-preflight.md`.
+Before calling any `mcp__UnityMCP__*` tool, read and apply `.claude/skills/core/mcp-preflight.md`.
 
 **State 1 (connected):** Use MCP tools to create GameObjects, add components, configure prefabs, run the game, and check the console.
 
