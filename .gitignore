@@ -1,32 +1,21 @@
 .DS_Store
 .claude/settings.local.json
 
-# Claude Code runtime state (written by hooks each session)
-.claude/state/session.json
-.claude/state/session-cost.jsonl
-.claude/state/subagent-log.jsonl
-.claude/state/task-log.jsonl
-.claude/state/instincts/
-.claude/state/session-start-time
-.claude/state/checkpoint.md
-.claude/state/codex-reviewed
-.claude/state/gate-cleared
-.claude/state/gateguard-facts-denied.txt
-.claude/state/gateguard-facts-passed.txt
-.claude/state/gateguard-reads.txt
-.claude/state/guard-critical-denied.txt
-.claude/state/guard-critical-passed.txt
-.claude/state/config-asmdef-denied.txt
-.claude/state/config-asmdef-passed.txt
+# Claude Code runtime state (written by hooks each session).
+# Ignore the WHOLE directory and re-include only the two tracked files. This used to be a
+# hand-listed set of ~30 names, and it failed the way hand-maintained lists fail: it carried
+# `subagent-depth` twice and `graph-updates.log` twice, while `subagent-depth-pending.jsonl`
+# — the companion queue of an entry already on the list, which _lib.sh requires be handled
+# TOGETHER with the counter — was missing entirely and showed up untracked. Nothing in this
+# directory is ever committed except .gitkeep and .gitignore (verified: `git ls-files
+# .claude/state` returns exactly those two), so a directory rule is both correct and the only
+# version that cannot go stale when a hook adds a new state file.
+.claude/state/*
+!.claude/state/.gitkeep
+!.claude/state/.gitignore
 # Leaks by design (see agent-start-log.sh) and is session-scoped — committing it
 # ships a stale count that silently disables guard-pipeline-direct-work.sh in
 # every clone until the first SessionStart resets it.
-.claude/state/subagent-depth
-.claude/state/session-warnings.txt
-.claude/state/search-findings.md
-.claude/state/sparc-approved
-.claude/state/skills-invoked.txt
-.claude/state/compact-suggest-state.json
 
 # Knowledge graph (generated, but graph.json IS committed — see CLAUDE.md
 # "scenes/prefabs/graph generated and committed together"; graph-tests CI
@@ -37,17 +26,6 @@
 !.claude/graph/cache/.gitkeep
 .claude/graph/.last-build
 .claude/graph/graph.html
-.claude/state/graph-updates.log
-.claude/state/session-edits.txt
-.claude/state/session-reads.txt
-.claude/state/stop-verify-batch.txt
-.claude/state/graph-updates.log
-.claude/state/pending-verify.txt
-.claude/state/last-notify.json
-.claude/state/precompact-state.md
-.claude/state/graph-empty-warned
-.claude/state/graph-health-warned-*
-.claude/state/subagent-depth
 
 # Python bytecode
 __pycache__/
