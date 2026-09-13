@@ -816,7 +816,7 @@ that flag pass a size-only check, including the two that import with a `scale=10
 `270.020°` rotation. On its first run the harness then disproved a claim in the skill it tests.
 Still covered by no layer: `TD-COMPILE` against real project code, PlayMode, prefab/scene work.
 
-**49 bats files / 582 tests** cover every blocking hook with happy path, blocking trigger,
+**49 bats files / 592 tests** cover every blocking hook with happy path, blocking trigger,
 profile skip, and warn-mode scenarios — and all six `guard-*.sh` are covered there *and*
 verified as registered in `settings.json`.
 
@@ -884,7 +884,7 @@ need the Unity Editor and MCP. Nothing here compiles anything.
 | `hook-logger` | Central audit logger — appends newline-delimited JSON to `~/.claude/hook-audit.log`. Project-root resolution prefers `$CLAUDE_PROJECT_DIR` (2026-08-29 — cosmetic only: a bare `git rev-parse`/`pwd` fallback logged the wrong project label and an unstripped absolute path inside a subagent's cwd) |
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
 | `session-restore` (SessionStart) | Restores session state from `.claude/state/` on session start. Also resets `subagent-depth` to 0 (the counter can still leak on an interrupted/errored agent, and a stale count silently disables `guard-pipeline-direct-work`), expires every deny-then-allow grant file so a gate is one-per-session rather than one-per-lifetime, and self-heals any hook missing its exec bit. **Reads the payload's `source` and keeps `gate-cleared`/`sparc-approved` when it is `compact`** — a compaction is not a session boundary, and clearing there silently revoked an approved gate mid-pipeline (measured twice in one `/orchestrate` run); `startup`/`resume`/`clear` still clear, and an unparseable payload fails closed |
-| `session-save` (Stop) | Saves current session state to `.claude/state/` on stop. Also **auto-expires ephemeral gate files** (`gate-cleared`, `sparc-approved`, `codex-reviewed`, etc.) so they never leak into the next session. Subagent counters are read only when log files exist — prevents `0\n0` jq parse error on sessions without subagents |
+| `session-save` (Stop) | Saves current session state to `.claude/state/` on stop. Also **auto-expires per-turn scratch state** (`codex-reviewed`, `graph-empty-warned`, `plan-state.json`, …) so it never leaks into the next session. **`gate-cleared` and `sparc-approved` are deliberately excluded** — Stop fires after *every* turn, so expiring a human-approved gate here deletes it between the agents of one pipeline and forces re-approval every turn (measured in a real project for `sparc-approved`). Those two are bounded by their TTL and by `session-restore.sh` instead. Subagent counters are read only when log files exist — prevents `0\n0` jq parse error on sessions without subagents |
 | `stop-verify` (Stop) | Drains the edit accumulator at session end — runs batch verifiers (shell syntax, JSON validity, one `dotnet build` for all `.cs` files written this session). ECC pattern: catches subagent writes whose PostToolUse hooks never fired in the main session. Must be listed after `session-save` in the Stop array. |
 | `notify` (Notification) | OS-level notification when Claude finishes a task — macOS via `osascript`, Linux via `notify-send`. Persists last notification to `.claude/state/last-notify.json` for `/catch-up` |
 | `pre-compact` (PreCompact) | Snapshots branch, recent commits, and edited files to `.claude/state/precompact-state.md` before `/compact` discards conversation history — consumed by `session-restore.sh` and `/catch-up`. Deliberately does **not** touch gate state: it runs *before* the `SessionStart` that compaction fires, so it cannot prevent a deletion there, and re-writing a gate afterwards would resurrect one a pipeline had legitimately torn down — that fix belongs in `session-restore.sh` |
@@ -1192,7 +1192,7 @@ Automatically blocked by a PreToolUse hook — no mid-run pause, the hook exits 
 |------|----------|--------------|-----------------|
 | `SPARC_GATE` | `/implement`, `/orchestrate`, `/fix` (complexity ≥ 0.4) | Before `coder` / `unity-coder` spawn, after SCOPE_GATE | Approve Specification + Architecture (how it will be built — files, interfaces, data flow) |
 
-State file: `.claude/state/sparc-approved` (independent of `gate-cleared`). Written after "go", deleted after the gated agent completes. Guard hook: `guard-sparc-approved.sh`.
+State file: `.claude/state/sparc-approved` (independent of `gate-cleared`). Written after "go", **deleted at Completion together with `gate-cleared` — never when the gated coder returns.** Deleting it on coder return deadlocks the first fix pass deterministically: the validator and reviewer fix passes spawn a coder-class agent again, `guard-sparc-approved.sh` exits 2 for each while the file is absent, and none of those steps re-opens the gate. The approval is bounded without that deletion — the same 45-minute `UNITY_GATE_TTL` as `gate-cleared`, plus `session-restore.sh`'s SessionStart clear. Guard hook: `guard-sparc-approved.sh`.
 
 ### Gate TTL
 
@@ -1260,7 +1260,7 @@ A plan that passes `validate-plan-facts.sh` also unlocks the write-time gates fo
 | `instincts/` | Project-specific and global instinct library (confidence-scored patterns) |
 
 - `session-restore.sh` (SessionStart hook) loads state at the start of every session
-- `session-save.sh` (Stop hook) persists state when the session ends and **auto-expires** ephemeral gate files (`gate-cleared`, `sparc-approved`, `codex-reviewed`, `graph-empty-warned`, etc.) — these must never persist across sessions
+- `session-save.sh` (Stop hook) persists state at every turn end and **auto-expires per-turn scratch** (`codex-reviewed`, `graph-empty-warned`, `plan-state.json`, `verify-state.json`, `agent-context.json`) — never the human-approved gates `gate-cleared` / `sparc-approved`, which would then need re-approval on every turn of a multi-turn phase; those expire by TTL and at SessionStart. If you add a gate a **human** approves, it does not belong in that list
 - Use `/instincts` to view, evolve, promote, or export instincts
 
 ### Human-Readable Checkpoint
