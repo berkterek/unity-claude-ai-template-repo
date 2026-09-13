@@ -43,3 +43,38 @@ teardown() {
     run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/Foo.cs\",\"new_string\":\"using UnityEngine; class Foo : MonoBehaviour {}\"}}' | bash $HOOK"
     [ "$status" -eq 0 ]
 }
+
+# --- Effective post-edit content (2026-09-13) -------------------------------
+# An Edit's new_string is a SLICE of the file. The `#if UNITY_EDITOR` guard that makes the
+# `using UnityEditor;` legal sits at the top and is almost never inside the slice, so judging
+# the fragment alone blocked every edit to an already-correct runtime file. Disk is
+# authoritative; the fragment is only the fallback when there is no file to splice into.
+
+@test "allows an Edit whose fragment lacks the guard when the file on disk has it" {
+    local f="$BATS_TEST_TMPDIR/Assets/Scripts/Guarded.cs"
+    mkdir -p "$(dirname "$f")"
+    printf '#if UNITY_EDITOR\nusing UnityEditor;\n#endif\nclass Guarded { void A(){} }\n' > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\",\"old_string\":\"void A(){}\",\"new_string\":\"void A(){ EditorUtility.SetDirty(this); }\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
+@test "still blocks an Edit that introduces UnityEditor into an unguarded file on disk" {
+    local f="$BATS_TEST_TMPDIR/Assets/Scripts/Plain.cs"
+    mkdir -p "$(dirname "$f")"
+    printf 'class Plain { void A(){} }\n' > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\",\"old_string\":\"void A(){}\",\"new_string\":\"void A(){ UnityEditor.EditorUtility.SetDirty(this); }\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
+@test "a Write payload is judged whole, and blocks a brand-new unguarded file" {
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/New.cs\",\"content\":\"using UnityEditor; class New {}\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
+@test "an Edit REMOVING the only unguarded UnityEditor line is allowed — the file is fixable" {
+    local f="$BATS_TEST_TMPDIR/Assets/Scripts/Fixable.cs"
+    mkdir -p "$(dirname "$f")"
+    printf 'using UnityEditor;\nclass Fixable { void A(){} }\n' > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\",\"old_string\":\"using UnityEditor;\\n\",\"new_string\":\"\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
