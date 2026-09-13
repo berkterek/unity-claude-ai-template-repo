@@ -148,3 +148,47 @@ instruction — check whether it reproduces outside the sandbox first.
   harness as covering it.
 - **Costs one long agent invocation** (~3 min). Run it when a pipeline's step order or
   state-file handling changes — not on every commit.
+
+### 2026-09-13 — `/implement`, first run measuring P3b/P8b
+
+`GATE_ORDER: SCOPE_GATE, SPARC_GATE, QUALITY_GATE, QUALITY_GATE, EXHAUSTION_GATE, COMMIT_GATE`
+
+Run immediately after `6f62324`'s SPARC fix and the `director-gates.md` correction, to measure
+the two fields that were added because nothing here could see that defect.
+
+| Condition | Result |
+|---|---|
+| P1, P2 | **PASS** — `FIRST_EVENT: SCOPE_GATE` (step 7), before the first spawn (step 8) |
+| P3 | **PASS** — `sparc-approved` created step 9, coder spawned step 10 |
+| **P3b** | **PASS** — PRESENT at step 14 and step 17, the two later coder-class spawns |
+| P4 | **PASS** — validator step 11, reviewer step 12 |
+| P5, P6 | **PASS** — two `QUALITY_GATE`s, third failure produced `EXHAUSTION_GATE` (step 19) |
+| P7 | **PASS** — `skip`/`stop` only; `Skipping ships:` named the actual unclosed DIP boundary |
+| **P8b** | **PASS** — deleted at step 26, Completion, with `gate-cleared` |
+| P8, P9 | **PASS** — state dir empty; `DIRECTOR_EDITED_CS: no` |
+| P10 | **PASS** — verified by the caller in the real repo, before and after |
+
+**The deadlock did not reproduce, and this is the first run that could have seen it.** The
+2026-08-21 runs recorded the deletion-on-coder-return as a pass because P3 and P8 did not look
+at those moments.
+
+**Defect this run found, in `director-gates.md`:** the COMMIT_GATE block hardcoded
+`Reviewer: APPROVED` as a literal while every other field was a variable. `/implement` reaches
+COMMIT_GATE from an `EXHAUSTION_GATE` `skip`, which by definition ships a state the reviewer
+did not approve — so the one gate whose purpose is informed consent stated the opposite of what
+happened, and the human has no other source for it. Both verdict lines are variables now. Found
+only because the run took the exhaustion branch; a run scripted to pass review never reaches it.
+
+**Harness gaps this run closed:** `skills/` and `agents/` are now copied into the sandbox. They
+were absent in both the 2026-08-21 and 2026-09-13 runs, and in both the Director *substituted*
+for the missing inputs rather than stopping — Step 0.5, Step 0c and every `Read .claude/agents/X.md`
+line. A substituted input is not a measurement.
+
+**One unscripted pause remains:** Step 0.5 MCP Preflight State 2 (disconnected) is a human pause
+with no scripted reply, and the harness has no MCP. Script it next run. Per the 2026-09-13
+worm-repo finding, an unscripted pause is an invitation to fabricate consent — this Director
+reported it instead of inventing an answer, which is the behaviour to preserve.
+
+**Not a template defect, recorded to prevent a re-report:** the run's `unity-verifier` result was
+scripted as `VERIFY PASSED`, which matches neither literal in Step 3.5's contract (`VERIFIED` /
+`VERIFY FAILED`). That was an error in the run's own prompt, not in the command.

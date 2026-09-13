@@ -63,7 +63,7 @@ If complexity score ≥ 0.7 AND `superpowers:brainstorming` is available → inv
 
 ---
 
-## Step 0a — Knowledge Graph Query
+## Step 0a2 — Knowledge Graph Query
 
 If `.claude/project-features.json` has `graph == true` AND `.claude/graph/graph.json` exists:
 
@@ -199,7 +199,7 @@ Read .claude/rules/testing.md for project-specific rules — these override test
 Read .claude/CLAUDE.md for project architecture.
 
 ## Knowledge Graph (class/interface/event/installer inventory — use instead of scanning source files)
-[INSERT HERE: the GRAPH_CONTEXT output from Step 0a — if empty, write "No graph available, scan source files."]
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0a2 — if empty, write "No graph available, scan source files."]
 
 ## Project overrides (take precedence over tester.md)
 - Use NSubstitute for mocking, not hand-rolled fakes
@@ -256,7 +256,7 @@ You are a senior C# Unity developer. Implement the following task.
 [INSERT HERE: the task description from the /implement argument]
 
 ## Knowledge Graph (class/interface/event/installer inventory — use instead of scanning source files)
-[INSERT HERE: the GRAPH_CONTEXT output from Step 0a — if empty, write "No graph available, scan source files."]
+[INSERT HERE: the GRAPH_CONTEXT output from Step 0a2 — if empty, write "No graph available, scan source files."]
 
 ## Existing Tests (make these pass)
 [INSERT HERE: the full output from the Test Writer agent]

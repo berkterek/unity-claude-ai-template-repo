@@ -31,7 +31,16 @@ mkdir -p "$DIR/.claude" "$DIR/_GameFolders/Scripts/Games/Abstracts/Turrets" \
 # rewritten for the test. hooks/ and settings.json are deliberately NOT copied: the
 # harness resolves hooks from the live session, and settings.json is Claude-immutable.
 cp -R "$SRC/.claude/commands" "$SRC/.claude/docs" "$SRC/.claude/rules" \
+      "$SRC/.claude/skills" "$SRC/.claude/agents" \
       "$SRC/.claude/CLAUDE.md" "$DIR/.claude/"
+
+# skills/ and agents/ were added 2026-09-13. Without them the 2026-08-21 and 2026-09-13 runs
+# both dead-ended on Step 0.5 (skills/core/mcp-preflight.md), Step 0c
+# (skills/core/test-type-router.md) and every "Read .claude/agents/X.md" line — and the
+# Director SUBSTITUTED for all three rather than stopping. A substituted input is not a
+# measurement: the run then reports on a pipeline the harness partly invented. Anything the
+# command file reads by path belongs in the sandbox, or the gap belongs in the run's limits
+# section — never silently filled in.
 
 cat > "$DIR/_GameFolders/Scripts/Games/Abstracts/Turrets/ITurretService.cs" <<'CS'
 namespace Game.Abstracts.Turrets

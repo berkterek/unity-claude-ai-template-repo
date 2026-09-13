@@ -253,11 +253,26 @@ Ready to commit:
 
 Task:         $TASK_DESCRIPTION
 Files staged: [list all changed files]
-Reviewer:     APPROVED
-Verifier:     VERIFIED (or SKIPPED)
+Reviewer:     $REVIEWER_VERDICT
+Verifier:     $VERIFIER_VERDICT
 ──────────────────────────────────────────────────────────
 Type `go` to commit, or `stop` to leave uncommitted.
 ```
+
+**Both verdict lines are variables, and printing a literal `APPROVED` there is a defect, not a
+default.** This gate exists for informed consent, and `/implement` routes to it from paths where
+the reviewer never approved anything: an `EXHAUSTION_GATE` `skip` ships the known-bad state by
+design and continues straight here. A hardcoded `APPROVED` therefore states the opposite of what
+happened at the one moment a human is asked to sign off — and the human has no other source for
+it. Print the last real verdict, and when it is not an approval, say which gate overrode it:
+
+```
+Reviewer:     CHANGES NEEDED (3 passes, unresolved) — shipped via EXHAUSTION_GATE `skip`
+Verifier:     VERIFIED
+```
+
+`SKIPPED` is legitimate for the verifier only when the step genuinely did not run (no MCP, for
+instance) — never as a stand-in for a verdict that came back negative.
 
 Wait for response. `go` → spawn committer. `stop` → leave files staged, print summary without committing.
 
