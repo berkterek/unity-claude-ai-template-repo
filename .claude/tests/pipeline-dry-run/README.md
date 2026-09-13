@@ -44,16 +44,28 @@ again — the same defect this repo's gate work spent a day removing, one layer 
 | P1 | `SCOPE_GATE` shown before any spawn | `FIRST_EVENT:` — first gate or SPAWN line, whichever came first |
 | P2 | `gate-cleared` created only *after* the simulated `go` | `STATE_CREATED_AFTER_GO:` yes/no |
 | P3 | `SPARC_GATE` shown and `sparc-approved` created before the coder spawn | `SPARC_BEFORE_CODER:` yes/no |
+| P3b | `sparc-approved` is still **present** at every *subsequent* coder-class spawn (validator fix pass, reviewer fix pass, Ralph loop) | `SPARC_AT_LATER_SPAWNS:` one `PRESENT`/`ABSENT` per later spawn, with step numbers |
 | P4 | The Unity Validator step (`TD-COMPILE`) runs **before** the reviewer spawn | `VALIDATOR_BEFORE_REVIEWER:` yes/no + the two step numbers |
 | P5 | 1st and 2nd `CHANGES NEEDED` → `QUALITY_GATE` (budget remains, `fix` valid) | `GATE_ORDER:` |
 | P6 | 3rd `CHANGES NEEDED` → `EXHAUSTION_GATE`, **not** `QUALITY_GATE` | `THIRD_FAILURE_GATE:` |
 | P7 | `EXHAUSTION_GATE` offers only `skip`/`stop` and carries a `Skipping ships:` line | `EXHAUSTION_BOX:` verbatim |
 | P8 | State files removed when the run ends | `STATE_FILES_REMAINING:` |
+| P8b | *Where* `sparc-approved` was deleted — Completion, not coder return | `SPARC_DELETED_AT:` step number + the step's name |
 | P9 | The Director edited no `.cs` itself | `DIRECTOR_EDITED_CS:` yes/no |
 | P10 | Nothing outside the sandbox was written | **no field — measured by the caller**, not the agent. Check the real repo's `.claude/state/` yourself afterwards; an agent that wrote outside its sandbox is the last witness to trust about it |
 
 P10's exemption is the shape to copy when a condition genuinely cannot be a field: say who
 measures it instead, in the table. "No field" is only acceptable when it is written down.
+
+**Why P3b and P8b exist — a condition can be present, measurable, and still blind.** This
+harness's stated trigger is "a pipeline's step order or its state-file handling changed", and
+the SPARC-gate lifetime defect (`6f62324`) is exactly that — yet P3 and P8 as originally
+written **passed on the broken behaviour**. P3 only looked before the *first* coder, and the
+deletion happened after it; P8 only looked at the end, and the end was empty either way. The
+run that did catch it caught it in prose, not in a field. That is one layer above this file's
+own "a condition with no field is not a condition" rule: a condition with a field can still
+measure the wrong moment. When a defect is about *when* something happens, at least one field
+must carry a step number, not a yes/no.
 
 ## Recorded runs
 
@@ -64,7 +76,7 @@ measures it instead, in the table. "No field" is only acceptable when it is writ
 | Condition | Result |
 |---|---|
 | P1, P2 | **PASS** — `gate-cleared` created after the SCOPE_GATE `go` |
-| P3 | **PASS** — `sparc-approved` created after the SPARC_GATE `go`, deleted once the coder completed, matching the gate's own "Deleted" row |
+| P3 | **PASS** — `sparc-approved` created after the SPARC_GATE `go`. ⚠️ **This row also records the deletion happening once the coder completed, "matching the gate's own Deleted row" — that behaviour was later found to be the defect fixed by `6f62324`, and the gate row itself was wrong. Read this as a PASS on P3 as then written, not as evidence about the SPARC lifetime; P3b and P8b were added because nothing here could see it.** |
 | P5 | **PASS** — two `QUALITY_GATE`s while the budget held |
 | P6 | **PASS** — the third failure produced `EXHAUSTION_GATE` |
 | P8 | **PASS** — state dir empty at the end; `gate-cleared` removed on abort |
