@@ -97,17 +97,21 @@ next reader cannot tell which copy is current, and `/roadmap` cannot know which 
 **Verdict:** CLOSED — 2026-09-14, played 3 runs on device, loop reads correctly. (developer)
 ```
 
-**The evidence environment is the milestone's own field, and this rule never dictates it.**
-Device, orientation and input belong on the milestone's entry in the GDD (§13), restated by
-the TDD's Milestone Acceptance and nowhere pinned as a project-wide constant. Measured
+**The evidence environment is EACH milestone's own field, decided per milestone — and this
+rule never dictates it, project-wide or otherwise.** Device, orientation and input belong on
+every milestone's own entry in the GDD (§13, M0 through Mn — not just M0), restated by the
+TDD's Milestone Acceptance and nowhere pinned as a project-wide constant. Measured
 2026-09-10: a downstream project had "on an Android development build, on device, portrait,
 touch" written into the TDD's acceptance section, this rule's cards and a module's
 checkpoint block — so the developer's one-sentence decision that an Editor session was
 enough evidence for M0 turned into a five-file edit, plus a stale ROADMAP mapping. What the
-rule does require is that the environment is **written down and that its gaps are named**:
-an Editor session cannot show touch-drag feel, portrait layout, or device performance, and
-a milestone closed in the Editor closes with those three recorded as unmeasured. A weaker
-environment is a decision; an unstated one is the defect.
+rule does require is that each milestone's environment is **written down and that its gaps
+are named**: an Editor session cannot show touch-drag feel, portrait layout, or device
+performance, and a milestone closed in the Editor closes with those three recorded as
+unmeasured. A weaker environment is a decision; an unstated one is the defect — and the
+decision does not carry forward: M0 running in the Editor does not make M2 an Editor
+milestone, and M0 needing device does not make M1 need it too. Ask the question again for
+every milestone.
 
 **GOTCHA:** A passing test suite, a green pipeline, or a completed task list does **not**
 close a milestone. An empty verdict line means the milestone is not closed, regardless of

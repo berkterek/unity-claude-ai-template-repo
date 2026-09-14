@@ -257,12 +257,16 @@ These steps should be ordered: what to do first, what depends on what. Agents wi
 
 ## 14. Milestone Acceptance (MANDATORY — see .claude/rules/roadmap-milestones.md)
 Technical acceptance for the GDD's Milestones, especially M0 — First Playable:
-- **Restate the evidence environment the milestone itself declares** — device, orientation,
-  input — and name what that environment cannot show. Do not dictate one here: the
-  environment is the milestone's own field (GDD §13), so that changing it is a one-line
-  edit. Hardcoding "on device, portrait, touch" into this section cost a downstream project
-  a five-file edit when the developer decided an Editor session was enough evidence for M0.
-  A human runs it either way — never a test suite.
+- **Restate the evidence environment each milestone declares — one restatement per
+  milestone, not one for the whole document.** Device, orientation, input — and name what
+  that environment cannot show. Do not dictate one here: the environment is each
+  milestone's own field (GDD §13), so that changing it is a one-line edit. Hardcoding "on
+  device, portrait, touch" into this section cost a downstream project a five-file edit
+  when the developer decided an Editor session was enough evidence for M0. A human runs it
+  either way — never a test suite. **M0's answer does not carry forward** — restate M1's,
+  M2's, etc. separately; a later milestone may need device even when M0 didn't, or vice
+  versa, and copying M0's line into every row silently reintroduces the same hardcoding
+  this section exists to avoid.
 - **Stub table** — one row per system the milestone may fake:
 
   | System | Stub that is accepted | Real module that replaces it, and in which milestone |
@@ -272,17 +276,18 @@ Technical acceptance for the GDD's Milestones, especially M0 — First Playable:
   document `/plan-module` reads as its scope ceiling — so the stub must be described
   concretely enough to plan against ("a two-button panel: Restart, Next"), not as a
   category ("minimal UI").
-- What closes M0: the human smoke-test checklist from the GDD, run in the environment the
-  milestone declares.
-- What does **NOT** close M0 — all four have been mistaken for closure in a real project:
+- What closes each milestone: its human smoke-test checklist from the GDD, run in the
+  environment THAT milestone declares (not M0's).
+- What does **NOT** close a milestone — all four have been mistaken for closure in a real
+  project:
   1. green EditMode/PlayMode suites
   2. a count of ✅ Complete modules, or a completed task list
-  3. **an environment weaker than the one the milestone declares.** If the milestone says
-     device + touch, an Editor Play-mode session does not close it — mouse-dragging is not
-     the measurement, and the Editor also cannot show portrait layout or device
-     performance. If the milestone declares the Editor as sufficient, the Editor closes it
-     and those three gaps get recorded as known-unmeasured. State the delta either way;
-     the failure mode is an environment nobody wrote down, not a lenient one.
+  3. **an environment weaker than the one that milestone declares.** If M2 says device +
+     touch, an Editor Play-mode session does not close M2 — mouse-dragging is not the
+     measurement, and the Editor also cannot show portrait layout or device performance.
+     If a milestone declares the Editor as sufficient, the Editor closes it and those three
+     gaps get recorded as known-unmeasured. State the delta either way; the failure mode is
+     an environment nobody wrote down, not a lenient one.
   4. **a debug trigger as the only evidence** — a QA button that fires the event proves the
      panel renders; it does not prove a *player* can reach that state. Every smoke-test
      item needs a real, non-debug trigger path.

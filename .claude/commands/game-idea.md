@@ -106,6 +106,14 @@ Then follow up:
 - What may M0 fake with a stub? (hand-authored levels instead of a generator, a
   two-button panel instead of the full HUD, silence instead of audio…)
 - What does each later milestone let a human SEE or DO that the previous one didn't?
+- **Ask the environment question again for EVERY later milestone, not just M0.** "Editor
+  is enough for M0" does not carry forward automatically — a milestone that closes a real
+  content/difficulty claim (e.g. "five levels play back to back, difficulty reads as
+  ascending") or a feel claim (drag responsiveness, portrait layout) needs the human to say
+  explicitly whether Editor Play Mode still proves it, or whether that milestone needs
+  device + touch. Write each milestone's own evidence environment on its own entry — never
+  assume M0's answer applies to M1..Mn, and never assume every later milestone needs device
+  just because M0 didn't.
 - **Why this order?** Ask for one sentence justifying the sequence of milestones, and write
   it into the GDD verbatim with the date. In the source project the developer's single
   line — *working mechanic + polished visuals before content* — was the only justification
@@ -229,6 +237,9 @@ Written in player-experience terms — NO module or class names (modules don't e
 ### M1..Mn
 - Each milestone's closing sentence must name something a human sees or does.
   "Infrastructure done" is a status, not a milestone.
+- Evidence environment: device, orientation, input — decided fresh for THIS milestone, not
+  inherited from M0. Say explicitly whether Editor Play Mode still proves this milestone's
+  claim or whether it now needs device + touch, and what the chosen environment cannot show.
 
 ## 14. Monetization
 (if applicable)
