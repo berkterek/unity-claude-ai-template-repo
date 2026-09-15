@@ -59,6 +59,11 @@ terms; never invent it), and add it **by appending, never by renumbering**:
   inserting a numbered section would have broken every one of those links.
 - Write one line in the document saying why the placement diverges from the `/game-idea`
   template, so nobody "corrects" it later.
+- Ask the same three per-milestone questions `/game-idea` asks, for every milestone you
+  write: the evidence environment and what it cannot show, the stub policy, and — optionally
+  — a scope budget in working days. A budget is recorded only together with its consequence
+  (budget spent → the milestone shrinks to stubs, the date does not move); a bare number is
+  a deadline nothing enforces, which `rules/roadmap-milestones.md` Card 5 rejects.
 
 Match the heading on its **text at any level** when checking whether the section exists —
 a retrofitted GDD is compliant with `### Milestones`, and a hash-count check would report

@@ -171,6 +171,25 @@ grow the milestone.
 large — does not. The stub is later replaced by the real module in whatever milestone owns
 that experience; replacing a stub is normal work, not rework.
 
+**A milestone may carry a scope budget — and a budget is not a deadline.** The module-count
+guideline above is one way to notice M0 growing; a time budget written on the milestone's own
+entry ("3 working days, in the Editor") is the other, and it is the one a human actually feels.
+Its meaning is fixed and is the whole reason it is allowed here: **when the budget is spent and
+the milestone is not closable, the milestone shrinks — the date never moves.** Cut to stubs
+(Card 5), hand-author what a generator would produce, replace a panel with two buttons; if
+nothing is left to cut, the milestone was the wrong size and is re-split. Missing the budget is
+therefore an event that triggers a scope decision, never a failure to report and never grounds
+for closing on a promise.
+
+Written as a deadline instead, it is worse than absent: nothing enforces it — there is no hook
+behind any part of this rule — so a date with no attached decision is a number that gets quietly
+passed, and the passing teaches that the milestone's own numbers are negotiable. The budget is
+optional; if one is written, it must name what it does when it is exceeded. A budget with no
+stated consequence must be read as no budget at all.
+
+The budget is also **per milestone and does not carry forward**, exactly like the evidence
+environment (Card 3). M0 fitting in three days says nothing about M1.
+
 ---
 
 ## Why This Rule Exists (measured in a real project built from this template, 13 Aug – 9 Sep 2026)
@@ -198,7 +217,7 @@ prose and never once entered the ordering. The single mechanism that changed beh
 
 | Artifact | Owner | What it must contain |
 |---|---|---|
-| `GDD.md → ## Milestones` | `/game-idea` conversation (updated by `/refine-gdd`) | M0..Mn in player-experience terms + M0 smoke-test checklist. No module names. |
+| `GDD.md → ## Milestones` | `/game-idea` conversation (updated by `/refine-gdd`) | M0..Mn in player-experience terms + M0 smoke-test checklist. Each milestone's own evidence environment, stub policy, and optional scope budget (with its consequence). No module names. |
 | `TDD.md → Milestone Acceptance` | `/architect` (updated by `/refine-tdd`) | Technical acceptance for the M0 smoke test: what a stub may replace, what closes vs. what doesn't, and a **restatement** of the environment the GDD milestone declares — never a second declaration of it. |
 | `ROADMAP.md → ## Milestones` + `Milestone` column | `/roadmap` | Module→milestone mapping, with each module's stub scope inline. Preserves verdict lines and row annotations in place; never regenerates them. |
 | Milestone verdict line, and the `← OPEN` marker | **A human, in writing** | Date + one sentence + name, and moving `← OPEN` to the next milestone in the same edit. `/roadmap` may correct a marker that contradicts the verdicts; it may not author either. |

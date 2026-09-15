@@ -105,6 +105,13 @@ Then follow up:
   environment unstated is the defect — choosing a weaker one is not.
 - What may M0 fake with a stub? (hand-authored levels instead of a generator, a
   two-button panel instead of the full HUD, silence instead of audio…)
+- **How long may M0 take before it must shrink?** Ask for a scope budget in working days
+  and write it on the milestone's entry. Say back, in the same breath, what it means — the
+  budget is spent and the milestone is not closable, so the *milestone* is cut down to
+  stubs, the date is not moved. A budget recorded without that consequence is a deadline,
+  and a deadline nothing enforces is worse than none (`rules/roadmap-milestones.md` Card 5).
+  It is optional: "no budget" is a legitimate answer, silence is not. Ask it per milestone —
+  it carries forward no more than the evidence environment does.
 - What does each later milestone let a human SEE or DO that the previous one didn't?
 - **Ask the environment question again for EVERY later milestone, not just M0.** "Editor
   is enough for M0" does not carry forward automatically — a milestone that closes a real
@@ -233,6 +240,9 @@ Written in player-experience terms — NO module or class names (modules don't e
 - Evidence environment: device, orientation, input — declared HERE and restated by the TDD,
   plus what that environment cannot show
 - Stub policy: what M0 explicitly does NOT require (full HUD, solver, audio, meta…)
+- Scope budget (optional): working days, plus what happens when it is spent — the milestone
+  shrinks to stubs, the date does not move. Omit the field entirely rather than write a bare
+  number: a budget with no stated consequence reads as a deadline (Card 5)
 - Ordering rationale: one sentence, dated, on why the milestones are in this order
 ### M1..Mn
 - Each milestone's closing sentence must name something a human sees or does.
@@ -240,6 +250,8 @@ Written in player-experience terms — NO module or class names (modules don't e
 - Evidence environment: device, orientation, input — decided fresh for THIS milestone, not
   inherited from M0. Say explicitly whether Editor Play Mode still proves this milestone's
   claim or whether it now needs device + touch, and what the chosen environment cannot show.
+- Scope budget (optional): same shape and same consequence as M0's, decided fresh — a
+  budget carries forward no more than the evidence environment does.
 
 ## 14. Monetization
 (if applicable)
