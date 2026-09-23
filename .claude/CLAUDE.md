@@ -91,6 +91,46 @@ Optional Claude Code plugins. Each pipeline command checks for these at Step 0/0
 | `code-simplifier` | `/implement` | always |
 | `claude-md-management:revise-claude-md` | `/implement`, `/fix` | always |
 
+### Unity official plugin (`unity@unity-agent-plugin`) — precedence
+
+Unity Technologies' own plugin (31 skills, `unity:*`, currently **0.1.6-beta**) is optional and
+genuinely useful in the places this template leaves empty — `physics-3d-collision` (PhysX
+diagnostics; it carries hard factual corrections such as *two kinematic triggers DO fire
+`OnTriggerEnter`*, which contradicts the model's own priors), `optimize-audio`,
+`optimize-text-mesh-pro`, `urp-postprocessing`, `localization`, `initialize-ai-navigation`,
+`unity-package-management`. None of those hold an architectural opinion, so none of them collide.
+
+Its skill descriptions are auto-loaded into every session, which is exactly why the collisions
+below have to be written down: nothing in the plugin knows this repo exists, and three of its
+skills are wired to do the job a rule here already owns.
+
+- **This repo's rules win on every conflict.** A plugin skill is a reference, never an
+  authority — it is not a rule file, and "the skill said so" is not a reason to write code a
+  hook or a `rules/*.md` card forbids.
+- **`unity:unity-cli`'s `unity command eval` is forbidden here.** It injects arbitrary C# into a
+  live Editor over Bash, which is the same shape as talking to Blender's socket directly (README
+  → "MCP servers are frozen at session start"): it bypasses the MCP tools' pre-flight **and**
+  `block-scene-edit.sh` in one move, and no content hook can see it, because it is a Bash call
+  and not a write. Use `manage_scene` / `manage_gameobject` / `manage_components`. If the MCP
+  bridge is absent, restart the session — do not substitute the CLI. The skill's non-`eval` half
+  (editor install, licences, `unity build`/`test`) is fine. It needs `com.unity.pipeline`, which
+  this template does not install, so today the `eval` path does not even connect — that is an
+  accident of packaging, not the reason it is banned.
+- **`unity:new-unity-project` never replaces `/setup-project`.** It creates a stock Unity project;
+  `/setup-project` generates `_Framework`, the asmdef graph, `DLog`, the SaveLoad chain, `AppScope`
+  and `ConfigCatalog`. Letting it run first discards the entire reason this template exists.
+- **`unity:ui-ugui` output is not accepted as-is.** Its routing (runtime → uGUI, Editor → UI
+  Toolkit) matches ours, and it is a good uGUI reference. But it knows nothing of the mandated
+  six-container scene hierarchy (`scene-hierarchy.md`), the `BaseCanvas` variant chain or prefab
+  DRY (`unity-prefabs.md` Cards 3 and 5), or the `RaycastTarget` rule (`performance.md`). Its
+  hierarchy has to be reshaped to those before it lands.
+- **`unity:migrate-birp-to-urp` should never fire** — every project from this template is
+  URP-native. If it triggers, the prompt is mis-scoped.
+- **Its sample code is written for a stock project, not this one.** `Debug.Log` appears in ~18
+  reference files (`check-dlog-usage.sh` blocks it in runtime game paths — use `DLog`), and
+  `Resources.Load` in the sprite-atlas and codeless-IAP samples (`addressables.md`). A block there
+  is enforcement working, not a bug to route around.
+
 ## Quick Start
 
 @.claude/docs/quick-start.md

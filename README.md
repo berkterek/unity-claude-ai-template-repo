@@ -1142,6 +1142,38 @@ Install via `/plugin` in Claude Code:
 ```
 Plugins: superpowers:systematic-debugging [✓] | claude-md-management [✗]
 ```
+
+### Unity's official plugin — useful, with three hard carve-outs
+
+`unity@unity-agent-plugin` (Unity Technologies, 31 `unity:*` skills, **0.1.6-beta**) is worth
+installing. It is not wired into any command's preflight, because it fills gaps rather than
+steps in a pipeline:
+
+| Skill | Why it earns its place here |
+|---|---|
+| `physics-3d-collision` | The strongest of the set. Pure PhysX diagnosis, no architectural opinion, and it carries corrections the model would otherwise get wrong from its own priors — e.g. two kinematic triggers **do** fire `OnTriggerEnter`. This template has no rule covering physics at all. |
+| `optimize-audio`, `optimize-text-mesh-pro` | Two areas `rules/performance.md` does not reach. `/audio-clip-setup` already handles clip import settings; TMP atlas, fallback and SDF sizing are uncovered. |
+| `unity-package-management` | Forbids hand-editing `Packages/manifest.json` and routes to `PackageManager.Client` — the correct alternative to what `check-config-protection.sh` already blocks. |
+| `urp-postprocessing`, `localization`, `initialize-ai-navigation`, `2d-pixel-perfect` | Dormant until a project needs the feature. |
+
+The carve-outs, in full, live in `.claude/CLAUDE.md` → **Unity official plugin — precedence**,
+because that file is what every session actually loads. The short version:
+
+1. **This repo's rules outrank the plugin, always.** A skill is a reference, not an authority.
+2. **`unity:unity-cli`'s `unity command eval` is banned.** It runs arbitrary C# against a live
+   Editor over Bash — the same failure shape as
+   [reaching past a missing MCP bridge to its transport](#mcp-servers-are-frozen-at-session-start-non-negotiable):
+   it skips the MCP tools' pre-flight and `block-scene-edit.sh` at once, and because it is a Bash
+   call rather than a write, no content hook can see it happen. The rest of that skill (editor
+   install, licences, `unity build`/`test`) is fine.
+3. **`unity:new-unity-project` must not front-run `/setup-project`**, and **`unity:ui-ugui`
+   output must be reshaped** to `rules/scene-hierarchy.md` and `rules/unity-prefabs.md` before it
+   lands — it knows the uGUI API well and this project's conventions not at all.
+
+Its sample code targets a stock Unity project: `Debug.Log` throughout (blocked by
+`check-dlog-usage.sh` in runtime paths — use `DLog`) and `Resources.Load` in a couple of
+references. Copying those into game code hits a hook, which is the enforcement layer doing its
+job rather than a problem to work around.
 `✓` = available and will be used · `✗` = not installed, fallback active
 
 ---
