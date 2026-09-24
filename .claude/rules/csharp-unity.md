@@ -340,6 +340,15 @@ public float MoveSpeed => _moveSpeed;
 - Runtime writes it, goes to disk → `[Serializable]` class
 - Runtime writes it, dies with session → Model class
 - Created once, distributed → readonly struct
+- Nobody writes it after compile, and no designer would ever want to → `const` / `static readonly`
+
+**Config vs. code constant — the one that gets confused.** Every fixed value a designer could
+plausibly want to tune (enemy stats, item tables, spawn intervals, level lists) is `*Configuration`
+data, not a `const`. `const` / `static readonly` are reserved for values that belong to the code
+itself — a retry count, a `Shader.PropertyToID`, an `Animator.StringToHash` — where changing the
+value *is* a code change. The test is one question: **would a designer ever want to change this
+without a programmer?** Yes → ScriptableObject. No → `const`. Do not call the first kind "static
+data": `static` already means a C# storage class here, and that is exactly the wrong place for it.
 
 **Rules:**
 - ScriptableObject is NEVER mutated at runtime (NON-NEGOTIABLE).
