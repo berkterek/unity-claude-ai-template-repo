@@ -256,16 +256,50 @@ Review the following plan update for a Unity project.
 3. Task completeness — do steps have clear acceptance criteria?
 4. No duplicates — do new tasks overlap with already-implemented work?
 5. Revision note — is it present and correctly formatted?
+6. **Staleness — does the EXISTING text still describe reality after this update?**
+   This criterion is deliberately about the content the update did NOT touch. Every other
+   criterion looks at what was added; this one looks at what the addition invalidated.
+   For each subject the update changes — a task newly marked done, a value corrected, a
+   fact recorded, a hypothesis disproved — grep the whole plan for every OTHER mention of
+   that subject and check three things:
+   - **Tense.** A sentence saying the build "currently has X" or "carries Y" when the
+     update just changed X or Y is now false, even though nobody edited that sentence.
+   - **Instructions to do work that is already done.** A step still written in the
+     imperative ("port these values", "do this after T0NN is verified") when the work has
+     landed will send an implementer to redo or revert it.
+   - **Struck-through or superseded text whose body survives.** Striking a heading and
+     leaving its argument in place is worse than leaving it whole: the argument still reads
+     as valid reasoning, and it is now arguing against the change that superseded it.
+     Superseded reasoning is DELETED and replaced by a record of what was believed and why
+     it was wrong — not struck.
+   Report each hit as a GAP with its file:line. Citing "the new sections are consistent" is
+   not an answer to this criterion — the defect this criterion exists to catch lives
+   entirely outside the new sections.
 
 ## Output contract (MANDATORY — a verdict that violates this is invalid)
-Emit one line per item, for every one of the 5 review criteria above. No item may be
+Emit one line per item, for every one of the 6 review criteria above. No item may be
 omitted, merged, or answered "n/a" without a stated reason. Format:
 
-  <N> | CONFIRMED or GAP | <plan section, or file:line for criterion 2> | <evidence>
+  <N> | CONFIRMED or GAP | <plan section, or file:line for criterion 2 and 6> | <evidence>
 
 Criterion 2 (file paths are real) may only be CONFIRMED after you have actually
 verified each path exists on disk — state how you checked. Criterion 4 (no duplicates)
-must cite what you searched, not an assumption.
+must cite what you searched, not an assumption. Criterion 6 (staleness) must name the
+subjects you swept and the grep you ran for each — a CONFIRMED with no sweep described is
+invalid.
+
+> **Why criterion 6 exists — measured 2026-09-22.** A plan update passed three full Codex
+> review rounds, every criterion CONFIRMED, and the human then found six false statements
+> in it within minutes of asking for a plain-language walkthrough. All six sat in text the
+> update had not touched: two tasks marked done whose bodies still described the old state,
+> an imperative step telling an implementer to redo completed work, a struck heading whose
+> surviving paragraph argued against the correction that superseded it, and two
+> present-tense claims that a since-built feature did not exist. The reviews could not have
+> caught them, because every criterion asked about the new content — and the change request
+> itself had instructed the planner to leave existing content untouched, putting the defect
+> outside the reviewed surface by construction. The likely consequence had it shipped: an
+> implementer following the stale instruction would have reverted a ground-sensor fix made
+> that same day.
 
 Then, for a plan that has any GAP:
 
