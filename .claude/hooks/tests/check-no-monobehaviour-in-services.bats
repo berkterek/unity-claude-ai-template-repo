@@ -124,3 +124,31 @@ teardown() {
     run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
     [ "$status" -eq 0 ]
 }
+
+# --- RegisterFactory<...> carve-out (architecture.md Card 6 Pattern B) ---
+# These three pin a carve-out that no other test can see: the suite is green with it
+# and green without it, so a sync that reverts the hook is otherwise silent.
+
+@test "allows *Module.cs naming a Unity type inside RegisterFactory<...> generics" {
+    mkdir -p "$TMPDIR_TEST/Assets/Scripts/Games/Concretes/Players"
+    local f="$TMPDIR_TEST/Assets/Scripts/Games/Concretes/Players/PlayerModule.cs"
+    printf 'using UnityEngine;\nusing VContainer;\npublic static class PlayerModule {\n    public static void Install(IContainerBuilder builder) {\n        builder.RegisterFactory<Rigidbody, IMoveHandler>(c => rb => new MoveHandler(rb), Lifetime.Singleton);\n    }\n}\n' > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
+@test "still blocks *Module.cs calling real engine API alongside RegisterFactory" {
+    mkdir -p "$TMPDIR_TEST/Assets/Scripts/Games/Concretes/Players"
+    local f="$TMPDIR_TEST/Assets/Scripts/Games/Concretes/Players/PlayerModule.cs"
+    printf 'using UnityEngine;\nusing VContainer;\npublic static class PlayerModule {\n    public static void Install(IContainerBuilder builder) {\n        builder.RegisterFactory<Rigidbody, IMoveHandler>(c => rb => new MoveHandler(rb), Lifetime.Singleton);\n        var go = GameObject.Find(\"Player\");\n    }\n}\n' > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
+@test "carve-out does not apply outside *Module.cs" {
+    mkdir -p "$TMPDIR_TEST/Assets/Scripts/Games/Concretes/Players"
+    local f="$TMPDIR_TEST/Assets/Scripts/Games/Concretes/Players/PlayerService.cs"
+    printf 'using UnityEngine;\nusing VContainer;\npublic sealed class PlayerService : IPlayerService {\n    public void Wire(IContainerBuilder builder) {\n        builder.RegisterFactory<Rigidbody, IMoveHandler>(c => rb => new MoveHandler(rb), Lifetime.Singleton);\n    }\n}\n' > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}

@@ -159,7 +159,30 @@ if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.
             # The benign Tier 3 surface — math value types (Mathf, Vector3, Quaternion,
             # Color...) and Debug logging — is allowed (solid-oop.md Tier 3 "math types
             # allowed"; bootstrap-pattern.md Module null-guards use Debug.LogError).
-            LEAK=$(echo "$STRIPPED" | grep -noE "$UNITY_ENGINE_LEAK_RE" | head -5)
+            # Narrow carve-out: a *Module.cs installer may name a Unity type ONLY inside
+            # the generic argument list of builder.RegisterFactory<...>.
+            # architecture.md Card 6 Pattern B prescribes literally
+            #   builder.RegisterFactory<Rigidbody, IMoveHandler>(...)
+            # inside a module's Install, so the rule file and this hook contradicted each
+            # other and the prescribed line could not be written at all. Measured
+            # 2026-09-22 in a downstream project on BlackholeModule.cs: "26:Rigidbody".
+            # Scope is deliberately minimal: only the <...> list is erased, and only in a
+            # *Module.cs file. A blanket *Module.cs exemption was REJECTED as too broad --
+            # it would let a module call GameObject.Find/Instantiate freely. Every other
+            # engine-API reference in the same file is still a leak, including the body of
+            # the factory lambda. Multi-line generic lists do not match and therefore still
+            # block: this fails closed. The sed preserves line count, so the reported
+            # strippedLine numbers stay correct.
+            # Symptom if this carve-out is ever removed: the hook does compute effective
+            # post-edit content, so the file is NOT unfixable -- an edit that deletes the
+            # RegisterFactory line passes. What breaks is every OTHER edit to that file
+            # while the architecture-mandated line is present, which reads as "the hook is
+            # broken" rather than "the prescribed line is blocked".
+            LEAK_SOURCE="$STRIPPED"
+            if echo "$FILE_PATH" | grep -qE "Module\.cs$"; then
+                LEAK_SOURCE=$(echo "$STRIPPED" | sed -E 's/RegisterFactory[[:space:]]*<[^>]*>/RegisterFactory<>/g')
+            fi
+            LEAK=$(echo "$LEAK_SOURCE" | grep -noE "$UNITY_ENGINE_LEAK_RE" | head -5)
             if [ -n "$LEAK" ]; then
                 unity_hook_block "Domain/service file leaks real Unity engine/scene API!
 File: $FILE_PATH
