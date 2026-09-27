@@ -1,6 +1,6 @@
 # PLAN — Serialized-Ops Editor Tool (data-driven inspector wiring for MCP)
 
-> **Version:** v1.2 — 2026-09-25 (v1 2026-09-24; v1.1: Task 9 param shape closed from vendored MCP source, cross-prefab setRef resolution and Enum index decision added to Task 2; Newtonsoft Editor-platform evidence from dll.meta; Task 10 probe `--run-tests` added; v1.2 2026-09-25: Task 11 framework-only emit mode for existing projects, test fixture moved out of Assets/Temp)
+> **Version:** v1.3 — 2026-09-27 (v1 2026-09-24; v1.1: Task 9 param shape closed from vendored MCP source, cross-prefab setRef resolution and Enum index decision added to Task 2; Newtonsoft Editor-platform evidence from dll.meta; Task 10 probe `--run-tests` added; v1.2 2026-09-25: Task 11 framework-only emit mode for existing projects, test fixture moved out of Assets/Temp; **v1.3 2026-09-27: the whole plan was built and run end-to-end in a real project before being written back here — see `## Measured`. Two of its instructions were wrong and are corrected: the namespace and the `Array.size` property type. Four things it never specified are now required: the result file, the `FailAfterReadBack` name, the manifest schema doc (new Task 12), and Task 4's fixture as load-bearing.**)
 > **Status:** Active
 > **Scope:** `.claude/commands/setup-project.md` (Step 3 asmdef reference line, Step 4 generated C#), `.claude/skills/core/unity-mcp-patterns/SKILL.md`, `.claude/docs/setup-checklist.md`, `.claude/hooks/check-no-throwaway-editor-script.sh` (message only), `_Framework/Editors/ARCHITECTURE.md` block. No runtime code anywhere.
 
@@ -46,9 +46,10 @@ Two axes were open. **Manifest parsing:** `JsonUtility` with typed DTOs, or Newt
 | 3 | Task 6 — MCP skill: tool-selection row + Rule 6 rewrite | ⏳ Pending | 1 |
 | 3 | Task 7 — setup-checklist entry | ⏳ Pending | 1 |
 | 3 | Task 8 — hook block message names the tool | ⏳ Pending | 1 |
-| 3 | Task 9 — confirm `execute_menu_item` end-to-end (param source-verified 2026-09-25) | ⏳ Pending | — |
+| 3 | Task 9 — confirm `execute_menu_item` end-to-end | ✅ Done — live run 2026-09-27, see `## Measured` | — |
 | 4 | Task 10 — compile probe `--run-tests` runs the generated EditMode tests | ⏳ Pending | — |
 | 4 | Task 11 — `/setup-project` framework-only emit mode (existing projects) | ⏳ Pending | 2 |
+| 1 | Task 12 — `_Framework/Editors/SERIALIZED_OPS_MANIFEST.md` block (the input contract) | ⏳ Pending | — |
 
 Tasks 1–5 all write to `.claude/commands/setup-project.md` and are therefore mutually sequential regardless of compile dependency; within them there is also a real dependency chain (2 needs 1's types, 3 needs 2's entry point, 4 needs all three). Tasks 6–8 touch three different files and share group 1. Task 9 gates the acceptance of 6 but not its text, so it runs last and alone.
 
@@ -85,7 +86,7 @@ Generated (inside setup-project.md, not files in this repo):
 **Steps:**
 1. [ ] Locate the `GameScope.cs` block (~line 1342) and the `> \`GameScope\` only calls...` callout that follows it; the insertion point is after that callout, before the `---`.
 2. [ ] Add the `#### \`_Framework/Editors/SerializedOpsResult.cs\`` heading plus a ```csharp fence.
-3. [ ] Namespace `Framework.Editor` (matches `rootNamespace` on the existing asmdef).
+3. [ ] Namespace `Framework.Editors` — **plural, and that is load-bearing.** The singular form was what v1.2 of this plan prescribed, on the stated grounds that it "matches `rootNamespace` on the existing asmdef"; that grounds is false, since `rootNamespace` is the empty string in the shipped `FrameworkEditor.asmdef`. Measured 2026-09-27 in a real project: `Framework.Editor` shadows `UnityEditor.Editor` for **every sibling file in this assembly**, so the first file that writes `typeof(Editor)` stops compiling with `CS0118: 'Editor' is a namespace but is used like a type`. The folder is `Editors/`, so the plural also matches the folder and the domain-plural convention. This is `csharp-unity.md` Card 5 — and `Editor` has no row in that card's collision table, which is the fourth recorded instance of the table's own warning that a missing row is not permission.
 4. [ ] Define `SerializedOpStatus` (index, op kind, asset path, `Success` bool, `Message` string) and `SerializedOpsResult` (`Success` bool, `IReadOnlyList<SerializedOpStatus>`, `Aborted` bool + `AbortReason` for the unknown-version / unparseable-manifest case).
 5. [ ] No `#region` needed — these are DTOs with fewer than 3 methods (Card 4 exemption). Add regions only if a helper pushes the count to 3.
 6. [ ] `using System.Collections.Generic;` only. No `UnityEngine`, no `UnityEditor` — keeps the type trivially testable.
@@ -96,7 +97,7 @@ Generated (inside setup-project.md, not files in this repo):
 ```csharp
 using System.Collections.Generic;
 
-namespace Framework.Editor
+namespace Framework.Editors
 {
     public sealed class SerializedOpStatus
     {
@@ -140,9 +141,9 @@ namespace Framework.Editor
 8. [ ] SO lifecycle: `LoadAssetAtPath<UnityEngine.Object>` → `new SerializedObject(obj)` → apply → `ApplyModifiedPropertiesWithoutUndo()` → `EditorUtility.SetDirty(obj)` → `AssetDatabase.SaveAssets()`.
 9. [ ] Object resolution inside a prefab: optional `object` field is a `/`-separated transform path relative to the root; absent = root. `component` names the component type on that transform (prefab case); absent = the `GameObject` itself. Resolve component types through `TypeCache.GetTypesDerivedFrom<Component>()` matched on `Name` **or** `FullName`, erroring on an ambiguous short name rather than picking the first — a silent wrong-type pick is worse than a failed op.
 10. [ ] `setRef`: resolve the `ref` object and assign `property.objectReferenceValue`. **The ref is resolved against the ASSET, never against a `LoadPrefabContents` copy.** `LoadPrefabContents` returns a temporary scene copy that dies at `UnloadPrefabContents`; a reference stored to one of its components is dangling the moment the prefab is saved and reads back as `None`. So: `ref.asset` → `AssetDatabase.LoadAssetAtPath<UnityEngine.Object>`; if `ref.object`/`ref.component` are given, the asset must be a `GameObject` (a prefab asset) → `transform.Find(object)` → `GetComponent(type)` on that asset object. The one exception is a ref that points **into the same prefab currently open** (self-reference, e.g. a controller's `_rigidbody` on its own root): resolve that against the open `LoadPrefabContents` root, because the saved prefab will contain exactly those objects. Decide by comparing `ref.asset` with the group's `assetPath`. A required field missing (`asset`, `property`, `ref`) → that op fails, others continue (Card 6 applied per-op, since the manifest as a whole is still well-formed).
-11. [ ] `setValue`: `switch (property.propertyType)` over `SerializedPropertyType.Float | Integer | Boolean | String | Enum | Vector2 | Vector3 | Color`; `default:` fails the op naming the unsupported type. `Enum` takes the JSON value as an **integer index** written to `enumValueIndex` — the same convention `nile_hole_sphere_repo`'s `WebLevelImporter.cs` already uses (`entry.FindPropertyRelative("_category").enumValueIndex = (int)spawn.Category`); a string name is rejected, not guessed, because `enumNames` order is display order and can differ from the declared value. This `switch` is on Unity's own enum, not a domain type — it is not the polymorphism smell the rules ban.
+11. [ ] `setValue`: `switch (property.propertyType)` over `SerializedPropertyType.Float | Integer | ArraySize | Boolean | String | Enum | Vector2 | Vector3 | Color`; `default:` fails the op naming the unsupported type. **`ArraySize` is a separate case and must be written into BOTH switches — the write and the read-back compare.** An `x.Array.size` path is not `Integer`, whatever it looks like; v1.2 of this plan asserted it was, the generated code and the generated schema doc both inherited that assertion, and they agreed with each other while both were wrong — array resize simply failed every op with `unsupported property type ArraySize`, measured 2026-09-27. Adding the case to the write switch alone is *worse than leaving it broken*: the write then succeeds and the read-back's `default: return false` reports `value did not persist`, blaming the disk for a missing switch case. Growing an array also fills the new slots with **copies of the last element, never defaults** — the tool cannot flag that, because read-back only verifies what was written, so the schema doc must say the caller writes every field of a new element explicitly. `Enum` takes the JSON value as an **integer index** written to `enumValueIndex` — the same convention `nile_hole_sphere_repo`'s `WebLevelImporter.cs` already uses (`entry.FindPropertyRelative("_category").enumValueIndex = (int)spawn.Category`); a string name is rejected, not guessed, because `enumNames` order is display order and can differ from the declared value. This `switch` is on Unity's own enum, not a domain type — it is not the polymorphism smell the rules ban.
 12. [ ] `addComponent`: resolve `type` via `TypeCache`, guard "already present" as a success no-op, `root.AddComponent(type)`. No `property` needed.
-13. [ ] **Read-back**, after the save for each asset: reload the asset fresh from disk (`AssetDatabase.LoadAssetAtPath` / `LoadPrefabContents` a second time), `FindProperty(op.property)`, compare against the intended value; mismatch flips that op's status to failed with `Debug.LogError`. An op that reported success but did not persist is the exact bug this tool exists to make impossible.
+13. [ ] **Read-back**, after the save for each asset: reload the asset fresh from disk (`AssetDatabase.LoadAssetAtPath` / `LoadPrefabContents` a second time), `FindProperty(op.property)`, compare against the intended value; mismatch flips that op's status to failed with `Debug.LogError`. An op that reported success but did not persist is the exact bug this tool exists to make impossible. **Name that helper `FailAfterReadBack`, not `Demote`** — it does one thing, turn a recorded success into a failure, and "demote" reads like a partial or lesser state that does not exist here. It rewrites the existing status rather than appending, because the success entry was written before the save; and because it runs inside `ApplyToAsset`, it lands before `result.Success` is computed, so a demoted op correctly makes the whole result false. Verify that ordering rather than assuming it.
 14. [ ] `AssetDatabase.Refresh()` once at the end.
 15. [ ] `#region` required — this class is well past 3 methods. Suggested: `Fields`, `Public Methods`, `Private Methods`.
 16. [ ] Every log prefixed `[SerializedOps]`. `Debug`, never `DLog`.
@@ -158,7 +159,7 @@ using Newtonsoft.Json.Linq;      // no asmdef reference needed — precompiled, 
 using UnityEditor;
 using UnityEngine;
 
-namespace Framework.Editor
+namespace Framework.Editors
 {
     public static class SerializedOpsApplier
     {
@@ -250,7 +251,9 @@ namespace Framework.Editor
 4. [ ] `[MenuItem("Tools/Framework/Apply Serialized Ops (Choose File...)")]` → `EditorUtility.OpenFilePanel`; empty return = user cancelled, log nothing.
 5. [ ] Shared `Run(string absolutePath)` private helper — this is the third method, so `#region` becomes mandatory.
 6. [ ] Summary log: `Debug.Log($"[SerializedOps] {ok}/{total} ops applied.")` on full success; on any failure a `Debug.LogError` with the same counts, so `read_console` surfaces it to the calling agent.
+6b. [ ] **`Run` also writes the result to `Temp/serialized-ops-result.json` (Newtonsoft, indented), and deletes that file FIRST, before anything else in the method.** The log is a summary for a human; a calling agent must not be made to parse a console. v1.2 shipped the log only, and the gap has exactly one other exit: calling `Apply` through MCP `execute_code`, i.e. arbitrary C# into a live Editor — the same shape as the `unity command eval` this repo bans, so building a gated tool and then reaching it through an ungated channel cancels the gate. The delete-first order is not tidiness: without it, a run that fails before the write (no manifest at the path) leaves the previous run's file in place, and the caller reads a success report for work that never started — worse than no file, because absence is at least honest. After this, the file's presence means *this* run produced it, and its absence after a run is a failure to report as one. Also write a result on the missing-manifest path, with `Aborted` set.
 7. [ ] The menu class never parses JSON and never touches `SerializedObject` — it is file I/O plus logging only. That boundary is why the test needs no menu.
+8. [ ] Both file operations are wrapped and report their own failure — a caller waiting on that file would otherwise hang on a run that actually finished. Catch `IOException`, not `Exception`.
 
 **Test Type:** NoTest — `[MenuItem]` code cannot be driven from an EditMode test without invoking the Editor menu system, and what it would cover (file reading, logging) is not where the bugs are.
 
@@ -260,7 +263,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace Framework.Editor
+namespace Framework.Editors
 {
     public static class SerializedOpsMenu
     {
@@ -314,11 +317,19 @@ namespace Framework.Editor
 1. [ ] Add `"FrameworkEditor"` to the `references` array in *both* EditModeTest asmdef variants. This is chosen over a new `FrameworkEditorTests` assembly: the EditMode assembly is already `includePlatforms: ["Editor"]`, so it can legally reference an Editor-only assembly, and a new asmdef would be a fourth thing to keep in sync for one test file.
 2. [ ] Test class `SerializedOpsApplierTests` in namespace `Game.EditModeTest` (matches the asmdef `rootNamespace`).
 3. [ ] `[SetUp]` builds the fixture **at runtime**: `new GameObject("SerializedOpsFixture")` → `AddComponent<BoxCollider>()` → `PrefabUtility.SaveAsPrefabAsset` under `Assets/SerializedOpsFixtures/SerializedOpsFixture.prefab` → `Object.DestroyImmediate` the scene copy. A prefab cannot be shipped as a fenced text block: its YAML carries GUIDs and a `.meta` file that `/setup-project` has no way to author correctly.
+3b. [ ] **This step is load-bearing, not setup detail — every write test dies with it.** Measured 2026-09-27: it was skipped, and the suite landed with ten tests that all return before touching an asset (bad JSON, bad version, missing `asset` field, unresolvable path). They passed, the run was green, and the count reconciled — while `setValue`, `setRef`, `addComponent` and the read-back had no coverage at all. Deleting the `ArraySize` case from both switches, the one real defect this plan produced, would still have left that suite green. A rejection-path-only suite measures the cheapest branches in the file, all of them an early `return`, and reads as proof of the expensive ones. If the fixture is deferred, the correct state is *Task 4 not done*, never *Task 4 partially green*.
 4. [ ] `new GameObject()` is forbidden in **runtime** code only — `check-no-runtime-instantiate.sh` calls `should_skip_path` and exits 0 for Editor and test paths (verified at line 42-43 of the hook). Note this in a comment in the test so the next reader does not "fix" it.
 5. [ ] `[TearDown]` deletes the fixture with `AssetDatabase.DeleteAsset` and removes `Assets/SerializedOpsFixtures` if empty. A leaked fixture turns the next run's `[SetUp]` into an overwrite that hides a failure.
 5b. [ ] **Do not name this folder `Assets/Temp`.** The manifest lives in the project-root `Temp/` — Unity's own scratch directory, wiped on exit and gitignored in every Unity `.gitignore`. An `Assets/Temp` beside it is a different folder with different lifetime rules, and two things called Temp in one design is how someone eventually writes the manifest into `Assets/` and commits it.
 6. [ ] Use **only Unity built-in component types** — `BoxCollider`, `Transform`. Never a project type: the applier is domain-free and its test must be too, or the template ships a test that cannot compile in a project that renamed its classes.
-7. [ ] Cases, each calling `SerializedOpsApplier.Apply(json)` directly, no menu: (a) `setValue` on `BoxCollider.m_IsTrigger` → `Success`, and re-loading the prefab shows `true`; (b) `setValue` on a nonexistent property path → `Success == false`, one failed status, other ops in the same manifest still succeed; (c) `"version": 99` → `Aborted == true` and `Statuses` empty — the whole manifest refused; (d) malformed JSON → `Aborted`, no exception escapes; (e) `addComponent` of `SphereCollider` → present after reload; (f) `setRef` pointing at a second fixture asset → `objectReferenceValue` non-null after reload.
+7. [ ] Cases, each calling `SerializedOpsApplier.Apply(json)` directly, no menu. **This list is not hypothetical — these twenty ran green in a real project on 2026-09-27 and are the source to port, not a wish list to re-derive:**
+
+   *Rejection (ten — none of these touches an asset):* malformed JSON · no `version` · `version: 99` · `ops` not an array · `ops` empty (`Aborted == false` **and** `Success == false` — an empty manifest is not a success) · op with no `asset` field · missing asset + unknown op kind · missing asset + unknown component type · `setValue` at a nonexistent asset path · two ops both failing, each status carrying its own request index.
+
+   *Write (ten — each re-reads the saved asset itself, never the tool's own report):* `setValue` bool · `setValue` Vector3 · `addComponent` · `addComponent` a second time (success no-op, no duplicate) · `Array.size` resize · a grown array's new slot is a copy of the last element (the trap, asserted rather than only documented) · **`setValue` on the prefab root's `m_Name` → `FailAfterReadBack`**, because Unity keeps that field in step with the file name, which makes it a deterministic write-that-does-not-stick · `setRef` at a wrong-typed asset → reference is None after save · `setValue` float on a **ScriptableObject** · `setValue` Vector3 on a ScriptableObject.
+
+7b. [ ] The `m_Name` case is the one test the tool exists for, so it is not optional and it does not get deferred: without it, "a write that did not persist is reported as a failure" stays an assertion the suite never checks. The ScriptableObject pair is equally non-optional for a different reason — `ApplyToPlainAsset`/`VerifyPlainAsset` is a *separate lifecycle* from the prefab path (`SetDirty` + `SaveAssets`, no `LoadPrefabContents`), and it is the path the real callers use, since a catalog of prefab references is a ScriptableObject.
+7c. [ ] Still uncovered after those twenty, and to be written down as uncovered rather than implied: a **cross-prefab** `setRef` (a `ref.asset` that is a different prefab, resolved against the asset on disk — the branch step 10 above warns about) and the **ambiguous component type** branch. The second could not be exercised on demand: the obvious candidate was not actually ambiguous, and forcing one needs two `Component` types sharing a short name. A branch that never ran is proven to compile, nothing more.
 8. [ ] Expect the `Debug.LogError` calls with `LogAssert.Expect(LogType.Error, ...)` — an unexpected error log fails a Unity test, so the negative cases fail without it.
 
 **Test Type:** **EditMode — this is the exception to the matrix.** Everything else in this plan is Editor-path NoTest; the applier is the one piece with real branching logic (version gate, type dispatch, read-back), and shipping it untested would mean the template's answer to "don't write throwaway Editor scripts" is itself unverified.
@@ -558,7 +569,9 @@ Kill switch: DISABLE_HOOK_CHECK_NO_THROWAWAY_EDITOR_SCRIPT=1"
 
 ---
 
-## Task 9 — Confirm `execute_menu_item` end-to-end (parameter shape is source-verified; one live run still owed)
+## Task 9 — Confirm `execute_menu_item` end-to-end (parameter shape source-verified 2026-09-25; live run done 2026-09-27)
+
+> **Closed by the run recorded in `## Measured`.** The whole chain — manifest file → `execute_menu_item` on the tool's own `[MenuItem]`, defined in an Editor-platform assembly → result file on disk → `read_console` — ran against a real project on 2026-09-27. Step 3's proxy (invoking a pre-existing unrelated menu) is therefore no longer needed; it is kept below only because it remains the right cheap check when this is re-verified somewhere the tool does not yet exist. The ordering constraint it was meant to expose held exactly as written: a `[MenuItem]` does not exist until a clean domain reload, so confirm the compile before invoking.
 
 **Files:** `.claude/skills/core/unity-mcp-patterns/SKILL.md` (the worked example written in Task 6)
 
@@ -682,6 +695,43 @@ fi
 - No file outside `_Framework/**` is written in this mode — verify with `git status` after a run on a project that is missing `_GameFolders` files too.
 - The existing `sync` and `regenerate` branches behave exactly as before: their text is unchanged except for the added option in the question.
 - `setup-checklist.md` names this mode as the route for an existing project.
+
+---
+
+## Task 12 — The manifest's input contract, as its own document
+
+**Files:** `.claude/commands/setup-project.md` (new block `#### \`_Framework/Editors/SERIALIZED_OPS_MANIFEST.md\``, after Task 3's block)
+
+**Why this exists at all:** v1.2 shipped no home for the schema. The format lived only in the applier's source, so the only way for a caller to learn it was to read the parser — which is how a tool acquires a next user who writes a manifest by guessing. `ARCHITECTURE.md` is the wrong home twice over: it is capped at 40 lines, and it deliberately bans class-name-like symbols because its job is intent, not inventory. A schema is inventory.
+
+**Steps:**
+1. [ ] Cover, in this order: how to run it (write manifest → menu path → **read `Temp/serialized-ops-result.json`**), the envelope and what aborts the whole manifest, the fields every op shares, then one section per op kind, then property paths, then the result shape.
+2. [ ] State the `object` field precisely, because it is the field a reader cannot guess: a `/`-separated transform path **relative to the prefab root**, handed to `Transform.Find`, so `"Body"` and `"Body/Mesh"` both work — and **the root is expressed by omitting the field**, not by `""` and not by `"/"`. The same applies inside `ref`.
+3. [ ] List the supported `setValue` property types as a **closed** list and say so — nothing falls through by analogy. Include array length as its own entry, not folded into integer (see Task 2 step 11).
+4. [ ] Write the array-growth trap as a blockquote, not a sentence in a table: a grown array carries copies of the last element, and the tool cannot catch a slot the caller never wrote, because read-back verifies writes, not omissions.
+5. [ ] Say that the result file is deleted before every run, so its presence means this run produced it and its absence after a run is a failure — not "no output".
+6. [ ] Record the `Array.size` correction in place, as a correction: that an earlier version of this document claimed it was an integer property and the tool agreed with that claim. The pair being consistent is what let both be wrong, and the next reader needs the lesson more than the fact.
+7. [ ] No domain symbol — same rule as the generated C#.
+
+**Test Type:** NoTest — a document. Its accuracy is checked by Task 4's tests exercising every claim it makes.
+
+**Acceptance Criteria:**
+- Every field the applier reads appears in the document, and every field the document names is read by the applier. Check both directions; a documented field nobody parses is the same defect as an undocumented one.
+- The supported-type list matches the `setValue` switch exactly, case for case.
+- `grep -n 'integer property' <block>` returns nothing, or returns only the sentence that names it as a past error.
+
+---
+
+## Measured
+
+This plan was executed end-to-end in a real project (`nile_hole_sphere_repo`, Unity 2022.3, Newtonsoft 3.2.1 resolved transitively) on 2026-09-27, **before** being written back here. It is not a proposal that has been reviewed; it is a proposal that has been run. Four things that only the run could establish:
+
+- **The Newtonsoft bet paid.** `FrameworkEditor.asmdef` compiled against `Newtonsoft.Json.Linq` with its `references` untouched, exactly as the auto-reference evidence predicted. The `JsonUtility` fallback can be deleted from a future revision.
+- **Two of this plan's own instructions were wrong** — the namespace and the `Array.size` type. Both are corrected above with the measurement attached. Both had been written confidently, and the second was written into the code *and* its documentation from a single unverified assumption, so the two agreed and neither could catch the other.
+- **The test suite is where this plan is most fragile.** Skipping one `[SetUp]` step produced a green suite covering only the branches that return early. See Task 4 step 3b.
+- **The tool did real work.** Its first non-fixture job wired two `[SerializeField]` collider references that had been sitting at `fileID: 0`. The wiring was confirmed on disk *and* re-read through `SerializedObject` after a forced script reload — the check that has previously caught a "saved" report that was not true. A tool report is not verification of the tool.
+
+**Porting note.** The working code lives in that project, not here. Moving it into `setup-project.md` is mechanical except for one thing: the test block references a project-named EditMode assembly, so the `[ProjectName]` substitution has to survive the copy, and Task 4's asmdef edit must land in **both** variants (with and without NSubstitute) or the tests compile in one kind of generated project and not the other.
 
 ---
 
