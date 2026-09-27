@@ -57,6 +57,18 @@ Install these packages in Unity Package Manager before running `/setup-project`:
 | **VContainer** | OpenUPM or git URL | `jp.hadashikick.vcontainer` |
 | **UniTask** | OpenUPM or git URL | `com.cysharp.unitask` |
 | **New Input System** | Package Manager | `com.unity.inputsystem` |
+| **Newtonsoft Json** | Package Manager | `com.unity.nuget.newtonsoft-json` — `LocalSaveLoadDal` will not compile without it |
+
+The four above are `/setup-project`'s **Gate A** — with any one missing it creates the folder
+structure and stops, because the C# it generates would not compile.
+
+| Also in the Required Stack | Source | Package ID |
+|---------|--------|-----------|
+| **R3** | Git URL | `com.cysharp.r3` — reactive state (`ReactiveProperty`) for values a View renders |
+
+R3 is required by the rules (`rules/event-patterns.md` Card 5) but is **not** a Gate A package:
+`/setup-project` generates no R3 code, so gating setup on it would be a gate with nothing behind
+it. Install it before writing a View that renders service state.
 
 Optional packages are installed separately — see [Manual Setup](#manual-setup-required-after-setup-project).
 
@@ -111,7 +123,7 @@ This generates project-specific boilerplate: assembly definition files, base fra
 
 **Conflict detection (Step 0):** If `.claude/project-features.json` already exists, setup compares it against the actual project (folder presence, `manifest.json`) and reports any conflicts — useful after a partial or manual cleanup.
 
-> **Package gating:** If VContainer/UniTask/Input System are missing, setup creates only the folder structure and stops. If NSubstitute DLL is missing (and Testing=yes), test `.asmdef` references and test templates are skipped. Re-run once packages are installed to continue.
+> **Package gating:** If VContainer/UniTask/Input System/Newtonsoft Json are missing, setup creates only the folder structure and stops. If NSubstitute DLL is missing (and Testing=yes), test `.asmdef` references and test templates are skipped. Re-run once packages are installed to continue.
 
 ---
 
@@ -210,10 +222,10 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 | `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
-| `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
+| `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event vs R3 `ReactiveProperty` decision tree (Card 5: a late subscriber gets the current value from R3 and nothing from a C# event) |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]` → `[Services]` → `[UI]` → `[Environment]` → `[Characters]` → `[VFX]`), classification table, prefab/container rules, MCP placement enforcement (no hand-duplicated siblings) |
 | `bootstrap-pattern.md` | Code-first static Module pattern: `[X]Module` static class → `AppModules.cs` → `AppScope`. ConfigCatalog, SceneModules, new module addition flow (one line in AppModules, no Editor asset) |
-| `solid-oop.md` | MonoBehaviour role boundaries (View/Provider/Controller only, ~100 lines max); **suffix rule: `*View` is Canvas/UI only, `*Controller` is gameplay/character, `*Provider` abstracts Unity API**; SRP one-sentence test (must not contain AND); OCP polymorphism rule; DIP constructor-interface rule |
+| `solid-oop.md` | MonoBehaviour role boundaries (View/Provider/Controller/Manager only, shell ≤ ~80 lines — the hook warns at 150); **suffix rule: `*View` is Canvas/UI only, `*Controller` is gameplay/character, `*Provider` abstracts Unity API, `*Manager` is a single-domain registry**; SRP one-sentence test (must not contain AND); OCP polymorphism rule; DIP constructor-interface rule |
 | `web-tool-data-contract.md` | **Web authoring tools only** — export schema single-source, enum int map, version field, unit/scale contract, parity fixture lock, importer error-on-missing, tool-side import validation (version + required-field checks before hydrating) |
 | `web-tool-architecture.md` | **Web authoring tools only** — zero-build `file://` constraint, single model source of truth, pure-core/DOM-shell split, ~400 line limit, event delegation, idempotent render, runner-less tests, stable row identity (never array index) |
 | `web-tool-design-system.md` | **Web authoring tools only** — design tokens, fixed spacing scale, control-type decision table, viewport primacy, unit display, destructive actions undoable-or-confirmed, keyboard access with visible focus, visible unsaved/invalid/empty state, bounded undo history, localStorage draft persistence across reloads |
@@ -816,7 +828,7 @@ that flag pass a size-only check, including the two that import with a `scale=10
 `270.020°` rotation. On its first run the harness then disproved a claim in the skill it tests.
 Still covered by no layer: `TD-COMPILE` against real project code, PlayMode, prefab/scene work.
 
-**49 bats files / 592 tests** cover every blocking hook with happy path, blocking trigger,
+**49 bats files / 595 tests** cover every blocking hook with happy path, blocking trigger,
 profile skip, and warn-mode scenarios — and all six `guard-*.sh` are covered there *and*
 verified as registered in `settings.json`.
 
