@@ -65,6 +65,7 @@ This is a personal Unity development template for Claude Code. It enforces archi
 | **UniTask** | openupm / Package Manager | Async/await — replaces all coroutines |
 | **New Input System** | Package Manager (com.unity.inputsystem) | Input — legacy Input API is blocked |
 | **Newtonsoft Json** | Package Manager (com.unity.nuget.newtonsoft-json) | Save/load serialization — `LocalSaveLoadDal` will not compile without it |
+| **R3** | Git URL (`com.cysharp.r3`) | Reactive state — `ReactiveProperty` for observable values a View renders, `Observable` for owner-less streams. See `skills/plugins/r3.md`; boundary vs `IEventBus` in `rules/event-patterns.md` |
 
 ## Optional Features
 
@@ -192,7 +193,7 @@ Detailed coding standards in `.claude/rules/`:
 | `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking; ECS→VContainer push-inject bridge (no singleton `Instance` from ECS) |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
-| `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event decision tree |
+| `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event vs R3 `ReactiveProperty` decision tree (Card 5: a late subscriber gets the current value from R3 and nothing from a C# event) |
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]`→`[VFX]`), classification table, prefab/container rules, enforcement |
 | `bootstrap-pattern.md` | Code-first static Module pattern: [X]Module static class → AppModules.cs → AppScope. ConfigCatalog, SceneModules, new module addition flow. |
 | `solid-oop.md` | MonoBehaviour role boundaries (View/Provider/Controller/Manager only, ~100 lines max); **suffix rule: `*View` is Canvas/UI only, `*Controller` is gameplay/character, `*Provider` abstracts Unity API, `*Manager` is a single-domain coordinator (Register/Unregister instead of IEventBus)**; enforcement is structural, not name-based (Card 0: `[SerializeField]` / Unity lifecycle callback); SRP one-sentence test (must not contain AND); OCP polymorphism rule; DIP constructor-interface rule; 4-tier: Mono Shell (≤80 ln) / Handler (pure C#) / Service+EntryPoint / Provider |

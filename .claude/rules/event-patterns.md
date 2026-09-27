@@ -90,6 +90,42 @@ public sealed class HealthService : IHealthService
 
 **GOTCHA:** If the event is consumed by a class in a different module, it should be an IEventBus event instead.
 
+---
+
+### Card 5: R3 ReactiveProperty for Internal State a View Renders
+
+**WHEN:** A service holds a value inside one module and a View must display it — health, ammo, coin count, a selected tab.
+
+**WRONG:**
+```csharp
+// C# event: the View renders nothing until the NEXT change. A View enabled after the
+// service already set _hp shows its prefab's placeholder text until something happens.
+public event Action<int> OnHealthChanged;
+private void ApplyDamage(int dmg) { _hp -= dmg; OnHealthChanged?.Invoke(_hp); }
+
+// And the usual patch for it — a second "read the value now" member kept in sync by hand:
+public int CurrentHealth => _hp;   // two sources for one fact
+```
+
+**RIGHT:**
+```csharp
+public sealed class HealthService : IHealthService
+{
+    private readonly ReactiveProperty<int> _health = new(100);
+    public ReadOnlyReactiveProperty<int> Health => _health;   // value AND stream, one member
+
+    public void TakeDamage(int dmg) => _health.Value = Mathf.Max(0, _health.Value - dmg);
+}
+
+// View — Subscribe fires immediately with the current value, then on every change
+private void OnEnable() =>
+    _healthService.Health.Subscribe(hp => _label.text = hp.ToString()).AddTo(_disposables);
+```
+
+**GOTCHA:** The whole difference is the **late subscriber**. A C# event only ever delivers *future* changes, so every consumer needs a separate "and what is it right now?" accessor, and the two drift. `ReactiveProperty` is one member that answers both. This does not widen R3's scope: cross-module still goes through `IEventBus` (Card 2), a one-shot callback is still `System.Action` (Card 3), and a discrete occurrence with no value to read back is still a C# event (Card 4). Dispose the subscription — `.AddTo(...)` in `OnEnable`, disposed in `OnDisable` — the same pair as every other subscription in this file.
+
+---
+
 ## UnityEvent is FORBIDDEN (NON-NEGOTIABLE)
 
 `UnityEvent`, `UnityEvent<T>`, and `using UnityEngine.Events` are **blocked** by hook.
@@ -112,8 +148,10 @@ Is this a Mono Shell (Tier 1 Controller/View)?
     ├── YES → IEventBus (publish/subscribe)
     └── NO — is it a one-time callback passed into a method?
         ├── YES → System.Action / System.Func<T>
-        └── NO — is it an internal module notification?
-            └── YES → C# event keyword
+        └── NO — internal to one module. Does it have a CURRENT VALUE a
+            consumer must render, including one that subscribes late?
+            ├── YES → R3 `ReactiveProperty<T>` (Card 5)
+            └── NO (a discrete occurrence, no value to read back) → C# event keyword
 ```
 
 ---
@@ -304,3 +342,4 @@ UI Toolkit (`UIDocument`, `VisualElement`) is used **only for Editor tools** in 
 | `myEvent.Invoke()` | `_eventBus.Publish(new TEvent())` or `OnSomething?.Invoke()` |
 | `using UnityEngine.Events` | Remove — not needed |
 | `static event Action` | Instance event registered via VContainer |
+| A C# `event` plus a hand-kept `CurrentX` property for the same value | One `ReactiveProperty<T>`, exposed as `ReadOnlyReactiveProperty<T>` (Card 5) |
