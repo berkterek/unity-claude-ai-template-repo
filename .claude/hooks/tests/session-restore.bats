@@ -97,8 +97,8 @@ teardown() {
 }
 
 # ── Unbounded state file growth (regression) ────────────────────────────────
-# Several writers accumulate lines forever with no trim, unlike hook-logger.sh's
-# tail -n 500 pattern (hook-logger.sh:49-55) or instinct-capture.sh:88-92.
+# Several writers accumulate lines forever with no trim, unlike
+# instinct-capture.sh's tail -n 500 pattern (instinct-capture.sh:88-92).
 # session-restore.sh is expected to apply the same trim at SessionStart.
 
 @test "session-restore trims subagent-log.jsonl to 500 lines" {

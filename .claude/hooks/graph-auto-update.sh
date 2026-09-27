@@ -110,8 +110,8 @@ fi
 mkdir -p "$_STATE_DIR"
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $FILE_PATH" >> "$_STATE_DIR/graph-updates.log"
 
-# Trim to the last 500 lines — same pattern as hook-logger.sh:49-55 and
-# instinct-capture.sh:88-92. This hook fires on every matching Write/Edit with
+# Trim to the last 500 lines — same pattern as instinct-capture.sh:88-92.
+# This hook fires on every matching Write/Edit with
 # no other trim point, so the log grows unbounded otherwise.
 _GU_LOG="$_STATE_DIR/graph-updates.log"
 _gu_lines=$(wc -l < "$_GU_LOG" 2>/dev/null || echo 0)

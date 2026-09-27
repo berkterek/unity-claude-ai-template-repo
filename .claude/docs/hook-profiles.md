@@ -84,7 +84,6 @@ All `standard` hooks plus:
 | `gateguard.sh` | Blocks Edit/Write on unread C# files (Stage 1), then the fact gate (Guard 2). Guard 2 is released when the open plan covers the file — the fact demands themselves moved to plan time via `.claude/scripts/validate-plan-facts.sh`, sharing `hooks/lib-gateguard-facts.sh` with this hook. This is what makes `strict` usable inside `/orchestrate`; before it, the profile and the pipeline deadlocked each other |
 | `enforce-skill-for-keywords.sh` | Blocks action until skill loaded for detected keywords |
 | `cost-tracker.sh` | Logs every tool call for cost auditing |
-| `hook-logger.sh` | Detailed hook audit log |
 | `instinct-capture.sh` | Captures tool-use observations for distillation |
 | `instinct-distill.sh` | Distills observations into confidence-scored instincts |
 | `stop-verify.sh` | Batch verifier at session end |

@@ -813,7 +813,7 @@ EOF
 |---------|--------------|
 | **minimal** | `block-git-push`, `block-scene-edit`, `block-projectsettings` (T4), `check-config-protection`, `guard-critical-files` — only safety/corruption preventers. |
 | **standard** (default) | All `minimal` + every `check-*` and `warn-*` hook + `guard-editor-runtime`, `guard-gate-cleared`, `guard-reviewer-order`, `guard-sparc-approved`, `auto-load-skills`, `track-read`, `track-skill-invocations`, `verify-after-write`, `session-save`, `session-restore`, `notify`, `pre-compact`, `graph-auto-update`. |
-| **strict** | All `standard` + `gateguard`, `enforce-skill-for-keywords`, `cost-tracker`, `hook-logger`, `instinct-capture`, `instinct-distill`, `stop-verify`, `track-codex-review`, `install-git-hooks`. |
+| **strict** | All `standard` + `gateguard`, `enforce-skill-for-keywords`, `cost-tracker`, `instinct-capture`, `instinct-distill`, `stop-verify`, `track-codex-review`, `install-git-hooks`. |
 
 **Test Type:** NoTest (verify via T12 bats tests)
 

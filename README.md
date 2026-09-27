@@ -881,7 +881,6 @@ need the Unity Editor and MCP. Nothing here compiles anything.
 | `enforce-skill-for-keywords` (UserPromptSubmit) | Detects third-party package keywords in every prompt. Skips enforcement if the skill is auto-loaded via `auto-loaded-skills.md` (already in context) or already invoked via `Skill` tool this session — otherwise injects a blocking context message |
 | `instinct-capture` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
-| `hook-logger` | Central audit logger — appends newline-delimited JSON to `~/.claude/hook-audit.log`. Project-root resolution prefers `$CLAUDE_PROJECT_DIR` (2026-08-29 — cosmetic only: a bare `git rev-parse`/`pwd` fallback logged the wrong project label and an unstripped absolute path inside a subagent's cwd) |
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
 | `session-restore` (SessionStart) | Restores session state from `.claude/state/` on session start. Also resets `subagent-depth` to 0 (the counter can still leak on an interrupted/errored agent, and a stale count silently disables `guard-pipeline-direct-work`), expires every deny-then-allow grant file so a gate is one-per-session rather than one-per-lifetime, and self-heals any hook missing its exec bit. **Reads the payload's `source` and keeps `gate-cleared`/`sparc-approved` when it is `compact`** — a compaction is not a session boundary, and clearing there silently revoked an approved gate mid-pipeline (measured twice in one `/orchestrate` run); `startup`/`resume`/`clear` still clear, and an unparseable payload fails closed |
 | `session-save` (Stop) | Saves current session state to `.claude/state/` on stop. Also **auto-expires per-turn scratch state** (`codex-reviewed`, `graph-empty-warned`, `plan-state.json`, …) so it never leaks into the next session. **`gate-cleared` and `sparc-approved` are deliberately excluded** — Stop fires after *every* turn, so expiring a human-approved gate here deletes it between the agents of one pipeline and forces re-approval every turn (measured in a real project for `sparc-approved`). Those two are bounded by their TTL and by `session-restore.sh` instead. Subagent counters are read only when log files exist — prevents `0\n0` jq parse error on sessions without subagents |
@@ -896,7 +895,7 @@ need the Unity Editor and MCP. Nothing here compiles anything.
 | `agent-stop-log` (SubagentStop) | Appends stop record with approximate duration to `.claude/state/subagent-log.jsonl`. Duration computed from matching SubagentStart timestamp; `-1` when no match. No `exit_code` in payload — pure audit trail. **Does NOT decrement `subagent-depth` directly** (2026-08-29 — see `guard-pipeline-direct-work` above): this Stop fires on async dispatch ack, not real completion, so it schedules a deferred decrement instead (`unity_subagent_schedule_decrement`, `hooks/_lib.sh`), anchored on the matched Start plus `UNITY_SUBAGENT_STOP_GRACE_SECONDS` (default 180s). |
 | `task-completed-log` (TaskCompleted) | Appends success record to `.claude/state/task-log.jsonl` — `task_id`, `task_title`, `task_subject`, `team_name`. Fires on success only (no `status` field). |
 
-Neither writer caps its own file — `agent-stop-log` reads it backwards to find the matching `SubagentStart` line, and trimming there could drop that line out from under an in-flight agent. `session-restore.sh` trims both `subagent-log.jsonl` and `task-log.jsonl` to the newest 500 lines once, at SessionStart, when nothing is in flight — same `tail -n 500` pattern as `hook-logger.sh`/`instinct-capture.sh`.
+Neither writer caps its own file — `agent-stop-log` reads it backwards to find the matching `SubagentStart` line, and trimming there could drop that line out from under an in-flight agent. `session-restore.sh` trims both `subagent-log.jsonl` and `task-log.jsonl` to the newest 500 lines once, at SessionStart, when nothing is in flight — same `tail -n 500` pattern as `instinct-capture.sh`.
 
 ### Subagent Audit Trail
 
@@ -1521,18 +1520,34 @@ The log is capped at 500 lines and rotates automatically. It is global across al
 
 **settings.json hook entries** — Claude cannot edit `settings.json` (blocked by `check-config-protection.sh`), so any newly created hook has to be registered by hand. `settings.json` is tracked in git, so a project derived from this template inherits every registration already in it — this list only ever holds hooks that ship unregistered.
 
-Currently pending: **`check-write-via-bash.sh`**. Add it to the existing `"matcher": "Bash"` block under `hooks.PreToolUse`:
+Currently pending: **none.** Every hook that ships is registered.
+
+The last entry this list carried was `check-write-via-bash.sh`, and it stayed here after being registered — found 2026-09-27, when the hook blocked a `cat > Foo.cs` in a session whose README was still calling it pending. A registration is a one-line edit; clearing this list afterwards is the step that gets skipped, and the stale entry is worse than a missing one: it tells a reader a live protection is off, so the next person to "fix" it either duplicates the entry or stops trusting the list. Verify against `settings.json` before adding a name here, and delete the name in the same change that registers it.
+
+When this list does hold a name, it takes this shape — the hook's own block under the matcher it belongs to:
 
 ```json
 {
   "type": "command",
-  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-write-via-bash.sh",
+  "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/<hook>.sh",
   "timeout": 3000,
-  "statusMessage": "Checking for hook-bypassing file writes..."
+  "statusMessage": "…"
 }
 ```
 
-Until that entry exists the hook sits on disk and never runs, leaving `cat > Foo.cs` free to skip every `Edit|Write` content hook.
+Until that entry exists the hook sits on disk and never runs — registered is the only state in which a hook enforces anything.
+
+To check the whole set at once, diff the hooks on disk against the ones `settings.json` names:
+
+```bash
+comm -23 \
+  <(find .claude/hooks -maxdepth 1 -name '*.sh' -exec basename {} \; | sort) \
+  <(grep -o '\.claude/hooks/[a-z0-9_-]*\.sh' .claude/settings.json | xargs -n1 basename | sort -u)
+```
+
+Expect exactly four names: `_lib.sh`, `lib-path-rules.sh`, `lib-gateguard-facts.sh` (libraries other hooks source) and `install-git-hooks.sh` (a setup script). Anything else is a hook that ships unregistered and therefore never fires.
+
+> This check replaced `hook-logger.sh`, deleted 2026-09-27 — a per-hook audit log that nothing ever called, described here and in `hook-profiles.md` as if it ran. It was meant to surface silently-dead hooks, and it could not: **this repo's four recorded hook failures were all hooks that ran and answered wrongly, which an event log records as ordinary `OK` lines.** The one thing it could see — a hook that never ran at all — is what the command above answers deterministically, in one line, without 56 call sites to keep in step. A log of what happened cannot detect a wrong answer; only a test of behaviour can.
 
 > **MCP unavailable?** If Unity Editor is not open or MCP is disconnected when `/setup-project` runs, Step 5d is skipped and a manual checklist is printed for scene creation, AppScope wiring, and Build Settings.
 

@@ -215,8 +215,8 @@ setup_conc() {
 
 # ── Unbounded log growth (regression) ───────────────────────────────────────
 # graph-updates.log is appended to on every matching Write/Edit with no trim
-# anywhere in this hook, unlike hook-logger.sh's tail -n 500 pattern
-# (hook-logger.sh:49-55) or instinct-capture.sh:88-92.
+# anywhere in this hook, unlike instinct-capture.sh's tail -n 500 pattern
+# (instinct-capture.sh:88-92).
 @test "graph-updates.log is trimmed to 500 lines, newest kept" {
     mkdir -p .claude/graph
     echo '{"codebase":{"scanned_files":42,"classes":[{"name":"A"},{"name":"B"},{"name":"C"},{"name":"D"},{"name":"E"}]}}' > .claude/graph/graph.json

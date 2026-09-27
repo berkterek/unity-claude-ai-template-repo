@@ -51,8 +51,8 @@ rm -f "$UNITY_READS_FILE" "$UNITY_EDITS_FILE" "$UNITY_COST_FILE" "$UNITY_LEARNIN
 # ── Trim unbounded JSONL audit logs ──────────────────────────────────────────
 # subagent-log.jsonl and task-log.jsonl are append-only with no writer-side
 # trim (agent-start-log.sh / agent-stop-log.sh / task-completed-log.sh must
-# not trim — see CLAUDE.md). Same tail -n 500 pattern as hook-logger.sh:49-55
-# and instinct-capture.sh:88-92, applied here at SessionStart instead.
+# not trim — see CLAUDE.md). Same tail -n 500 pattern as
+# instinct-capture.sh:88-92, applied here at SessionStart instead.
 _trim_state_file() {
     local f="$1" max="$2"
     [ -f "$f" ] || return 0
