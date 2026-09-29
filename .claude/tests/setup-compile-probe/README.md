@@ -60,16 +60,22 @@ Exit codes: `0` compiled clean · `2` compile errors (listed, log path printed, 
 compile errors in the log, which is a licence or package-resolution problem and must never be
 reported as green.
 
-Run it after editing any Step 3 or Step 4 block. ~20s warm, minutes cold. It is not a hook and must
-never become one.
+Run it after editing any Step 3 or Step 4 block — **and after editing anything under
+`packages/framework/`**, which the probe now compiles alongside them. ~20s warm, minutes cold. It is
+not a hook and must never become one.
 
 ## What it does
 
 1. Extracts every Step 3 / Step 4 block via `validate-generated-asmdefs.py --extract`. Shared parser
    on purpose — the probe must compile exactly the files the validator reasons about, and two
    parsers would eventually disagree in a way that reads as a green probe over an unchecked file.
-2. Writes `Packages/manifest.json`: `com.unity.inputsystem`, `com.unity.nuget.newtonsoft-json`, plus
-   VContainer and UniTask from the OpenUPM scoped registry.
+2. Writes `Packages/manifest.json`: `com.berkterek.framework`, `com.unity.inputsystem`,
+   `com.unity.nuget.newtonsoft-json`, plus VContainer and UniTask from the OpenUPM scoped registry.
+   The framework comes in as `file:<repo>/packages/framework`, **not** as the pinned git URL Step 2b
+   writes into a real project: a tag is a snapshot of an older commit, so pinning one would compile
+   the framework as it was and let a break introduced in this working tree pass. The probe therefore
+   measures the framework and the generated game code against each other, which is the pairing that
+   actually breaks — a game file's `using Framework.Events` against the package that provides it.
 3. `Unity -batchmode -nographics -quit`.
 4. Greps the log for `error CS####`.
 

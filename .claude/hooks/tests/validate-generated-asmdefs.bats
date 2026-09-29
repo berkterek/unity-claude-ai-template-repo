@@ -302,10 +302,25 @@ EOF
 @test "--extract writes the generated files and substitutes [ProjectName]" {
     run python3 "$SCRIPT" --extract "$T/out" --project-name Zed --skip "/Ecs/" --skip "/Tests/"         .claude/commands/setup-project.md
     [ "$status" -eq 0 ]
-    [ -f "$T/out/_Framework/SaveLoadSystems/SaveLoadService.cs" ]
+    [ -f "$T/out/_GameFolders/Scripts/Games/Concretes/Infrastructure/AppScope.cs" ]
     [ -f "$T/out/_GameFolders/Scripts/Games/ZedGames.asmdef" ]
     [ ! -e "$T/out/_GameFolders/Scripts/Games/Ecs" ]
     grep -q '"name": "ZedGames"' "$T/out/_GameFolders/Scripts/Games/ZedGames.asmdef"
+}
+
+# The framework moved out of setup-project.md and into the com.berkterek.framework package
+# (Step 2b). Asserting its ABSENCE is the half that matters: a block quietly reappearing here
+# means every generated project gets a second copy of those assemblies, which is either a
+# duplicate-type compile error or — worse — a copy under Assets/ that drifts from the package.
+@test "--extract writes no _Framework assembly file: the framework is a package now" {
+    run python3 "$SCRIPT" --extract "$T/out" --project-name Zed --skip "/Ecs/" --skip "/Tests/"         .claude/commands/setup-project.md
+    [ "$status" -eq 0 ]
+    [ ! -e "$T/out/_Framework/Events" ]
+    [ ! -e "$T/out/_Framework/Logging" ]
+    [ ! -e "$T/out/_Framework/SaveLoadSystems" ]
+    [ ! -e "$T/out/_Framework/Editors" ]
+    # Installers owns no .asmdef, so it is deliberately still generated here.
+    [ -f "$T/out/_Framework/Installers/IInstaller.cs" ]
 }
 
 @test "--extract on a file with no blocks fails rather than writing nothing quietly" {

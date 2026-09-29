@@ -93,9 +93,15 @@ echo "[2/5] extracted $COUNT files from setup-project.md ($ASM asmdef, $CS cs)"
 # --- 2. packages ---------------------------------------------------------------
 # VContainer and UniTask are not on the Unity registry; they come from OpenUPM.
 mkdir -p "$PROJ/Packages"
+# The framework comes in as a LOCAL path, not the git URL Step 2b writes into a real project.
+# Deliberate: a tag is a snapshot of an older commit, so pinning one here would compile the
+# framework as it was rather than as it is, and a break introduced in packages/framework/ in
+# this very working tree would pass. `file:` resolves the files on disk, which is the whole
+# point of a probe. It also keeps the probe runnable with no network for this dependency.
 cat > "$PROJ/Packages/manifest.json" <<EOF
 {
   "dependencies": {
+    "com.berkterek.framework": "file:$REPO/packages/framework",
     "com.unity.inputsystem": "1.11.2",
     "com.unity.nuget.newtonsoft-json": "3.2.1",
     "jp.hadashikick.vcontainer": "1.16.9",
@@ -110,7 +116,7 @@ cat > "$PROJ/Packages/manifest.json" <<EOF
   ]
 }
 EOF
-echo "[3/5] manifest written: inputsystem, newtonsoft, vcontainer, unitask"
+echo "[3/5] manifest written: framework (file:$REPO/packages/framework), inputsystem, newtonsoft, vcontainer, unitask"
 
 # --- 3. compile ----------------------------------------------------------------
 LOG="$PROJ/unity.log"
