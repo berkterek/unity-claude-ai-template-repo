@@ -551,9 +551,11 @@ Tests cover: scan-root parity with the builder, builder flags (`--full`, `--incr
 
 | Package | Role |
 |---------|------|
+| **`com.berkterek.framework`** | This template's own framework — `IEventBus`, `DLog`, the SaveLoad chain, and the SerializedOps Editor applier. A UPM package pulled from `packages/framework/` in this repo, installed by `/setup-project` Step 2b (see **The framework is a package** below) |
 | **VContainer** | Dependency injection |
 | **UniTask** | Async/await (replaces coroutines) |
 | **New Input System** | Input handling |
+| **Newtonsoft Json** | Save/load serialization and the SerializedOps manifest parser. Declared as a dependency of the framework package, so resolving that pulls it in |
 
 ### Optional (selected during `/setup-project`)
 
@@ -576,6 +578,43 @@ package and affects no rule, so nothing has to be skipped when it is absent. Ful
 setup and the measured export flags: `.claude/skills/third-party/blender-mcp/SKILL.md`.
 Do **not** wire `uvx blender-mcp` here — that is the bridge for a different third-party add-on
 that binds the same port and speaks a different protocol.
+
+### The framework is a package, not generated files (NON-NEGOTIABLE)
+
+`_Framework/` used to be emitted into `Assets/` by `/setup-project`, one copy per project.
+It is now a UPM package living at `packages/framework/` in this repository, and a project
+consumes it with one line in `Packages/manifest.json`:
+
+```json
+"com.berkterek.framework": "https://github.com/berkterek/unity-claude-ai-template-repo.git?path=/packages/framework#framework/v0.1.0"
+```
+
+It carries four assemblies — `FrameworkEvents`, `FrameworkLogging`, `FrameworkSaveLoadSystems`
+and the Editor-only `FrameworkEditor` — each with its own `.asmdef` and its own
+`ARCHITECTURE.md`, plus `SERIALIZED_OPS_MANIFEST.md`, the input contract for the applier.
+
+**Why it changed, measured rather than argued.** For a while both channels existed: generated
+blocks inside `setup-project.md` and a hand-exported `Framework.unitypackage`. They were
+compared file by file in September 2026 and **ten of twelve files differed**, in both
+directions — one side had the atomic-write save path, the other had the Editor applier, one
+carried four log tags belonging to a single game, and an assembly definition had been named
+`FramworkLogging` for months. Nothing could have caught any of it: a `.unitypackage` is a
+gzipped tar, so no content hook, no asmdef validator and no compile probe can read inside one.
+
+Three rules follow, and all three are the point:
+
+- **Pin a tag, never a branch.** `#framework/v0.1.0` is reproducible; a bare branch name means
+  the framework changes under a project whenever this repo moves.
+- **Never vendor it into `Assets/`.** A copy under `Assets/` stops receiving fixes and nothing
+  reports that it has stopped — which is the failure above, reconstructed by hand. A
+  project-specific change belongs in the package with a new tag, or in game code.
+- **Edit it here.** `packages/framework/` is plain `.cs` on disk, so this repo's own tooling
+  can see it: `.claude/tests/setup-compile-probe/` compiles it against the generated game code
+  via a `file:` reference, which is why the probe must be re-run after any change under
+  `packages/framework/`.
+
+`_Framework/Installers/IInstaller.cs` is the one file still generated into `Assets/`. It owns
+no `.asmdef`, and package code without one is never compiled.
 
 ### MCP servers are frozen at session start (NON-NEGOTIABLE)
 
@@ -1572,11 +1611,14 @@ Expect exactly four names: `_lib.sh`, `lib-path-rules.sh`, `lib-gateguard-facts.
 > Architecture summary (key rules at a glance): **[.claude/docs/architecture-summary.md](.claude/docs/architecture-summary.md)**
 
 ```
-_Framework/                              ← Never references _GameFolders or other project folders
-  Events/FrameworkEventBus.asmdef       ← each subfolder has its OWN .asmdef (never a single root-level one)
-  Logging/FrameworkLogging.asmdef
+com.berkterek.framework                  ← UPM package, NOT under Assets/ — see "The framework is
+  Events/FrameworkEvents.asmdef            a package" above. Never references game code.
+  Logging/FrameworkLogging.asmdef          Each subfolder has its OWN .asmdef, never a root-level one.
   SaveLoadSystems/FrameworkSaveLoadSystems.asmdef
-  Editors/FrameworkEditor.asmdef
+  Editors/FrameworkEditor.asmdef         ← Editor-only; holds the SerializedOps applier
+
+_Framework/                              ← the only part still generated into Assets/
+  Installers/IInstaller.cs                 (owns no .asmdef, so it cannot live in the package)
 
 _GameFolders/Scripts/
   Games/
@@ -1616,7 +1658,8 @@ Arts/
 - `Games/Abstracts/` = interfaces and abstract base classes ONLY — no concrete implementations
 - `Games/Concretes/` = ALL concrete classes, both pure C# (MoveHandler, DamageHandler) and MonoBehaviours — organized by domain (Players/, Enemies/, Audio/…), never by layer
 - Only valid top-level folders under `Scripts/`: `Games/`, `Tests/`, `Editors/` — never create `Config/`, `GameUnity/`, `Game/` or other folders alongside `Games/`. A fourth folder is legitimate only when it needs its own `.asmdef` (assembly flags are per-assembly, so an assembly boundary is a folder boundary); it must then be declared in `.claude/path-allowlist.txt` **and** added to the table in `rules/architecture.md`. "The hook did not complain" is never a reason — the rule is fail-closed and validated at plan time by `.claude/scripts/validate-plan-paths.sh` — at Step 0b in `/orchestrate` (before SCOPE_GATE), and at the SAVE step in `/create-plan` and `/plan-module` (see Plan-Time Validation)
-- Every `_Framework` subfolder has its own `.asmdef` — never a single root-level assembly covering all subfolders
+- Every framework subfolder has its own `.asmdef` — never a single root-level assembly covering all subfolders. Those four assemblies come from the `com.berkterek.framework` package and are referenced by name; do not re-create them under `Assets/_Framework/`
+- Inspector references on a prefab or ScriptableObject are assigned with the framework's **SerializedOps applier** (`Tools/Framework/Apply Serialized Ops`, driven by MCP `execute_menu_item` over a JSON manifest) — never by writing a throwaway `[InitializeOnLoad]` Editor script, which `check-no-throwaway-editor-script.sh` blocks. Contract: `packages/framework/Editors/SERIALIZED_OPS_MANIFEST.md`
 - All prefabs under `_GameFolders/Prefabs/<Domain>/` (`Bootstrap/`, `CoreObjects/`, `Enemies/`, `UI/Canvases/`, `VFX/`, `Environment/`…); shared-base objects use Prefab Variants; all Canvas prefabs are Prefab Variants of `BaseCanvas`
 - All material assets (.mat) under `Arts/Materials/<Domain>/` — never inside `Prefabs/`; shader files (.shader / .shadergraph) under `_GameFolders/Arts/Shaders/`; never use Built-in Standard shader in a URP project — use the `unity-shader-dev` agent for shader authoring (automatically routes to HLSL or ShaderGraph based on complexity); use the `unity-particle-designer` agent for particle VFX (`Arts/Materials/VFX/` + `_GameFolders/Prefabs/VFX/` + pooling)
 - `AppScope` saved as `Prefabs/Bootstrap/AppScope.prefab`; `EventSystem` and `MainCamera` saved as `Prefabs/CoreObjects/` prefabs — same prefab instance reused across all scenes
