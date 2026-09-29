@@ -108,7 +108,8 @@ Evaluate readiness for each generation phase separately.
 | VContainer | YES |
 | UniTask | YES |
 | New Input System | YES |
-| Newtonsoft Json (`com.unity.nuget.newtonsoft-json`) | YES — `LocalSaveLoadDal` will not compile without it |
+| Newtonsoft Json (`com.unity.nuget.newtonsoft-json`) | YES — `LocalSaveLoadDal` and the SerializedOps applier will not compile without it. The framework package declares it as a dependency, so resolving that package pulls it in; it stays listed here because Gate A runs before Step 2b. |
+| `com.berkterek.framework` | YES — installed in Step 2b, before Step 3. Every game-side assembly references `FrameworkEvents` / `FrameworkLogging` / `FrameworkSaveLoadSystems` by name, so without it Step 4's files fail with `CS0246`. |
 
 **If ANY Gate A package is missing:**
 1. Print a warning listing which packages are absent.
@@ -311,93 +312,57 @@ Assets/
 
 ---
 
+### Step 2b — Install the framework package (NON-NEGOTIABLE, runs before Step 3)
+
+The framework is **not** generated into `Assets/`. It is a UPM package pulled from this
+template repository, so every project consumes one copy that is versioned by a git tag
+rather than a folder that starts identical and drifts from the day it is created.
+
+Add this dependency to `Packages/manifest.json` — one line, alongside the packages Gate A
+already checked:
+
+```json
+"com.berkterek.framework": "https://github.com/berkterek/unity-claude-ai-template-repo.git?path=/packages/framework#framework/v0.1.0"
+```
+
+Then:
+
+1. Let Unity resolve. Confirm the package appears in the Package Manager under **In Project**.
+2. Confirm `Tools/Framework/Apply Serialized Ops` exists in the menu bar. A `[MenuItem]` only
+   exists after a clean domain reload, so its absence means the package did not compile —
+   read the console before continuing, and do not proceed to Step 3 on a red console.
+3. Only then continue. Step 3's game-side assemblies reference `FrameworkEvents`,
+   `FrameworkLogging` and `FrameworkSaveLoadSystems` by name; if the package is absent those
+   references resolve to nothing and every game file fails with `CS0246`.
+
+**Pin a tag, never a branch.** `#framework/v0.1.0` is reproducible; a bare branch name means
+the framework silently changes under a project whenever this repo moves.
+
+**Updating later** is editing the version in that one line. Do not vendor the package into
+`Assets/` to make a local change — the copy stops receiving fixes and nothing reports it.
+A genuinely project-specific change belongs in the package with a new tag, or in game code.
+
+> **Why a package and not generated files.** Both existed for a while — generated blocks here
+> and a hand-exported `.unitypackage` — and they diverged in ten of twelve files before anyone
+> looked, including an assembly definition whose filename had been misspelled the whole time.
+> Nothing could have caught it: a `.unitypackage` is a gzipped tar, so no content hook and no
+> compile probe can read inside one. The package keeps the framework as plain `.cs` in one
+> place that this repo's own tooling can see.
+
+---
+
 ### Step 3 — Generate Assembly Definition Files
 
-**Gate A must pass before this step.**
+**Gate A must pass before this step. Step 2b must have completed.**
 
 Replace `[ProjectName]` with the actual project name the developer provided.
 
-#### `_Framework/Events/FrameworkEvents.asmdef`
-```json
-{
-    "name": "FrameworkEvents",
-    "rootNamespace": "Framework.Events",
-    "references": [
-        "VContainer",
-        "FrameworkLogging"
-    ],
-    "includePlatforms": [],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": true
-}
-```
-
-#### `_Framework/Logging/FrameworkLogging.asmdef`
-```json
-{
-    "name": "FrameworkLogging",
-    "rootNamespace": "Framework.Logging",
-    "references": [],
-    "includePlatforms": [],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false
-}
-```
-
-#### `_Framework/SaveLoadSystems/FrameworkSaveLoadSystems.asmdef`
-```json
-{
-    "name": "FrameworkSaveLoadSystems",
-    "rootNamespace": "Framework.SaveLoadSystems",
-    "references": [
-        "FrameworkLogging"
-    ],
-    "includePlatforms": [],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false
-}
-```
-
-#### `_Framework/Editors/FrameworkEditor.asmdef`
-```json
-{
-    "name": "FrameworkEditor",
-    "rootNamespace": "Framework.Editor",
-    "references": [
-        "FrameworkEvents",
-        "FrameworkLogging"
-    ],
-    "includePlatforms": [
-        "Editor"
-    ],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false
-}
-```
+> **The four `Framework*` assemblies are NOT generated here.** They ship in the
+> `com.berkterek.framework` package installed in Step 2b, so `FrameworkEvents`,
+> `FrameworkLogging`, `FrameworkSaveLoadSystems` and `FrameworkEditor` already exist by the
+> time this step runs and the asmdefs below may reference them by name. Do not re-create
+> them under `Assets/_Framework/` — a second copy of an assembly name is a compile error, and
+> the copy under `Assets/` would be the one that silently drifts from the package.
 
 #### `_GameFolders/Scripts/Games/[ProjectName]Games.asmdef`
 ```json
@@ -585,441 +550,27 @@ Replace `[ProjectName]` with the actual project name the developer provided.
 
 ---
 
-### Step 4 — Generate Base Framework Files
+### Step 4 — Generate Base Game Files
 
-**Gate A must pass before this step.**
+**Gate A must pass before this step. Step 2b must have completed.**
 
-#### `_Framework/Events/IEventBus.cs`
-```csharp
-namespace Framework.Events
-{
-    public interface IEventBus
-    {
-        void Publish<T>(T eventData) where T : struct, IEvent;
-        void Subscribe<T>(System.Action<T> handler) where T : struct, IEvent;
-        void Unsubscribe<T>(System.Action<T> handler) where T : struct, IEvent;
-    }
+This step used to generate the framework itself; it no longer does. What it writes now is the
+game-side wiring that *consumes* the framework package — the modules, the catalog and the two
+scopes — plus the one interface that owns no assembly.
 
-    public interface IEvent { }
-}
-```
-
-#### `_Framework/Events/EventBus.cs`
-```csharp
-using System;
-using System.Collections.Generic;
-using Framework.Logging;
-using VContainer.Unity;
-
-namespace Framework.Events
-{
-    public sealed class EventBus : IEventBus, IInitializable, IDisposable
-    {
-        #region Fields
-
-        private readonly Dictionary<Type, List<Delegate>> _handlers = new();
-
-        #endregion
-
-        #region Lifecycle
-
-        public void Initialize() { }
-
-        public void Dispose()
-        {
-            _handlers.Clear();
-        }
-
-        #endregion
-
-        #region Public Methods
-
-        public void Publish<T>(T eventData) where T : struct, IEvent
-        {
-            var type = typeof(T);
-
-            if (!_handlers.TryGetValue(type, out var list)) return;
-
-            for (int i = list.Count - 1; i >= 0; i--)
-            {
-                if (list[i] is not Action<T> handler) continue;
-
-                // Per-subscriber isolation. Without it one throwing subscriber aborts the
-                // whole dispatch: every remaining subscriber silently misses the event, and
-                // the exception surfaces at the PUBLISHER — a class with no connection to
-                // the bug. Both failures point away from the cause.
-                //
-                // This is also what makes DLog.Error's unconditional, unfiltered behaviour
-                // load-bearing rather than a preference: nearly all game logic runs inside
-                // subscribers, so this catch is where a whole class of defect is reported.
-                // See _Framework/Logging/ARCHITECTURE.md -> ## Gotchas.
-                //
-                // catch (Exception) is correct HERE and nowhere else in this codebase: the
-                // bus cannot know what a subscriber may throw, and its contract is that one
-                // subscriber's failure does not become another's. It logs and continues; it
-                // never swallows silently.
-                try
-                {
-                    handler(eventData);
-                }
-                catch (Exception exception)
-                {
-                    DLog.Error(LogTag.EventBus,
-                        $"Subscriber threw while handling {type.Name}; remaining subscribers still run.",
-                        exception);
-                }
-            }
-        }
-
-        public void Subscribe<T>(Action<T> handler) where T : struct, IEvent
-        {
-            var type = typeof(T);
-
-            if (!_handlers.ContainsKey(type))
-                _handlers[type] = new List<Delegate>();
-
-            _handlers[type].Add(handler);
-        }
-
-        public void Unsubscribe<T>(Action<T> handler) where T : struct, IEvent
-        {
-            var type = typeof(T);
-
-            if (_handlers.TryGetValue(type, out var list))
-                list.Remove(handler);
-        }
-
-        #endregion
-    }
-}
-```
-
-#### `_Framework/Events/EventBusAccessor.cs`
-```csharp
-using System;
-
-namespace Framework.Events
-{
-    public static class EventBusAccessor
-    {
-        private static IEventBus _instance;
-
-        public static IEventBus Instance => _instance
-            ?? throw new InvalidOperationException(
-                "EventBusAccessor not initialized. Call Initialize() inside AppScope.RegisterBuildCallback.");
-
-        public static void Initialize(IEventBus bus) => _instance = bus;
-    }
-}
-```
-
-#### `_Framework/Logging/LogTag.cs`
-```csharp
-namespace Framework.Logging
-{
-    public enum LogTag
-    {
-        General,
-        EventBus,
-        SaveLoad
-    }
-}
-```
-
-> Add one enum member per domain that logs. `DLog` filters on this tag, so a domain with no member cannot be logged.
-
-#### `_Framework/Logging/DLog.cs`
-```csharp
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-
-namespace Framework.Logging
-{
-    public static class DLog
-    {
-        #region Private Fields
-
-        // Every declared tag starts ENABLED, derived from the enum itself rather than
-        // listed here. A tag that is declared but missing from this set is silent with no
-        // error and no warning — it reads as "logging is broken", not "this tag is off",
-        // and it is the single most likely way to lose a log you were sure you wrote.
-        //
-        // A literal list was tried first and was wrong: it fixed today's three members
-        // while leaving the trap fully armed for the fourth, so every new domain paid the
-        // same debugging tax. Deriving from the enum removes the second place to edit, and
-        // therefore removes the class of mistake rather than one instance of it.
-        //
-        // The objection to reflecting — "it enables a tag the author never meant to ship
-        // as live" — does not survive contact: Log/Warning are [Conditional] on
-        // UNITY_EDITOR/DEVELOPMENT_BUILD and are stripped from release at the call site
-        // regardless, so nothing here ships. Declaring a tag you do not want is not a real
-        // case; muting a noisy one during a session is, and DLog.Disable(tag) does that.
-        //
-        // Runs once at static init. Do not "optimise" it back into a literal list.
-        private static readonly HashSet<LogTag> _enabledTags =
-            new((LogTag[])Enum.GetValues(typeof(LogTag)));
-
-        #endregion
-
-        #region Public Methods
-
-        [Conditional("UNITY_EDITOR")]
-        [Conditional("DEVELOPMENT_BUILD")]
-        public static void Log(LogTag tag, string message)
-        {
-            if (!_enabledTags.Contains(tag))
-            {
-                return;
-            }
-
-            UnityEngine.Debug.Log($"[{tag}] {message}");
-        }
-
-        [Conditional("UNITY_EDITOR")]
-        [Conditional("DEVELOPMENT_BUILD")]
-        public static void Warning(LogTag tag, string message)
-        {
-            if (!_enabledTags.Contains(tag))
-            {
-                return;
-            }
-
-            UnityEngine.Debug.LogWarning($"[{tag}] {message}");
-        }
-
-        // The two Error overloads below are deliberately NOT [Conditional] and NOT filtered
-        // by _enabledTags. Log/Warning are diagnostics and may be silenced per tag; an error
-        // is a defect report and must never be silenced.
-        //
-        // Do not "tidy up" by restoring the gate or the attributes here. The incident that
-        // forced this, and the reasoning, are in _Framework/Logging/ARCHITECTURE.md ->
-        // ## Gotchas — a comment is not where a load-bearing decision survives a refactor.
-
-        public static void Error(LogTag tag, string message)
-        {
-            UnityEngine.Debug.LogError($"[{tag}] {message}");
-        }
-
-        /// <summary>Reports a caught exception with its full stack trace preserved.</summary>
-        /// <remarks>
-        /// Postcondition: writes a context line, then the exception itself via
-        /// Debug.LogException so Unity emits a clickable stack trace.
-        /// Side effect: never rethrows — the caller decides whether to continue.
-        /// </remarks>
-        public static void Error(LogTag tag, string message, Exception exception)
-        {
-            UnityEngine.Debug.LogError($"[{tag}] {message}");
-
-            if (exception != null)
-            {
-                // exception.Message alone loses file and line; the exception object does not.
-                UnityEngine.Debug.LogException(exception);
-            }
-        }
-
-        [Conditional("UNITY_EDITOR")]
-        [Conditional("DEVELOPMENT_BUILD")]
-        public static void Enable(LogTag tag)
-        {
-            _enabledTags.Add(tag);
-        }
-
-        [Conditional("UNITY_EDITOR")]
-        [Conditional("DEVELOPMENT_BUILD")]
-        public static void Disable(LogTag tag)
-        {
-            _enabledTags.Remove(tag);
-        }
-
-        #endregion
-    }
-}
-```
-
-> **Runtime game code logs through `DLog`, never `UnityEngine.Debug` — see `rules/logging.md`.**
-> The two `Error` overloads are deliberately not `[Conditional]` and not tag-filtered; the comment in the
-> file says why and is load-bearing — do not "tidy" it away. One gap remains: `_enabledTags` starts with
-> `General` only, so a newly added tag is silent for `Log`/`Warning` until something enables it
-> (`docs/PLAN_framework_package_fixes.md` item 4).
-
-#### `_Framework/SaveLoadSystems/ISaveLoadService.cs`
-```csharp
-namespace Framework.SaveLoadSystems
-{
-    public interface ISaveLoadService
-    {
-        void Save<T>(string key, T data);
-        T Load<T>(string key);
-        bool HasKey(string key);
-        void Delete(string key);
-    }
-}
-```
-
-#### `_Framework/SaveLoadSystems/ISaveLoadDal.cs`
-```csharp
-namespace Framework.SaveLoadSystems
-{
-    public interface ISaveLoadDal
-    {
-        void SaveData(string key, object value);
-        T LoadData<T>(string key);
-        bool HasKey(string key);
-        void DeleteData(string key);
-    }
-}
-```
-
-> `SaveData` takes `object`, so a persisted `struct` is boxed on every save. This is the first reason
-> `rules/save-load.md` Card 2 requires a `[Serializable]` class.
-
-#### `_Framework/SaveLoadSystems/LocalSaveLoadDal.cs`
-```csharp
-using System.IO;
-using Framework.Logging;
-using Newtonsoft.Json;
-using UnityEngine;
-
-namespace Framework.SaveLoadSystems
-{
-    public sealed class LocalSaveLoadDal : ISaveLoadDal
-    {
-        #region Private Methods
-
-        private static string GetFilePath(string key)
-        {
-            return Path.Combine(Application.persistentDataPath, key + ".json");
-        }
-
-        #endregion
-
-        #region ISaveLoadDal
-
-        // Atomic: write a sibling temp file, then swap it in. A bare File.WriteAllText
-        // truncates the live save BEFORE writing it, so a process killed mid-write leaves a
-        // 0-byte file and the previous save is already gone. Mobile OSes kill a backgrounded
-        // process without warning, so that is routine rather than exotic.
-        // Rule: rules/save-load.md Card 7.
-        public void SaveData(string key, object value)
-        {
-            string json = JsonConvert.SerializeObject(value);
-            string path = GetFilePath(key);
-            string temp = path + ".tmp";
-
-            File.WriteAllText(temp, json);
-
-            if (File.Exists(path)) File.Replace(temp, path, null);
-            else                   File.Move(temp, path);
-        }
-
-        public T LoadData<T>(string key)
-        {
-            string path = GetFilePath(key);
-            if (!File.Exists(path)) return default;
-
-            string json = File.ReadAllText(path);
-            if (string.IsNullOrEmpty(json)) return default;
-
-            try
-            {
-                return JsonConvert.DeserializeObject<T>(json);
-            }
-            catch (JsonException exception)
-            {
-                // Return default so the caller falls into its HasKey/config-default branch —
-                // the same path a first-run player takes. Throwing here escapes through
-                // LifetimeScope.Configure() and the game does not open at all.
-                // Catch JsonException specifically: an IOException (locked file, permissions)
-                // is a different bug with a different fix and must not be swallowed.
-                // Rule: rules/save-load.md Card 8.
-                DLog.Error(LogTag.SaveLoad, $"Corrupt save for key={key}, falling back to default.", exception);
-                return default;
-            }
-        }
-
-        public bool HasKey(string key)
-        {
-            return File.Exists(GetFilePath(key));
-        }
-
-        public void DeleteData(string key)
-        {
-            string path = GetFilePath(key);
-            if (File.Exists(path)) File.Delete(path);
-        }
-
-        #endregion
-    }
-}
-```
-
-> Requires `com.unity.nuget.newtonsoft-json` in `Packages/manifest.json`.
+> **No `_Framework/Events`, `_Framework/Logging` or `_Framework/SaveLoadSystems` file is
+> generated here any more.** `IEventBus`, `IEvent`, `EventBus`, `EventBusAccessor`, `LogTag`,
+> `DLog`, `ISaveLoadService`, `ISaveLoadDal`, `LocalSaveLoadDal`, `SaveLoadService` and the
+> three `ARCHITECTURE.md` files that document them all ship in the `com.berkterek.framework`
+> package installed in Step 2b, together with the `SerializedOps` Editor applier.
 >
-> This is the default backend, not the only allowed one. A `PlayerPrefsSaveLoadDal` sitting beside it is a
-> legitimate `ISaveLoadDal` — required on WebGL, where `persistentDataPath` writes land in IndexedDB and are
-> not flushed until an explicit sync. Swapping it is one line in `SaveLoadModule.Install`; no service and no
-> consumer changes. See `rules/save-load.md` Card 1.
+> Writing a second copy under `Assets/_Framework/` is a duplicate-type compile error
+> (`CS0101`), and — worse when it happens to compile — the `Assets/` copy is the one that
+> silently drifts from the package, which is the exact failure this move exists to end.
+> The package is the source; edit it at `packages/framework/` in this repo and cut a tag.
 >
-> Cards 7 and 8 are both satisfied by the body above as of 2026-09-02 — the temp-file swap and the
-> `JsonException` fallback, each with its reasoning in a comment. Card 8 is backend-independent and a
-> hand-written `ISaveLoadDal` must carry it too; Card 7 is not — `PlayerPrefs` has no `File.Replace`
-> equivalent, so a backend that cannot offer the atomic swap says so in its own class.
-
-#### `_Framework/SaveLoadSystems/SaveLoadService.cs`
-```csharp
-using Framework.Logging;
-
-namespace Framework.SaveLoadSystems
-{
-    public sealed class SaveLoadService : ISaveLoadService
-    {
-        #region Fields
-
-        private readonly ISaveLoadDal _dal;
-
-        #endregion
-
-        #region Constructor
-
-        public SaveLoadService(ISaveLoadDal dal)
-        {
-            _dal = dal;
-        }
-
-        #endregion
-
-        #region ISaveLoadService
-
-        public void Save<T>(string key, T data)
-        {
-            DLog.Log(LogTag.SaveLoad, $"Save key={key}");
-            _dal.SaveData(key, data);
-        }
-
-        public T Load<T>(string key)
-        {
-            DLog.Log(LogTag.SaveLoad, $"Load key={key}");
-            return _dal.LoadData<T>(key);
-        }
-
-        public bool HasKey(string key)
-        {
-            return _dal.HasKey(key);
-        }
-
-        public void Delete(string key)
-        {
-            _dal.DeleteData(key);
-        }
-
-        #endregion
-    }
-}
-```
-
-> Tier 3, pure C#. Every consumer injects `ISaveLoadService` and never names this type, so swapping the
-> backend is a one-line change in `SaveLoadModule.Install`.
+> `_Framework/Installers/IInstaller.cs` below is deliberately NOT in the package: it owns no
+> `.asmdef`, and package code without one is never compiled.
 
 #### `_Framework/Installers/IInstaller.cs`
 ```csharp
@@ -1046,122 +597,18 @@ class-name-like symbols** — describe the shape, never the names, so a rename c
 doc. `Installers/` owns no `.asmdef`, so it gets none. There is no doc at the `_Framework/`
 root; `check-architecture-doc.sh` blocks one.
 
-These are generated with the code rather than left for later, because "later" is what
+These docs are generated with the code rather than left for later, because "later" is what
 produced the defect they exist to prevent: the reason `Error` is not stripped lived only in
 a source comment, and the project that inherited it carried the bug that comment describes
 for months.
 
-#### `_Framework/Events/ARCHITECTURE.md`
-```markdown
-# Events
-
-## Purpose
-Carries one-way notifications between modules that must not reference each other.
-
-## Boundary
-Never holds state, never orders its subscribers, and never reaches into a scene. A
-notification that stays inside one prefab is not its job — that is a plain C# event on the
-class that owns it.
-
-## How to extend
-Declare the payload as a readonly struct in the publishing domain's own folder, publish from
-a service or handler, subscribe in the acquire step of the subscriber's lifecycle and
-release in the teardown step. A shell that forwards lifecycle calls never subscribes itself.
-
-## Gotchas
-Dispatch isolates each subscriber: one that throws is logged and the rest still run. This is
-the only place in the project permitted to catch every exception type, because the bus
-cannot know what a subscriber may throw and one subscriber's failure must not become
-another's. Without it a single bad subscriber silently starves every later one and the
-error surfaces at the publisher, which has nothing to do with the cause. It is also why the
-error log path is neither stripped nor filtered — see the logging assembly's own doc.
-
-Exactly one static accessor is approved here, and it exists only because ECS systems cannot
-be constructor-injected; adding a second is a design decision, not a convenience. A
-subscriber that forgets its teardown keeps receiving callbacks after disposal, and the leak
-surfaces as a null reference far from its cause.
-```
-
-#### `_Framework/Logging/ARCHITECTURE.md`
-```markdown
-# Logging
-
-## Purpose
-Gives runtime game code a log path that can be stripped from release builds and filtered per
-domain.
-
-## Boundary
-Editor tooling and tests do not log through here — their output must not be silenceable by
-runtime state. This assembly formats and forwards; it never decides what is worth logging.
-
-## How to extend
-A new domain adds one tag to the enum. That is the whole job — the enabled set is derived
-from the enum, deliberately, so there is no second place to forget. An earlier version kept
-a hand-written list beside it; a tag missing from that list compiled, ran, matched nothing
-and returned, with no error and no warning, reading as broken logging rather than a
-disabled tag. Do not reintroduce the list.
-
-## Gotchas
-The error path is deliberately neither compiled out nor tag-filtered, while the diagnostic
-paths are both. An error is a defect report, not a diagnostic: the case that forced this was
-subscriber exceptions reported under a tag nobody had enabled, so they were invisible in the
-Editor and stripped from release at the same time, and all game logic runs inside those
-subscribers. Do not "tidy" the attributes or the filter back on. Pass a caught exception as
-the object, not as its message text — the message alone drops the file and line.
-```
-
-#### `_Framework/SaveLoadSystems/ARCHITECTURE.md`
-```markdown
-# SaveLoadSystems
-
-## Purpose
-Persists and restores typed data behind one contract, so callers never learn where the bytes
-go.
-
-## Boundary
-This is the only place in the project that touches the filesystem, the platform preference
-store, or a JSON serializer. Game code that reaches for any of those directly is bypassing
-the boundary, and a hook blocks it. Deciding what a missing value should default to is the
-calling domain's job, never this one's — only that domain knows its valid range.
-
-## How to extend
-A new backend is a new implementation of the access-layer interface plus one changed
-registration line. The service above it and every caller stay untouched; if adding a backend
-forces a change to either, the boundary is in the wrong place. Two backends that are both
-live for different data categories are two independent pairs, not one keyed factory.
-
-## Gotchas
-Writes replace a temp file rather than truncating the live one, because a process killed
-mid-write otherwise leaves an empty file and the previous save is already gone — routine on
-mobile. Reads catch only the deserialization failure and fall back to the default; catching
-everything would swallow a locked file or a permissions error, which are different bugs with
-different fixes. Not every backend can offer the atomic swap, and one that cannot must say
-so in its own class.
-```
-
-#### `_Framework/Editors/ARCHITECTURE.md`
-```markdown
-# Editors
-
-## Purpose
-Holds framework tooling that exists only inside the Unity Editor.
-
-## Boundary
-Never referenced from a runtime assembly, in either direction — this assembly is restricted
-to the Editor platform, so a runtime reference to it does not fail at review, it fails at
-build time, on the build machine, long after the change was made.
-
-## How to extend
-Add the tool here and keep it self-contained. Editor code that needs to read runtime types
-references the runtime assembly, never the reverse. Runtime code that needs an Editor-only
-branch guards it with the Editor compilation symbol in place, instead of moving the file.
-
-## Gotchas
-The platform restriction lives in this folder's assembly definition, not in any file, so it
-cannot be granted or waived per file. Moving one script out of this folder silently drops it
-into a shipping build, with no error anywhere until something Editor-only is called at
-runtime.
-```
+> **The four `_Framework/` docs are therefore not written here.** Each one now lives beside
+> the assembly it documents, inside the `com.berkterek.framework` package — that is the same
+> rule, applied where the assembly actually is. Writing a second copy under `Assets/` would
+> document code the project does not contain, which is worse than no doc: it reads as current.
+>
+> The contract above still binds every **game-side** domain doc (`Concretes/<Domain>/`), and
+> it binds the package's own docs, which is why they ship with it.
 
 #### `_GameFolders/Scripts/Games/Concretes/Infrastructure/EventBusModule.cs`
 ```csharp
