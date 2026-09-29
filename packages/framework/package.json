@@ -1,0 +1,14 @@
+{
+  "name": "com.berkterek.framework",
+  "version": "0.1.0",
+  "displayName": "Berkterek Unity Framework",
+  "description": "Engine-agnostic infrastructure for Unity projects built from the unity-claude-ai-template-repo template: IEventBus, DLog, the ISaveLoadService/ISaveLoadDal chain, and the SerializedOps Editor applier that lets an agent assign inspector references without writing a throwaway Editor script.",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  },
+  "author": {
+    "name": "berkterek",
+    "url": "https://github.com/berkterek"
+  }
+}
