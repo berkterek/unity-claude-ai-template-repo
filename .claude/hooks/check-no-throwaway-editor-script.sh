@@ -75,7 +75,14 @@ Unknown parameter shape is NOT a reason to write C#: load the unity-mcp-skill
 skill and read the tool schema, or inspect the live API with unity_reflect.
 Do not guess, and do not fall back to C# after one failed call.
 
-If this genuinely needs C# (bulk AssetImporter work MCP does not cover):
+Assigning an inspector reference or a nested SerializedProperty is NOT a case
+for C# at all — the framework already ships a permanent applier for it:
+  -> write Temp/serialized-ops.json, then execute_menu_item
+     menu_path: \"Tools/Framework/Apply Serialized Ops\"
+  -> read Temp/serialized-ops-result.json (not the console)
+  -> contract: SERIALIZED_OPS_MANIFEST.md in the com.berkterek.framework package
+
+If this genuinely needs C# (bulk AssetImporter work MCP and the applier do not cover):
   -> write it as a PERMANENT tool under Assets/Editor/, not a Temp/ file to delete
   -> or state the reason: echo 'why' > \"\$(git rev-parse --show-toplevel)/.claude/state/editor-script-override\"
 Kill switch: DISABLE_HOOK_CHECK_NO_THROWAWAY_EDITOR_SCRIPT=1"

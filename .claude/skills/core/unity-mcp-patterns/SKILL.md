@@ -102,7 +102,21 @@ If an MCP operation fails:
 1. `read_console` — get the error message
 2. Fix the underlying issue (missing reference, wrong type, etc.)
 3. Retry the operation
-4. If the error persists, fall back to writing an Editor script
+4. If the error persists and the job is assigning an inspector reference or a nested
+   `SerializedProperty` on a prefab or ScriptableObject, use the framework's SerializedOps
+   applier — **never** write a throwaway Editor script, which `check-no-throwaway-editor-script.sh`
+   blocks:
+   - write the manifest to `Temp/serialized-ops.json` (`version: 1`, an `ops` array of
+     `setRef` / `setValue` / `addComponent`)
+   - `execute_menu_item` with `menu_path: "Tools/Framework/Apply Serialized Ops"` — the full
+     path including the leading `Tools/`
+   - read `Temp/serialized-ops-result.json`, not the console. The file is deleted before every
+     run, so its absence after a run is a failure, never "no output"
+   - every applied op is re-read from a fresh load of the saved asset, so a `read-back failed:`
+     status means the write did not persist — that is a failure, not a warning
+
+   Full input contract: `packages/framework/Editors/SERIALIZED_OPS_MANIFEST.md` (in the
+   consuming project: the same file inside the `com.berkterek.framework` package).
 
 ## Rule 7: MCP vs File Editing
 
