@@ -210,6 +210,81 @@ public sealed class SceneService : ISceneService, IAsyncStartable
 
 ---
 
+### Card 7: Scene Transitions Are a Command; Cross-Scene Data Lives in an App-Scope Service
+
+**WHEN:** A button (Play, Next Level, Back to Menu) changes scene, or the next scene needs a value
+chosen in the current one (selected level, difficulty, character).
+
+**WRONG:**
+```csharp
+// A command sent as a broadcast: nobody can await it, nobody knows if it was handled
+_eventBus.Publish(new StartGameRequestedEvent());
+
+// Data sent as an event before its receiver exists — the Game scene's services are
+// created AFTER the load, so this has no subscriber and is silently lost
+_eventBus.Publish(new LevelSelectedEvent(3));
+```
+
+**RIGHT:**
+```csharp
+// Game.Abstracts.Scenes/ISceneService.cs — extends Card 6's contract
+public interface ISceneService
+{
+    /// <remarks>
+    /// Precondition: sceneId is a SceneIds constant and the scene is in the build.
+    /// Side effect: the previously active scene is unloaded after the new one is active.
+    /// Idempotent: a call while a load is running is ignored — never queued, never doubled.
+    /// </remarks>
+    UniTask LoadAsync(string sceneId, CancellationToken ct);
+    ReadOnlyReactiveProperty<bool> IsLoading { get; }
+}
+
+// Game.Concretes.Infrastructure.Helpers/SceneIds.cs — same contract shape as SaveKeyHelper
+public static class SceneIds
+{
+    public const string MENU = "Menu";
+    public const string GAME = "Game";
+}
+
+// Game.Abstracts.Levels/ILevelSessionService.cs — registered in AppModules, so it outlives every scene
+public interface ILevelSessionService
+{
+    ReadOnlyReactiveProperty<int> SelectedLevel { get; }
+    void Select(int level);
+}
+```
+```csharp
+// Menu: write the choice, then issue the command
+_levelSession.Select(3);
+await _sceneService.LoadAsync(SceneIds.GAME, ct);
+
+// Game scene service: reads it through the parent scope, in Initialize — the value is already there
+public void Initialize() => _level = _levelSession.SelectedLevel.CurrentValue;
+```
+
+- **Changing scene is a command** — one receiver, and a result the caller awaits (loading finished,
+  button re-enabled). It is an interface call. `IEventBus` stays for "something happened"
+  notifications with N listeners — `LevelStartedEvent` published *after* the Game scene is up.
+- **The View binds `IsLoading` to the button** (`SetEnabled(!loading)`), and `SceneService` ignores a
+  call made while loading. Double-tapping Play is a real input, not an edge case.
+- **All `SceneManager` calls stay in `ISceneLoader`** (Card 6) — the loader grows one method that
+  loads the target additively, activates it, and unloads the previously active scene.
+- **`SceneModule` is installed from `AppModules`, never from `SceneModules`.** The scene that calls
+  `LoadAsync` is the scene being unloaded; a scene service would be disposed halfway through its own
+  swap. For the same reason `SceneService` finishes the swap on its **own** app-lifetime token — the
+  caller's `destroyCancellationToken` belongs to a View that the unload destroys, so passing it all the
+  way down cancels the load at exactly the step that unloads that View.
+- **Cross-scene data is an app-lifetime service**, never an event, never a static field, never a
+  scene-load parameter. If it must survive a restart too, that same service persists it through
+  `ISaveLoadService` (`save-load.md`).
+
+**GOTCHA:** An event is only delivered to subscribers that exist at publish time. Every scene-scoped
+service in the next scene is constructed *after* the load the event was meant to accompany, so the
+event reaches nobody — the late-subscriber failure of `event-patterns.md` Card 5, stretched across a
+scene boundary. It fails silently: the Game scene simply starts at its default level.
+
+---
+
 ## Layer Structure
 
 ```
