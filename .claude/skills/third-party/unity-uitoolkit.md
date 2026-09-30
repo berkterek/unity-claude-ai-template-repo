@@ -1,6 +1,6 @@
 ---
 name: unity-uitoolkit
-description: "Unity UI Toolkit patterns for custom Editor windows, custom inspectors, PropertyDrawers, and level editors. Use when building EditorWindow, custom Inspector, PropertyDrawer, UXML/USS layouts, VisualElement hierarchies, or SerializedProperty binding. Editor-only — NOT for runtime UI (this project uses UGUI; see unity-ugui skill for runtime UI)."
+description: "Unity UI Toolkit patterns for custom Editor windows, custom inspectors, PropertyDrawers, and level editors. Use when building EditorWindow, custom Inspector, PropertyDrawer, UXML/USS layouts, VisualElement hierarchies, or SerializedProperty binding. Editor-focused. Runtime game UI with UI Toolkit (Unity 6+ only) follows rules/ui-toolkit-runtime.md and the ui-toolkit systems skill; below Unity 6, runtime UI is UGUI (unity-ugui skill)."
 user-invocable: true
 model-tier: normal
 ---
@@ -608,47 +608,12 @@ Note: EditorWindow UI (panels, buttons) uses UI Toolkit; scene interaction uses 
 
 ## Runtime UI Toolkit
 
-For runtime UI (not Editor), the setup is different:
+This skill covers Editor UI. Runtime game UI is version-gated and has its own rule:
 
-1. Add `UIDocument` component to a GameObject in the scene
-2. Assign a `PanelSettings` asset and a `VisualTreeAsset` (UXML)
-3. Access the root in C#:
+- **Unity 6 (6000.0)+:** allowed for menus — follow `rules/ui-toolkit-runtime.md` (screen routing, tokens, the one shared `PanelSettings`, the `*View` pattern, and the field-measured traps) and `skills/systems/ui-toolkit/SKILL.md` → View Script for the code shape.
+- **Older than Unity 6:** runtime UI is UGUI — `skills/core/unity-ugui.md`.
 
-```csharp
-public sealed class MainMenuView : MonoBehaviour
-{
-    private UIDocument _document;
-    private Button _playButton;
-    
-    private void Awake()
-    {
-        _document = GetComponent<UIDocument>();
-    }
-    
-    [Inject]
-    public void Construct(IMenuService menuService)
-    {
-        _menuService = menuService;
-    }
-    
-    private void OnEnable()
-    {
-        var root = _document.rootVisualElement;
-        _playButton = root.Q<Button>("play-button");
-        _playButton.clicked += OnPlayClicked;
-    }
-    
-    private void OnDisable()
-    {
-        if (_playButton != null)
-            _playButton.clicked -= OnPlayClicked;
-    }
-    
-    private void OnPlayClicked() => _menuService.StartGame();
-}
-```
-
-Subscribe in `OnEnable`, unsubscribe in `OnDisable` — same pattern as a UGUI View.
+The `*View` assigns its `UIDocument` via `[SerializeField]` (never `GetComponent` in `Awake` — `performance.md`), queries and `+=` in `OnEnable`, `-=` in `OnDisable`.
 
 ---
 

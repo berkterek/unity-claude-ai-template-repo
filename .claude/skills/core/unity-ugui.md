@@ -1,11 +1,11 @@
 ---
 name: unity-ugui
-description: "Unity runtime UI implementation guide using UGUI (Canvas-based). Use this skill whenever building, modifying, or debugging any runtime UI in the project — Canvas screens, Buttons, TextMeshPro labels, Scroll Views, popups, HUD elements, or any MonoBehaviour View script. Triggers on: 'add UI', 'create canvas', 'build screen', 'add button', 'popup', 'scroll view', 'HUD', 'menu screen', 'dialog', or any request involving Unity's runtime UI layer."
+description: "Unity runtime UI implementation guide using UGUI (Canvas-based). Use this skill whenever building, modifying, or debugging any runtime UI in the project — Canvas screens, Buttons, TextMeshPro labels, Scroll Views, popups, HUD elements, or any MonoBehaviour View script. Triggers on: 'add UI', 'create canvas', 'build screen', 'add button', 'popup', 'scroll view', 'HUD', 'menu screen', 'dialog', or any request involving Unity's runtime UI layer. On Unity 6 (6000.0)+ check rules/ui-toolkit-runtime.md Card 1 first — full-screen menus there are UI Toolkit, not UGUI."
 ---
 
 # Unity UGUI — Runtime UI
 
-Runtime UI in this project is **UGUI only** (Canvas-based). UI Toolkit is Editor-only — never use `UIDocument` or `VisualElement` in runtime scenes.
+Which runtime UI system a screen uses is decided by `rules/ui-toolkit-runtime.md` Card 1. **Below Unity 6 (6000.0), runtime UI is UGUI only** and UI Toolkit is Editor-only. On Unity 6+, full-screen menus use UI Toolkit; this skill covers the screens that stay UGUI there — world-anchored UI, Animator/Timeline-driven UI, and every runtime screen on older Unity.
 
 ## Quick Decision
 

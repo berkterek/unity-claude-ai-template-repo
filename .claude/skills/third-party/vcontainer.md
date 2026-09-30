@@ -269,6 +269,23 @@ To register the MonoBehaviour with the scope:
 builder.RegisterComponentInHierarchy<PlayerView>();
 ```
 
+### When `[Inject]` Runs Relative to Awake / OnEnable
+
+Read from VContainer's source (`LifetimeScope.cs`, `ObjectResolverUnityExtensions.cs`), not assumed:
+
+- `LifetimeScope` is `[DefaultExecutionOrder(-5000)]` and builds + injects in its own `Awake`
+  (`Build()` → `SetContainer()` → `AutoInjectAll()`). In the **same scene**, every component the
+  scope registers is injected before that component's own `Awake`/`OnEnable`.
+- `IObjectResolver.Instantiate(prefab, …)` deactivates the prefab, instantiates, injects, then
+  restores the active flag — so a spawned instance is injected before its `Awake`/`OnEnable`.
+  Plain `Object.Instantiate` injects nothing.
+- A scope injects only what it registers. A MonoBehaviour in the Menu or Game scene is **not**
+  injected by the Bootstrap `AppScope` — its own scene scope must register it.
+
+When any of these is violated the symptom is the same: an `[Inject] Construct` that never ran, and a
+`NullReferenceException` on the first dependency the component touches — usually in `OnEnable`.
+UI Toolkit Views hit this first because they bind in `OnEnable` (`rules/ui-toolkit-runtime.md` Card 12).
+
 ### IInitializable / IDisposable Lifecycle
 
 ```csharp

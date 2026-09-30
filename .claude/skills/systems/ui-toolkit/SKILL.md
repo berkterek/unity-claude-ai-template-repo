@@ -6,6 +6,8 @@ globs: ["**/*.uxml", "**/*.uss", "**/UIDocument*"]
 
 # UI Toolkit
 
+> **Project rule first:** `rules/ui-toolkit-runtime.md`. UI Toolkit is runtime game UI on **Unity 6 (6000.0)+** and Editor-only below that; its Card 1 routes each screen type (menus → UI Toolkit, world-anchored / Animator-driven → UGUI). Where this skill and the rule disagree, the rule wins. The rule's Cards 3, 5, 6 and 7 are field-measured traps this skill does not cover.
+
 ## UXML Structure
 
 ```xml
@@ -77,36 +79,302 @@ globs: ["**/*.uxml", "**/*.uss", "**/UIDocument*"]
 - Transitions: `transition-duration`, `transition-property`
 - No `em`/`rem` — use `px` or `%`
 
-## Controller Script
+## View Script
+
+A UI Toolkit screen is a `*View` (`solid-oop.md` Card 1 — `*View` is UI-only). Query and subscribe in `OnEnable`, unsubscribe in `OnDisable`: `UIDocument` rebuilds its tree on re-enable, so references cached in `Awake`/`Start` go stale (`rules/ui-toolkit-runtime.md` Card 5).
 
 ```csharp
-public sealed class MainMenuController : MonoBehaviour
+public sealed class MainMenuView : MonoBehaviour
 {
-    [SerializeField] private UIDocument m_Document;
+    #region Fields
+
+    private const string PLAY_BUTTON   = "btn-play";
+    private const string VOLUME_SLIDER = "volume-slider";
+
+    [SerializeField] private UIDocument _document;
+
+    private IMenuService _menuService;
+    private Button _playButton;
+    private Slider _volumeSlider;
+
+    #endregion
+
+    #region Lifecycle
+
+    [Inject]
+    public void Construct(IMenuService menuService) => _menuService = menuService;
 
     private void OnEnable()
     {
-        VisualElement root = m_Document.rootVisualElement;
+        VisualElement root = _document.rootVisualElement;
 
-        root.Q<Button>("btn-play").clicked += OnPlayClicked;
-        root.Q<Button>("btn-settings").clicked += OnSettingsClicked;
-        root.Q<Button>("btn-quit").clicked += OnQuitClicked;
+        _playButton   = root.Q<Button>(PLAY_BUTTON);
+        _volumeSlider = root.Q<Slider>(VOLUME_SLIDER);
 
-        Slider volumeSlider = root.Q<Slider>("volume-slider");
-        volumeSlider.RegisterValueChangedCallback(evt => OnVolumeChanged(evt.newValue));
+        _playButton.clicked += OnPlayClicked;
+        _volumeSlider.RegisterValueChangedCallback(OnVolumeChanged);
     }
 
-    private void OnPlayClicked() { /* Load game scene */ }
-    private void OnSettingsClicked() { /* Show settings panel */ }
-    private void OnQuitClicked() { Application.Quit(); }
-    private void OnVolumeChanged(float value) { /* Set audio volume */ }
+    private void OnDisable()
+    {
+        _playButton.clicked -= OnPlayClicked;
+        _volumeSlider.UnregisterValueChangedCallback(OnVolumeChanged);
+    }
+
+    #endregion
+
+    #region Private Methods
+
+    private void OnPlayClicked() => _menuService.StartGame();
+    private void OnVolumeChanged(ChangeEvent<float> evt) => _menuService.SetVolume(evt.newValue);
+
+    #endregion
 }
 ```
+
+No logic in the View — every handler forwards to a service. A lambda passed to `RegisterValueChangedCallback` cannot be unregistered, which is why the callback is a named method.
+
+## Screen With a ViewModel
+
+**Decide first:** `rules/ui-toolkit-runtime.md` Card 11 has the scenario table. The screen above
+(buttons only) needs no ViewModel. A shop does: it combines two services, formats a value, and holds
+state of its own (the selected item) — three of the table's rows at once.
+
+**1. Interface — outputs are read-only, inputs are methods**
+
+```csharp
+// Games/Abstracts/Shop/IShopViewModel.cs
+using System;
+using R3;
+
+namespace Game.Abstracts.Shop
+{
+    public interface IShopViewModel : IDisposable
+    {
+        ReadOnlyReactiveProperty<int>    SelectedItem { get; }
+        ReadOnlyReactiveProperty<string> CoinsLabel   { get; }
+        ReadOnlyReactiveProperty<bool>   CanBuy       { get; }
+
+        void SelectItem(int index);
+        void BuySelected();
+    }
+}
+```
+
+**2. ViewModel — pure C#, no `UnityEngine`, no `UIElements`**
+
+```csharp
+// Games/Concretes/Shop/ShopViewModel.cs
+using Game.Abstracts.Shop;
+using R3;
+
+namespace Game.Concretes.Shop
+{
+    public sealed class ShopViewModel : IShopViewModel
+    {
+        #region Fields
+
+        private readonly IWalletService      _wallet;
+        private readonly IShopCatalogService _catalog;
+        private readonly ReactiveProperty<int> _selectedItem = new(0);
+
+        #endregion
+
+        #region Constructor
+
+        public ShopViewModel(IWalletService wallet, IShopCatalogService catalog)
+        {
+            _wallet  = wallet;
+            _catalog = catalog;
+
+            // Both subscribe to app-lifetime services — which is why Dispose() below is mandatory.
+            CoinsLabel = _wallet.Coins
+                .Select(coins => coins.ToString("N0"))
+                .ToReadOnlyReactiveProperty();
+
+            CanBuy = Observable
+                .CombineLatest(_wallet.Coins, _selectedItem, (coins, item) => coins >= _catalog.PriceOf(item))
+                .ToReadOnlyReactiveProperty();
+        }
+
+        #endregion
+
+        #region IShopViewModel
+
+        public ReadOnlyReactiveProperty<int>    SelectedItem => _selectedItem;
+        public ReadOnlyReactiveProperty<string> CoinsLabel   { get; }
+        public ReadOnlyReactiveProperty<bool>   CanBuy       { get; }
+
+        public void SelectItem(int index) => _selectedItem.Value = index;
+        public void BuySelected()         => _catalog.TryBuy(_selectedItem.Value); // the service owns the purchase
+
+        public void Dispose()
+        {
+            CoinsLabel.Dispose();
+            CanBuy.Dispose();
+            _selectedItem.Dispose();
+        }
+
+        #endregion
+    }
+}
+```
+
+**3. View — maps outputs onto elements, forwards input, owns both lifetimes**
+
+```csharp
+// Games/Concretes/Shop/ShopView.cs
+using System;
+using System.Collections.Generic;
+using Game.Abstracts.Shop;
+using R3;
+using UnityEngine;
+using UnityEngine.UIElements;
+using VContainer;
+
+namespace Game.Concretes.Shop
+{
+    public sealed class ShopView : MonoBehaviour
+    {
+        #region Fields
+
+        private const string COINS_LABEL = "coins-label";
+        private const string BUY_BUTTON  = "btn-buy";
+        private const string ITEM_CLASS  = "shop-item";
+        private const string ACTIVE      = "is-active";
+
+        [SerializeField] private UIDocument _document;
+
+        private readonly CompositeDisposable _bindings = new();
+
+        private IShopViewModel _viewModel;
+        private Label _coinsLabel;
+        private Button _buyButton;
+        private List<VisualElement> _items;
+
+        #endregion
+
+        #region Lifecycle
+
+        [Inject]
+        public void Construct(Func<IShopViewModel> viewModelFactory) => _viewModel = viewModelFactory();
+
+        private void OnEnable()
+        {
+            VisualElement root = _document.rootVisualElement;   // re-queried: the tree is rebuilt on re-enable
+            _coinsLabel = root.Q<Label>(COINS_LABEL);
+            _buyButton  = root.Q<Button>(BUY_BUTTON);
+            _items      = root.Query<VisualElement>(className: ITEM_CLASS).ToList();
+
+            for (int i = 0; i < _items.Count; i++)
+            {
+                _items[i].userData = i;                          // stable index, independent of sibling order
+                _items[i].RegisterCallback<ClickEvent>(OnItemClicked);
+            }
+
+            _buyButton.clicked += _viewModel.BuySelected;
+
+            _viewModel.CoinsLabel.Subscribe(text => _coinsLabel.text = text).AddTo(_bindings);
+            _viewModel.CanBuy.Subscribe(canBuy => _buyButton.SetEnabled(canBuy)).AddTo(_bindings);
+            _viewModel.SelectedItem.Subscribe(OnSelectedItemChanged).AddTo(_bindings);
+        }
+
+        private void OnDisable()
+        {
+            _bindings.Clear();                                   // bindings end with the enable cycle
+            _buyButton.clicked -= _viewModel.BuySelected;
+
+            for (int i = 0; i < _items.Count; i++)
+            {
+                _items[i].UnregisterCallback<ClickEvent>(OnItemClicked);
+            }
+        }
+
+        private void OnDestroy() => _viewModel?.Dispose();       // the ViewModel ends with the View
+
+        #endregion
+
+        #region Private Methods
+
+        private void OnItemClicked(ClickEvent evt) =>
+            _viewModel.SelectItem((int)((VisualElement)evt.currentTarget).userData);
+
+        private void OnSelectedItemChanged(int selected)
+        {
+            for (int i = 0; i < _items.Count; i++)
+            {
+                _items[i].EnableInClassList(ACTIVE, i == selected); // binding, not logic
+            }
+        }
+
+        #endregion
+    }
+}
+```
+
+Mapping an output onto a class or a label is **binding** and belongs in the View. Deciding *what*
+the output is — whether the player can afford it, how the number is written — is **logic** and
+belongs in the ViewModel. `.is-active` styling itself lives in USS.
+
+**4. Wiring — a factory in the domain's Module, never a direct registration**
+
+```csharp
+// Games/Concretes/Shop/ShopModule.cs → Install()
+builder.RegisterFactory<IShopViewModel>(
+    container => () => new ShopViewModel(
+        container.Resolve<IWalletService>(),
+        container.Resolve<IShopCatalogService>()),
+    Lifetime.Scoped);
+```
+
+Each call to the factory makes a fresh ViewModel, so two open shop screens never share selection
+state. A ViewModel with no container dependencies skips the factory: the View `new`s it in `Awake`.
+
+The View itself must be known to a scope, or `Construct` never runs and `OnEnable` throws on
+`_viewModel` (`rules/ui-toolkit-runtime.md` Card 12):
+
+```csharp
+// The scene's own scope — GameScope / MenuScope — never the Bootstrap AppScope
+[SerializeField] private ShopView _shopView;
+
+protected override void Configure(IContainerBuilder builder)
+{
+    builder.RegisterComponent(_shopView);   // scene MonoBehaviour — bootstrap-pattern.md Card 4
+    SceneModules.InstallMenu(builder);
+}
+```
+
+A shop opened on demand instead of placed in the scene is spawned with
+`_resolver.Instantiate(_shopPrefab, _uiRoot)` — plain `Object.Instantiate` skips injection entirely.
+
+**5. Test — EditMode, no scene, no UI**
+
+```csharp
+[Test]
+public void CanBuy_WhenCoinsBelowSelectedPrice_IsFalse()
+{
+    // Arrange
+    var wallet  = Substitute.For<IWalletService>();
+    var catalog = Substitute.For<IShopCatalogService>();
+    wallet.Coins.Returns(new ReactiveProperty<int>(50));
+    catalog.PriceOf(0).Returns(100);
+    using var sut = new ShopViewModel(wallet, catalog);
+
+    // Act
+    bool canBuy = sut.CanBuy.CurrentValue;
+
+    // Assert
+    Assert.IsFalse(canBuy);
+}
+```
+
+This test is the reason the pattern exists: the "can the player afford it" rule is checked without
+opening Unity's Play mode, and no MVP-style `IShopView` mock was needed to get there.
 
 ## UQuery
 
 ```csharp
-VisualElement root = m_Document.rootVisualElement;
+VisualElement root = _document.rootVisualElement;
 
 // By name
 Button playBtn = root.Q<Button>("btn-play");
@@ -128,9 +396,9 @@ ListView listView = root.Q<ListView>("inventory-list");
 listView.makeItem = () => new Label(); // Create UI element
 listView.bindItem = (element, index) =>
 {
-    ((Label)element).text = m_Items[index].Name;
+    ((Label)element).text = _items[index].Name;
 };
-listView.itemsSource = m_Items;
+listView.itemsSource = _items;
 listView.fixedItemHeight = 40;
 listView.selectionType = SelectionType.Single;
 listView.selectionChanged += OnSelectionChanged;
@@ -141,19 +409,19 @@ listView.selectionChanged += OnSelectionChanged;
 ```csharp
 public sealed class HealthBar : VisualElement
 {
-    private VisualElement m_Fill;
+    private VisualElement _fill;
 
     public float Value
     {
-        set => m_Fill.style.width = new Length(value * 100f, LengthUnit.Percent);
+        set => _fill.style.width = new Length(value * 100f, LengthUnit.Percent);
     }
 
     public HealthBar()
     {
         AddToClassList("health-bar");
-        m_Fill = new VisualElement();
-        m_Fill.AddToClassList("health-fill");
-        Add(m_Fill);
+        _fill = new VisualElement();
+        _fill.AddToClassList("health-fill");
+        Add(_fill);
     }
 
     // Required for UXML instantiation
@@ -322,31 +590,31 @@ Load different USS files at runtime to change the entire UI appearance:
 ```csharp
 public sealed class ThemeManager : MonoBehaviour
 {
-    [SerializeField] private UIDocument m_Document;
-    [SerializeField] private StyleSheet m_DarkTheme;
-    [SerializeField] private StyleSheet m_LightTheme;
+    [SerializeField] private UIDocument _document;
+    [SerializeField] private StyleSheet _darkTheme;
+    [SerializeField] private StyleSheet _lightTheme;
 
-    private StyleSheet m_ActiveTheme;
+    private StyleSheet _activeTheme;
 
     public void SetDarkMode()
     {
-        SwapTheme(m_DarkTheme);
+        SwapTheme(_darkTheme);
     }
 
     public void SetLightMode()
     {
-        SwapTheme(m_LightTheme);
+        SwapTheme(_lightTheme);
     }
 
     private void SwapTheme(StyleSheet newTheme)
     {
-        VisualElement root = m_Document.rootVisualElement;
-        if (m_ActiveTheme != null)
+        VisualElement root = _document.rootVisualElement;
+        if (_activeTheme != null)
         {
-            root.styleSheets.Remove(m_ActiveTheme);
+            root.styleSheets.Remove(_activeTheme);
         }
         root.styleSheets.Add(newTheme);
-        m_ActiveTheme = newTheme;
+        _activeTheme = newTheme;
     }
 }
 ```
@@ -384,13 +652,13 @@ from Addressables or Resources:
 ```csharp
 public sealed class ThemeLoader
 {
-    private readonly UIDocument m_Document;
-    private StyleSheet m_CurrentTheme;
+    private readonly UIDocument _document;
+    private StyleSheet _currentTheme;
 
     [Inject]
     public ThemeLoader(UIDocument document)
     {
-        m_Document = document;
+        _document = document;
     }
 
     public async UniTask LoadThemeAsync(string themeAddress, CancellationToken token)
@@ -398,13 +666,13 @@ public sealed class ThemeLoader
         StyleSheet newTheme = await Addressables.LoadAssetAsync<StyleSheet>(themeAddress)
             .ToUniTask(cancellationToken: token);
 
-        VisualElement root = m_Document.rootVisualElement;
-        if (m_CurrentTheme != null)
+        VisualElement root = _document.rootVisualElement;
+        if (_currentTheme != null)
         {
-            root.styleSheets.Remove(m_CurrentTheme);
+            root.styleSheets.Remove(_currentTheme);
         }
         root.styleSheets.Add(newTheme);
-        m_CurrentTheme = newTheme;
+        _currentTheme = newTheme;
     }
 }
 ```
@@ -452,7 +720,7 @@ listView.makeItem = () =>
 
 listView.bindItem = (element, index) =>
 {
-    ItemData item = m_Items[index];
+    ItemData item = _items[index];
     element.Q<Label>("label").text = item.DisplayName;
     element.Q("icon").style.backgroundImage = new StyleBackground(item.Icon);
 };
@@ -461,7 +729,7 @@ listView.bindItem = (element, index) =>
 listView.bindItem = (element, index) =>
 {
     element.Clear();                          // destroys cached children
-    element.Add(new Label(m_Items[index].Name)); // allocates every bind
+    element.Add(new Label(_items[index].Name)); // allocates every bind
 };
 ```
 
@@ -472,7 +740,7 @@ to trigger a single batch rebind:
 
 ```csharp
 // After adding/removing items from the source list
-m_Items.Add(newItem);
+_items.Add(newItem);
 listView.RefreshItems(); // rebinds only visible items
 
 // For full data source replacement
@@ -500,7 +768,7 @@ UI Toolkit supports keyboard navigation via the focus ring. Set `tabIndex` to
 control tab order:
 
 ```csharp
-VisualElement root = m_Document.rootVisualElement;
+VisualElement root = _document.rootVisualElement;
 root.Q<Button>("btn-play").tabIndex = 0;
 root.Q<Button>("btn-settings").tabIndex = 1;
 root.Q<Button>("btn-quit").tabIndex = 2;
@@ -589,62 +857,454 @@ parent.RegisterCallback<PointerDownEvent>(evt =>
 }, TrickleDownPhase.TrickleDown);
 ```
 
-## Transitions and Animation
+## Screens, Popups and Motion
 
-### USS Transition Property
+Governed by `rules/ui-toolkit-runtime.md` Cards 13 (screen infrastructure) and 14 (motion). The code
+below is that infrastructure — written once per project, after which a new screen contains **no
+animation code and no navigation plumbing**. It maps onto what you know from the web: USS
+`transition` ≈ CSS `transition`, `AddToClassList` ≈ `classList.add`, `TransitionEndEvent` ≈
+`transitionend`. There is no `@keyframes` — see step 7.
 
-Animate property changes with CSS-like transitions:
+### 1. Motion catalog — `_GameFolders/UI/Theme/Motion.uss`
 
 ```css
-.panel {
-    opacity: 1;
-    translate: 0 0;
-    transition-property: opacity, translate;
-    transition-duration: 0.3s, 0.3s;
-    transition-timing-function: ease-in-out, ease-out;
+:root {
+    --motion-fast: 150ms;
+    --motion-base: 240ms;
+    --motion-slow: 400ms;
 }
 
-.panel.hidden {
-    opacity: 0;
-    translate: 0 20px;
-}
+/* Screens: fade */
+.anim-fade         { opacity: 0; transition-property: opacity;
+                     transition-duration: var(--motion-base); transition-timing-function: ease-out-cubic; }
+.anim-fade.is-open { opacity: 1; }
 
-/* Shorthand form */
-.fade-element {
-    transition: opacity 0.2s ease, background-color 0.15s ease-in;
+/* Screens: slide up (bottom sheet) */
+.anim-slide         { opacity: 0; translate: 0 48px; transition-property: opacity, translate;
+                      transition-duration: var(--motion-base); transition-timing-function: ease-out-cubic; }
+.anim-slide.is-open { opacity: 1; translate: 0 0; }
+
+/* Popups: the root is the backdrop, the panel pops. The panel rule is written against the ROOT's
+   state — the open class is only ever added to the root. */
+.anim-pop                        { opacity: 0; transition-property: opacity; transition-duration: var(--motion-fast);
+                                   background-color: var(--color-scrim); position: absolute;
+                                   left: 0; top: 0; right: 0; bottom: 0; align-items: center; justify-content: center; }
+.anim-pop.is-open                { opacity: 1; }
+.anim-pop .popup-panel           { scale: 0.9 0.9; transition-property: scale;
+                                   transition-duration: var(--motion-base); transition-timing-function: ease-out-back; }
+.anim-pop.is-open .popup-panel   { scale: 1 1; }
+```
+
+Every animation class transitions `opacity` — that is the single property the helper in step 2 waits
+for. A new animation kind is a new class here, never durations inside a screen's own USS.
+
+### 2. `UssTransition` — flip a class, await the real end
+
+```csharp
+// Games/Concretes/UI/UssTransition.cs
+using System;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using Framework.Logging;
+using UnityEngine.UIElements;
+
+namespace Game.Concretes.UI
+{
+    public static class UssTransition
+    {
+        private const string WAIT_PROPERTY = "opacity";                         // every Motion.uss class animates it
+        private static readonly TimeSpan SafetyTimeout = TimeSpan.FromSeconds(1); // NOT a duration — a net for a lost event
+
+        public static async UniTask SetStateAsync(VisualElement element, string stateClass, bool on, CancellationToken ct)
+        {
+            var done = new UniTaskCompletionSource();
+
+            // The target check matters: both events bubble, so a child's hover transition would end this wait.
+            void OnEnd(TransitionEndEvent e)       { if (e.target == element && e.stylePropertyNames.Contains(WAIT_PROPERTY)) done.TrySetResult(); }
+            void OnCancel(TransitionCancelEvent e) { if (e.target == element && e.stylePropertyNames.Contains(WAIT_PROPERTY)) done.TrySetResult(); }
+
+            element.RegisterCallback<TransitionEndEvent>(OnEnd);
+            element.RegisterCallback<TransitionCancelEvent>(OnCancel);   // interrupted → cancel, not end
+            try
+            {
+                element.EnableInClassList(stateClass, on);
+
+                // The end event may never come (no previous style state, transition removed) — never hang on it.
+                bool timedOut = await done.Task.AttachExternalCancellation(ct).TimeoutWithoutException(SafetyTimeout);
+                if (timedOut)
+                {
+                    DLog.Warning(LogTag.General, $"No transition end on '{element.name}' for '{stateClass}' — is an anim-* class on it?");
+                }
+            }
+            finally
+            {
+                element.UnregisterCallback<TransitionEndEvent>(OnEnd);
+                element.UnregisterCallback<TransitionCancelEvent>(OnCancel);
+            }
+        }
+    }
 }
 ```
 
-Supported animatable properties: `opacity`, `translate`, `scale`, `rotate`,
-`background-color`, `color`, `border-color`, `width`, `height`, `margin-*`,
-`padding-*`, `border-width`, `border-radius`, `flex-grow`, `flex-shrink`.
+`LogTag.UI` does **not exist yet**: the framework package's `LogTag` enum is closed (`General`,
+`EventBus`, `SaveLoad`) and `DLog` accepts nothing else, so a game cannot add a domain tag today even
+though `logging.md` Card 3 asks for one. Until the package offers a game-side tag, use
+`LogTag.General` in these three calls. The warning is the diagnostic for the most
+common authoring mistake — a screen whose root has no `anim-*` class simply appears/disappears after
+one second.
+
+### 3. Contracts — `Games/Abstracts/UI/`
+
+```csharp
+public interface IScreen
+{
+    UniTask ShowAsync(CancellationToken ct);
+    UniTask HideAsync(CancellationToken ct);
+}
+
+public interface IPopup<TResult> : IScreen
+{
+    /// <remarks>Precondition: ShowAsync has completed. Completes once, when the player answers.</remarks>
+    UniTask<TResult> WaitForResultAsync(CancellationToken ct);
+}
+
+public interface IScreenService
+{
+    void Register(IScreen screen);
+    void Unregister(IScreen screen);
+
+    /// <remarks>Side effect: hides the current screen first. Showing the screen already on top is a no-op.</remarks>
+    UniTask ShowAsync<TScreen>(CancellationToken ct) where TScreen : IScreen;
+
+    /// <remarks>No-op on the first screen of the scene.</remarks>
+    UniTask BackAsync(CancellationToken ct);
+
+    /// <remarks>Postcondition: the popup has finished its close transition before the result is returned.</remarks>
+    UniTask<TResult> ShowPopupAsync<TPopup, TResult>(CancellationToken ct) where TPopup : IPopup<TResult>;
+}
+```
+
+### 4. `ScreenView` — the base every screen and popup inherits
+
+```csharp
+// Games/Concretes/UI/ScreenView.cs
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using Game.Abstracts.UI;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace Game.Concretes.UI
+{
+    public abstract class ScreenView : MonoBehaviour, IScreen
+    {
+        #region Fields
+
+        private const string ROOT_CLASS = "screen";   // the UXML root: class="screen anim-fade"
+        private const string OPEN_CLASS = "is-open";
+
+        [SerializeField] protected UIDocument _document;
+
+        private IScreenService _screens;
+
+        #endregion
+
+        #region Properties
+
+        protected IScreenService Screens => _screens;
+        private VisualElement Root => _document.rootVisualElement.Q(className: ROOT_CLASS); // re-queried: tree is rebuilt per activation
+
+        #endregion
+
+        #region Lifecycle
+
+        protected virtual void OnDestroy() => _screens?.Unregister(this);  // subclasses override and call base
+
+        #endregion
+
+        #region Public Methods
+
+        public async UniTask ShowAsync(CancellationToken ct)
+        {
+            gameObject.SetActive(true);                 // OnEnable: UIDocument rebuilds the tree, the subclass binds
+            await UniTask.NextFrame(ct);                // a transition only starts after the element's first frame
+            await UssTransition.SetStateAsync(Root, OPEN_CLASS, true, ct);
+        }
+
+        public async UniTask HideAsync(CancellationToken ct)
+        {
+            await UssTransition.SetStateAsync(Root, OPEN_CLASS, false, ct);
+            gameObject.SetActive(false);                // only now — deactivating destroys the tree and the exit animation
+        }
+
+        #endregion
+
+        #region Protected Methods
+
+        /// <summary>Call from the subclass's [Inject] Construct.</summary>
+        protected void Attach(IScreenService screens)
+        {
+            _screens = screens;
+            screens.Register(this);
+        }
+
+        #endregion
+    }
+}
+```
+
+`Attach` is called from each subclass's own `Construct` rather than the base having an `[Inject]`
+method, so nothing depends on how VContainer treats inherited inject methods.
+
+### 5. `ScreenService` — history, serialised transitions, popups
+
+```csharp
+// Games/Concretes/UI/ScreenService.cs — pure C#, Tier 3, one per scene scope
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using Framework.Logging;
+using Game.Abstracts.UI;
+
+namespace Game.Concretes.UI
+{
+    public sealed class ScreenService : IScreenService, IDisposable
+    {
+        #region Fields
+
+        private readonly Dictionary<Type, IScreen> _screens = new();
+        private readonly Stack<IScreen> _history = new();
+        private readonly SemaphoreSlim _gate = new(1, 1);   // one transition at a time — double taps queue, never overlap
+
+        #endregion
+
+        #region Public Methods
+
+        public void Register(IScreen screen)   => _screens[screen.GetType()] = screen;
+        public void Unregister(IScreen screen) => _screens.Remove(screen.GetType());
+
+        public async UniTask ShowAsync<TScreen>(CancellationToken ct) where TScreen : IScreen
+        {
+            if (!TryGet(typeof(TScreen), out IScreen next)) return;
+
+            await _gate.WaitAsync(ct);
+            try
+            {
+                if (_history.Count > 0 && ReferenceEquals(_history.Peek(), next)) return; // already on top
+                if (_history.Count > 0) await _history.Peek().HideAsync(ct);
+                _history.Push(next);
+                await next.ShowAsync(ct);
+            }
+            finally { _gate.Release(); }
+        }
+
+        public async UniTask BackAsync(CancellationToken ct)
+        {
+            await _gate.WaitAsync(ct);
+            try
+            {
+                if (_history.Count < 2) return;
+                await _history.Pop().HideAsync(ct);
+                await _history.Peek().ShowAsync(ct);
+            }
+            finally { _gate.Release(); }
+        }
+
+        public async UniTask<TResult> ShowPopupAsync<TPopup, TResult>(CancellationToken ct) where TPopup : IPopup<TResult>
+        {
+            if (!TryGet(typeof(TPopup), out IScreen screen)) return default;
+            var popup = (TPopup)screen;
+
+            await _gate.WaitAsync(ct);
+            try { await popup.ShowAsync(ct); } finally { _gate.Release(); }
+
+            // The gate is NOT held while the player decides — a popup may open another popup.
+            TResult result = await popup.WaitForResultAsync(ct);
+
+            await _gate.WaitAsync(ct);
+            try { await popup.HideAsync(ct); } finally { _gate.Release(); }
+            return result;
+        }
+
+        public void Dispose() => _gate.Dispose();
+
+        #endregion
+
+        #region Private Methods
+
+        private bool TryGet(Type type, out IScreen screen)
+        {
+            if (_screens.TryGetValue(type, out screen)) return true;
+            DLog.Error(LogTag.General, $"{type.Name} is not registered — is it a [SerializeField] on this scene's scope?");
+            return false;
+        }
+
+        #endregion
+    }
+}
+```
+
+```csharp
+// Games/Concretes/UI/ScreenModule.cs
+public static class ScreenModule
+{
+    public static void Install(IContainerBuilder builder) =>
+        builder.Register<ScreenService>(Lifetime.Scoped).AsImplementedInterfaces();
+}
+```
+
+### 6. A screen, a popup, and the wiring
+
+```xml
+<!-- Screens/Settings/Settings.uxml -->
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement class="screen anim-fade settings">
+        <ui:Button name="btn-back" text="Back" class="ds-btn" />
+    </ui:VisualElement>
+</ui:UXML>
+
+<!-- Popups/Confirm/ConfirmPopup.uxml — the root IS the backdrop -->
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement class="screen anim-pop">
+        <ui:VisualElement class="popup-panel">
+            <ui:Label name="lbl-message" />
+            <ui:Button name="btn-yes" text="Yes" class="ds-btn ds-btn--primary" />
+            <ui:Button name="btn-no"  text="No"  class="ds-btn" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
+```
+
+```csharp
+public sealed class SettingsView : ScreenView
+{
+    private const string BACK_BUTTON = "btn-back";
+
+    private Button _backButton;
+
+    [Inject]
+    public void Construct(IScreenService screens) => Attach(screens);
+
+    private void OnEnable()
+    {
+        _backButton = _document.rootVisualElement.Q<Button>(BACK_BUTTON);
+        _backButton.clicked += OnBackClicked;
+    }
+
+    private void OnDisable() => _backButton.clicked -= OnBackClicked;
+
+    private void OnBackClicked() =>
+        Screens.BackAsync(destroyCancellationToken).Forget(ex =>
+        {
+            if (ex is OperationCanceledException) return;
+            DLog.Error(LogTag.General, "Back navigation failed.", ex);
+        });
+}
+
+public sealed class ConfirmPopupView : ScreenView, IPopup<bool>
+{
+    private const string YES_BUTTON = "btn-yes";
+    private const string NO_BUTTON  = "btn-no";
+
+    private UniTaskCompletionSource<bool> _answer;
+    private Button _yesButton;
+    private Button _noButton;
+
+    [Inject]
+    public void Construct(IScreenService screens) => Attach(screens);
+
+    private void OnEnable()
+    {
+        _answer = new UniTaskCompletionSource<bool>();   // fresh per showing — ShowAsync activates before WaitForResultAsync
+        VisualElement root = _document.rootVisualElement;
+        _yesButton = root.Q<Button>(YES_BUTTON);
+        _noButton  = root.Q<Button>(NO_BUTTON);
+        _yesButton.clicked += OnYesClicked;
+        _noButton.clicked  += OnNoClicked;
+    }
+
+    private void OnDisable()
+    {
+        _yesButton.clicked -= OnYesClicked;
+        _noButton.clicked  -= OnNoClicked;
+    }
+
+    public UniTask<bool> WaitForResultAsync(CancellationToken ct) => _answer.Task.AttachExternalCancellation(ct);
+
+    private void OnYesClicked() => _answer.TrySetResult(true);    // Try*: a double tap answers once
+    private void OnNoClicked()  => _answer.TrySetResult(false);
+}
+```
+
+```csharp
+// The scene's own scope registers every screen and popup — they start INACTIVE in the scene
+public sealed class MenuScope : LifetimeScope
+{
+    [SerializeField] private MainMenuView     _mainMenu;
+    [SerializeField] private SettingsView     _settings;
+    [SerializeField] private ConfirmPopupView _confirmPopup;
+
+    protected override void Configure(IContainerBuilder builder)
+    {
+        builder.RegisterComponent(_mainMenu);
+        builder.RegisterComponent(_settings);
+        builder.RegisterComponent(_confirmPopup);
+        SceneModules.InstallMenu(builder);
+    }
+}
+
+// SceneModules.InstallMenu
+ScreenModule.Install(builder);
+builder.RegisterEntryPoint<MenuEntryPoint>();   // IAsyncStartable: await _screens.ShowAsync<MainMenuView>(ct)
+
+// Anywhere a decision needs the player
+bool quit = await _screens.ShowPopupAsync<ConfirmPopupView, bool>(ct);
+```
+
+Prefab `UIDocument.sortingOrder`: screens `0`, popups `100`, overlays `200`. Scene transitions and
+cross-scene data (Play → Game scene, selected level) are `bootstrap-pattern.md` Card 7.
+
+### 7. What USS cannot do — C# tween
+
+No `@keyframes`, no looping transitions. Count-up numbers, spinners, pulses and multi-step sequences
+are C# tweens driven by the View (or a Handler it `new`s when the code grows), using the library the
+project already has:
+
+```csharp
+// DOTween — no UI Toolkit shortcuts, so the generic form
+_coinsTween?.Kill();
+_coinsTween = DOTween.To(() => _shownCoins, v => { _shownCoins = v; _coinsLabel.text = v.ToString("N0"); }, target, 0.4f);
+
+// PrimeTween ≥ 1.3.1 — VisualElement is supported natively
+Tween.VisualElementOpacity(_badge, endValue: 1f, duration: 0.2f);
+```
+
+Kill the tween before starting the next one and in `OnDisable` (`unity-lifecycle.md`). A ViewModel
+never starts a tween — it exposes the value, the View animates towards it.
 
 ### Hover and Active State Animations
 
-Combine pseudo-classes with transitions for interactive feedback:
+Pseudo-classes need no C# at all:
 
 ```css
 .inventory-slot {
-    scale: 1;
-    border-width: 2px;
-    border-color: rgba(255, 255, 255, 0.1);
-    transition: scale 0.15s ease-out, border-color 0.15s ease;
+    scale: 1 1;
+    border-color: var(--color-border);
+    transition-property: scale, border-color;
+    transition-duration: var(--motion-fast);
+    transition-timing-function: ease-out-cubic;
 }
 
-.inventory-slot:hover {
-    scale: 1.08;
-    border-color: rgba(255, 255, 255, 0.5);
-}
-
-.inventory-slot:active {
-    scale: 0.95;
-}
-
-.inventory-slot.selected {
-    border-color: var(--color-primary);
-    border-width: 3px;
-}
+.inventory-slot:hover  { scale: 1.08 1.08; border-color: var(--color-border-strong); }
+.inventory-slot:active { scale: 0.95 0.95; }
+.inventory-slot.is-active { border-color: var(--color-primary); }
 ```
+
+Animatable without relayout: `opacity`, `translate`, `scale`, `rotate`, colours. `width`, `height`,
+margins, paddings and `top`/`left` are animatable too but relayout every frame — `rules/ui-toolkit-runtime.md`
+Card 6. Easings: `ease`, `linear`, and `ease-in` / `ease-out` / `ease-in-out` × `sine`, `cubic`,
+`circ`, `elastic`, `back`, `bounce`.
 
 ### Transform Origin for Scale Effects
 
@@ -663,68 +1323,12 @@ Control the pivot point for scale and rotate transitions:
 
 ### Class Toggle for State-Driven Animation
 
-Toggle USS classes from C# to trigger transitions. This is the primary pattern
-for UI Toolkit animation:
-
-```csharp
-public sealed class PanelAnimator : MonoBehaviour
-{
-    [SerializeField] private UIDocument m_Document;
-
-    private VisualElement m_Panel;
-
-    private void Awake()
-    {
-        m_Panel = m_Document.rootVisualElement.Q("panel");
-    }
-
-    public void Show()
-    {
-        m_Panel.RemoveFromClassList("hidden");
-        m_Panel.AddToClassList("visible");
-    }
-
-    public void Hide()
-    {
-        m_Panel.RemoveFromClassList("visible");
-        m_Panel.AddToClassList("hidden");
-    }
-
-    // Listen for transition end to clean up or chain animations
-    public void SetupTransitionCallback()
-    {
-        m_Panel.RegisterCallback<TransitionEndEvent>(evt =>
-        {
-            if (m_Panel.ClassListContains("hidden"))
-            {
-                m_Panel.style.display = DisplayStyle.None;
-            }
-        });
-    }
-}
-```
-
-Corresponding USS:
-
-```css
-.panel {
-    transition: opacity 0.3s ease, translate 0.3s ease-out;
-}
-
-.panel.visible {
-    opacity: 1;
-    translate: 0 0;
-    display: flex;
-}
-
-.panel.hidden {
-    opacity: 0;
-    translate: 0 30px;
-}
-```
-
-This pattern avoids runtime allocations and leverages the USS transition engine
-for smooth, GPU-friendly animations.
+Toggling a state class is the primary pattern, and it is already implemented — use
+`UssTransition.SetStateAsync` (Screens, Popups and Motion → step 2). Do not hand-write the toggle plus
+a raw `TransitionEndEvent` callback: the event bubbles from children, is replaced by
+`TransitionCancelEvent` when interrupted, and may never arrive at all; and an element cached in
+`Awake` is detached after the first disable/enable (`rules/ui-toolkit-runtime.md` Cards 5 and 14).
+`display` is not animatable — toggling it in the same frame as the class skips the transition.
 
 ---
 
@@ -735,7 +1339,7 @@ for smooth, GPU-friendly animations.
 Organize stylesheets in three layers. Each layer imports from the one below it:
 
 ```
-Assets/UI/Styles/
+_GameFolders/UI/        (layout: rules/ui-toolkit-runtime.md → Folder Layout)
 ├── tokens.uss        ← design tokens only (colors, spacing, type scale)
 ├── components.uss    ← reusable component classes (.btn, .card, .badge…)
 └── screens/
@@ -763,7 +1367,7 @@ Keep `tokens.uss` free of layout rules — only `:root` variable definitions. Th
 
 **1. Register fonts in the project**
 
-Place `.otf` / `.ttf` files under `Assets/UI/Fonts/`. Create a **Font Asset** from each via `Assets → Create → TextMeshPro → Font Asset` (required for SDF rendering quality).
+Place `.otf` / `.ttf` files under `_GameFolders/UI/Fonts/`. UI Toolkit renders through **TextCore** — create a TextCore `FontAsset` from each (a `TMP_FontAsset` is not dropped in as-is), and give it an explicit fallback chain for every shipped script. The Editor silently fills missing glyphs from OS fonts, so verify in a player build (`rules/ui-toolkit-runtime.md` Card 7).
 
 **2. Define the type scale in tokens.uss**
 
@@ -778,8 +1382,8 @@ Place `.otf` / `.ttf` files under `Assets/UI/Fonts/`. Create a **Font Asset** fr
     --font-size-display: 48px;
 
     /* weights — map to your actual font assets */
-    --font-regular: resource("Fonts/Inter-Regular SDF");
-    --font-bold:    resource("Fonts/Inter-Bold SDF");
+    --font-regular: url("/Assets/_GameFolders/UI/Fonts/Inter-Regular SDF.asset");
+    --font-bold:    url("/Assets/_GameFolders/UI/Fonts/Inter-Bold SDF.asset");
 
     /* line-height */
     --line-height-tight:  1.1;
@@ -821,11 +1425,32 @@ Place `.otf` / `.ttf` files under `Assets/UI/Fonts/`. Create a **Font Asset** fr
 
 ### Icon and Sprite Usage
 
+**Referencing our own assets — `url()`, never `resource()`**
+
+`resource("X")` resolves only inside a `Resources/` folder, and everything under `Resources/` ships in
+every build whether a screen uses it or not — the reason `Resources.Load` is avoided here. `url()`
+points at the asset where it already lives (`_GameFolders/Arts/...`). Prefer the absolute
+`/Assets/...` form — a relative path breaks the moment the `.uss` moves one folder; UI Builder itself
+writes `project://database/Assets/...?guid=...`, which also survives a rename. A sprite inside a
+multi-sprite texture is addressed with a `#SpriteName` suffix. The design system's own `resource()`
+icons are fine — they are its package's assets, not ours.
+
+**Our sprites work as-is.** `background-image` and the `Image` element accept a `Sprite`:
+- **9-slice:** borders set in the Sprite Editor are honoured; `-unity-slice-*` in USS overrides them
+  for that one element only.
+- **Sprite Atlas:** reference the original sprite; the atlased copy is used at runtime
+  transparently and batches like UGUI. There are forum reports of an atlased background rendering
+  the *whole* atlas instead of its region — if you see it, verify on your Unity version before
+  designing around atlases.
+- **Tint:** `-unity-background-image-tint-color` (white-fill artwork tints cleanly; dark-fill does not).
+- **Aspect:** `-unity-background-scale-mode: scale-to-fit | scale-and-crop | stretch-to-fill` —
+  the `Image.preserveAspect` equivalent.
+
 **Background image (preferred for icons)**
 
 ```css
 .icon-play {
-    background-image: resource("UI/Icons/play");
+    background-image: url("/Assets/_GameFolders/Arts/UI/Icons/play.png");
     width: 32px;
     height: 32px;
     /* tinting via -unity-background-image-tint-color */
@@ -841,7 +1466,7 @@ Place `.otf` / `.ttf` files under `Assets/UI/Fonts/`. Create a **Font Asset** fr
 
 ```css
 .dialog-frame {
-    background-image: resource("UI/Frames/dialog-9slice");
+    background-image: url("/Assets/_GameFolders/Arts/UI/Frames/dialog-frame.png"); /* Sprite Editor borders apply; the lines below override them */
     /* left, top, right, bottom slice offsets in px */
     -unity-slice-left:   16;
     -unity-slice-top:    16;
@@ -1003,9 +1628,9 @@ root.Q<Label>("health-label").text = $"{current} / {max}";
 VisualElement grid = root.Q("inventory-grid");
 grid.Clear();
 
-for (int i = 0; i < m_Items.Count; i++)
+for (int i = 0; i < _items.Count; i++)
 {
-    var slot = new InventorySlot(m_Items[i]);
+    var slot = new InventorySlot(_items[i]);
     grid.Add(slot);
 }
 ```
@@ -1045,34 +1670,61 @@ for (int i = 0; i < m_Items.Count; i++)
 Mobile devices have notches, punch-holes, and rounded corners. The safe area
 is the region guaranteed to be unobstructed.
 
+**Convert through the panel, not raw pixels.** `Screen.safeArea` is in physical screen pixels with a
+bottom-left origin; USS `padding` is in panel units with a top-left origin. Under **Scale With
+Screen Size** the two differ by the panel scale, so writing `Screen.safeArea` straight into
+`style.padding*` is wrong on every device whose resolution is not the reference resolution — the
+notch inset comes out too large or too small, never correct. Flip Y, then convert with
+`RuntimePanelUtils.ScreenToPanel`, which applies the panel's scaling:
+
 ```csharp
-public sealed class SafeAreaAdapter : MonoBehaviour
+public sealed class SafeAreaView : MonoBehaviour
 {
-    [SerializeField] private UIDocument m_Document;
+    #region Fields
+
+    [SerializeField] private UIDocument _document;
+
+    private VisualElement _root;
+
+    #endregion
+
+    #region Lifecycle
 
     private void OnEnable()
     {
-        ApplySafeArea();
+        _root = _document.rootVisualElement;
+        _root.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged); // fires on resize and rotation
     }
+
+    private void OnDisable() => _root.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+
+    #endregion
+
+    #region Private Methods
+
+    private void OnGeometryChanged(GeometryChangedEvent evt) => ApplySafeArea();
 
     private void ApplySafeArea()
     {
-        Rect safe   = Screen.safeArea;
-        float sw    = Screen.width;
-        float sh    = Screen.height;
+        Rect safe = Screen.safeArea;
+        IPanel panel = _root.panel;
 
-        VisualElement root = m_Document.rootVisualElement;
+        // Screen origin is bottom-left, panel origin is top-left: flip Y before converting.
+        Vector2 topLeft     = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(safe.xMin, Screen.height - safe.yMax));
+        Vector2 bottomRight = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(safe.xMax, Screen.height - safe.yMin));
+        Vector2 full        = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(Screen.width, Screen.height));
 
-        // Convert Unity screen-space safe area to USS pixel offsets
-        root.style.paddingLeft   = safe.xMin;
-        root.style.paddingRight  = sw - safe.xMax;
-        root.style.paddingTop    = sh - safe.yMax;
-        root.style.paddingBottom = safe.yMin;
+        _root.style.paddingLeft   = topLeft.x;
+        _root.style.paddingTop    = topLeft.y;
+        _root.style.paddingRight  = full.x - bottomRight.x;
+        _root.style.paddingBottom = full.y - bottomRight.y;
     }
+
+    #endregion
 }
 ```
 
-Apply `SafeAreaAdapter` to the root `UIDocument` GameObject. Child panels
+Apply `SafeAreaView` to the root `UIDocument` GameObject. Child panels
 that should ignore safe area (e.g. full-bleed backgrounds) use `position:
 absolute` with explicit 0 offsets to break out of the padding.
 
@@ -1089,17 +1741,4 @@ absolute` with explicit 0 offsets to break out of the padding.
 }
 ```
 
-**When to call `ApplySafeArea`:** Call it in `OnEnable` and also subscribe
-to `Screen.orientation` changes if the game supports rotation.
-
-```csharp
-private void Update()
-{
-    // Re-apply when orientation changes (portrait ↔ landscape)
-    if (m_LastOrientation != Screen.orientation)
-    {
-        m_LastOrientation = Screen.orientation;
-        ApplySafeArea();
-    }
-}
-```
+**No `Update` polling for orientation.** `GeometryChangedEvent` on the root already fires when the panel is resized, which is what a rotation does.
