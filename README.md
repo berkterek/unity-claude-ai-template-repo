@@ -226,6 +226,7 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 | `scene-hierarchy.md` | Standard 6-container scene hierarchy (`[Setup]` → `[Services]` → `[UI]` → `[Environment]` → `[Characters]` → `[VFX]`), classification table, prefab/container rules, MCP placement enforcement (no hand-duplicated siblings) |
 | `bootstrap-pattern.md` | Code-first static Module pattern: `[X]Module` static class → `AppModules.cs` → `AppScope`. ConfigCatalog, SceneModules, new module addition flow (one line in AppModules, no Editor asset) |
 | `solid-oop.md` | MonoBehaviour role boundaries (View/Provider/Controller/Manager only, shell ≤ ~80 lines — the hook warns at 150); **suffix rule: `*View` is Canvas/UI only, `*Controller` is gameplay/character, `*Provider` abstracts Unity API, `*Manager` is a single-domain registry**; SRP one-sentence test (must not contain AND); OCP polymorphism rule; DIP constructor-interface rule |
+| `ui-toolkit-runtime.md` | **UI Toolkit is version-gated** — game UI on Unity 6 (6000.0)+, Editor-only below; screen routing table (full-screen menus → UI Toolkit, world-anchored / Animator-driven → UGUI, world-space and custom shaders only at the versions that allow them); tokens-only USS; no `var()` in inline UXML `style=` (clone crash); one shared `PanelSettings` mirroring `BaseCanvas`; `*View` queries in `OnEnable`; transform-only motion and no transition on theme swap (`Allocator.Domain` exhaustion); explicit font fallback chains (the Editor hides missing glyphs); the design system is a pinned UPM package, never copied into `Assets/`; done means looked at, at two widths; **MVVM with R3** (not MVC/MVP, not `binding-path` strings), with a scenario table for when a screen gets a ViewModel and when it talks to its service directly |
 | `web-tool-data-contract.md` | **Web authoring tools only** — export schema single-source, enum int map, version field, unit/scale contract, parity fixture lock, importer error-on-missing, tool-side import validation (version + required-field checks before hydrating) |
 | `web-tool-architecture.md` | **Web authoring tools only** — zero-build `file://` constraint, single model source of truth, pure-core/DOM-shell split, ~400 line limit, event delegation, idempotent render, runner-less tests, stable row identity (never array index) |
 | `web-tool-design-system.md` | **Web authoring tools only** — design tokens, fixed spacing scale, control-type decision table, viewport primacy, unit display, destructive actions undoable-or-confirmed, keyboard access with visible focus, visible unsaved/invalid/empty state, bounded undo history, localStorage draft persistence across reloads |
@@ -566,6 +567,43 @@ Tests cover: scan-root parity with the builder, builder flags (`--full`, `--incr
 | **Unity ECS DOTS** | Data-oriented systems | ECS folder, asmdef, and ECS hooks are skipped |
 
 `/setup-project` asks about each optional feature upfront and writes `.claude/project-features.json`. Hooks and commands automatically skip disabled features — no false warnings, no irrelevant rules.
+
+### UI Toolkit for game UI — Unity 6 and newer only
+
+> **UI Toolkit can be used for game UI on Unity 6 (6000.0) and newer. On anything older than Unity 6
+> it is used for Editor tools only**, and all runtime UI is UGUI. The version is read from
+> `ProjectSettings/ProjectVersion.txt`, never assumed.
+
+Even on Unity 6 it is not a blanket switch. Full-screen menus, settings, shop, popups and list
+screens go to UI Toolkit; world-anchored UI (health bars, nameplates) and anything driven by
+Animator/Timeline stay UGUI; world-space and custom-shader UI Toolkit are allowed only from the
+versions that support them (shaders 6000.3+, world-space 6000.5+ in this template). The routing table,
+the twelve cards (several of them field-measured traps) and the folder layout are in `.claude/rules/ui-toolkit-runtime.md`.
+
+For components, the recommended starting point is the MIT
+[unity-ui-toolkit-design-system](https://github.com/sinanata/unity-ui-toolkit-design-system)
+(`com.sinanata.designsystem`: tokens, 42 components, 120 icons, a one-class mobile layout),
+installed as a **pinned** UPM git dependency — never copied into `Assets/`, for the same reason the
+framework is a package (below). It is optional and not wired into `/setup-project`.
+
+**Architecture, in one table:**
+
+| Concern | Decision | Where |
+|---|---|---|
+| Opening screens and popups | `IScreenService` (`ShowAsync<T>`, `BackAsync`, `ShowPopupAsync<TPopup, TResult>`); every screen inherits `ScreenView`; one `UIDocument` per screen, inactive until shown | `ui-toolkit-runtime.md` Card 13 |
+| Fade / slide / pop animations | USS transitions from one `Motion.uss`; C# only flips a class and awaits `UssTransition`; count-up and loops use the project's tween library | Card 14 |
+| When a screen gets a ViewModel | Only when it has state of its own (tabs, draft/apply, formatting, two services) — MVVM with R3, never on a buttons-only screen | Card 11 |
+| Play button → Game scene, selected level | An interface call to `ISceneService.LoadAsync`, never an event; cross-scene data in an app-scope service | `bootstrap-pattern.md` Card 7 |
+
+Full working code: `.claude/skills/systems/ui-toolkit/SKILL.md` → "Screens, Popups and Motion".
+
+> **Status (2026-09-30): ready to start, with one blocker.** `/setup-project` does not reference R3 in
+> the generated assemblies, so the first screen with a ViewModel — and its EditMode test — will not
+> compile until the Games asmdef references R3 and the NSubstitute test asmdefs list `R3.dll`.
+> Known, non-blocking gaps: the framework's closed `LogTag` enum (the skill logs with
+> `LogTag.General` for now); four transition behaviours marked "not yet measured" in Card 14, to be
+> verified in the first adopting project; no list-screen (shop/inventory) pattern yet; and an existing
+> HUD's animations have to be mapped to USS or C# tweens by hand.
 
 ### Optional external tooling (not a Unity package)
 
@@ -1101,8 +1139,8 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `debate-critic` | Opus debate adversary — refutes a thesis, tagging each objection FACT/OPINION (used by `/debate`; distinct from `unity-critic`, which one-pass-reviews a Unity implementation plan) |
 | `debate-moderator` | Opus debate judge — triages each objection into REFUTED / CONFIRMED / ESCALATE in a single pass, settling verifiable clashes with its own tools (used by `/debate`) |
 | `unity-shader-dev` | URP shader authoring — complexity router: simple effects use HLSL (.shader), complex/visual effects use ShaderGraph (.shadergraph JSON output + material assigned via MCP) |
-| `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy |
-| `unity-ui-toolkit-builder` | Editor UI Toolkit specialist — UXML layouts, USS stylesheets, custom inspectors, EditorWindows, SerializedObject data binding (Editor-only; runtime UI uses UGUI) |
+| `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy. All runtime UI below Unity 6; on Unity 6+ the world-anchored and Animator/Timeline-driven screens |
+| `unity-ui-toolkit-builder` | UI Toolkit specialist — Editor tools (UXML/USS, custom inspectors, EditorWindows, SerializedObject binding) on any version; runtime game menus on Unity 6 (6000.0)+ only, per `rules/ui-toolkit-runtime.md` |
 | `unity-optimizer` | Runtime performance — allocations, draw calls, ECS hot paths, profiler-guided fixes |
 | `unity-scene-builder` | Scene composition via MCP — hierarchy, lighting, camera, volumes |
 | `graphics-setup-agent` | Creates URP Pipeline Assets (Low/Medium/High) for mobile or PC, configures Renderer Data, wires Quality Settings via MCP |
@@ -1415,7 +1453,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope, UnityTest patterns |
 | `mcp-preflight` | MCP availability + active-instance check — connected (verify the instance targets this repo) / wrong-or-multiple instance / disconnected / not installed. Every MCP-driving pipeline must run it before the first write; `/orchestrate` calls it at Step 0 |
 | `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Programmatic / PlayMode-Scene / NoTest) from class name or file path |
-| `unity-ugui` | Runtime UGUI implementation — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area, Canvas split strategy, performance rules |
+| `unity-ugui` | Runtime UGUI implementation (all runtime UI below Unity 6; world-anchored / Animator-driven UI on 6+) — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area, Canvas split strategy, performance rules |
 | `unity-git` | Unity git conventions — .meta hygiene, .gitattributes (YAML merge / binary), LFS patterns, conventional commits, commit grouping by dependency order; loaded by `committer` and `unity-git-master` agents |
 
 ### Platform (`skills/platform/`)
@@ -1438,7 +1476,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `navmesh` | NavMeshAgent setup, dynamic obstacles, off-mesh links |
 | `physics` | Layer matrix, non-alloc queries, trigger vs collision |
 | `shader-graph` | ShaderGraph JSON format guide — node templates, edge wiring, UUID rules, Dissolve/Rim/Scroll/Toon effect recipes, MCP integration |
-| `ui-toolkit` | USS, UXML, data binding, runtime panel setup |
+| `ui-toolkit` | Runtime game UI on Unity 6 (6000.0)+ — USS, UXML, tokens, theming, `*View` pattern, MVVM with R3 (Screen With a ViewModel), ListView. Governed by `rules/ui-toolkit-runtime.md` |
 | `urp-pipeline` | Renderer features, camera stacking, custom render passes, SRP Batcher, Forward+ |
 | `urp-quality-settings` | URP quality tiers (Low/Medium/High/Ultra), runtime asset swap, auto-detect, adaptive performance |
 | `urp-lighting-shadows` | Directional/point/spot lights, shadow cascades, bias tuning, light layers, reflection probes |
@@ -1471,7 +1509,7 @@ All skills under `skills/third-party/`, `skills/plugins/`, `skills/learned/`, an
 | `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid — includes PITFALLS (30 traps with source anchors) and CANCELLATION patterns |
 | `unity-asmdef` | Assembly definition authoring, references, define constraints |
 | `unity-editor-tools` | Custom Editor windows, PropertyDrawers, EditorUtility patterns |
-| `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
+| `unity-uitoolkit` | Editor UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS. Runtime game UI (Unity 6+) → `ui-toolkit` + `rules/ui-toolkit-runtime.md` |
 | `netcode` | NGO 2.x — NetworkBehaviour, RPC, NetworkVariable, Spawn/Despawn, Scene management, VContainer + UniTask integration — 7 sub-docs |
 | `probuilder` | In-editor mesh modeling — shape generation, face/edge/vertex ops, UV unwrapping, Boolean ops, bake-to-asset workflow — api.md + integration.md |
 | `blender-mcp` | Blender → Unity asset pipeline — the official MCP add-on's raw-socket protocol, the stdio bridge, the Unity-verified FBX export contract, and the pre-flight refusals that replace the hook no binary asset can have |

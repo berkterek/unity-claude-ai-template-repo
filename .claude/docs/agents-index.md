@@ -30,8 +30,8 @@ This table is the source of truth — keep each `.md` frontmatter in sync with t
 | `debate-critic` | `debate-critic` | Opus debate adversary — refutes a thesis, tagging each objection FACT/OPINION. Used by `/debate`. **Distinct from `unity-critic`:** debates an arbitrary thesis in an ensemble; `unity-critic` one-pass-reviews a Unity implementation plan |
 | `debate-moderator` | `debate-moderator` | Opus debate judge — triages each objection into REFUTED / CONFIRMED / ESCALATE in a single pass, settling verifiable clashes with its own tools. Used by `/debate` |
 | `unity-shader-dev` | `unity-shader-dev` | URP shader authoring — complexity router: simple effects use HLSL, complex/visual effects use ShaderGraph (generates .shadergraph JSON + assigns material via MCP) |
-| `unity-ui-builder` | `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy |
-| `unity-ui-toolkit-builder` | `unity-ui-toolkit-builder` | Editor UI Toolkit specialist — UXML layouts, USS stylesheets, custom inspectors, EditorWindows, SerializedObject data binding (Editor-only; runtime UI uses UGUI) |
+| `unity-ui-builder` | `unity-ui-builder` | Runtime UGUI specialist — Canvas hierarchy via MCP, MonoBehaviour view scripts, TextMeshPro, safe area, responsive layout, Canvas split strategy. All runtime UI below Unity 6; on Unity 6+ the world-anchored and Animator/Timeline-driven screens |
+| `unity-ui-toolkit-builder` | `unity-ui-toolkit-builder` | UI Toolkit specialist — Editor tools (UXML/USS, custom inspectors, EditorWindows, SerializedObject binding) on any version; runtime game menus on Unity 6 (6000.0)+ only, per `rules/ui-toolkit-runtime.md` |
 | `unity-optimizer` | `unity-optimizer` | Runtime performance — allocations, draw calls, ECS hot paths, profiler-guided fixes |
 | `unity-scene-builder` | `unity-scene-builder` | Scene composition via MCP — hierarchy, lighting, camera, volumes |
 | `graphics-setup-agent` | `graphics-setup-agent` | Creates URP Pipeline Assets (Low/Medium/High) for mobile or pc, configures Renderer Data, wires Quality Settings via MCP |

@@ -38,7 +38,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope (VContainer), scene setup, UnityTest patterns |
 | `mcp-preflight` | MCP availability + active-instance check — connected (verify instance targets repo) / wrong-or-multiple instance / disconnected / not installed |
 | `test-type-router` | Determines test type (EditMode / PlayMode-Programmatic / PlayMode-ECS / PlayMode-Scene / NoTest) from a class name, file path, or task description. Used by /implement, /orchestrate, /fix, /fix-deep, /generate-tests, /create-test, and /create-plan before any test writing begins. When result is NoTest (LifetimeScope, ScriptableObject, Baker, IComponentData, config-only changes), tester agent is skipped entirely |
-| `unity-ugui` | Runtime UGUI implementation — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area |
+| `unity-ugui` | Runtime UGUI implementation (all runtime UI below Unity 6; world-anchored / Animator-driven UI on 6+) — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area |
 | `fix-codex` | Full Codex-driven fix pipeline — Codex analyzes fresh (no prior hypotheses), implements, then Claude reviews (correct location? root cause understood? complete? architecture?); committer on APPROVED |
 | `caveman` | Ultra-compressed communication mode (~75% fewer tokens) — `/caveman` to enter, `/normal` to exit |
 | `context-prime` | Brief Claude on project context at session start — reads key files and summarizes current state |
@@ -67,7 +67,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `navmesh` | NavMeshAgent setup, dynamic obstacles, off-mesh links |
 | `physics` | Layer matrix, non-alloc queries, trigger vs collision |
 | `shader-graph` | URP shader nodes, property exposure, keyword variants |
-| `ui-toolkit` | USS, UXML, data binding, runtime panel setup |
+| `ui-toolkit` | Runtime game UI on Unity 6 (6000.0)+ — USS, UXML, tokens, theming, `*View` pattern, MVVM with R3 (Screen With a ViewModel), ListView. Governed by `rules/ui-toolkit-runtime.md` |
 | `urp-pipeline` | Renderer features, camera stacking, custom render passes, SRP Batcher, Forward+ |
 | `urp-quality-settings` | URP quality tiers (Low/Medium/High/Ultra), runtime asset swap, auto-detect, adaptive performance |
 | `urp-lighting-shadows` | Directional/point/spot lights, shadow cascades, bias tuning, light layers, light cookies, reflection probes |
@@ -93,7 +93,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `textmeshpro` | Font assets, rich text, SDF materials, localization |
 | `unitask` | Async patterns, cancellation, `Forget()`, UniTaskVoid — + PITFALLS.md, CANCELLATION.md sub-docs |
 | `unity-editor-tools` | AssetDatabase, AssetPostprocessor, InitializeOnLoad, EditorPrefs, PrefabUtility, build pipeline hooks |
-| `unity-uitoolkit` | Editor-only UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS (NOT runtime UI) |
+| `unity-uitoolkit` | Editor UI Toolkit — EditorWindow, custom Inspector, PropertyDrawer, UXML/USS. Runtime game UI (Unity 6+) → `ui-toolkit` + `rules/ui-toolkit-runtime.md` |
 | `blender-mcp` | Blender → Unity asset pipeline — official MCP add-on protocol, the stdio bridge, Unity-correct FBX export contract, pre-flight refusals |
 | `vcontainer` | Scope hierarchy, registration, lifecycle interfaces, DI failure diagnosis |
 | `netcode` | NGO 2.x architecture rules — NetworkBehaviour, RPC, NetworkVariable, Spawn/Despawn, VContainer integration — + 7 sub-docs |
