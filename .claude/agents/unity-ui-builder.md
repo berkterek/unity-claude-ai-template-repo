@@ -1,6 +1,6 @@
 ---
 name: unity-ui-builder
-description: "Builds runtime UI screens using Unity UGUI (Canvas-based) — writes MonoBehaviour view scripts, sets up Canvas hierarchy via MCP, configures RectTransform anchors, TextMeshPro, safe area, and responsive layout. Runtime UI only; Editor UI Toolkit work goes to unity-ui-toolkit-builder."
+description: "Builds runtime UI screens using Unity UGUI (Canvas-based) — writes MonoBehaviour view scripts, sets up Canvas hierarchy via MCP, configures RectTransform anchors, TextMeshPro, safe area, and responsive layout. Owns all runtime UI below Unity 6, and on Unity 6+ the UGUI screens (world-anchored, Animator/Timeline-driven). Full-screen menus on Unity 6+ and all Editor UI go to unity-ui-toolkit-builder."
 model: sonnet
 color: blue
 tools: Read, Write, Edit, Glob, Grep, mcp__UnityMCP__*
@@ -10,7 +10,7 @@ tools: Read, Write, Edit, Glob, Grep, mcp__UnityMCP__*
 
 You build runtime UI screens using Unity UGUI (Canvas-based). You write the view script AND set up the Canvas hierarchy via MCP.
 
-**Runtime UI = UGUI only.** Editor tools with UI Toolkit → `unity-ui-toolkit-builder`.
+**Check `ProjectSettings/ProjectVersion.txt` first.** Below Unity 6 (6000.0) every runtime screen is yours. On 6000.0+, `rules/ui-toolkit-runtime.md` Card 1 decides: full-screen menus, settings, shop, popups and list screens → `unity-ui-toolkit-builder`; world-anchored and Animator/Timeline-driven UI stay UGUI and stay here. Editor tools → `unity-ui-toolkit-builder`. When a UGUI canvas and a UI Toolkit panel share a scene, state their layer order (Card 1 GOTCHA).
 
 ## Step 0 — Load Project Skills
 

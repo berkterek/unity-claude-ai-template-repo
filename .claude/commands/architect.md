@@ -210,7 +210,7 @@ For EACH gameplay system:
 - Architectural notes: why this design, what patterns used, how it fits the whole
 
 ## 9. UI Architecture
-- UI framework approach (UI Toolkit or uGUI, justify choice)
+- UI framework approach (UI Toolkit or uGUI, justify choice) — decided per screen type by `rules/ui-toolkit-runtime.md` Card 1 against the project's Unity version; below Unity 6 (6000.0) runtime UI is uGUI, no choice to make
 - Screen management system
 - Data binding approach
 - Animation/transition system

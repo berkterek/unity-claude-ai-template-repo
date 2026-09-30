@@ -266,7 +266,7 @@ If your task prompt includes a **Mailbox** or **Heartbeat** section, follow thes
 
 ## Common Runtime Pitfalls
 
-- **UI Toolkit requires a PanelSettings asset** — every UIDocument component needs a PanelSettings reference. Always create and assign one.
+- **UI Toolkit requires a PanelSettings asset** — every UIDocument component needs a PanelSettings reference. Assign the **one shared** `_GameFolders/UI/Settings/GamePanelSettings.asset` (create it once if missing, scaling identical to `BaseCanvas`) — never a new asset per screen (`rules/ui-toolkit-runtime.md` Card 4). Runtime `UIDocument` only on Unity 6 (6000.0)+.
 - **DI initialization order** — never put System logic in constructors when using VContainer. Use `IStartable`, `IInitializable`, or `RegisterEntryPoint` for startup logic.
 - **Scene wiring verification** — after using `execute_code` to wire references, re-read the scene/prefab state to confirm it actually saved.
 
