@@ -30,6 +30,9 @@
 |--------|------|--------|
 | `RuntimePanelUtils` | MEDIUM | Verify screen-to-panel coordinate conversion |
 | Data binding API | HIGH | Runtime data binding API changed between 2023-2024 releases; verify |
+| Inline `var()` in UXML `style=` | HIGH | Unity 6's clone-time `StyleVariableResolver` throws; the whole `VisualTreeAsset` fails to clone. Use a USS class |
+| `border-radius` clamp | MEDIUM | Clamped per axis to half the side length — `999px` on a non-square element is an ellipse, not a pill |
+| `PanelRenderer` (6000.5) | MEDIUM | New host component; `UIDocument` is listed under UI Toolkit > Legacy but is not `[Obsolete]` and stays supported |
 
 ## Netcode for GameObjects
 

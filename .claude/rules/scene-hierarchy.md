@@ -32,7 +32,7 @@ When placing or moving a GameObject, apply the first matching rule:
 |--------|-----------|
 | Has `LifetimeScope` component (VContainer scope) | `[Setup]` |
 | Name contains `*Provider`, `*Manager`, `*Service` | `[Services]` |
-| Has `Canvas` component, or name contains `*Canvas`, `*UI`, `*Panel`, `*HUD`, `*Popup` | `[UI]` |
+| Has `Canvas` or `UIDocument` / `PanelRenderer` component, or name contains `*Canvas`, `*UI`, `*Panel`, `*HUD`, `*Popup` | `[UI]` |
 | Name contains `*Player`, `*Hero`, `*Enemy`, `*NPC`, `*Character`, `*Boss` | `[Characters]` |
 | Name contains `*VFX`, `*Effect`, `*Particle`, or has top-level `ParticleSystem` component | `[VFX]` |
 | Everything else (Rooms, volumes, lights, terrain, cameras, static meshes) | `[Environment]` |

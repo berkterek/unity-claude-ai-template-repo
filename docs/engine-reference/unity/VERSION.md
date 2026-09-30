@@ -10,7 +10,7 @@
 |------|------|-------|
 | URP core APIs | Low | Stable since Unity 2022 LTS |
 | DOTS/ECS | Medium | Rapid iteration; verify IJobEntity, SystemAPI patterns |
-| UI Toolkit | Medium | Actively evolving; verify runtime UI binding APIs |
+| UI Toolkit | Medium | Actively evolving; verify runtime UI binding APIs. Runtime game UI allowed from 6000.0; custom shaders / USS filters from 6000.3; world-space (this template) from 6000.5 — `rules/ui-toolkit-runtime.md` Card 1 |
 | Addressables | Low | Stable since 1.19+ |
 | Netcode for GameObjects | Medium | 1.x → 2.x had breaking changes; verify version |
 | Input System | Low | Stable since 1.5+ |

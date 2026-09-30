@@ -221,6 +221,8 @@ public BulletPool(GameObject prefab)
 | MonoBehaviour — Unity API abstraction | PascalCase + `Provider` suffix | `AudioProvider`, `PhysicsProvider` |
 | `*Handler` (pure C# class, prefab-local) | PascalCase + `Handler` suffix | `MoveHandler`, `JumpHandler` |
 | Interface for Handler | `I` + PascalCase + `Handler` | `IMoveHandler`, `IJumpHandler` |
+| `*ViewModel` (pure C#, one UI Toolkit screen's state — only when the screen has state of its own, `ui-toolkit-runtime.md` Card 11) | PascalCase + `ViewModel` suffix | `ShopViewModel`, `SettingsViewModel` |
+| Interface for ViewModel | `I` + PascalCase + `ViewModel` | `IShopViewModel` |
 | Static installer class | PascalCase + `Module` suffix | `AudioModule`, `PlayerModule`, `AppModules` |
 | Runtime state class | PascalCase + `Model` suffix | `ScoreModel`, `HealthModel` |
 | Serializable save data class | PascalCase + `SaveData` suffix | `PlayerSaveData`, `GameSaveData` |

@@ -326,9 +326,12 @@ _slider.onValueChanged.RemoveListener(OnVolumeChanged);
 
 ---
 
-## UI Toolkit — Editor Only
+## UI Toolkit — Version-Gated
 
-UI Toolkit (`UIDocument`, `VisualElement`) is used **only for Editor tools** in this project. Runtime UI uses UGUI (Canvas-based). In Editor scripts, UI Toolkit events can be used as normal C# events under `#if UNITY_EDITOR` guards.
+- **Unity 6 (6000.0) and newer:** UI Toolkit is a runtime system for game menus. `Button.clicked` is a plain C# event and follows the Pattern 4 pair exactly — query and `+=` in `OnEnable()`, `-=` in `OnDisable()` — see `rules/ui-toolkit-runtime.md` Card 5 for why the query must also happen in `OnEnable()`.
+- **Older than Unity 6:** UI Toolkit is **Editor-only** — runtime UI is UGUI. In Editor scripts, UI Toolkit events are used as normal C# events under `#if UNITY_EDITOR` guards.
+
+Which screens use which system: `rules/ui-toolkit-runtime.md` Card 1.
 
 ---
 

@@ -562,8 +562,10 @@ Use `RegisterEntryPoint<T>()` when a service implements one of the three lifecyc
 | Handler | YES — always (`I*Handler`) | NSubstitute seam for tests; the test is a caller |
 | Service | YES — always (`I*Service`) | Cross-module; VContainer interface-first |
 | Provider | YES — always (`I*Provider`) | Testability, swappability |
+| ViewModel (UI Toolkit screen state) | YES — always (`I*ViewModel`) | EditMode-testable screen logic; created by its View like a Handler (`ui-toolkit-runtime.md` Card 11) |
 | Controller shell | NO | Nobody mocks the shell |
 | View | NO | Nobody mocks the shell |
+| UI Toolkit screen/popup View (via `ScreenView`) | `IScreen` / `IPopup<T>` only — through the base class, never a per-screen `I*View` | Not a mock seam: it keeps `ScreenService` free of MonoBehaviour types (`ui-toolkit-runtime.md` Card 13) |
 | ScriptableObject config | NO | Data container, no logic |
 | Event struct | NO | Plain value type |
 | Model/data class | NO | Test uses the model directly |
