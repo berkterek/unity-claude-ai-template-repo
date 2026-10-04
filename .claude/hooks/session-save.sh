@@ -147,10 +147,27 @@ fi
 # just swap one bug for another — it had no TTL and session-restore.sh did not
 # clear it, so on its own this line would have made an approval immortal.
 #
-# The remaining entries are per-turn scratch (a warn-once flag, a review receipt,
-# transient pipeline state). If you add a gate that a HUMAN approves, it does not
-# belong in this list.
-for _gate in graph-empty-warned codex-reviewed plan-state.json verify-state.json agent-context.json; do
+# codex-reviewed was the third instance of the same bug, found 2026-10-04 — and the
+# comment above shipped calling it "a review receipt", which is exactly the
+# misclassification that kept it here. A receipt is per-PIPELINE-PASS, not per-turn.
+# Why it could never work: the Agent tool dispatches asynchronously, so a codex
+# agent's PostToolUse fires at dispatch (measured: duration_approx_s 0-1s against a
+# real 80-100s run) and its RESULT always arrives in a later turn. The marker is
+# therefore written in turn N and read in turn N+1, with this line in between — so
+# guard-reviewer-order.sh blocked unity-reviewer every single time while reporting
+# "Codex has not reviewed this pipeline pass yet", seconds after Codex reviewed it.
+# The documented Codex -> unity-reviewer chain could only ever run its first link.
+# Measured over three consecutive codex runs in one /search before the fix.
+#
+# Excluding it took the same three companion changes sparc-approved needed, or the
+# marker becomes immortal instead: a TTL in guard-reviewer-order.sh, a SessionStart
+# clear in session-restore.sh, and an inverted test (session-save.bats asserted the
+# deletion was correct, so the full suite stayed green with this bug in it).
+#
+# The remaining entries are genuinely per-turn scratch (a warn-once flag, transient
+# pipeline state). If you add a gate a HUMAN approves, or a receipt an agent writes
+# for a LATER turn to read, it does not belong in this list.
+for _gate in graph-empty-warned plan-state.json verify-state.json agent-context.json; do
     _path="${UNITY_HOOK_STATE_DIR}/${_gate}"
     if [ -e "$_path" ]; then
         rm -f "$_path"

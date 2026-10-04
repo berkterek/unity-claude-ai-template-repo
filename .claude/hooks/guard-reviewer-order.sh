@@ -49,20 +49,42 @@ REVIEWED_FILE="${UNITY_HOOK_STATE_DIR}/codex-reviewed"
 
 GATE_FILE="${UNITY_HOOK_STATE_DIR}/gate-cleared"
 
-if [ -f "$REVIEWED_FILE" ]; then
-    # Stale check: gate-cleared is written at pipeline start; codex-reviewed is written mid-pipeline.
-    # If gate-cleared is NEWER than codex-reviewed, the marker is from a previous run — ignore it.
-    if [ -f "$GATE_FILE" ] && [ "$GATE_FILE" -nt "$REVIEWED_FILE" ]; then
-        : # stale marker — fall through and block
-    else
-        exit 0  # Valid marker — Codex ran in this pipeline pass
-    fi
+REVIEWED_REASON="has not reviewed this pipeline pass yet"
+
+# Two independent bounds, both required. Until 2026-10-04 there was a third
+# "bound" that was really a bug: session-save.sh deleted this marker at every
+# turn-end, which made the marker live less than one turn and this hook block
+# unity-reviewer unconditionally (see that file's comment). With the deletion
+# gone the marker needs a real expiry, or an approval becomes immortal — the
+# same pair of failure modes sparc-approved went through.
+#
+# Bound 1 — TTL. Capture the status explicitly: unity_gate_cleared_valid exits
+# 1/2/3 for missing/unreadable/stale, and letting those propagate under
+# `set -e` would exit this hook with 1 or 3. Only 2 blocks a spawn, so an
+# uncaptured status silently turns the guard off. Same trap documented in
+# guard-sparc-approved.sh.
+CODEX_STATUS=0
+unity_gate_cleared_valid "codex-reviewed" >/dev/null || CODEX_STATUS=$?
+
+# Bound 2 — pipeline pass. gate-cleared is written at pipeline start and
+# codex-reviewed mid-pipeline, so a gate-cleared NEWER than the marker means the
+# marker belongs to a previous run. Narrower than the TTL and not replaced by it:
+# a second pipeline can start well inside the TTL window.
+if [ "$CODEX_STATUS" -eq 0 ] && [ -f "$GATE_FILE" ] && [ "$GATE_FILE" -nt "$REVIEWED_FILE" ]; then
+    CODEX_STATUS=4
 fi
+
+case $CODEX_STATUS in
+    0) exit 0 ;;  # Codex ran in this pipeline pass, recently enough
+    3) REVIEWED_REASON="reviewed more than $((UNITY_GATE_TTL / 60)) minutes ago — that receipt expired" ;;
+    2) REVIEWED_REASON="left a receipt whose age could not be read — treated as expired" ;;
+    4) REVIEWED_REASON="reviewed before this pipeline pass started — that receipt is stale" ;;
+esac
 
 echo "" >&2
 echo "  REVIEWER ORDER VIOLATION ───────────────────────────────────────" >&2
 echo "  Cannot spawn 'unity-reviewer' — Codex plugin is installed but" >&2
-echo "  has not reviewed this pipeline pass yet." >&2
+echo "  $REVIEWED_REASON." >&2
 echo "" >&2
 echo "  Reviewer priority: Codex → unity-reviewer (fallback)" >&2
 echo "" >&2

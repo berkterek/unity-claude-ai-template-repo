@@ -30,6 +30,26 @@ teardown() {
     [ -e "$UNITY_HOOK_STATE_DIR/sparc-approved" ]
 }
 
+# codex-reviewed joined the SessionStart clear on 2026-10-04, when session-save.sh
+# stopped deleting it at every turn-end. Without a clear here the marker outlives
+# the session that earned it; with a clear but no TTL it would outlive the pipeline.
+# Both halves are required — these two pin the SessionStart half.
+@test "session-restore KEEPS codex-reviewed when SessionStart source is compact" {
+    touch "$UNITY_HOOK_STATE_DIR/codex-reviewed"
+    run bash $HOOK <<< '{"hook_event_name":"SessionStart","source":"compact"}'
+    [ "$status" -eq 0 ]
+    [ -e "$UNITY_HOOK_STATE_DIR/codex-reviewed" ]
+}
+
+@test "session-restore deletes codex-reviewed for a real session boundary" {
+    for src in startup resume clear; do
+        touch "$UNITY_HOOK_STATE_DIR/codex-reviewed"
+        run bash $HOOK <<< "{\"source\":\"$src\"}"
+        [ "$status" -eq 0 ]
+        [ ! -e "$UNITY_HOOK_STATE_DIR/codex-reviewed" ]
+    done
+}
+
 @test "session-restore still deletes gate-cleared for a real session boundary" {
     for src in startup resume clear; do
         touch "$UNITY_HOOK_STATE_DIR/gate-cleared"

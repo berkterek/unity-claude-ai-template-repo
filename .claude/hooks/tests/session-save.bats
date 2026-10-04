@@ -42,10 +42,19 @@ teardown() {
     [ -e "$UNITY_HOOK_STATE_DIR/gate-cleared" ]
 }
 
-@test "session-save auto-expires codex-reviewed" {
+# INVERTED 2026-10-04. This test previously asserted the deletion and therefore
+# certified the bug: the Agent tool dispatches asynchronously, so a codex agent's
+# PostToolUse writes the marker in turn N while its result — and the unity-reviewer
+# spawn that reads the marker — land in turn N+1, with session-save.sh in between.
+# The documented Codex -> unity-reviewer chain could never reach its second link,
+# and the full suite stayed green because this test was written from the same
+# assumption as the code. A test can cover a branch and still be blind to it.
+# Expiry now comes from the TTL in guard-reviewer-order.sh and the SessionStart
+# clear in session-restore.sh, both pinned by their own tests.
+@test "session-save does NOT expire codex-reviewed (must survive turn-end)" {
     run bash .claude/hooks/session-save.sh < /dev/null
     [ "$status" -eq 0 ]
-    [ ! -e "$UNITY_HOOK_STATE_DIR/codex-reviewed" ]
+    [ -e "$UNITY_HOOK_STATE_DIR/codex-reviewed" ]
 }
 
 @test "session-save auto-expires graph-empty-warned" {

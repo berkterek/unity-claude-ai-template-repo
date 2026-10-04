@@ -104,6 +104,12 @@ rm -f "${UNITY_HOOK_STATE_DIR}/gateguard-facts-passed.txt" \
 # sparc-approved was missing from this line. It was invisible only because
 # session-save.sh deleted it on every turn-end, which was itself the bug.
 #
+# codex-reviewed, added 2026-10-04, is the same story a third time: hidden by the
+# same per-turn deletion, in the same list, for the same reason. It is not a gate a
+# human approves — it is a receipt an agent writes for a LATER turn to read — but it
+# belongs here for the identical reason the two above do: the pipeline step that
+# wrote it may never reach the step that tears it down.
+#
 # NOT ON COMPACTION. Claude Code fires SessionStart with source="compact" after
 # /compact, so until 2026-09-10 every compaction silently revoked the human's gate
 # approval mid-pipeline. Measured twice in one downstream /orchestrate run: the
@@ -126,10 +132,11 @@ if [ ! -t 0 ]; then
 fi
 
 if [ "$_session_source" = "compact" ]; then
-    echo "  Kept: gate-cleared / sparc-approved (SessionStart source=compact — same session)" >&2
+    echo "  Kept: gate-cleared / sparc-approved / codex-reviewed (SessionStart source=compact — same session)" >&2
 else
     rm -f "${UNITY_HOOK_STATE_DIR}/gate-cleared" \
-          "${UNITY_HOOK_STATE_DIR}/sparc-approved"
+          "${UNITY_HOOK_STATE_DIR}/sparc-approved" \
+          "${UNITY_HOOK_STATE_DIR}/codex-reviewed"
 fi
 
 # Prune stale agent worktrees from interrupted sessions.
