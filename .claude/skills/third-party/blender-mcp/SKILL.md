@@ -1,7 +1,7 @@
 ---
 name: blender-mcp
 description: Use when producing, inspecting, or exporting 3D assets from Blender for this Unity project — modelling via MCP, checking a mesh before export, or getting an FBX into Assets/. Covers Blender's official MCP add-on (Blender Lab), the bridge that makes it reachable from Claude Code, and the Unity-correct export contract.
-model-tier: sonnet
+model-tier: normal
 ---
 
 # Blender → Unity via MCP

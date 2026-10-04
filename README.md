@@ -1172,7 +1172,7 @@ Different tasks need different models. Use the right tier to balance speed and c
 | Tier | Model | Alias | Commands |
 |------|-------|-------|----------|
 | **light** | Haiku | `claude-light` | `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
-| **normal** | Sonnet | `claude-normal` | `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/new-module`, `/performance-audit`, `/clean-slop`, `/catch-up`, `/search` |
+| **normal** | Sonnet | `claude-normal` | `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/performance-audit`, `/new-module`, `/check-portability`, `/clean-slop`, `/catch-up`, `/learn`, `/search` |
 | **heavy** | Opus | `claude-heavy` | `/architect`, `/roadmap`, `/plan-module`, `/game-idea`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
 
 ### Setup
@@ -1186,12 +1186,16 @@ source /path/to/your-unity-project/.claude/aliases.sh
 Or manually:
 
 ```bash
-alias claude-light='claude --model claude-haiku-4-5'
-alias claude-normal='claude --model claude-sonnet-5'
-alias claude-heavy='claude --model claude-opus-5'
+alias claude-light='claude --model haiku'
+alias claude-normal='claude --model sonnet'
+alias claude-heavy='claude --model opus'
 ```
 
 The alias file lives at `.claude/aliases.sh`.
+
+**These are the unversioned aliases on purpose — never pin a version here.** Layer 2 (agent frontmatter) already uses the bare `opus`/`sonnet`/`haiku`, so a pinned ID at layer 1 makes the two layers resolve to different generations inside one session. That is not hypothetical: until 2026-10-04 these three read `claude-opus-5` / `claude-sonnet-5` / `claude-haiku-4-5`, and a `claude-heavy` session ran Opus 5 while every agent it spawned ran Opus 5.5. Nothing reports the mismatch — a pinned ID and an alias look identical at the call site.
+
+Pinning an older version is also **not** a way to make a tier cheaper. In this generation the newer model is the cheaper one: Opus 5.5 is $4/$20 per MTok against Opus 5's $5/$25, and Sonnet 5.5 costs exactly what Sonnet 5 does. A "heavy = 5.5, normal = 5" ladder would pay more for a weaker model. Tune depth with `effort` instead — `.claude/docs/model-tiers.md`.
 
 ### When a model is unavailable
 
@@ -1199,16 +1203,18 @@ There is **no automatic model fallback** — not in Claude Code, and not via the
 
 | Tier | Primary | Fallback |
 |------|---------|----------|
-| **heavy** | `claude-opus-5` | `claude-opus-4-7` |
-| **normal** | `claude-sonnet-5` | `claude-sonnet-4-6` |
+| **heavy** | `opus` | `claude-opus-4-7` |
+| **normal** | `sonnet` | `claude-sonnet-4-6` |
 
-Use `/model <id>` **inside the running session** rather than restarting — it keeps your context and any open plan or gate state. Opus 5 and Sonnet 5 draw from rate-limit buckets separate from the 4.x pool, so dropping a generation gives real headroom. Note that switching invalidates the prompt cache, so the next request pays full price for the whole prefix — switch because you're blocked, not to save money.
+The fallback column stays pinned, unlike the primaries — naming one specific older generation is the whole job of a fallback, and an unversioned alias there would resolve straight back to the model that is already failing.
+
+Use `/model <id>` **inside the running session** rather than restarting — it keeps your context and any open plan or gate state. The 5.x models draw from rate-limit buckets separate from the 4.x pool, so dropping a generation gives real headroom. Note that switching invalidates the prompt cache, so the next request pays full price for the whole prefix — switch because you're blocked, not to save money.
 
 Full guidance, including which failures a fallback does *not* fix: `.claude/docs/model-tiers.md`.
 
 ### Claude Fable 5
 
-`claude-fable-5` is deliberately **not** a tier here. It costs 2× Opus 5, thinking is always on, single turns can run for minutes, and it requires 30-day data retention. Its advantage is long-horizon *autonomous* work — but every pipeline in this template stops at a Director Gate every few minutes, so that autonomy never gets used. A commented-out `claude-frontier` alias is in `.claude/aliases.sh` if you want it for a one-off architecture session.
+`claude-fable-5` is deliberately **not** a tier here. It costs 2.5× Opus 5.5 and 5× Sonnet 5.5 ($10/$50 per MTok), thinking is always on, single turns can run for minutes, and it requires 30-day data retention. Its advantage is long-horizon *autonomous* work — but every pipeline in this template stops at a Director Gate every few minutes, so that autonomy never gets used. A commented-out `claude-frontier` alias is in `.claude/aliases.sh` if you want it for a one-off architecture session.
 
 ---
 

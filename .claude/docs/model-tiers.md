@@ -14,13 +14,17 @@ Model selection happens at **three independent layers**. Don't confuse them:
 
 Start your session with the right model for the task:
 
-| Tier | Model | Alias | When to use |
-|------|-------|-------|-------------|
-| **light** | `claude-haiku-4-5` | `claude-light` | Quick tasks: `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
-| **normal** | `claude-sonnet-5` | `claude-normal` | Balanced work: `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/performance-audit`, `/new-module`, `/check-portability`, `/clean-slop`, `/catch-up`, `/learn`, `/search` |
-| **heavy** | `claude-opus-5` | `claude-heavy` | Deep thinking: `/architect`, `/roadmap`, `/plan-module`, `/game-idea`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
+| Tier | `--model` | Alias | When to use |
+|------|-----------|-------|-------------|
+| **light** | `haiku` | `claude-light` | Quick tasks: `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
+| **normal** | `sonnet` | `claude-normal` | Balanced work: `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/performance-audit`, `/new-module`, `/check-portability`, `/clean-slop`, `/catch-up`, `/learn`, `/search` |
+| **heavy** | `opus` | `claude-heavy` | Deep thinking: `/architect`, `/roadmap`, `/plan-module`, `/game-idea`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
 
 Setup aliases once in your shell profile — see `.claude/aliases.sh`.
+
+**Layer 1 uses the same unversioned strings as Layer 2, and that is the point.** These three were pinned IDs (`claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`) until 2026-10-04, while agent frontmatter has always used the bare aliases. The two layers therefore resolved to **different generations in the same session** — measured: the Director running on Opus 5 while every agent it spawned ran Opus 5.5. Nothing reported this; a pinned ID and an alias look identical at the call site. Only the fallback aliases stay pinned, because naming one specific older generation is their entire job.
+
+> **Holding back a generation is not a cost lever, and this generation inverts the assumption that it is.** Opus 5.5 is **cheaper** than Opus 5 ($4/$20 vs $5/$25 per MTok) and Sonnet 5.5 costs exactly what Sonnet 5 does ($2/$10) — so a "heavy = 5.5, normal = 5" ladder pays *more* for a *weaker* model on the Opus side and buys literally nothing on the Sonnet side. Depth within a tier is tuned with `effort` (below), never by pinning an older version. Re-check the prices before repeating this claim: it is a fact about one generation, not a rule.
 
 ### When the Current Model Is Unavailable
 
@@ -28,9 +32,9 @@ There is **no automatic model fallback** in Claude Code, and the API's `fallback
 
 | Tier | Primary | Fallback | Last resort |
 |------|---------|----------|-------------|
-| **heavy** | `claude-opus-5` | `claude-opus-4-7` | `claude-opus-4-6` |
-| **normal** | `claude-sonnet-5` | `claude-sonnet-4-6` | — |
-| **light** | `claude-haiku-4-5` | — | — |
+| **heavy** | `opus` | `claude-opus-4-7` | `claude-opus-4-6` |
+| **normal** | `sonnet` | `claude-sonnet-4-6` | — |
+| **light** | `haiku` | — | — |
 
 **Prefer `/model <id>` inside the running session** over restarting with a fallback alias — it keeps your context, your open plan, and any gate state. Restart only if the session itself is unusable.
 
@@ -51,7 +55,7 @@ Match the failure to the fix before reaching for a fallback:
 
 ### Why not Claude Fable 5
 
-`claude-fable-5` is Anthropic's most capable widely released model, but it is **deliberately not a tier here**. It costs 2× Opus 5 ($10/$50 vs $5/$25 per MTok), thinking is always on (the `thinking` parameter is rejected), single requests on hard tasks can run for many minutes, and it requires 30-day data retention. Its advantage is long-horizon *autonomous* execution — overnight refactors, one-shot whole-system builds, no human in the loop.
+`claude-fable-5` is Anthropic's most capable widely released model, but it is **deliberately not a tier here**. It costs 2.5× Opus 5.5 ($10/$50 vs $4/$20 per MTok — and 5× Sonnet 5.5), thinking is always on (the `thinking` parameter is rejected), single requests on hard tasks can run for many minutes, and it requires 30-day data retention. Its advantage is long-horizon *autonomous* execution — overnight refactors, one-shot whole-system builds, no human in the loop.
 
 This project's pipelines are the opposite shape: every command stops at a Director Gate (`SCOPE_GATE` → `SPARC_GATE` → `QUALITY_GATE` → `COMMIT_GATE`) every few minutes, and every subagent is a narrow, single-task worker. The autonomy Fable is priced for never gets used, and minute-long turns fight the gate rhythm.
 

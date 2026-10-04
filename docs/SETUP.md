@@ -48,9 +48,9 @@ After running `/setup-project`, complete these steps manually (Claude cannot do 
 | Phase | Commands | What happens |
 |-------|---------|--------------|
 | 1 — Idea & Design | `/game-idea`, `/architect` | GDD → TDD with adversarial review |
-| 2 — Planning | `/plan-workflow`, `/dry-run` | WORKFLOW.md phases, preview without execution |
+| 2 — Planning | `/roadmap`, `/plan-module`, `/dry-run` | ROADMAP.md module table, then one module's spec/design/tasks just-in-time, preview without execution |
 | 3 — Project Setup | `/setup-project` | Folder structure, .asmdefs, base classes, URP quality tiers, audio import settings |
-| 4 — Implementation | `/orchestrate`, `/continue` | Execute WORKFLOW.md phase by phase |
+| 4 — Implementation | `/orchestrate`, `/continue` | Execute one module's `tasks.md` task by task |
 | 5 — Quality | `/validate`, `/review-code`, `/ralph`, `/performance-audit` | Compile + tests green, code review, fix loops, hot path audit |
 | 6 — Documentation | `/learn`, `/catch-up`, `/adr`, `/smart-commit` | Extract patterns, generate CATCH_UP.md, record decisions, commit |
 
@@ -75,10 +75,16 @@ Logs rotate daily and are stored in `.claude/logs/`.
 
 ## Model Tiers
 
-| Tier | Model | Alias | When to use |
-|------|-------|-------|-------------|
-| **light** | `claude-haiku-4-5` | `claude-light` | Quick tasks: `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
-| **normal** | `claude-sonnet-5` | `claude-normal` | Balanced work: `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/performance-audit`, `/new-module`, `/check-portability`, `/clean-slop`, `/catch-up`, `/learn` |
-| **heavy** | `claude-opus-5` | `claude-heavy` | Deep thinking: `/architect`, `/plan-workflow`, `/game-idea`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
+| Tier | `--model` | Alias | When to use |
+|------|-----------|-------|-------------|
+| **light** | `haiku` | `claude-light` | Quick tasks: `/dump`, `/five`, `/mermaid`, `/create-changelog`, `/context-prime` |
+| **normal** | `sonnet` | `claude-normal` | Balanced work: `/review-code`, `/debug-session`, `/validate`, `/generate-tests`, `/performance-audit`, `/new-module`, `/check-portability`, `/clean-slop`, `/catch-up`, `/learn`, `/search` |
+| **heavy** | `opus` | `claude-heavy` | Deep thinking: `/architect`, `/roadmap`, `/plan-module`, `/game-idea`, `/grill-me`, `/refine-gdd`, `/refine-tdd` |
 
 Setup aliases once in your shell profile — see `.claude/aliases.sh`.
+
+The `--model` column is deliberately unversioned. Agent frontmatter already uses the bare
+`opus`/`sonnet`/`haiku`, so a pinned ID here would make the session and the agents it spawns resolve
+to different model generations — which is exactly what this table said until 2026-10-04.
+`.claude/docs/model-tiers.md` is the canonical copy; align this one to it rather than editing it in
+place.
