@@ -14,7 +14,7 @@ Every Unity API decision must be grounded in official documentation. Training da
 
 - Before writing any Unity API call
 - For APIs that change across versions: URP, DOTS, Addressables, Input System, Cinemachine, Physics
-- When writing Unity-specific patterns in `/implement`, `/fix`, `/add-feature`, `/scene-setup` pipelines
+- When writing Unity-specific patterns in `/implement`, `/fix`, `/orchestrate`, `/scene-setup` pipelines
 - Whenever "is this still correct?" comes to mind about existing code
 
 **When NOT to Use:**

@@ -13,9 +13,10 @@ graph TD
     subgraph Design["Phase 1-2 — Design & Planning"]
         GI["/game-idea\nGDD"]
         AR["/architect\nTDD"]
-        PW["/plan-workflow\nWORKFLOW.md"]
+        RM["/roadmap\nROADMAP.md module table"]
+        PM["/plan-module\nspec · design · tasks"]
         DR["/dry-run\nPreview"]
-        GI --> AR --> PW --> DR
+        GI --> AR --> RM --> PM --> DR
     end
 
     subgraph Setup["Phase 3 — Project Setup"]
@@ -23,7 +24,7 @@ graph TD
     end
 
     subgraph Impl["Phase 4 — Implementation"]
-        ORC["/orchestrate\nWORKFLOW.md executor"]
+        ORC["/orchestrate\nModule tasks.md executor"]
         IMP["/implement\nSingle task TDD pipeline"]
         FIX["/fix\nBug fix pipeline"]
         FXD["/fix-deep\nEvidence-first fix"]
