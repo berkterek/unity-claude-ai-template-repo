@@ -57,6 +57,14 @@ _gate_blocked() {
     echo "    2. Wait for 'go'" >&2
     echo "    3. Run: mkdir -p \"\$(git rev-parse --show-toplevel)/.claude/state\" && echo '{\"gate\":\"cleared\"}' > \"\$(git rev-parse --show-toplevel)/.claude/state/gate-cleared\"" >&2
     echo "  ────────────────────────────────────────────────────────────" >&2
+
+    # The spawn is denied, but agent-start-log.sh runs anyway — this harness
+    # runs every hook in a PreToolUse group even after one exits 2 — so retract
+    # the increment it is about to make. See unity_subagent_note_spawn_denied.
+    unity_subagent_note_spawn_denied \
+        "$(echo "$INPUT" | jq -r '.session_id // "unknown"')" \
+        "$(echo "$INPUT" | jq -r '.tool_input.description // "unknown"')"
+
     exit 2
 }
 

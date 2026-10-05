@@ -257,11 +257,61 @@ unity_subagent_schedule_decrement() {
     unity_subagent_depth_unlock
 }
 
+# unity_subagent_note_spawn_denied <session_id> <description> — called by a
+# PreToolUse/Agent hook immediately before it exits 2.
+#
+# Root cause (found 2026-10-04): THIS HARNESS RUNS EVERY HOOK IN A PreToolUse
+# GROUP EVEN AFTER ONE EXITS 2. Measured directly — a unity-reviewer spawn
+# blocked by guard-reviewer-order.sh still produced a SubagentStart record and
+# still took the counter from 2 to 3, with no agent running. So a denied spawn
+# leaks +1 forever: agent-start-log.sh increments, and no PostToolUse Stop ever
+# arrives to match it, because the Agent tool never ran.
+#
+# Registration order does not help. agent-start-log.sh is already registered
+# last, after all three guards, and still runs. There is also no way for it to
+# decide for itself: a PreToolUse hook cannot know whether another hook in its
+# group has blocked, or is about to.
+#
+# So the retraction is scheduled by whoever actually blocked, through the
+# existing pending queue, which makes it ORDER-INDEPENDENT — the one property
+# worth having here, since hook execution order inside a group is not a
+# contract. agent-start-log.sh writes the depth file directly and never calls
+# unity_subagent_depth(), so it cannot consume this entry before incrementing;
+# the first consumer to ask for the depth applies it, and
+# unity_subagent_apply_pending_decrements() floors the result at 0.
+#
+# Deduplicated on session_id + description — the same pair agent-start-log.sh
+# keys retry detection on, deliberately, so the two cannot drift. Two guards
+# blocking the SAME spawn (no gate-cleared and no codex receipt, say) must
+# retract one increment, not two; without the key they would cancel a
+# legitimately running sibling agent's increment instead.
+unity_subagent_note_spawn_denied() {
+    local sid="${1:-unknown}" desc="${2:-unknown}"
+    local pending="${UNITY_HOOK_STATE_DIR}/subagent-depth-pending.jsonl"
+    local key="${sid}::${desc}"
+
+    unity_subagent_depth_lock
+    [ -f "$pending" ] || : > "$pending"
+    local already
+    already=$(jq -rs --arg k "$key" '[.[] | select(.denied_key == $k)] | length' "$pending" 2>/dev/null || echo 0)
+    case "$already" in ''|*[!0-9]*) already=0 ;; esac
+    if [ "$already" -eq 0 ]; then
+        jq -nc --argjson not_before "$(date +%s)" --arg k "$key" \
+            '{not_before:$not_before, denied_key:$k}' >> "$pending"
+    fi
+    unity_subagent_depth_unlock
+}
+
 # unity_subagent_apply_pending_decrements — applies every scheduled decrement
 # whose grace window has elapsed, then drops those entries from the pending
 # file. Called lazily by unity_subagent_depth() on every read — there is no
 # background timer in a stateless hook system, so "later" means "the next time
 # anything asks what the depth is".
+#
+# Entries are read for .not_before only, so a denial retraction scheduled by
+# unity_subagent_note_spawn_denied() (not_before = now, applies on the next
+# read) travels the same path as a Stop's deferred decrement. Keep it that way:
+# a second queue would need its own locking and its own floor.
 unity_subagent_apply_pending_decrements() {
     local depth_file="${UNITY_HOOK_STATE_DIR}/subagent-depth"
     local pending="${UNITY_HOOK_STATE_DIR}/subagent-depth-pending.jsonl"
@@ -280,8 +330,18 @@ unity_subagent_apply_pending_decrements() {
         new=$(( current - due ))
         [ "$new" -lt 0 ] && new=0
         echo "$new" > "$depth_file"
-        printf '%s\n' "$remaining" > "$pending"
-        [ -s "$pending" ] || : > "$pending"
+        # Guard the empty case explicitly. `printf '%s\n' ""` writes a lone
+        # newline, so the file stays 1 byte, `[ -s ]` stays true, and the queue
+        # never reads as empty again — `wc -l` then reports one pending
+        # decrement forever when there are none. Cosmetic for the arithmetic
+        # (a blank line parses to nothing and `due` computes 0) but actively
+        # misleading while debugging the counter, which is the one thing anyone
+        # opens this file to do.
+        if [ -n "$remaining" ]; then
+            printf '%s\n' "$remaining" > "$pending"
+        else
+            : > "$pending"
+        fi
     fi
     unity_subagent_depth_unlock
 }

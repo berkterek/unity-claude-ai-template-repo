@@ -58,4 +58,12 @@ echo "    mkdir -p \"$UNITY_HOOK_STATE_DIR\" && touch \"$SPARC_STATE\"" >&2
 echo "  (touch re-stamps an expired approval too — but only after showing the gate again.)" >&2
 echo "  Delete \"$SPARC_STATE\" after the coder agent completes." >&2
 echo "  ─────────────────────────────────────────────────────────────────────" >&2
+
+# The spawn is denied, but agent-start-log.sh runs anyway — this harness runs
+# every hook in a PreToolUse group even after one exits 2 — so retract the
+# increment it is about to make. See unity_subagent_note_spawn_denied.
+unity_subagent_note_spawn_denied \
+    "$(echo "$INPUT" | jq -r '.session_id // "unknown"')" \
+    "$(echo "$INPUT" | jq -r '.tool_input.description // "unknown"')"
+
 exit 2
