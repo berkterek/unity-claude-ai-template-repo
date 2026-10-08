@@ -5,6 +5,9 @@ description: Generates one module's spec+design+tasks trio just-in-time against 
 
 # /plan-module — Module Planner (Just-in-Time)
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/roadmap-milestones.md`
+
 Creates a single module's `docs/modules/<n>-<name>/` folder: `spec.md`, `design.md`, `tasks.md`.
 
 ## Usage

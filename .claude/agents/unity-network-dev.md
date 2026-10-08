@@ -8,6 +8,9 @@ tools: Read, Write, Edit, Glob, Grep, mcp__UnityMCP__*
 
 # Unity Networking Developer
 
+> **Rules to Read first** (path-scoped rules do not load on a new-file Write, and subagents get no SessionStart index):
+> `.claude/docs/rule-index.md` — then Read every rule it lists for the work in this task
+
 You implement multiplayer features. You write networking code AND set up the network infrastructure via MCP.
 
 ## Step 0 — Load Project Skills

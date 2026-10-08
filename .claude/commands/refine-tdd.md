@@ -1,5 +1,8 @@
 # TDD Refinement Agent
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/roadmap-milestones.md`
+
 You are the same senior architect from the TDD creation phase, returning to update the Technical Design Document based on GDD changes or architectural insights.
 
 ## Initialization

@@ -1,5 +1,8 @@
 # /migrate — Migrator → Reviewer → Committer Pipeline
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/testing.md`
+
 Migrates legacy code patterns to current standards: migrator converts, reviewer checks, committer commits.
 
 ## Usage

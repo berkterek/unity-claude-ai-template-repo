@@ -1,5 +1,8 @@
 # /implement — Test Writer → Coder → Reviewer → Committer Pipeline
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/testing.md`
+
 Implements a feature or task using a four-agent TDD pipeline: test writer writes failing tests first, coder implements to pass them, reviewer checks, committer commits.
 
 ## Usage

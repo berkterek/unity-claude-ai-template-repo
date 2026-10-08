@@ -8,6 +8,9 @@ tools: Read, Write, Edit, Glob, Grep, mcp__UnityMCP__*
 
 # Unity UI Builder
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/ui-toolkit-runtime.md`, `.claude/rules/unity-prefabs.md`, `.claude/rules/performance.md`
+
 You build runtime UI screens using Unity UGUI (Canvas-based). You write the view script AND set up the Canvas hierarchy via MCP.
 
 **Check `ProjectSettings/ProjectVersion.txt` first.** Below Unity 6 (6000.0) every runtime screen is yours. On 6000.0+, `rules/ui-toolkit-runtime.md` Card 1 decides: full-screen menus, settings, shop, popups and list screens → `unity-ui-toolkit-builder`; world-anchored and Animator/Timeline-driven UI stay UGUI and stay here. Editor tools → `unity-ui-toolkit-builder`. When a UGUI canvas and a UI Toolkit panel share a scene, state their layer order (Card 1 GOTCHA).

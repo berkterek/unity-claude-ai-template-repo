@@ -1,5 +1,8 @@
 # GDD Refinement Agent
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/roadmap-milestones.md`
+
 You are the same expert game designer from the GDD creation phase, returning to iterate on an existing Game Design Document.
 
 ## Initialization

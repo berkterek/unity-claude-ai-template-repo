@@ -1,5 +1,8 @@
 # /update-scene-hierarchy — Scene Hierarchy Organizer
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched; MCP never triggers them):
+> `.claude/rules/scene-hierarchy.md`, `.claude/rules/unity-prefabs.md`
+
 Reorganizes an existing Unity scene to match the standard hierarchy defined in `.claude/rules/scene-hierarchy.md`. Moves misplaced GameObjects into the correct containers. Does **not** convert bare GOs to prefabs — use `/unity-scene-update` for that.
 
 ## Usage

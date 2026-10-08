@@ -5,6 +5,9 @@ description: Reads the GDD, the TDD and the existing modules, then creates or up
 
 # /roadmap — Module Roadmap Generator
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/roadmap-milestones.md`
+
 Reads the GDD, the TDD and the current contents of `docs/modules/`, then writes `docs/ROADMAP.md`.
 
 ## Usage

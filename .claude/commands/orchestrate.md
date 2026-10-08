@@ -1,5 +1,8 @@
 # Orchestrate — Module Task Executor
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/roadmap-milestones.md`, `.claude/rules/testing.md`
+
 Reads a module's `tasks.md` and runs every task automatically.
 Usage: `/orchestrate docs/modules/01-core-loop/tasks.md`
 

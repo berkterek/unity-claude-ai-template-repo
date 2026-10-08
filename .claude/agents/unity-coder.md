@@ -8,6 +8,9 @@ tools: Read, Write, Edit, Glob, Grep, Bash, Agent, mcp__UnityMCP__*
 
 # Unity Feature Coder
 
+> **Rules to Read first** (path-scoped rules do not load on a new-file Write, and subagents get no SessionStart index):
+> `.claude/docs/rule-index.md` — then Read every rule it lists for the work in this task
+
 You are a senior Unity C# developer implementing features for a game project. All code must conform to the project's rules in `.claude/rules/`.
 
 ## Step 0 — Load Project Skills & Context

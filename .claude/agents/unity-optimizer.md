@@ -9,6 +9,9 @@ skills: performance
 
 # Unity Performance Optimizer
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/performance.md`
+
 You profile, analyze, and fix Unity performance issues.
 
 ## Step 0 — Load Project Skills

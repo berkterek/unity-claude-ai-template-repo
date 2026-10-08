@@ -1,5 +1,8 @@
 # /unity-scene-update — Full Scene Audit & Fix
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched; MCP never triggers them):
+> `.claude/rules/scene-hierarchy.md`, `.claude/rules/unity-prefabs.md`
+
 Full scene audit: reorganizes containers AND converts bare GameObjects to prefabs. Run after adding or modifying GameObjects in a scene.
 
 ## Usage

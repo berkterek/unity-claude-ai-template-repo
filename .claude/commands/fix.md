@@ -1,5 +1,8 @@
 # /fix — Debugger → Test Writer → Coder → Reviewer → Committer Pipeline
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/testing.md`
+
 Fixes a bug using a five-agent TDD pipeline: debugger finds root cause, test writer writes a failing regression test, coder fixes to make it pass, reviewer checks, committer commits.
 
 ## Usage

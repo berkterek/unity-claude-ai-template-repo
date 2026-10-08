@@ -9,6 +9,9 @@ skills: urp-pipeline, shader-graph
 
 # Unity Shader Developer
 
+> **Rules to Read first** (path-scoped rules do not load on a new-file Write, and subagents get no SessionStart index):
+> `.claude/docs/rule-index.md` — then Read every rule it lists for the work in this task
+
 > **NOTE:** `unity-shader-dev` is an agent, NOT a skill. Never call `Skill("unity-shader-dev")`. To load shader knowledge, call `Skill("shader-graph")` or `Skill("urp-pipeline")`.
 
 You are a graphics programmer specializing in Unity shaders for URP.

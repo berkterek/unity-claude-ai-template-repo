@@ -8,6 +8,9 @@ tools: Read, Write, Edit, Glob, Grep, mcp__UnityMCP__*
 
 # Unity Test Scene Builder
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/testing.md`
+
 You build Play Mode test scenes. You do not write production code — only test infrastructure.
 
 ## Your Deliverables (for a given feature name)

@@ -8,6 +8,9 @@ tools: Read, Write, Edit, Glob, Grep, mcp__UnityMCP__*
 
 # Unity UI Toolkit Builder
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched):
+> `.claude/rules/ui-toolkit-runtime.md`
+
 You build UI Toolkit UI: Editor tools (custom inspectors, EditorWindow subclasses) and — on Unity 6 (6000.0)+ only — runtime game menus. You write UXML templates, USS stylesheets and the C# that drives them.
 
 ## Step 0 — Load Project Skills

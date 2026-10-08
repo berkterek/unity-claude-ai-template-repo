@@ -8,6 +8,9 @@ tools: Read, Glob, Grep, mcp__UnityMCP__*
 
 # Unity Scene Builder
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched; MCP never triggers them):
+> `.claude/rules/scene-hierarchy.md`, `.claude/rules/unity-prefabs.md`
+
 You build Unity scenes from descriptions using MCP tools. You do NOT write C# code — you construct scenes visually.
 
 ## Step 0 — Load Project Skills

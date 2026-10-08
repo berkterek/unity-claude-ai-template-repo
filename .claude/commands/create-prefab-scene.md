@@ -1,5 +1,8 @@
 # /create-prefab-scene — Legacy Scene Migration → Prefab Inventory → Prefab Creation → Review → Commit
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched; MCP never triggers them):
+> `.claude/rules/scene-hierarchy.md`, `.claude/rules/unity-prefabs.md`
+
 **Use this command to retroactively migrate existing scenes** that contain bare (non-prefab) GameObjects — e.g. scenes created before the prefab rules were in place, imported from asset store, or built outside this template.
 
 For new development, prefab rules are already enforced by `orchestrate` and `add-feature` at creation time. This command is a one-time cleanup tool, not part of the normal workflow.

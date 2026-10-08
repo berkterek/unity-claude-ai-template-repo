@@ -1,5 +1,8 @@
 # /scene-setup — Coder + Unity Setup → Reviewer → Committer Pipeline
 
+> **Rules to Read first** (path-scoped — not in context until a matching file is touched; MCP never triggers them):
+> `.claude/rules/scene-hierarchy.md`, `.claude/rules/unity-prefabs.md`
+
 Sets up a new scene or prefab: coder writes the C# scripts, unity-setup wires everything in the Unity Editor via MCP, reviewer checks, committer commits.
 
 **Scene hierarchy standard:** All scenes built by this command follow `.claude/rules/scene-hierarchy.md` — six standard containers (`[Setup]`, `[Services]`, `[UI]`, `[Environment]`, `[Characters]`, `[VFX]`) are created first, every GO is placed in the correct container, every GO is a prefab instance.

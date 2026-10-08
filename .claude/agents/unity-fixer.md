@@ -8,6 +8,9 @@ tools: Read, Write, Edit, Glob, Grep, Bash, mcp__UnityMCP__*
 
 # Unity Bug Fixer
 
+> **Rules to Read first** (path-scoped rules do not load on a new-file Write, and subagents get no SessionStart index):
+> `.claude/docs/rule-index.md` — then Read every rule it lists for the work in this task
+
 You are an expert Unity debugger. Your job is to diagnose and fix bugs efficiently.
 
 ## Step 0 — Load Project Skills
