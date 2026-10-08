@@ -59,6 +59,20 @@ _prompt() { jq -n --arg p "$1" '{prompt: $p}'; }
     done
 }
 
+@test "an action verb inside a longer word does not count" {
+    for p in 'addressables test sahnesi nerede' 'the test plane is tilted'; do
+        run bash $HOOK <<< "$(_prompt "$p")"
+        [[ "$output" != *"rules/testing.md"* ]] || { echo "fired on: $p"; return 1; }
+    done
+}
+
+@test "English verb forms and test file names still point at testing" {
+    for p in 'adding tests for the timer' 'I planned the tests' 'ScoreServiceTests.cs ekle' 'create LevelServiceTests.cs'; do
+        run bash $HOOK <<< "$(_prompt "$p")"
+        [[ "$output" == *"rules/testing.md"* ]] || { echo "missed: $p"; return 1; }
+    done
+}
+
 @test "the rule-awareness probe's test-plan prompt points at testing" {
     run bash $HOOK <<< "$(_prompt "$(cat .claude/tests/rule-awareness-probe/prompts/test-plan.txt)")"
     [[ "$output" == *"rules/testing.md"* ]]

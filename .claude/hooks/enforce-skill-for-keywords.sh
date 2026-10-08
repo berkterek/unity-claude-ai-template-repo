@@ -33,6 +33,11 @@ if [ -z "$PROMPT" ]; then
     exit 0
 fi
 
+# Pasted blocks are someone else's text (logs, other sessions' output) — a package
+# named inside one says nothing about what the user is asking for now.
+PROMPT=$(printf '%s' "$PROMPT" | perl -0pe 's{<pasted_content\b[^>]*>.*?</pasted_content\b[^>]*>}{}gs')
+[ -z "${PROMPT//[[:space:]]/}" ] && exit 0
+
 # ---------------------------------------------------------------------------
 # Keyword → skill name mapping
 # One entry per line: "keyword:skill_name"

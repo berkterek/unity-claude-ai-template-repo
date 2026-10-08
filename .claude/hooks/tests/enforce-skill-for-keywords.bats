@@ -50,6 +50,22 @@ teardown() { rm -rf "$UNITY_HOOK_STATE_DIR"; }
     [ -z "$output" ]
 }
 
+@test "keywords inside pasted content are ignored" {
+    mkdir -p "$CLAUDE_PROJECT_DIR/.claude/skills/third-party/unitask"
+    echo '# UniTask' > "$CLAUDE_PROJECT_DIR/.claude/skills/third-party/unitask/SKILL.md"
+    payload=$(jq -n --arg p $'bunu incele\n<pasted_content id="ab12">\nuse unitask for the loader\n</pasted_content id="ab12">' '{prompt: $p}')
+    output=$(bash "$HOOK" 2>/dev/null <<< "$payload")
+    [ -z "$output" ]
+}
+
+@test "keywords typed next to pasted content still match" {
+    mkdir -p "$CLAUDE_PROJECT_DIR/.claude/skills/third-party/unitask"
+    echo '# UniTask' > "$CLAUDE_PROJECT_DIR/.claude/skills/third-party/unitask/SKILL.md"
+    payload=$(jq -n --arg p $'<pasted_content id="ab12">\nsome log\n</pasted_content id="ab12">\nuse unitask here' '{prompt: $p}')
+    output=$(bash "$HOOK" 2>/dev/null <<< "$payload")
+    [[ "$output" == *"third-party/unitask/SKILL.md"* ]]
+}
+
 @test "a mapping with no skill file anywhere is skipped silently on stdout" {
     output=$(bash "$HOOK" 2>/dev/null <<< '{"prompt":"use unitask for the loader"}')
     [ -z "$output" ]   # stdout only — the skip note goes to stderr by design

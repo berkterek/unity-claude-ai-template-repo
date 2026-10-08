@@ -90,7 +90,10 @@ RULE_MAP=(
 # "test" alone fires on "did the tests pass"; a fixed phrase ("write test") misses
 # "write a test" and "testleri yaz". So testing needs a test word AND an action word,
 # anywhere in the prompt, in either order.
-TEST_ACTION="write|add|create|generate|plan|yaz|ekle|oluştur"
+# English verbs end at a word boundary ("add" must not hit "addressables", "plan" not
+# "plane"); Turkish stems stay open because suffixes carry the meaning ("yazalım").
+TEST_ACTION_EN="(write|writes|writing|wrote|written|add|adds|added|adding|create|creates|created|creating|generate|generates|generated|generating|plan|plans|planned|planning)([^[:alnum:]]|$)"
+TEST_ACTION_TR="yaz|ekle|oluştur|planla"
 
 _feature_enabled() {
     local feature="$1"
@@ -103,7 +106,12 @@ _feature_enabled() {
 _word() { printf '%s' "$PROMPT" | grep -qE "(^|[[:space:][:punct:]])($1)"; }
 
 MATCHED=()
-if _word test && _word "$TEST_ACTION" && _feature_enabled testing && [ -f "${RULES_DIR}/testing.md" ]; then
+_test_request() {
+    { _word test || printf '%s' "$PROMPT" | grep -qE 'tests?\.cs'; } || return 1
+    _word "$TEST_ACTION_EN" || _word "$TEST_ACTION_TR"
+}
+
+if _test_request && _feature_enabled testing && [ -f "${RULES_DIR}/testing.md" ]; then
     MATCHED+=("testing")
 fi
 for entry in "${RULE_MAP[@]}"; do
