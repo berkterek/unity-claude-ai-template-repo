@@ -93,7 +93,7 @@ RULE_MAP=(
 # English verbs end at a word boundary ("add" must not hit "addressables", "plan" not
 # "plane"); Turkish stems stay open because suffixes carry the meaning ("yazalım").
 TEST_ACTION_EN="(write|writes|writing|wrote|written|add|adds|added|adding|create|creates|created|creating|generate|generates|generated|generating|plan|plans|planned|planning)([^[:alnum:]]|$)"
-TEST_ACTION_TR="yaz|ekle|oluştur|planla"
+TEST_ACTION_TR="yaz|ekle|oluştur|planla|planı|planın"
 
 _feature_enabled() {
     local feature="$1"

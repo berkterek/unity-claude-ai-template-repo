@@ -73,6 +73,13 @@ _prompt() { jq -n --arg p "$1" '{prompt: $p}'; }
     done
 }
 
+@test "Turkish 'test planı' forms point at testing" {
+    for p in 'test planı çıkar' 'test planı hazırla' 'bir test planı lazım' 'test planını yap'; do
+        run bash $HOOK <<< "$(_prompt "$p")"
+        [[ "$output" == *"rules/testing.md"* ]] || { echo "missed: $p"; return 1; }
+    done
+}
+
 @test "the rule-awareness probe's test-plan prompt points at testing" {
     run bash $HOOK <<< "$(_prompt "$(cat .claude/tests/rule-awareness-probe/prompts/test-plan.txt)")"
     [[ "$output" == *"rules/testing.md"* ]]
