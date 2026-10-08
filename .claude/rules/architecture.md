@@ -549,23 +549,8 @@ no `.asmdef` is not a boundary and is exempt.
 
 **The mechanism is `_arch_doc_scope()` in `check-architecture-doc.sh`, plus `path-allowlist.txt`.** Adding a
 project folder to the gate means adding a line to the allowlist and nothing else — no hook edit, no registry,
-and **no marker to register**. If you find a reference anywhere to registering a marker with a function named
-`arch_doc_marker()`, delete it: that function has never existed in this repo. It was invented mid-conversation
-as a plausible-sounding mechanism and repeated until it read like fact. A named function is exactly the kind
-of detail that survives a summary while the check that would have caught it does not — verify before you
-propagate.
-
-**What this was fixing.** The convention was written when `_Framework/` held only `Events/`, and stayed
-scoped that way after `/setup-project` began generating `Logging/` and `SaveLoadSystems/`. The evidence that
-the gap was real, rather than theoretical: the reason `DLog.Error` is deliberately neither `[Conditional]`
-nor tag-filtered lived **only** as a comment inside `DLog.cs`, because there was nowhere else to put it — and
-a project that inherited the framework carried the defect that comment describes for months, unnoticed. A
-load-bearing decision parked in a source comment survives exactly as long as nobody tidies the file.
-
-One measurement correction against `docs/PLAN_framework_architecture_docs.md`, which recorded that the hook
-**blocked** such a doc and therefore had to change first: it did not. It fell through to `exit 0` — silently
-accepted, never validated. That is worse than a block, because nothing tells the author the doc went
-unchecked. The hook now validates both scopes.
+and **no marker to register** (`arch_doc_marker()` has never existed — delete any reference to it). History and
+the measurement correction: `docs/incidents/architecture-doc-gate.md`.
 
 ---
 
@@ -595,85 +580,11 @@ VContainer is the **only** wiring mechanism. No singletons, no static access, no
 
 ### Code-First Static Module Pattern (NON-NEGOTIABLE)
 
-Modules are registered via static `Install()` methods — no ScriptableObject installer assets, no `ModuleInstaller` subclasses, no `AppInstaller.asset`.
-
-```csharp
-// Game/Concretes/Audio/AudioModule.cs — pure C# static class
-namespace Game.Concretes.Audio
-{
-    public static class AudioModule
-    {
-        public static void Install(IContainerBuilder builder, AudioConfiguration config)
-        {
-            if (config == null)
-            {
-                Debug.LogError("[AudioModule] AudioConfiguration missing.");
-                return;
-            }
-
-            builder.RegisterInstance(config);
-            builder.Register<AudioService>(Lifetime.Singleton).AsImplementedInterfaces();
-        }
-    }
-}
-
-// Game/Concretes/Infrastructure/AppModules.cs — single wiring point
-namespace Game.Concretes.Infrastructure
-{
-    public static class AppModules
-    {
-        public static void Install(IContainerBuilder builder, ConfigCatalog configs)
-        {
-            EventBusModule.Install(builder);                     // FIRST — structural guarantee
-            AudioModule.Install(builder, configs.Audio);
-            PlayerModule.Install(builder, configs.Player);
-            // New module = one line here — visible in git diff, hookable
-        }
-    }
-}
-```
-
-Adding a new module: add one static class with `Install()` and one call line in `AppModules`. No Editor asset work. `EventBusModule` is always first — enforced by code position, not convention.
+Full pattern and code: `rules/bootstrap-pattern.md` → Cards 1–2 and "[Module]Module — Static Class". Summary: a module is one static class with `Install(IContainerBuilder, Config)`, added as one line in `AppModules.Install()`; no ScriptableObject installer assets; `EventBusModule` is always first — enforced by code position, not convention.
 
 ### AppScope — Uses AppModules (NON-NEGOTIABLE)
 
-```csharp
-// Game/Concretes/Infrastructure/AppScope.cs
-namespace Game.Concretes.Infrastructure
-{
-    public sealed class AppScope : LifetimeScope
-    {
-        #region Fields
-
-        [SerializeField] private ConfigCatalog _configCatalog;
-
-        #endregion
-
-        #region Lifecycle
-
-        protected override void Configure(IContainerBuilder builder)
-        {
-            if (_configCatalog == null)
-            {
-                Debug.LogError("[AppScope] ConfigCatalog missing.");
-                return;
-            }
-
-            builder.RegisterInstance(_configCatalog);
-            builder.RegisterComponentInHierarchy<UIRoot>();
-
-            AppModules.Install(builder, _configCatalog);
-
-            builder.RegisterBuildCallback(c =>
-                EventBusAccessor.Initialize(c.Resolve<IEventBus>()));
-        }
-
-        #endregion
-    }
-}
-```
-
-`AppScope.cs` **never changes** — to add a module, add one line to `AppModules.Install()`.
+Full code: `rules/bootstrap-pattern.md` → "AppScope". `AppScope.cs` **never changes** — it validates `ConfigCatalog`, then calls `AppModules.Install()`; to add a module, add one line to `AppModules.Install()`.
 
 ### NO GameContext / Service Locator (NON-NEGOTIABLE)
 
@@ -755,51 +666,7 @@ If the Handler needs **no** container dependencies, use plain `new` in Awake —
 
 ### EntryPoint — Lifecycle Yes, Frame Ticks No
 
-VContainer's EntryPoint interfaces are used for **lifecycle** (build, start, teardown), never for per-frame work. "I need Update" is not a reason to become a MonoBehaviour — but the escape is a Mono shell forwarding Unity's callback, not a container-driven tick. The service exposes `Tick(float deltaTime)` and stays pure C#:
-
-```csharp
-// Game/Concretes/Waves/WaveDirectorService.cs
-namespace Game.Concretes.Waves
-{
-    public sealed class WaveDirectorService : IWaveDirectorService
-    {
-        private readonly IEventBus         _eventBus;
-        private readonly WaveConfiguration _config;
-        private float _elapsed;
-        private int   _wave;
-
-        public WaveDirectorService(IEventBus eventBus, WaveConfiguration config)
-        {
-            _eventBus = eventBus;
-            _config   = config;
-        }
-
-        // deltaTime arrives as a parameter — no UnityEngine.Time access here
-        public void Tick(float deltaTime)
-        {
-            _elapsed += deltaTime;
-            if (_elapsed < _config.WaveInterval) return;
-
-            _elapsed = 0f;
-            _eventBus.Publish(new WaveStartedEvent(++_wave));
-        }
-    }
-}
-
-// The domain's Mono shell drives it — forwarding only, no logic
-public sealed class WaveManager : MonoBehaviour
-{
-    private IWaveDirectorService _waveDirector;
-
-    [Inject]
-    public void Construct(IWaveDirectorService waveDirector) => _waveDirector = waveDirector;
-
-    private void Update() => _waveDirector.Tick(Time.deltaTime);
-}
-
-// In WaveModule.Install() — plain registration; the tick does not come from the container
-builder.Register<WaveDirectorService>(Lifetime.Singleton).AsImplementedInterfaces();
-```
+VContainer's EntryPoint interfaces are used for **lifecycle** (build, start, teardown), never for per-frame work. "I need Update" is not a reason to become a MonoBehaviour — the service exposes `Tick(float deltaTime)`, stays pure C#, and the domain's Mono shell forwards Unity's callback into it. Full worked example (`WaveDirectorService` + `WaveManager`): `rules/solid-oop.md` → "EntryPoint — Lifecycle Yes, Frame Ticks No".
 
 | Interface | Called by VContainer | Status |
 |---|---|---|
@@ -811,7 +678,7 @@ builder.Register<WaveDirectorService>(Lifetime.Singleton).AsImplementedInterface
 
 Use `RegisterEntryPoint<T>()` when a service implements one of the three lifecycle interfaces; use a plain `Register<T>(Lifetime.Singleton)` when it only needs a tick.
 
-> **Why:** Unity's `Update`/`FixedUpdate`/`LateUpdate` order is documented and stable; VContainer's tick position relative to `MonoBehaviour.Update` is not part of any published contract. A container-driven tick that produces state a MonoBehaviour consumes is therefore correct only by accident of PlayerLoop insertion order, and it fails as a stale or dropped value rather than an exception — see `rules/unity-input.md` Card 1 for a concrete instance. One driver (Unity) removes the question. Full rationale and the R3 escape hatch: `rules/solid-oop.md` → EntryPoint.
+> **Why:** VContainer's tick position relative to `MonoBehaviour.Update` is not part of any published contract, so a container-driven tick feeding a MonoBehaviour is correct only by accident. Full rationale and the R3 escape hatch: `rules/solid-oop.md` → EntryPoint.
 
 ---
 
@@ -830,25 +697,7 @@ AppScope (Bootstrap scene — DontDestroyOnLoad, persistent root)
 
 ### GameScope — Scene Component Registration Only
 
-`GameScope` registers MonoBehaviours that are present in the scene and need to be injected across the module boundary. It does NOT wire services or factories.
-
-```csharp
-// GOOD — GameScope registers scene components only
-protected override void Configure(IContainerBuilder builder)
-{
-    builder.RegisterComponent(_playerView);   // scene object
-    builder.RegisterComponent(_uiRoot);       // scene object
-    // Service wiring is in PlayerModule, BattleModule (via AppModules)
-}
-
-// BAD — GameScope doing service wiring
-protected override void Configure(IContainerBuilder builder)
-{
-    builder.RegisterComponent(_playerView);
-    builder.Register<PlayerService>(Lifetime.Singleton);       // belongs in PlayerModule
-    builder.Register<BattleOrchestrator>(Lifetime.Singleton);  // belongs in BattleModule
-}
-```
+`GameScope` registers MonoBehaviours that are present in the scene and need to be injected across the module boundary. It does NOT wire services or factories. GOOD/BAD code: Card 7 above; full rules: `rules/bootstrap-pattern.md` → Card 4 and "GameScope — Scene-Based Wiring" (scene-lifetime pure C# services go through `SceneModules`).
 
 | Task | Location | Why |
 |------|----------|-----|
@@ -877,30 +726,7 @@ Handler interfaces (`IMoveHandler`) follow the same rule — always interface-fi
 
 `IEventBus` is the **only** cross-system communication channel. No C# static events, no UnityEvents, no direct cross-module calls.
 
-```csharp
-// Define events as readonly structs — zero allocation
-public struct LevelStartedEvent : IEvent { }
-
-public struct CoinsChangedEvent : IEvent
-{
-    public readonly int NewAmount;
-    public CoinsChangedEvent(int amount) => NewAmount = amount;
-}
-
-// Publishing
-_eventBus.Publish(new LevelStartedEvent());
-
-// Subscribing — in Initialize(), unsubscribe in Dispose()
-public void Initialize()
-{
-    _eventBus.Subscribe<LevelStartedEvent>(OnLevelStarted);
-}
-
-public void Dispose()
-{
-    _eventBus.Unsubscribe<LevelStartedEvent>(OnLevelStarted);
-}
-```
+Event struct shape, naming and the full decision tree: `rules/event-patterns.md` (loads on any `.cs`). Subscribe in `Initialize()`, unsubscribe in `Dispose()` — the class-type table below is the authority.
 
 ### Subscribe / Unsubscribe Rules
 
@@ -921,24 +747,7 @@ Never unsubscribe in `OnDestroy()` for VContainer-managed types — conflicts wi
 
 ## Provider Pattern
 
-Domain services never touch Unity API. Unity calls stay at the Provider boundary (Tier 4):
-
-```csharp
-// Domain service — pure C#, no UnityEngine import (Tier 3)
-public sealed class AudioService : IAudioService
-{
-    private readonly IAudioProvider _provider;
-    public AudioService(IAudioProvider provider) => _provider = provider;
-    public void PlaySound(string id) => _provider.Play(id);
-}
-
-// Provider — Unity API lives here (Tier 4)
-public sealed class BasicAudioProvider : MonoBehaviour, IAudioProvider
-{
-    [SerializeField] private AudioSource _source;
-    public void Play(AudioClip clip) => _source.PlayOneShot(clip);
-}
-```
+Domain services never touch Unity API. Unity calls stay at the Provider boundary (Tier 4) — code: Card 2 above.
 
 Do NOT open a Provider for prefab-local Unity access — that is Handler's job. Provider is the cross-module Unity API boundary.
 
@@ -973,11 +782,7 @@ public sealed class AudioConfiguration : ScriptableObject
 
 ## No Singletons
 
-VContainer replaces all singleton patterns.
-
-- App-wide → register in `AppScope` (via `AppModules`)
-- Per-scene → register in `MenuScope` / `GameScope`
-- No `Instance`, no `static` mutable state, no `FindObjectOfType`
+See Card 1 above. App-wide → `AppScope` via `AppModules`; per-scene → `MenuScope` / `GameScope`. No `Instance`, no `static` mutable state, no `FindObjectOfType`.
 
 ---
 
@@ -997,29 +802,8 @@ public static class EventBusAccessor
 }
 ```
 
-```csharp
-// AppScope.cs — initialize the accessor after VContainer resolves
-protected override void Configure(IContainerBuilder builder)
-{
-    // ... other registrations
-    builder.RegisterBuildCallback(container =>
-    {
-        EventBusAccessor.Initialize(container.Resolve<IEventBus>());
-    });
-}
-```
-
-```csharp
-// ECS System — uses static accessor
-public partial class EnemyDeathSystem : SystemBase
-{
-    protected override void OnUpdate()
-    {
-        // VContainer injection not available here — accessor is the bridge
-        EventBusAccessor.Instance.Publish(new EnemyDiedEvent { ... });
-    }
-}
-```
+Initialized by `AppScope` in `RegisterBuildCallback` (code: `rules/bootstrap-pattern.md` → "AppScope"); ECS usage
+(`EventBusAccessor.Instance.Publish(...)` from a `SystemBase`): `rules/ecs-dots.md` → Card 12.
 
 **Rules:**
 - Only `EventBusAccessor` is an approved static accessor — no new ones without explicit design decision
