@@ -47,6 +47,7 @@ _globs() {  # print the quoted globs of a rule's paths: block, one per line
     _globs scene-hierarchy | grep -qxF '**/*.{prefab,unity}'
     _globs ecs-dots | grep -qxF '**/Ecs/**'
     _globs roadmap-milestones | grep -qxF 'docs/ROADMAP.md'
+    _globs architecture-docs | grep -qxF '**/ARCHITECTURE.md'
 }
 
 @test "every scoped rule is listed in the rule index" {

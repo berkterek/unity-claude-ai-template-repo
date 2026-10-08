@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Guards the launch-loaded instruction budget. Claude Code warns when instruction files loaded
+# Guards the launch-loaded instruction budget (limit 145,000 — see the test body). Claude Code warns when instruction files loaded
 # at session start add past 150,000 chars (unicode chars — the warning's 469.5k matched 474k
 # bytes), and the documented cost of that bloat is adherence. Restructured 2026-10-08 to
 # ~147.9k with a thin margin — and claude-md-management:revise-claude-md appends to CLAUDE.md
@@ -15,7 +15,9 @@
 setup() { cd "$BATS_TEST_DIRNAME/../../.." || exit 1; }
 
 @test "launch-loaded instructions stay under the budget" {
-    limit="${UNITY_RULE_BUDGET_CHARS:-148000}"
+    # 145,000 keeps >=5k under the 150k warning: revise-claude-md appends a few hundred chars
+    # per /implement or /fix, and a 42-char margin (measured 2026-10-08) broke on the first one.
+    limit="${UNITY_RULE_BUDGET_CHARS:-145000}"
     total=$(python3 - <<'PY'
 import glob, os, re
 files = ['.claude/CLAUDE.md']

@@ -21,6 +21,7 @@ MCP tools (scene, prefab, component) never trigger auto-load: Read the rule your
 | write hot-path code, materials, shaders, or UI raycast settings | `.claude/rules/performance.md` |
 | write ECS code (only if feature `ecs` is enabled) | `.claude/rules/ecs-dots.md` |
 | load assets at runtime (only if feature `addressables` is enabled) | `.claude/rules/addressables.md` |
+| write or edit any `ARCHITECTURE.md` (new domain, new `_Framework/` assembly) | `.claude/rules/architecture-docs.md` |
 | build a browser-based authoring tool | `.claude/rules/web-tool-architecture.md`, `web-tool-data-contract.md`, `web-tool-design-system.md` |
 
 Always loaded, no action needed: `architecture`, `solid-oop`, `csharp-unity`, `bootstrap-pattern`.

@@ -1,5 +1,8 @@
 # New Module — Static Module Generator
 
+> **Rules to Read first** (path-scoped — a new `ARCHITECTURE.md` is a new-file Write, which never loads it):
+> `.claude/rules/architecture-docs.md`
+
 You generate the standard 5-file static module structure for a new service/system in this Unity project. You ask the developer for the module name, then produce all files and wire everything into `AppModules.cs` and `ConfigCatalog.cs`.
 
 ## What You Generate

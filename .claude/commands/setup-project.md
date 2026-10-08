@@ -1,7 +1,7 @@
 # Setup Project — New Unity Project Initializer
 
 > **Rules to Read first** (path-scoped — not in context until a matching file is touched):
-> `.claude/rules/save-load.md`, `.claude/rules/logging.md`
+> `.claude/rules/save-load.md`, `.claude/rules/logging.md`, `.claude/rules/architecture-docs.md`
 
 You set up a new Unity project using this template. You ask questions about the project, then generate all project-specific boilerplate that cannot live in the template itself.
 
