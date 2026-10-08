@@ -2,8 +2,16 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK_PROFILE_LEVEL="standard"   # minimal | standard | strict
 source "${SCRIPT_DIR}/_lib.sh"
-# PostToolUse hook: auto-adds @-references for new skill files into CLAUDE.md
-# Triggers on Write/Edit to .claude/skills/{third-party,plugins,learned}/
+# PostToolUse hook: lists new skill files in .claude/docs/auto-loaded-skills.md
+# as "- `path` — description". Triggers on Write/Edit to
+# .claude/skills/{third-party,plugins,learned,platform}/.
+#
+# NOT an @-import. Imports load at launch and count toward the instruction
+# budget — and the old @.claude/... form never loaded at all, because imports
+# resolve relative to the importing file (measured 2026-10-08). session-restore.sh
+# injects this list at every SessionStart and agents read it at Step 0, so the
+# model knows each skill exists and Reads it when its description matches.
+# Spec: docs/superpowers/specs/2026-10-08-instruction-loading-design.md
 
 TOOL_INPUT=$(cat)
 
@@ -38,50 +46,68 @@ case "$RELATIVE_PATH" in
         ;;
 esac
 
-CLAUDE_MD="$PROJECT_ROOT/.claude/docs/auto-loaded-skills.md"
-AT_REF="@$RELATIVE_PATH"
+INDEX_FILE="${UNITY_AUTO_LOADED_SKILLS_FILE:-$PROJECT_ROOT/.claude/docs/auto-loaded-skills.md}"
 SECTION_HEADER="# Auto-Loaded Skills"
 
-# Already referenced?
-if grep -qF "$AT_REF" "$CLAUDE_MD"; then
+# Already listed, in either the old @ format or the new one?
+if [ -f "$INDEX_FILE" ] && grep -qF "$RELATIVE_PATH" "$INDEX_FILE"; then
     exit 0
 fi
 
-# Add section if missing
-if ! grep -qF "$SECTION_HEADER" "$CLAUDE_MD"; then
-    printf '\n%s\n\n<!-- managed by auto-load-skills.sh — do not edit manually -->\n' "$SECTION_HEADER" >> "$CLAUDE_MD"
+if [ ! -f "$INDEX_FILE" ] || ! grep -qF "$SECTION_HEADER" "$INDEX_FILE"; then
+    printf '\n%s\n\n<!-- managed by auto-load-skills.sh — do not edit manually -->\n' "$SECTION_HEADER" >> "$INDEX_FILE"
 fi
 
-# Insert @-ref after the section header
-python3 - "$CLAUDE_MD" "$SECTION_HEADER" "$AT_REF" << 'PYEOF'
+python3 - "$INDEX_FILE" "$SECTION_HEADER" "$RELATIVE_PATH" "$PROJECT_ROOT/$RELATIVE_PATH" << 'PYEOF'
 import sys
 
-claude_md_path = sys.argv[1]
-section_header = sys.argv[2]
-at_ref = sys.argv[3]
+index_path, section_header, rel_path, abs_path = sys.argv[1:5]
 
-with open(claude_md_path, 'r') as f:
+def describe(path):
+    try:
+        lines = open(path, encoding='utf-8').read().splitlines()
+    except OSError:
+        return ''
+    if lines and lines[0].strip() == '---':
+        for i in range(1, len(lines)):
+            if lines[i].strip() == '---':
+                break
+            if lines[i].startswith('description:'):
+                value = lines[i][len('description:'):].strip().strip('"').strip("'")
+                if value in ('>', '|', '>-', '|-', ''):
+                    for nxt in lines[i + 1:]:
+                        if nxt.strip():
+                            value = nxt.strip()
+                            break
+                return value[:140]
+    for line in lines:
+        if line.startswith('# '):
+            return line[2:].strip()[:140]
+    return ''
+
+desc = describe(abs_path)
+entry = f'- `{rel_path}`' + (f' — {desc}' if desc else '') + '\n'
+
+with open(index_path, encoding='utf-8') as f:
     lines = f.readlines()
 
 insert_at = None
 for i, line in enumerate(lines):
     if line.strip() == section_header:
-        # Find the end of the section block to append after existing refs
+        insert_at = i + 1
         for j in range(i + 1, len(lines)):
             stripped = lines[j].strip()
-            if stripped.startswith('@'):
-                insert_at = j + 1  # keep appending after last @-ref
-            elif stripped.startswith('##') and j > i + 1:
+            if stripped.startswith('- `') or stripped.startswith('@') or stripped.startswith('<!--') or not stripped:
+                insert_at = j + 1
+            elif stripped.startswith('#'):
                 break
-        if insert_at is None:
-            insert_at = i + 1
         break
 
 if insert_at is not None:
-    lines.insert(insert_at, at_ref + '\n')
-    with open(claude_md_path, 'w') as f:
+    lines.insert(insert_at, entry)
+    with open(index_path, 'w', encoding='utf-8') as f:
         f.writelines(lines)
 PYEOF
 
-echo "auto-load-skills: added $AT_REF to CLAUDE.md" >&2
+echo "auto-load-skills: listed $RELATIVE_PATH in auto-loaded-skills.md" >&2
 exit 0

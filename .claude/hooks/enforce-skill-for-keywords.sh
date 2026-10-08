@@ -134,15 +134,14 @@ KEYWORD_MAP=(
 INVOKED_FILE="${UNITY_HOOK_STATE_DIR}/skills-invoked.txt"
 touch "$INVOKED_FILE" 2>/dev/null || true
 
-# Auto-loaded skills are already in context — no Skill tool invocation needed.
-# Check auto-loaded-skills.md once and cache the content for fast grep below.
-AUTO_LOADED_FILE="${SCRIPT_DIR}/../docs/auto-loaded-skills.md"
-AUTO_LOADED_CONTENT=""
-if [ -f "$AUTO_LOADED_FILE" ]; then
-    AUTO_LOADED_CONTENT=$(cat "$AUTO_LOADED_FILE")
-fi
+# auto-loaded-skills.md is a plain index since 2026-10-08, not an @-import, so a
+# skill listed there is NOT in context. This hook used to skip enforcement for
+# listed skills; keeping that skip would now silently disable it. (The old
+# @.claude/... imports never loaded either — imports resolve relative to the
+# importing file — so the skip was already wrong before the change.)
 
 MISSING_SKILLS=()
+REFERENCE_SKILLS=()
 
 SKILLS_ROOT="${CLAUDE_PROJECT_DIR:-.}/.claude/skills"
 
@@ -155,10 +154,6 @@ for entry in "${KEYWORD_MAP[@]}"; do
         if grep -qxF "$skill" "$INVOKED_FILE" 2>/dev/null; then
             continue
         fi
-        # Skip if the skill is auto-loaded into context (any path containing the skill name)
-        if echo "$AUTO_LOADED_CONTENT" | grep -qF "$skill"; then
-            continue
-        fi
         # Skip if no skill file backs this mapping. Demanding a skill that cannot be
         # invoked is a block with no exit: the injected message says "invoke it before
         # writing any code", the Skill tool answers "Unknown skill", and there is no
@@ -169,8 +164,20 @@ for entry in "${KEYWORD_MAP[@]}"; do
         # installed, so absence is NORMAL, not a defect to repair by writing 5 stub
         # skills. The mapping simply has nothing to enforce — say so on stderr for the
         # maintainer and move on, rather than blocking the turn.
-        if ! find "$SKILLS_ROOT" -maxdepth 3 \( -type d -name "$skill" -o -type f -name "${skill}.md" \) -print -quit 2>/dev/null | grep -q .; then
-            echo "[enforce-skill-for-keywords] '$keyword' maps to skill '$skill', which has no file under $SKILLS_ROOT — mapping skipped." >&2
+        #
+        # Only .claude/skills/<name>/SKILL.md is invocable through the Skill tool. A nested
+        # reference skill (third-party/<name>/SKILL.md, plugins/<name>.md) is not — demanding
+        # a Skill call for it is the same no-exit block described above, and it re-fired on
+        # every matching prompt because skills-invoked.txt is only written by a Skill call
+        # that fails (found in review 2026-10-08). Point at the file instead.
+        if [ ! -f "$SKILLS_ROOT/$skill/SKILL.md" ]; then
+            ref=$(find "$SKILLS_ROOT" -maxdepth 3 \( -path "*/$skill/SKILL.md" -o -type f -name "${skill}.md" \) -print -quit 2>/dev/null)
+            if [ -z "$ref" ]; then
+                echo "[enforce-skill-for-keywords] '$keyword' maps to skill '$skill', which has no file under $SKILLS_ROOT — mapping skipped." >&2
+                continue
+            fi
+            ref=".claude/skills/${ref#"$SKILLS_ROOT"/}"
+            case " ${REFERENCE_SKILLS[*]:-} " in *" $ref "*) ;; *) REFERENCE_SKILLS+=("$ref") ;; esac
             continue
         fi
         # Deduplicate
@@ -182,22 +189,39 @@ for entry in "${KEYWORD_MAP[@]}"; do
     fi
 done
 
-if [ ${#MISSING_SKILLS[@]} -eq 0 ]; then
+if [ ${#MISSING_SKILLS[@]} -eq 0 ] && [ ${#REFERENCE_SKILLS[@]} -eq 0 ]; then
     exit 0
 fi
 
-# Build comma-separated skill list
-SKILLS_CSV=$(printf '%s, ' "${MISSING_SKILLS[@]}")
-SKILLS_CSV="${SKILLS_CSV%, }"
+MESSAGE=""
+if [ ${#MISSING_SKILLS[@]} -gt 0 ]; then
+    SKILLS_CSV=$(printf '%s, ' "${MISSING_SKILLS[@]}")
+    SKILLS_CSV="${SKILLS_CSV%, }"
+    MESSAGE="⛔ SKILL ENFORCEMENT — ACTION REQUIRED BEFORE RESPONDING ⛔
+
+This request involves a third-party package that has a dedicated skill. The following skill(s) have NOT been invoked yet this session:
+
+  ${SKILLS_CSV}
+
+You MUST call the Skill tool for each skill above BEFORE:
+- Writing any code
+- Giving implementation advice
+- Calling any MCP tools
+- Answering questions about the package
+
+Invoke the skill now. Do not proceed without it."
+fi
+if [ ${#REFERENCE_SKILLS[@]} -gt 0 ]; then
+    REF_LIST=$(printf '  %s\n' "${REFERENCE_SKILLS[@]}")
+    MESSAGE="${MESSAGE:+${MESSAGE}
+
+}REFERENCE SKILL — this request names a package with a project reference skill. It is not invocable through the Skill tool; Read it before writing code or giving implementation advice for that package:
+
+${REF_LIST}"
+fi
 
 # Output additionalContext — injected into Claude's system context before responding
-jq -n \
-    --arg skills "$SKILLS_CSV" \
-    '{
-        hookSpecificOutput: {
-            hookEventName: "UserPromptSubmit",
-            additionalContext: ("⛔ SKILL ENFORCEMENT — ACTION REQUIRED BEFORE RESPONDING ⛔\n\nThis request involves a third-party package that has a dedicated skill. The following skill(s) have NOT been invoked yet this session:\n\n  " + $skills + "\n\nYou MUST call the Skill tool for each skill above BEFORE:\n- Writing any code\n- Giving implementation advice\n- Calling any MCP tools\n- Answering questions about the package\n\nInvoke the skill now. Do not proceed without it.")
-        }
-    }'
+jq -n --arg msg "$MESSAGE" \
+    '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $msg}}'
 
 exit 0
