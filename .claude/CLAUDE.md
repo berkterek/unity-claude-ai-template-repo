@@ -184,8 +184,9 @@ Configured by `/setup-project`. Source of truth: `.claude/project-features.json`
 `skills-index.md` is the live index of all skills. `/discover --write` and `/learn` keep its tables current.
 Reference skills under `third-party/`, `plugins/`, `learned/`, `platform/` are listed with descriptions in
 `.claude/docs/auto-loaded-skills.md` — injected at SessionStart, not `@`-imported; Read a skill when its description
-matches the work. Agents read that list at Step 0. `enforce-skill-for-keywords.sh` (strict profile) demands a
-package skill before code when its keyword appears. → `docs/incidents/skills-loading.md`
+matches the work. Agents read that list at Step 0. `enforce-skill-for-keywords.sh` (strict profile) names a
+package's skill before code when its keyword appears outside pasted text — a Skill demand for `skills/<name>/SKILL.md`,
+a Read pointer for a nested reference skill. → `docs/incidents/skills-loading.md`
 
 ## Engine Version Reference
 
