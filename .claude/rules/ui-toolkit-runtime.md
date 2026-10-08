@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/*.{uxml,uss,tss}"
+  - "**/UI/**"
+---
 # UI Toolkit for Game UI (Unity 6+)
 
 > Read the **Cards** section first. The prose below is reference detail.

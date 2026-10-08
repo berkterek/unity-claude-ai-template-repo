@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/*.{prefab,unity}"
+  - "**/Prefabs/**"
+---
 # Prefab Rules (NON-NEGOTIABLE)
 
 > Read the **Cards** section first. The prose below is reference detail.

@@ -1,3 +1,7 @@
+---
+paths:
+  - "tools/**"
+---
 # Web Tool — Design System Rules (NON-NEGOTIABLE)
 
 > **Scope:** Browser-based authoring/editor/config tools only. NOT runtime game UI (UGUI / UI Toolkit) — see rules/unity-prefabs.md and skills/core/unity-ugui.md for that.

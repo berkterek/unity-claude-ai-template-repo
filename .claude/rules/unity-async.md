@@ -1,3 +1,7 @@
+---
+paths:
+  - "**/*.cs"
+---
 # Unity Async Rules — UniTask
 
 > Read the **Cards** section first. The prose below is reference detail.

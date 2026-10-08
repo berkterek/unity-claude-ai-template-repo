@@ -1,3 +1,9 @@
+---
+paths:
+  - "**/*.cs"
+  - "**/Arts/**"
+  - "**/*.{mat,shader,shadergraph}"
+---
 # Performance Rules
 
 ## The Golden Rule

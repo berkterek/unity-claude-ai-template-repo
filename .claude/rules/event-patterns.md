@@ -1,3 +1,7 @@
+---
+paths:
+  - "**/*.cs"
+---
 # Event & Callback Patterns
 
 > Read the **Cards** section first. The prose below is reference detail.

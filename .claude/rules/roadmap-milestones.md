@@ -1,3 +1,10 @@
+---
+paths:
+  - "docs/GDD*.md"
+  - "docs/TDD*.md"
+  - "docs/ROADMAP.md"
+  - "docs/modules/**"
+---
 # Roadmap Milestones — First Playable Discipline (NON-NEGOTIABLE)
 
 > Read the **Cards** section first. The prose below is reference detail.

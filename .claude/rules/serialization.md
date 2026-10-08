@@ -1,3 +1,7 @@
+---
+paths:
+  - "**/*.cs"
+---
 # Serialization Rules
 
 ## CRITICAL: FormerlySerializedAs

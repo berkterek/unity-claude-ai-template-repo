@@ -1,3 +1,7 @@
+---
+paths:
+  - "**/*.cs"
+---
 # Unity Lifecycle & Editor Rules
 
 ## Editor vs Runtime

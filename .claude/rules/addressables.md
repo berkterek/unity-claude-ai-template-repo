@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/AddressableAssetsData/**"
+  - "**/*Addressable*.cs"
+---
 # Addressables Rules
 
 ## Core Rule: No Resources.Load (NON-NEGOTIABLE)

@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/Tests/**"
+  - "**/*Tests.cs"
+---
 # Testing Rules
 
 ## Mandatory TDD

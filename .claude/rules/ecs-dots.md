@@ -1,3 +1,7 @@
+---
+paths:
+  - "**/Ecs/**"
+---
 # ECS DOTS Rules
 
 ## 1. Entity Creation Rule

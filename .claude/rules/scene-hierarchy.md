@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/*.{prefab,unity}"
+  - "**/Prefabs/**"
+---
 # Scene Hierarchy Rules
 
 ## Standard Hierarchy (NON-NEGOTIABLE)

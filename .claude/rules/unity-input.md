@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/*.cs"
+  - "**/*.inputactions"
+---
 # Input System Rules (NON-NEGOTIABLE)
 
 The New Input System package is **mandatory**. Legacy `Input.GetKey`/`Input.GetAxis` is **BLOCKED** by hooks.
