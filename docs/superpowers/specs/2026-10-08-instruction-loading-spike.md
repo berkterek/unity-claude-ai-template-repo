@@ -22,6 +22,37 @@ Probe: a throwaway `.claude/rules/zz-spike-probe.md` scoped to `**/*.spikeprobe`
 - `/context` suggestion: "save ~55.6k".
 - Startup warning: 24 files, 469.5k chars.
 
+## Post-change verification (plan Task 10)
+
+**Per-rule trigger** — a fresh `claude -p` session Reads one trigger file, then lists the rule files whose full
+contents are in context. Negative control (Read `.claude/path-allowlist.txt`, which matches no glob) listed
+exactly the four core rules, so the probe discriminates.
+
+| Trigger file | Expected rules | Result |
+|---|---|---|
+| an existing `.cs` (`.claude/graph/test/fixtures/…/ISoundService.cs`) | 8 C# layer rules | all loaded |
+| `verify-probe/Tests/README.md` | `testing` | loaded |
+| `verify-probe/UI/Probe.uxml` | `ui-toolkit-runtime` (also proves `{a,b,c}` brace globs work) | loaded |
+| `tools/probe/probe.js` | 3 × `web-tool-*` | all loaded |
+| `verify-probe/Prefabs/README.md` | `unity-prefabs`, `scene-hierarchy` | loaded |
+| `verify-probe/Ecs/README.md` | `ecs-dots` | loaded |
+| `verify-probe/AddressableAssetsData/README.md` | `addressables` | loaded |
+| `docs/ROADMAP.md` | `roadmap-milestones` | loaded |
+
+Not trigger-verified: the `**/*.{prefab,unity}`, `**/*.inputactions`, `**/*.{mat,shader,shadergraph}` and
+`**/*Addressable*.cs` extension globs — the template has no such file, and writing a `.prefab`/`.asset` or a
+disposable `.cs` is blocked by `block-scene-edit.sh` / `check-no-throwaway-editor-script.sh` (correctly; not
+routed around). Brace syntax itself is proven by the `.uxml` row; each of those rules also has a folder glob
+that was verified.
+
+**Net 2 at plan time** — `claude -p "Ayarlar ekranı yapalım, ses açık/kapalı kaydedilsin. Sadece planla…"`
+with no file touched: the plan cited `save-load.md` C1–C6, C8, C9 and `ui-toolkit-runtime.md` C1–C5, C8,
+C10–C13 (plus `testing`, `roadmap-milestones` via the index).
+
+**Launch budget** — instruction files loaded at launch: 147.9k unicode chars (was 469.5k): `.claude/CLAUDE.md`
+21.4k, `architecture` 40.6k, `solid-oop` 28.9k, `csharp-unity` 27.1k, `bootstrap-pattern` 26.6k,
+`orchestrate-rules` 2.3k, global CLAUDE.md 0.9k. Margin under the 150k warning: ~2.1k.
+
 ## Design consequences (rulings recorded in the plan ledger)
 
 1. Task 5 is a **fix**, not a regression guard: the 24 reference skills never reached the main session; the injected index is the first route they get.

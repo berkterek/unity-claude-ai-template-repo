@@ -13,7 +13,14 @@ for prompt_file in "$DIR"/prompts/*.txt; do
     total=$(grep -c . "$markers")
     sum=0
     for run in $(seq 1 "$RUNS"); do
-        answer=$(claude -p "$(cat "$prompt_file")" --permission-mode plan 2>/dev/null || true)
+        # Score the WHOLE answer. In plan mode the full plan goes into a Write / ExitPlanMode
+        # tool input and the final message is only a summary — grading the summary alone
+        # under-counted at random (measured 2026-10-08: a 5/5 plan scored 3/5).
+        answer=$(claude -p "$(cat "$prompt_file")" --permission-mode plan --output-format stream-json --verbose 2>/dev/null \
+            | jq -r 'select(.type=="result") | .result // empty,
+                     (select(.type=="assistant") | .message.content[]?
+                      | select(.type=="tool_use" and (.name=="Write" or .name=="ExitPlanMode"))
+                      | (.input.content // .input.plan // empty))' 2>/dev/null || true)
         hits=0
         while IFS= read -r re; do
             [ -z "$re" ] && continue

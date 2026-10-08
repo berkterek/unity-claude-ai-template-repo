@@ -1,7 +1,7 @@
 # Instruction Loading Restructure — Design
 
 **Date:** 2026-10-08
-**Status:** Draft v2 — awaiting review
+**Status:** Implemented — verified 2026-10-08 (results: `2026-10-08-instruction-loading-spike.md`)
 **Goal:** Raise rule adherence by loading only the instructions relevant to the current work, without losing
 awareness of a rule at plan time. Silencing the startup size warning is a side effect, not the goal.
 
