@@ -7,7 +7,24 @@ criteria in the prompt, so it is independent of which rules are loaded.
 Non-deterministic and costs one `claude -p` call per prompt per run. Compare means, never single runs.
 Do not edit a prompt or a marker to make a run look better — that resets the baseline.
 
-Run: `.claude/tests/rule-awareness-probe/run-probe.sh 3`
+Run it from a **separate git worktree**, never from the checkout you are working in:
+
+```bash
+git worktree add /tmp/probe-wt HEAD
+(cd /tmp/probe-wt && .claude/tests/rule-awareness-probe/run-probe.sh 3)
+git worktree remove /tmp/probe-wt
+```
+
+**Why a worktree is not optional.** Every `claude -p` call is a full session that shares this checkout's
+`.claude/state/`, and each one runs `session-restore.sh` at SessionStart: it deletes `gate-cleared` and
+`sparc-approved` and resets `subagent-depth`, and the probe sessions' own agent spawns move the counter too.
+Run in the live checkout during `/orchestrate`, the probe silently revokes the human's approved gates and can
+leave a leaked depth count that makes the guards block your own edits (observed 2026-10-08 in a downstream
+project). A worktree has its own `.claude/state/`, so the live session is untouched. A worktree at an old commit
+is also how two layouts are compared — see below.
+
+An empty answer (rate limit, auth failure, crash) is reported as `ERROR` and excluded from the mean, never scored
+as 0; the mean line says how many runs were scored.
 
 **Score the whole answer, not the final message.** In plan mode the full plan is written through a `Write` /
 `ExitPlanMode` tool input and the final message is a summary; grading only the summary under-counted at random

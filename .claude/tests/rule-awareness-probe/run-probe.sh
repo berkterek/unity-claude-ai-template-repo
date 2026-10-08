@@ -12,6 +12,7 @@ for prompt_file in "$DIR"/prompts/*.txt; do
     markers="$DIR/prompts/${name}.markers"
     total=$(grep -c . "$markers")
     sum=0
+    scored=0
     for run in $(seq 1 "$RUNS"); do
         # Score the WHOLE answer. In plan mode the full plan goes into a Write / ExitPlanMode
         # tool input and the final message is only a summary — grading the summary alone
@@ -21,6 +22,14 @@ for prompt_file in "$DIR"/prompts/*.txt; do
                      (select(.type=="assistant") | .message.content[]?
                       | select(.type=="tool_use" and (.name=="Write" or .name=="ExitPlanMode"))
                       | (.input.content // .input.plan // empty))' 2>/dev/null || true)
+        # An empty answer is a failed call (rate limit, auth, crash), never a score of 0 —
+        # counting it as 0 turned a run of rate-limited calls into "0/5" (measured 2026-10-08,
+        # in a downstream project).
+        if [ -z "$answer" ]; then
+            printf '%s\t%s\tERROR (empty answer — excluded from mean)\n' "$name" "$run"
+            continue
+        fi
+        scored=$((scored + 1))
         hits=0
         while IFS= read -r re; do
             [ -z "$re" ] && continue
@@ -29,5 +38,9 @@ for prompt_file in "$DIR"/prompts/*.txt; do
         sum=$((sum + hits))
         printf '%s\t%s\t%s/%s\n' "$name" "$run" "$hits" "$total"
     done
-    printf '%s\tmean\t%s\n' "$name" "$(echo "scale=2; $sum / $RUNS" | bc)"
+    if [ "$scored" -eq 0 ]; then
+        printf '%s\tmean\tn/a (no scored runs)\n' "$name"
+    else
+        printf '%s\tmean\t%s\t(%s/%s runs scored)\n' "$name" "$(echo "scale=2; $sum / $scored" | bc)" "$scored" "$RUNS"
+    fi
 done
