@@ -56,6 +56,12 @@ RULE_MAP=(
     "ui toolkit|ui-toolkit-runtime|"
     "ekran|ui-toolkit-runtime|"
     "arayüz|ui-toolkit-runtime|"
+    # Async — unity-async loads on any .cs Read, but a planning prompt reads none
+    "async|unity-async|"
+    "unitask|unity-async|"
+    "await|unity-async|"
+    "coroutine|unity-async|"
+    "asenkron|unity-async|"
     # Testing
     "test|testing|testing"
     # Milestones

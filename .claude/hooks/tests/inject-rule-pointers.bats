@@ -36,6 +36,18 @@ _prompt() { jq -n --arg p "$1" '{prompt: $p}'; }
     [[ "$output" == *"rules/testing.md"* ]]
 }
 
+@test "UniTask prompt points at unity-async" {
+    run bash $HOOK <<< "$(_prompt 'Pause menüsünde UniTask ile 2 saniye bekleyelim')"
+    [[ "$output" == *"rules/unity-async.md"* ]]
+}
+
+@test "English and Turkish async prompts point at unity-async" {
+    for p in 'make the loader async' 'replace this coroutine' 'bunu asenkron yapalım'; do
+        run bash $HOOK <<< "$(_prompt "$p")"
+        [[ "$output" == *"rules/unity-async.md"* ]] || { echo "missed: $p"; return 1; }
+    done
+}
+
 @test "a disabled feature's rule is never injected" {
     run bash $HOOK <<< "$(_prompt 'add an ECS system for enemies')"
     [[ "$output" != *"ecs-dots.md"* ]]
