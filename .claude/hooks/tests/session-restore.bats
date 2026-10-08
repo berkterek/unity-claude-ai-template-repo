@@ -186,3 +186,40 @@ teardown() {
     run bash $HOOK < /dev/null
     [ "$status" -eq 0 ]
 }
+
+# ── Awareness net 1: rule + skill index on every SessionStart ───────────────
+# Path-scoped rules are absent before a matching file is touched and dropped at
+# /compact. The index re-enters on every source, compact included.
+_index_fixture() {
+    export UNITY_RULE_INDEX_FILE="$UNITY_HOOK_STATE_DIR/rule-index.md"
+    export UNITY_SKILL_INDEX_FILE="$UNITY_HOOK_STATE_DIR/skills.md"
+    printf 'RULE-INDEX-MARKER\n' > "$UNITY_RULE_INDEX_FILE"
+    printf 'SKILL-INDEX-MARKER\n' > "$UNITY_SKILL_INDEX_FILE"
+}
+
+@test "session-restore emits rule and skill index as additionalContext on startup" {
+    _index_fixture
+    out=$(bash $HOOK 2>/dev/null <<< '{"hook_event_name":"SessionStart","source":"startup"}')
+    echo "$out" | jq -e '.hookSpecificOutput.hookEventName == "SessionStart"'
+    echo "$out" | jq -e '.hookSpecificOutput.additionalContext | contains("RULE-INDEX-MARKER")'
+    echo "$out" | jq -e '.hookSpecificOutput.additionalContext | contains("SKILL-INDEX-MARKER")'
+}
+
+@test "session-restore re-emits the index on compact" {
+    _index_fixture
+    out=$(bash $HOOK 2>/dev/null <<< '{"hook_event_name":"SessionStart","source":"compact"}')
+    echo "$out" | jq -e '.hookSpecificOutput.additionalContext | contains("RULE-INDEX-MARKER")'
+}
+
+@test "session-restore stdout is a single valid JSON object (nothing else leaks)" {
+    _index_fixture
+    out=$(bash $HOOK 2>/dev/null <<< '{"hook_event_name":"SessionStart","source":"startup"}')
+    [ "$(echo "$out" | jq -s 'length')" -eq 1 ]
+}
+
+@test "session-restore prints nothing on stdout when no index file exists" {
+    export UNITY_RULE_INDEX_FILE="$UNITY_HOOK_STATE_DIR/missing.md"
+    export UNITY_SKILL_INDEX_FILE="$UNITY_HOOK_STATE_DIR/missing2.md"
+    out=$(bash $HOOK 2>/dev/null <<< '{"hook_event_name":"SessionStart","source":"startup"}')
+    [ -z "$out" ]
+}

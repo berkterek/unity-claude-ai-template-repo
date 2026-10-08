@@ -139,6 +139,31 @@ else
           "${UNITY_HOOK_STATE_DIR}/codex-reviewed"
 fi
 
+# ── Awareness net 1 — rule + skill index ────────────────────────────────────
+# Path-scoped rules (.claude/rules/*.md with `paths:`) are not in context until a
+# matching file is touched, and /compact drops them again. Without this, a session
+# plans against rules it does not know exist. The index (what each scoped rule and
+# reference skill governs, and when to Read it) is injected on EVERY SessionStart
+# source, compact included — the same shape obra/superpowers uses for its
+# bootstrap. It must stay above every early `exit 0` below, or a session with no
+# saved state would start without it.
+# Stdout carries ONLY this JSON; everything else in this script goes to stderr.
+# Spec: docs/superpowers/specs/2026-10-08-instruction-loading-design.md
+RULE_INDEX_FILE="${UNITY_RULE_INDEX_FILE:-${SCRIPT_DIR}/../docs/rule-index.md}"
+SKILL_INDEX_FILE="${UNITY_SKILL_INDEX_FILE:-${SCRIPT_DIR}/../docs/auto-loaded-skills.md}"
+_index_text=""
+[ -f "$RULE_INDEX_FILE" ] && _index_text="$(cat "$RULE_INDEX_FILE")"
+if [ -f "$SKILL_INDEX_FILE" ]; then
+    _index_text="${_index_text:+${_index_text}
+
+}$(cat "$SKILL_INDEX_FILE")"
+fi
+if [ -n "$_index_text" ]; then
+    jq -n --arg idx "$_index_text" \
+        '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $idx}}'
+fi
+unset _index_text
+
 # Prune stale agent worktrees from interrupted sessions.
 # When a session is force-killed (Cmd+C, crash, OS kill), the Claude Code process
 # never runs worktree cleanup, leaving locked worktrees with dead PIDs permanently.
@@ -155,13 +180,15 @@ if [ -n "$REPO_ROOT" ]; then
             if [ -f "$lock_file" ]; then
                 pid=$(grep -oE 'pid [0-9]+' "$lock_file" 2>/dev/null | grep -oE '[0-9]+' | head -1)
                 if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
-                    git -C "$REPO_ROOT" worktree remove -f -f "$wt_path" 2>/dev/null || true
-                    git -C "$REPO_ROOT" branch -D "worktree-${wt_name}" 2>/dev/null || true
+                    # >/dev/null too: `branch -D` prints "Deleted branch …" on stdout,
+                    # which would corrupt the additionalContext JSON emitted above.
+                    git -C "$REPO_ROOT" worktree remove -f -f "$wt_path" >/dev/null 2>&1 || true
+                    git -C "$REPO_ROOT" branch -D "worktree-${wt_name}" >/dev/null 2>&1 || true
                     echo "  Pruned stale worktree: ${wt_name} (pid ${pid} dead)" >&2
                 fi
             fi
         done
-        git -C "$REPO_ROOT" worktree prune 2>/dev/null || true
+        git -C "$REPO_ROOT" worktree prune >/dev/null 2>&1 || true
     fi
 fi
 
