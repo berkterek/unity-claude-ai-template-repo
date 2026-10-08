@@ -19,7 +19,7 @@
 # Spec: docs/superpowers/specs/2026-10-08-instruction-loading-design.md
 #
 # To add a mapping: append "stem|rule-basename[ rule-basename…]|feature" to RULE_MAP.
-#   stem    — lowercase; matched at a word start ("write test" hits "write tests"; "test" alone would hit "did the tests pass")
+#   stem    — lowercase; matched at a word start ("save" hits "saves", not "unsaved")
 #   feature — optional project-features.json key; skipped when that key is false
 # ============================================================================
 # Trigger: UserPromptSubmit
@@ -67,19 +67,7 @@ RULE_MAP=(
     "await|unity-async|"
     "coroutine|unity-async|"
     "asenkron|unity-async|"
-    # Testing — writing or planning tests, not asking whether tests passed
-    "write test|testing|testing"
-    "add test|testing|testing"
-    "unit test|testing|testing"
-    "test plan|testing|testing"
-    "test yaz|testing|testing"
-    "test ekle|testing|testing"
-    "testini yaz|testing|testing"
-    "testlerini yaz|testing|testing"
-    "editmode|testing|testing"
-    "edit mode|testing|testing"
-    "playmode|testing|testing"
-    "play mode|testing|testing"
+    # Testing — unambiguous stems only; "test" itself is handled by TEST_ACTION below
     "nsubstitute|testing|testing"
     "tdd|testing|testing"
     # Milestones
@@ -99,6 +87,11 @@ RULE_MAP=(
     "level editor|web-tool-architecture web-tool-data-contract web-tool-design-system|"
 )
 
+# "test" alone fires on "did the tests pass"; a fixed phrase ("write test") misses
+# "write a test" and "testleri yaz". So testing needs a test word AND an action word,
+# anywhere in the prompt, in either order.
+TEST_ACTION="write|add|create|generate|plan|yaz|ekle|oluştur"
+
 _feature_enabled() {
     local feature="$1"
     [ -z "$feature" ] && return 0
@@ -107,7 +100,12 @@ _feature_enabled() {
     [ "$(jq -r --arg f "$feature" 'if has($f) then .[$f] else true end' "$FEATURES_FILE" 2>/dev/null)" != "false" ]
 }
 
+_word() { printf '%s' "$PROMPT" | grep -qE "(^|[[:space:][:punct:]])($1)"; }
+
 MATCHED=()
+if _word test && _word "$TEST_ACTION" && _feature_enabled testing && [ -f "${RULES_DIR}/testing.md" ]; then
+    MATCHED+=("testing")
+fi
 for entry in "${RULE_MAP[@]}"; do
     IFS='|' read -r stem rules feature <<< "$entry"
     printf '%s' "$PROMPT" | grep -qE "(^|[[:space:][:punct:]])${stem}" || continue

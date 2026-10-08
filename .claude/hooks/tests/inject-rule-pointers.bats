@@ -50,6 +50,27 @@ _prompt() { jq -n --arg p "$1" '{prompt: $p}'; }
     done
 }
 
+@test "a test word plus an action word points at testing in any word order" {
+    for p in 'write a test for ScoreService' 'write the tests' 'add a test for the timer' \
+             'create tests for LevelService' '/create-test LevelService' '/generate-tests' \
+             'testleri yaz' 'testlerini ekle' 'bunun için testler yazalım' 'bunun testini yazalım'; do
+        run bash $HOOK <<< "$(_prompt "$p")"
+        [[ "$output" == *"rules/testing.md"* ]] || { echo "missed: $p"; return 1; }
+    done
+}
+
+@test "the rule-awareness probe's test-plan prompt points at testing" {
+    run bash $HOOK <<< "$(_prompt "$(cat .claude/tests/rule-awareness-probe/prompts/test-plan.txt)")"
+    [[ "$output" == *"rules/testing.md"* ]]
+}
+
+@test "running the game in play mode is not a testing request" {
+    for p in 'PlayMode ile oyunu çalıştır' 'play mode da oyunu açıp bak'; do
+        run bash $HOOK <<< "$(_prompt "$p")"
+        [[ "$output" != *"rules/testing.md"* ]] || { echo "fired on: $p"; return 1; }
+    done
+}
+
 @test "keywords inside pasted content are ignored" {
     run bash $HOOK <<< "$(_prompt $'bu sonucu yorumla\n<pasted_content id="ab12">\nsave the HUD prefab scene with UniTask\n</pasted_content id="ab12">')"
     [ "$status" -eq 0 ]
