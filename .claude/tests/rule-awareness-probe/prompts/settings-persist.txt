@@ -1,0 +1,1 @@
+Plan (do not implement, do not write files) a settings screen where "sound on/off" survives restarting the game. List each file you would create, its type, and the rule that decided it.

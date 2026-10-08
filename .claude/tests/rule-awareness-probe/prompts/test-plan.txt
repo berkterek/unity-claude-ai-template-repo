@@ -1,0 +1,1 @@
+Plan (do not implement, do not write files) the tests for a pure C# ScoreService and for a PlayerController MonoBehaviour that forwards Update to a MoveHandler. Name each test file, its test type and one example test method name.

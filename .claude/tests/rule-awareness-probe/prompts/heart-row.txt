@@ -1,0 +1,1 @@
+Plan (do not implement, do not write files) adding three heart icons to the HUD that show player health.
