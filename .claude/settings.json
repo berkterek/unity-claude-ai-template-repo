@@ -613,6 +613,16 @@
             "statusMessage": "Checking required skills for keywords..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/inject-rule-pointers.sh",
+            "timeout": 5000,
+            "statusMessage": "Checking rule pointers..."
+          }
+        ]
       }
     ],
     "Notification": [
