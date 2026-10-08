@@ -156,28 +156,24 @@ The anti-sycophancy block is already included in `.claude/CLAUDE.md` — it ship
 
 ## Configuration File Map
 
-`CLAUDE.md` is the main entry point Claude Code reads at session start. It was split into multiple smaller files to avoid context/memory limits — the `@file` syntax includes them inline at load time.
+`CLAUDE.md` is the main entry point Claude Code reads at session start. Everything loaded at launch counts toward
+Claude Code's instruction budget (warning above 150k characters) and is re-sent with every message and every
+subagent, so launch loading is kept small and everything else loads when it is needed. Measured 2026-10-08: memory
+files went from 185.2k to ~60k tokens.
 
-### `.claude/CLAUDE.md` — Main entry point
+### What loads when
 
-Contains: stack requirements, session start instructions, hooks table (blocking), commands table, review modes, director gates, and session state. Includes `@`-referenced sub-files loaded inline at session start:
+| When | What |
+|------|------|
+| Launch | `.claude/CLAUDE.md` (an index), its one `@`-import `docs/orchestrate-rules.md`, and the four always-loaded rules: `architecture`, `solid-oop`, `csharp-unity`, `bootstrap-pattern` |
+| Every SessionStart (incl. after `/compact`) | `session-restore.sh` injects `docs/rule-index.md` (which path-scoped rule to Read before which decision) and `docs/auto-loaded-skills.md` (reference skill list) as text |
+| A matching file is Read/Edited | A path-scoped rule (`paths:` frontmatter) — not on a new-file Write, not via MCP, and dropped again by `/compact` |
+| A prompt keyword matches | `inject-rule-pointers.sh` names the rule to Read; `enforce-skill-for-keywords.sh` (strict) names the package skill. Neither injects a body, and text inside pasted blocks is ignored |
+| On demand | Every other `.claude/docs/*.md` — listed under "Reference" in CLAUDE.md |
 
-| Referenced file | What it contains |
-|-----------------|-----------------|
-| `.claude/docs/knowledge-graph.md` | Knowledge graph query cheatsheet and session-start graph instructions |
-| `.claude/docs/quick-start.md` | Quick start guide |
-| `.claude/docs/model-tiers.md` | Model tier definitions and aliases |
-| `.claude/docs/hooks-blocking.md` | Blocking hooks table (exit 2) |
-| `.claude/docs/hooks-warning.md` | Warning hooks (exit 0) — full table of non-blocking style/quality checks |
-| `.claude/docs/commands.md` | Full slash commands reference |
-| `.claude/docs/agents-index.md` | All custom agents and their roles |
-| `.claude/docs/architecture-summary.md` | Key architecture rules summary |
-| `.claude/docs/context-management.md` | Review modes, compaction, checkpoint usage |
-| `.claude/docs/director-gates.md` | Full gate definitions (SCOPE, ARCHITECTURE, BREAKING, QUALITY, COMMIT) |
-| `.claude/docs/orchestrate-rules.md` | NON-NEGOTIABLE /orchestrate execution rules |
-| `.claude/docs/setup-checklist.md` | Manual post-setup steps |
-| `.claude/docs/skills-index.md` | Skills library index — core, platform, systems, third-party |
-| `.claude/docs/auto-loaded-skills.md` | Auto-managed @-references for third-party/plugin/learned/platform skills |
+`@` imports resolve relative to the importing file's folder: inside `.claude/CLAUDE.md` write `@docs/x.md`. The old
+`@.claude/docs/x.md` form silently loaded nothing. `rule-budget.bats` fails if launch loading passes 145k characters
+or an import does not resolve.
 
 ### `.claude/graph/` — Knowledge graph
 
@@ -203,13 +199,15 @@ Contains: stack requirements, session start instructions, hooks table (blocking)
 | `codex-validator.md` | Codex accuracy spot-check prompt |
 | `graph-watch.sh` | Optional fswatch/inotifywait watch loop |
 
-### `.claude/rules/` — Auto-loaded rule files
+### `.claude/rules/` — Rule files
 
-Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTCHA cards — quick-scan summaries of the most important rules. The prose reference follows below the cards. Read the cards first; consult the prose for full context.
+Four rules load at launch (`architecture`, `solid-oop`, `csharp-unity`, `bootstrap-pattern`). Every other rule is
+path-scoped and loads as described in [What loads when](#what-loads-when). Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTCHA cards — quick-scan summaries of the most important rules. The prose reference follows below the cards. Read the cards first; consult the prose for full context.
 
 | File | Covers |
 |------|--------|
-| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputService, AppScope; **Scripts/ folder rules** (only `Games/`, `Tests/`, `Editors/` at the top level; only `Abstracts/`, `Concretes/`, `Ecs/` under `Games/` — enforced fail-closed, with declared exceptions in `.claude/path-allowlist.txt`); **domain folder convention** (the first folder under `Games/Abstracts\|Concretes/` is a domain — never a layer like `Services/`, never a catch-all like `Core/`; free below it); **`Concretes/<Domain>/ARCHITECTURE.md` intent contract** (English, ≤40 lines, four fixed headings, no class names) |
+| `architecture.md` | VContainer DI, module structure, IEventBus, EventBusAccessor, Provider pattern, InputService, AppScope; **Scripts/ folder rules** (only `Games/`, `Tests/`, `Editors/` at the top level; only `Abstracts/`, `Concretes/`, `Ecs/` under `Games/` — enforced fail-closed, with declared exceptions in `.claude/path-allowlist.txt`); **domain folder convention** (the first folder under `Games/Abstracts\|Concretes/` is a domain — never a layer like `Services/`, never a catch-all like `Core/`; free below it); a short pointer to the `ARCHITECTURE.md` contract |
+| `architecture-docs.md` | **`ARCHITECTURE.md` intent contract** — one per `Concretes/<Domain>/` and per `.asmdef`-owning `_Framework/` or allowlisted folder; English, ≤40 lines, four fixed headings, no class names. Path-scoped to `**/ARCHITECTURE.md`, so `/new-module` and `/setup-project` Read it before creating one |
 | `csharp-unity.md` | Naming, namespaces, #region, null checks, UniTask, encapsulation; namespace collision rule (`Game.Concretes.<Domain>` vs UnityEngine aliases) |
 | `performance.md` | Zero-alloc hot paths, caching, pooling, draw calls, UI canvas; material folder structure (`Arts/Materials/<Domain>/`); mesh folder structure (`Arts/Models/<Domain>/` — Blender exports land here); shader file structure (`_GameFolders/Arts/Shaders/`); URP shader rule (Standard forbidden) |
 | `serialization.md` | FormerlySerializedAs, Unity null checks, SerializeReference |
@@ -236,12 +234,14 @@ Each rule file begins with a `## Cards` section containing WHEN/WRONG/RIGHT/GOTC
 
 | File | Purpose |
 |------|---------|
-| `hooks-blocking.md` | Blocking hooks table (`@`-included in CLAUDE.md) |
-| `hooks-warning.md` | Warning hooks table (`@`-included in CLAUDE.md) |
-| `agents-index.md` | Agent roster (`@`-included in CLAUDE.md) |
-| `skills-index.md` | Skills library index (`@`-included in CLAUDE.md) |
-| `auto-loaded-skills.md` | Auto-managed `@`-references for all third-party/plugin/learned/platform skills — updated by `auto-load-skills.sh` hook |
-| `commands.md` | Commands reference (`@`-included in CLAUDE.md) |
+| `rule-index.md` | Which path-scoped rule to Read before which decision — injected at every SessionStart |
+| `rules-overview.md` | What each rule covers |
+| `hooks-blocking.md` | Blocking hooks table |
+| `hooks-warning.md` | Warning hooks table |
+| `agents-index.md` | Agent roster |
+| `skills-index.md` | Skills library index |
+| `auto-loaded-skills.md` | Plain list of third-party/plugin/learned/platform skills with descriptions — kept current by `auto-load-skills.sh`, injected at every SessionStart (not an `@`-import) |
+| `commands.md` | Commands reference |
 | `director-gates.md` | Full gate definitions (SCOPE, ARCHITECTURE, BREAKING, QUALITY, COMMIT) |
 | `architecture-summary.md` | Key architecture rules summary |
 | `context-management.md` | Review modes, compaction, checkpoint usage |
@@ -966,8 +966,9 @@ need the Unity Editor and MCP. Nothing here compiles anything.
 | `track-read` (PostToolUse Read) | Records every `Read` tool call into `gateguard-reads.txt` — required for `gateguard.sh` Stage 1 (`unity_was_read()`) to pass. Without this, every edit is blocked even after reading the file. |
 | `track-codex-review` (PostToolUse) | Creates `.claude/state/codex-reviewed` when `codex:codex-rescue` completes |
 | `track-skill-invocations` (PostToolUse Skill) | Records every `Skill` tool invocation to `skills-invoked.txt` — required by `enforce-skill-for-keywords.sh` to know which skills are already loaded this session. Also injects `additionalContext` after every invocation to force Claude to read and follow the skill content before proceeding. |
-| `auto-load-skills` (PostToolUse) | Adds `@`-reference to `.claude/docs/auto-loaded-skills.md` whenever a skill is written to `third-party/`, `plugins/`, `learned/`, or `platform/` |
-| `enforce-skill-for-keywords` (UserPromptSubmit) | Detects third-party package keywords in every prompt. Skips enforcement if the skill is auto-loaded via `auto-loaded-skills.md` (already in context) or already invoked via `Skill` tool this session — otherwise injects a blocking context message |
+| `auto-load-skills` (PostToolUse) | Adds a `` - `path` — description `` line to `.claude/docs/auto-loaded-skills.md` whenever a skill is written to `third-party/`, `plugins/`, `learned/`, or `platform/`. A plain list, not an `@`-import — `session-restore.sh` injects it at SessionStart |
+| `enforce-skill-for-keywords` (UserPromptSubmit, strict) | Detects third-party package keywords in the prompt. A skill at `.claude/skills/<name>/SKILL.md` gets a Skill-tool demand (skipped once invoked this session); a nested reference skill (`third-party/…`, `plugins/…`) gets a Read pointer, because the Skill tool cannot invoke it. Ignores text inside pasted blocks |
+| `inject-rule-pointers` (UserPromptSubmit, standard) | Names the path-scoped rule to Read when a prompt keyword matches (save, screen, async/UniTask, prefab, scene, milestone… incl. Turkish). Testing needs a test word **and** an action word ("write a test", "testleri yaz"), so "did the tests pass" stays silent. Ignores text inside pasted blocks; never injects a rule body |
 | `instinct-capture` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `instinct-distill` (Stop) | Distills captured observations into confidence-scored instincts |
@@ -1431,7 +1432,7 @@ Send: "read .claude/state/checkpoint.md"
 
 Skills live under `.claude/skills/` and are loaded automatically by commands. They are read-only reference files that inform Claude's decisions — they do not execute code. The `/learn` command writes project-specific patterns to `skills/learned/` and automatically adds entries to `skills-index.md`. The `/discover --write` command writes third-party package skills to `skills/third-party/<pkg>/` and also updates `skills-index.md`.
 
-**Auto-loading:** Skills in `third-party/`, `plugins/`, `learned/`, and `platform/` are referenced via `@`-includes in `.claude/docs/auto-loaded-skills.md`, which is linked from CLAUDE.md. The `auto-load-skills.sh` PostToolUse hook keeps this file current — new skill files are added automatically on write.
+**Auto-listing:** Skills in `third-party/`, `plugins/`, `learned/`, and `platform/` are listed with their descriptions in `.claude/docs/auto-loaded-skills.md`, which `session-restore.sh` injects at every SessionStart. The skill bodies are not loaded — Claude Reads one when its description matches the work. The `auto-load-skills.sh` PostToolUse hook keeps the list current on every skill write.
 
 ### Core (`skills/core/`)
 
@@ -1502,7 +1503,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 
 Static pre-built skills. `skills/third-party/` holds folder-based skills (with subdirectories); `skills/plugins/` holds flat `.md` skills plus any skills generated by `/discover`.
 
-All skills under `skills/third-party/`, `skills/plugins/`, `skills/learned/`, and `skills/platform/` are **automatically loaded into every session** via `@`-references managed by `auto-loaded-skills.md`. The `auto-load-skills.sh` PostToolUse hook keeps this file in sync — whenever `/discover` or `/learn` writes a new skill file, the reference is added automatically. No manual CLAUDE.md edits needed.
+All skills under `skills/third-party/`, `skills/plugins/`, `skills/learned/`, and `skills/platform/` are **listed in every session** (path + description) via `auto-loaded-skills.md`, injected at SessionStart. Only the list loads, not the skill bodies — Claude Reads a skill when its description matches. The `auto-load-skills.sh` PostToolUse hook keeps the list in sync whenever `/discover` or `/learn` writes a new skill file. No manual CLAUDE.md edits needed.
 
 **`skills/third-party/`**
 
