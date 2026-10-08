@@ -19,7 +19,7 @@
 # Spec: docs/superpowers/specs/2026-10-08-instruction-loading-design.md
 #
 # To add a mapping: append "stem|rule-basename[ rule-basename…]|feature" to RULE_MAP.
-#   stem    — lowercase; matched at a word start ("test" hits "tests", not "latest")
+#   stem    — lowercase; matched at a word start ("write test" hits "write tests"; "test" alone would hit "did the tests pass")
 #   feature — optional project-features.json key; skipped when that key is false
 # ============================================================================
 # Trigger: UserPromptSubmit
@@ -35,6 +35,11 @@ source "${SCRIPT_DIR}/_lib.sh"
 INPUT=$(cat)
 PROMPT=$(printf '%s' "$INPUT" | jq -r '.prompt // empty' 2>/dev/null | tr '[:upper:]' '[:lower:]')
 [ -z "$PROMPT" ] && exit 0
+
+# Pasted blocks are someone else's text (logs, other sessions' output) — their
+# keywords say nothing about what the user is asking for now.
+PROMPT=$(printf '%s' "$PROMPT" | perl -0pe 's{<pasted_content\b[^>]*>.*?</pasted_content\b[^>]*>}{}gs')
+[ -z "${PROMPT//[[:space:]]/}" ] && exit 0
 
 FEATURES_FILE="${UNITY_PROJECT_FEATURES_FILE:-${SCRIPT_DIR}/../project-features.json}"
 RULES_DIR="${SCRIPT_DIR}/../rules"
@@ -62,8 +67,21 @@ RULE_MAP=(
     "await|unity-async|"
     "coroutine|unity-async|"
     "asenkron|unity-async|"
-    # Testing
-    "test|testing|testing"
+    # Testing — writing or planning tests, not asking whether tests passed
+    "write test|testing|testing"
+    "add test|testing|testing"
+    "unit test|testing|testing"
+    "test plan|testing|testing"
+    "test yaz|testing|testing"
+    "test ekle|testing|testing"
+    "testini yaz|testing|testing"
+    "testlerini yaz|testing|testing"
+    "editmode|testing|testing"
+    "edit mode|testing|testing"
+    "playmode|testing|testing"
+    "play mode|testing|testing"
+    "nsubstitute|testing|testing"
+    "tdd|testing|testing"
     # Milestones
     "milestone|roadmap-milestones|"
     "roadmap|roadmap-milestones|"

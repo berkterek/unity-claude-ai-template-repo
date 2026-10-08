@@ -31,9 +31,34 @@ _prompt() { jq -n --arg p "$1" '{prompt: $p}'; }
     [ -z "$output" ]
 }
 
-@test "'tests' still matches the test stem" {
+@test "'write tests' matches the write-test stem" {
     run bash $HOOK <<< "$(_prompt 'write tests for the score service')"
     [[ "$output" == *"rules/testing.md"* ]]
+}
+
+@test "a question about test results is not a request to write tests" {
+    for p in 'tüm testler geçti mi?' 'did the tests pass?' 'testi nasıl durduracağız'; do
+        run bash $HOOK <<< "$(_prompt "$p")"
+        [[ "$output" != *"rules/testing.md"* ]] || { echo "fired on: $p"; return 1; }
+    done
+}
+
+@test "asking to write or plan tests still points at testing" {
+    for p in 'LevelService için test yazalım' 'testlerini yaz' 'add a unit test' 'bir EditMode test planla'; do
+        run bash $HOOK <<< "$(_prompt "$p")"
+        [[ "$output" == *"rules/testing.md"* ]] || { echo "missed: $p"; return 1; }
+    done
+}
+
+@test "keywords inside pasted content are ignored" {
+    run bash $HOOK <<< "$(_prompt $'bu sonucu yorumla\n<pasted_content id="ab12">\nsave the HUD prefab scene with UniTask\n</pasted_content id="ab12">')"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "keywords typed next to pasted content still match" {
+    run bash $HOOK <<< "$(_prompt $'<pasted_content id="ab12">\nsome log\n</pasted_content id="ab12">\nbunu kaydedelim')"
+    [[ "$output" == *"rules/save-load.md"* ]]
 }
 
 @test "UniTask prompt points at unity-async" {
