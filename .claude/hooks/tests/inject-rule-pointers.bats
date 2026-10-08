@@ -80,6 +80,14 @@ _prompt() { jq -n --arg p "$1" '{prompt: $p}'; }
     done
 }
 
+@test "Turkish typed without Turkish letters or in capitals still matches" {
+    for p in 'test plani cikar|testing' 'TEST PLANI ÇIKAR|testing' 'test olustur|testing' \
+             'ayarlar kalici olsun|save-load' 'İLERLEMEYİ KALICI YAP|save-load' 'kayit sistemi|save-load'; do
+        run bash $HOOK <<< "$(_prompt "${p%|*}")"
+        [[ "$output" == *"rules/${p#*|}.md"* ]] || { echo "missed: $p"; return 1; }
+    done
+}
+
 @test "the rule-awareness probe's test-plan prompt points at testing" {
     run bash $HOOK <<< "$(_prompt "$(cat .claude/tests/rule-awareness-probe/prompts/test-plan.txt)")"
     [[ "$output" == *"rules/testing.md"* ]]

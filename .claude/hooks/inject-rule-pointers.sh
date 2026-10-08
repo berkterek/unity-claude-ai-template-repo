@@ -33,7 +33,11 @@ HOOK_PROFILE_LEVEL="standard"
 source "${SCRIPT_DIR}/_lib.sh"
 
 INPUT=$(cat)
-PROMPT=$(printf '%s' "$INPUT" | jq -r '.prompt // empty' 2>/dev/null | tr '[:upper:]' '[:lower:]')
+# Lowercase and fold Turkish letters to ASCII: prompts are often typed without them
+# ("kalici", "plani"), and `tr` lowercases "I" to "i" and leaves "İ" alone. Stems in
+# RULE_MAP are therefore written in ASCII.
+PROMPT=$(printf '%s' "$INPUT" | jq -r '.prompt // empty' 2>/dev/null \
+    | perl -CSD -Mutf8 -pe '$_ = lc; s/\x{307}//g; tr/ışçğüö/iscguo/')
 [ -z "$PROMPT" ] && exit 0
 
 # Pasted blocks are someone else's text (logs, other sessions' output) — their
@@ -50,8 +54,8 @@ RULE_MAP=(
     "persist|save-load|"
     "playerprefs|save-load|"
     "kayd|save-load|"
-    "kayıt|save-load|"
-    "kalıcı|save-load|"
+    "kayit|save-load|"
+    "kalici|save-load|"
     # UI — ui-toolkit-runtime Card 1 decides UGUI vs UI Toolkit before any file exists
     "screen|ui-toolkit-runtime|"
     "menu|ui-toolkit-runtime|"
@@ -60,7 +64,7 @@ RULE_MAP=(
     "uxml|ui-toolkit-runtime|"
     "ui toolkit|ui-toolkit-runtime|"
     "ekran|ui-toolkit-runtime|"
-    "arayüz|ui-toolkit-runtime|"
+    "arayuz|ui-toolkit-runtime|"
     # Async — unity-async loads on any .cs Read, but a planning prompt reads none
     "async|unity-async|"
     "unitask|unity-async|"
@@ -93,7 +97,7 @@ RULE_MAP=(
 # English verbs end at a word boundary ("add" must not hit "addressables", "plan" not
 # "plane"); Turkish stems stay open because suffixes carry the meaning ("yazalım").
 TEST_ACTION_EN="(write|writes|writing|wrote|written|add|adds|added|adding|create|creates|created|creating|generate|generates|generated|generating|plan|plans|planned|planning)([^[:alnum:]]|$)"
-TEST_ACTION_TR="yaz|ekle|oluştur|planla|planı|planın"
+TEST_ACTION_TR="yaz|ekle|olustur|planla|plani|planin"
 
 _feature_enabled() {
     local feature="$1"
