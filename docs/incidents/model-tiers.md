@@ -1,0 +1,11 @@
+# Model Tiers — Aliases, Pinned IDs and Fallbacks
+
+Moved verbatim from `.claude/CLAUDE.md` on 2026-10-08; the rule it supports is stated there in short form.
+
+Three layers: session model (launch alias), subagent model (agent `.md` frontmatter — Lead=Opus / Worker=Sonnet / Scanner=Haiku by role level), and skill `model-tier`. Every agent spawned inside a command must carry an explicit `model` (never inherit the session model).
+
+Agent frontmatter uses the aliases `opus` / `sonnet` / `haiku`, **never a pinned model ID** — Layer 2 tracks whatever Layer 1 resolves to, so a model bump needs no agent edits. Do not write `model: claude-opus-5` into an agent file.
+
+**Layer 1 obeys the same rule, and this file stated it for Layer 2 only — which is exactly where the defect lived (found 2026-10-04).** `.claude/aliases.sh` pinned `claude-opus-5` / `claude-sonnet-5` / `claude-haiku-4-5` while frontmatter used the bare aliases, so a `claude-heavy` session ran Opus 5 while every agent it spawned ran Opus 5.5 — two generations inside one session, for as long as the aliases existed. Nothing reports it: a pinned ID and an alias look identical at the call site, and both "work". Only the **fallback** aliases stay pinned, because naming one specific older generation is a fallback's entire job; an unversioned alias there resolves straight back to the model that is already failing. **Holding back a generation is also not a cost lever, and this generation inverts the assumption that it is:** Opus 5.5 is *cheaper* than Opus 5 ($4/$20 vs $5/$25 per MTok) and Sonnet 5.5 costs exactly what Sonnet 5 does, so a "heavy = 5.5, normal = 5" ladder pays more for a weaker model on one side and buys nothing on the other. Depth within a tier is tuned with `effort`. Re-read the prices before repeating that claim — it is a fact about one generation, not a rule.
+
+**There is no automatic model fallback.** The API's `fallbacks` parameter fires only on safety refusals — overloads (529) and rate limits (429) are returned as-is. When the current-generation model is unavailable, switching is a manual call: prefer `/model claude-opus-4-7` (or `claude-sonnet-4-6`) inside the running session over restarting, since that keeps context and gate state. `claude-fable-5` is deliberately not a tier — full rationale, the fallback table, and the symptom→fix table below:

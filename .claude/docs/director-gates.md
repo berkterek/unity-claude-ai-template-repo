@@ -310,6 +310,18 @@ Wait for response. `re-research` → re-run this command's upstream research sta
 
 These gates spawn a subagent or run a check automatically. They do not pause for user input unless the verdict is FAIL/RISK.
 
+These decide nothing and pause nothing — four ride the reviewer spawn as named criteria and `TD-COMPILE` rides the validator step, which is why none is in the table above rather than overlooked. Listing them here is what keeps them findable: all five were defined, referenced by no pipeline, and effectively dead until they were wired in.
+
+| Gate | Applied by | What it checks |
+|------|-----------|----------------|
+| `TD-ARCHITECTURE` | `/implement`, `/fix`, `/fix-deep`, `/orchestrate` reviewer criteria; `reviewer.md` | VContainer DI, interfaces over concrete types, IEventBus across modules, Provider boundary, module boundaries — five named axes, each citing the rule it enforces |
+| `TD-UNITY-RISK` | the same four, plus `/architect` at TDD time | Deprecated / breaking Unity 6 APIs, per `docs/engine-reference/unity/` |
+| `TD-PERFORMANCE` | the same four; `unity-reviewer.md` | Zero-alloc hot paths, `sharedMaterial`, ECS ECB, Addressables handle release |
+| `TD-COMPILE` | `/implement` Step 2.5, `/fix` Step 4.5, `/fix-deep`, `/orchestrate` Ralph, and `unity-verifier` itself (which `/qa`, `/ralph`, `/validate` and `/scene-setup` run with no reviewer behind it) | Unity MCP compile + a **stale-assembly probe** + Edit Mode tests, before the reviewer runs at all. The probe is not optional: a failed compile leaves the last good DLL loaded, so a clean console and a green suite are both true about the *previous* build — `unity_reflect` is asked in both directions (a deleted type must stop resolving, an added one must start) and a mismatch reports `STALE ASSEMBLY`, which is neither a pass nor a code defect. Five sites carried the same false-pass procedure; fixing one of them is not fixing the gate |
+| `CD-SCOPE` | the same four; `reviewer.md` | Unrequested files, unrelated refactors, abstractions nothing calls |
+
+*(Table moved verbatim from `.claude/CLAUDE.md` on 2026-10-08.)*
+
 ---
 
 ### TD-ARCHITECTURE
