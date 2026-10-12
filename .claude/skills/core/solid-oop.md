@@ -53,6 +53,6 @@ A Handler may not be referenced from outside its prefab; when a second consumer 
 
 ## Interface scope
 
-Handler, Service and Provider **always** get an interface — the test suite is the second caller. Controller shells, Views, config ScriptableObjects, event structs and models do not. The one-caller rule postpones **module ceremony**, never the interface.
+Handler, Service and Provider **always** get an interface — the test suite is the second caller. Controller shells (an `I*Controller` only when a Manager/registry must hold it — it may then name Unity types), Views, config ScriptableObjects, event structs and models do not. The one-caller rule postpones **module ceremony**, never the interface.
 
 Full cards, the worked example and the forbidden-patterns table: `.claude/rules/solid-oop.md`.
