@@ -152,6 +152,22 @@ if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.
         if echo "$STRIPPED" | unity_monobehaviour_is_justified; then
             exit 0
         fi
+        # Carve-out: an interface named I*Controller / I*Manager is the contract of a
+        # MonoBehaviour (solid-oop.md Card 1 — the suffix names the role), so it may name Unity
+        # types such as Transform in its signatures. An interface has no [SerializeField] and no
+        # callbacks, so the structural test above can never pass it; that is why this one is
+        # decided by role suffix. Deliberately narrow: the basename must be I<Name>(Controller|
+        # Manager).cs AND the file must declare an interface and no class/struct, so a
+        # service renamed to *Controller.cs to dodge the check still blocks. I*View (Views get
+        # no interface, solid-oop.md), I*Service and I*Provider get no carve-out — Unity types
+        # there are a real leak.
+        # Measured 2026-10-12 downstream: IChestController (Transform ChestTransform) blocked
+        # every rewrite of the file even though that member predated the edit.
+        if echo "$FILE_PATH" | grep -qE "/I[A-Z][A-Za-z0-9]*(Controller|Manager)\.cs$" \
+            && echo "$STRIPPED" | grep -qE "\binterface[[:space:]]+I[A-Za-z0-9]+" \
+            && ! echo "$STRIPPED" | grep -qE "\b(class|struct)[[:space:]]+[A-Za-z0-9_]+"; then
+            exit 0
+        fi
         UNITY_IMPORTS=$(grep -n "using UnityEngine" "$EFFECTIVE_FILE" 2>/dev/null)
         if [ -n "$UNITY_IMPORTS" ]; then
             # `using UnityEngine` is present and this is NOT a justified MonoBehaviour.

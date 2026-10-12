@@ -152,3 +152,39 @@ teardown() {
     run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
     [ "$status" -eq 2 ]
 }
+
+# --- I*Controller / I*Manager interface carve-out (solid-oop.md Card 1) ---
+# An interface named after a Mono role is that MonoBehaviour's contract, so it may name
+# Unity types in its signatures. The carve-out is interface-only and role-suffix-only.
+
+@test "allows I*Controller interface naming Transform (contract of a MonoBehaviour)" {
+    mkdir -p "$TMPDIR_TEST/Assets/Scripts/Games/Abstracts/Chest"
+    local f="$TMPDIR_TEST/Assets/Scripts/Games/Abstracts/Chest/IChestController.cs"
+    printf 'using System;\nusing UnityEngine;\npublic interface IChestController {\n    event Action OnChestOpened;\n    Transform ChestTransform { get; }\n    Vector3 GetRewardSpawnPosition();\n}\n' > "$f"
+    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\",\"content\":$(jq -Rs . < "$f")}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
+@test "allows I*Manager interface naming Transform" {
+    mkdir -p "$TMPDIR_TEST/Assets/Scripts/Games/Abstracts/Enemies"
+    local f="$TMPDIR_TEST/Assets/Scripts/Games/Abstracts/Enemies/IEnemyManager.cs"
+    printf 'using UnityEngine;\npublic interface IEnemyManager {\n    Transform Nearest(Vector3 from);\n}\n' > "$f"
+    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\",\"content\":$(jq -Rs . < "$f")}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
+@test "still blocks I*Service interface naming Transform" {
+    mkdir -p "$TMPDIR_TEST/Assets/Scripts/Games/Abstracts/Chest"
+    local f="$TMPDIR_TEST/Assets/Scripts/Games/Abstracts/Chest/IChestService.cs"
+    printf 'using UnityEngine;\npublic interface IChestService {\n    Transform Anchor { get; }\n}\n' > "$f"
+    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\",\"content\":$(jq -Rs . < "$f")}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
+
+@test "interface carve-out does not cover a class hiding in I*Controller.cs" {
+    mkdir -p "$TMPDIR_TEST/Assets/Scripts/Games/Concretes/Chest"
+    local f="$TMPDIR_TEST/Assets/Scripts/Games/Concretes/Chest/IChestController.cs"
+    printf 'using UnityEngine;\npublic sealed class ChestLogic : IChestLogic {\n    private Transform _t;\n}\n' > "$f"
+    run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\",\"content\":$(jq -Rs . < "$f")}}' | bash $HOOK"
+    [ "$status" -eq 2 ]
+}
