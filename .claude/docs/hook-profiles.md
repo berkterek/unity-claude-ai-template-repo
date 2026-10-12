@@ -49,7 +49,7 @@ All `minimal` hooks plus:
 | `check-no-linq-hotpath.sh` | Warns on LINQ in Update/FixedUpdate/LateUpdate |
 | `check-no-runtime-instantiate.sh` | Blocks `new GameObject()` in runtime code |
 | `check-null-propagation.sh` | Warns on `?.` and `is null` on Unity objects |
-| `check-no-monobehaviour-in-services.sh` | Blocks `*Handler : MonoBehaviour` / `*Module : ScriptableObject`, and real engine/scene/asset/input/time `UnityEngine` API in `_Framework/`/`Abstracts/`/`Concretes/` — math value types and `Debug` logging are allowed. Judged structurally (Card 0), not by filename. Disable: `DISABLE_HOOK_CHECK_NO_MONOBEHAVIOUR_IN_SERVICES=1` |
+| `check-no-monobehaviour-in-services.sh` | Blocks `*Handler : MonoBehaviour` / `*Module : ScriptableObject`, and real engine/scene/asset/input/time `UnityEngine` API in `_Framework/`/`Abstracts/`/`Concretes/` — math value types and `Debug` logging are allowed. Judged structurally (Card 0), not by filename — except interface-only `I*Controller`/`I*Manager` files, exempt by suffix. Disable: `DISABLE_HOOK_CHECK_NO_MONOBEHAVIOUR_IN_SERVICES=1` |
 | `check-time-scale.sh` | Blocks `Time.timeScale =` assignment |
 | `check-unitask-cancellation.sh` | Warns on `async UniTask` without `CancellationToken` |
 | `check-unity-event.sh` | Blocks `UnityEvent` usage |
