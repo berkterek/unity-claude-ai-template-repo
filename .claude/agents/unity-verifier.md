@@ -93,15 +93,31 @@ Read and apply `.claude/skills/core/mcp-preflight.md` before calling any MCP too
   silently matched 0 tests even with correct fully-qualified names.
 - If `run_tests` is available, run the test suite
 
-**State 2 (disconnected):**
-- Fall back to dotnet CLI: `dotnet build` for compile check, `dotnet test` for test run
-- Note in the report that MCP was unavailable and CLI was used
+**State 2 (disconnected) and State 3 (not installed) — no live-Editor verdict is available.**
+Read and apply `.claude/skills/core/unity-cli-verify.md`; run its preflight. The previous non-Unity
+fallback is removed: nobody checked that it produced a Unity compile verdict.
+`mcp-preflight.md` still governs MCP: no MCP call and no MCP write is started on either branch below.
 
-**State 3 (not installed):**
-- Fall back to dotnet CLI silently
-- Note in the report that MCP tools were absent
+- **2a — preflight clean** (`ProjectSettings/ProjectVersion.txt` present at the project path, binary present, `doctor --ci` exit 0, no Editor detected on this
+  project by the skill's detectors; `status` answering `STATUS_NO_INSTANCES` is not a detection): run ONE batch `unity test` per iteration
+  (EditMode, `--timeout 900`). PlayMode: one extra run, only on the final iteration (Step 3
+  applied no fix, or this is iteration 3) and only when the change touches PlayMode tests or
+  MonoBehaviours. Read the exit code per the skill: `0` with ≥1 test case → pass · `8` → real
+  test failures · `6` → **NO VERDICT**: not a pass, not a test failure — revert nothing, attribute
+  no cause, put the last 40 output lines in the report, and stop the loop. Stale-assembly probe:
+  write "not applicable — fresh batch process (reasoning, not measured)".
+- **2b — an Editor IS open on this project (any detector positive or erroring), or the `unity`
+  binary is missing, or `ProjectSettings/ProjectVersion.txt` is absent at the project path, or `doctor --ci` fails:** STOP. In State 2, print the `mcp-preflight.md`
+  State 2 checklist. Report `NOT VERIFIED — <reason>` and end the loop; the calling command
+  decides what happens next. Do not start a batch run against an open project (its behaviour
+  there is unmeasured), never run a named `unity command` (incl. `eval`) or `unity mcp`
+  (blocked by `check-unity-cli.sh` once registered in `settings.json`), and never substitute a non-Unity build.
+
+The Editor-open check is prose, not enforced — no hook runs it. Report which state (2/3) and
+which branch (2a/2b) you were in.
 
 If tests fail due to a fix you just made, **revert that specific fix** and flag it for human review.
+On the CLI path, only exit 8 counts as "tests fail" for the rule above. Exit 6 is NO VERDICT: revert nothing and do not attribute a cause. Whether an exit-6 compile error can be traced to a Step 3 fix is unmeasured.
 
 ### Step 5: Re-Verify Decision
 
@@ -114,9 +130,9 @@ If tests fail due to a fix you just made, **revert that specific fix** and flag 
 Stop the loop when ANY of these are true:
 1. No auto-fixable issues found
 2. Max iterations (3) reached
-3. All tests pass, the assembly probe confirmed the DLL is current, and no critical issues remain
+3. All tests pass, the verdict is current (State 1: the assembly probe confirmed the DLL; State 2a: a fresh batch unity test exited 0 with ≥1 test case), and no critical issues remain
 
-**A STALE ASSEMBLY result satisfies none of the three.** It is not "no issues found" — it is
+**A STALE ASSEMBLY, NOT VERIFIED or NO VERDICT result satisfies none of the three.** It is not "no issues found" — it is
 "nothing was measured". Report it as the outcome and stop; do not report success, and do not
 apply more fixes on the strength of results that describe an old DLL.
 
@@ -144,6 +160,7 @@ Present a structured summary:
 ### Test Results
 - Compilation: PASS (0 errors)
 - Tests: 12 passed, 0 failed
+- Verdict channel: MCP (live Editor) | unity CLI (batch, exit <n>) | none — NOT VERIFIED (<reason>)
 ```
 
 ## Rules

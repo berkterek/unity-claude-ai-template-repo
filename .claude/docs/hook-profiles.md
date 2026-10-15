@@ -53,6 +53,7 @@ All `minimal` hooks plus:
 | `check-time-scale.sh` | Blocks `Time.timeScale =` assignment |
 | `check-unitask-cancellation.sh` | Warns on `async UniTask` without `CancellationToken` |
 | `check-unity-event.sh` | Blocks `UnityEvent` usage |
+| `check-unity-cli.sh` | **PreToolUse Bash.** Blocks the Unity CLI's live-Editor code channel (`unity command <name>`, `run --command`, `shell`, `mcp`, `pipeline install\|upgrade`). `standard`, not `minimal`: it enforces a policy rather than preventing file corruption, and `minimal` stays the 6 safety hooks CLAUDE.md counts — so under `minimal` the eval ban is prose only. Disable: `DISABLE_HOOK_CHECK_UNITY_CLI=1` |
 | `check-vcontainer-singleton.sh` | Blocks static singleton patterns |
 | `block-graph-direct-read.sh` | **PreToolUse Read.** Blocks direct `Read` of `graph.json` / `scenes.json` / `prefabs.json` while `hybrid_graph: true` — use `/knowledge-graph` subcommands or the `mcp__graph_mcp__*` tools. No-op when `hybrid_graph` is false. Disable: `DISABLE_HOOK_BLOCK_GRAPH_DIRECT_READ=1` |
 | `graph-auto-update.sh` | Triggers incremental knowledge graph rebuild |

@@ -22,15 +22,52 @@ skills are wired to do the job a rule here already owns.
 - **This repo's rules win on every conflict.** A plugin skill is a reference, never an
   authority — it is not a rule file, and "the skill said so" is not a reason to write code a
   hook or a `rules/*.md` card forbids.
-- **`unity:unity-cli`'s `unity command eval` is forbidden here.** It injects arbitrary C# into a
-  live Editor over Bash, which is the same shape as talking to Blender's socket directly (README
-  → "MCP servers are frozen at session start"): it bypasses the MCP tools' pre-flight **and**
-  `block-scene-edit.sh` in one move, and no content hook can see it, because it is a Bash call
-  and not a write. Use `manage_scene` / `manage_gameobject` / `manage_components`. If the MCP
-  bridge is absent, restart the session — do not substitute the CLI. The skill's non-`eval` half
-  (editor install, licences, `unity build`/`test`) is fine. It needs `com.unity.pipeline`, which
-  this template does not install, so today the `eval` path does not even connect — that is an
-  accident of packaging, not the reason it is banned.
+- **`unity:unity-cli`'s `unity command eval` is forbidden here — `check-unity-cli.sh` added 2026-10-15;
+  enforced once registered in `settings.json`** (judge: `.claude/scripts/check-unity-cli.py`). `eval` (and every named
+  `unity command`, plus `unity run --command` and `unity shell`) runs C# inside a live Editor, issued
+  as a Bash command. That is an unreviewed channel: the C# never becomes a file, so no `Edit|Write`
+  content hook sees it, and it skips the MCP pre-flight in `skills/core/mcp-preflight.md` (instance
+  pinning, `dataPath` check) — which is a skill, not a hook. *Corrected 2026-10-15:* this note used to
+  say eval bypasses `block-scene-edit.sh`; that hook is matched on `Edit|Write` and never ran on Bash,
+  so there was nothing to bypass. The real gap was that nothing looked at the Bash call at all. Live
+  Editor work → `manage_scene` / `manage_gameobject` / `manage_components`; bridge absent → restart
+  the session. Headless compile / test / build → `skills/core/unity-cli-verify.md` (batch `unity test`,
+  only with no Editor open on the project). Also blocked: bare `unity mcp` (starts a stdio MCP server
+  exposing the Editor's commands — a second Unity MCP channel) and `unity mcp configure` except
+  `--list`/`--dry-run`; `unity pipeline install|upgrade` (writes `Packages/manifest.json` from Bash and
+  opens the eval path). `com.unity.pipeline` is still not installed here — an accident of packaging,
+  not the reason for the ban. Also handled: any letter case of the binary name (`Unity …` runs the
+  binary on a case-insensitive filesystem) and `$(…)` / backticks inside an unquoted heredoc body
+  (bash expands them).
+  **The hook is not airtight. Accepted gaps** (each kept because closing it costs more than it buys):
+  variable or alias indirection (`U=unity; $U command eval`, a renamed symlink) — needs shell
+  evaluation; a quote-split binary name (`u""nity command eval x`) — the bash prefilter matches the
+  literal word `unity` before the judge runs (the judge itself would block it), and dropping the
+  prefilter would start python3 on every Bash call; scripts on disk (`bash run.sh`) — `.sh` is not a
+  governed extension in `check-write-via-bash.sh` either; a heredoc fed to a shell (`bash <<EOF`) —
+  heredoc bodies are treated as data (only their `$(…)`/backticks are scanned) so commit messages
+  pass; a shell fed through stdin or a pipe (`echo '…' | bash`, `| sh -s`), a here-string
+  (`bash <<< '…'`, `. /dev/stdin <<< '…'`) and process substitution (`source <(echo '…')`) — the
+  command text is data to the judge, and blocking `| bash` / `<<<` outright would break legitimate
+  uses; heredoc detection is a regex, not a tokenizer, so a `<<` that is not a heredoc is read as one
+  and the real command line after it is judged as data (measured 2026-10-15, each runs in bash): a
+  `<<EOF` inside quotes (`echo "<<EOF"⏎unity command eval x; echo "⏎EOF⏎"`), a here-string word
+  (`cat <<<EOF⏎unity command eval x⏎EOF`), an arithmetic shift (`echo $((1<<X))⏎unity command eval
+  y⏎X`) and a `<<EOF` in a comment (`# <<EOF⏎unity …⏎EOF`); backslash-newline stripping eats an
+  escaped backslash (`echo foo \\⏎unity command eval x` is judged as one line); the heredoc regex is
+  quadratic on thousands of repeated unterminated openers (160KB ≈ 26 s against the hook's 5 s
+  timeout — a timeout is expected to let the command through, inferred, not measured). The review
+  loop stopped at its pass limit with these open (EXHAUSTION_GATE `skip`, 2026-10-15); the real fix
+  is a shell tokenizer, which is out of this plan's scope; `xargs`-appended arguments (`echo eval | xargs unity command`) — the name is not in the
+  command string; `env -S "…"` split strings and wrappers the judge does not model (`arch`,
+  `caffeinate`, `script`, unknown value-taking flags) — rare, extendable per case; function bodies
+  defined with the `name() { … }` form are handled, but a function defined in one Bash call and invoked
+  in a later one is invisible; other interpreters
+  (`python -c "subprocess.run(['unity', …])"`); anything typed outside Claude's Bash tool; the
+  `minimal` profile, where the hook does not run; `unity close`, `unity watch`, `unity setup` /
+  `unity skill install` (prose-only bans in the skill); `unity vcs` / `cm` remote writes, which
+  `block-git-push.sh` does not cover; and MCP's own `execute_code`, a different channel outside this
+  hook's reach. The hook does nothing until it is registered in `settings.json` (user-owned).
 - **`unity:new-unity-project` never replaces `/setup-project`.** It creates a stock Unity project;
   `/setup-project` generates `_Framework`, the asmdef graph, `DLog`, the SaveLoad chain, `AppScope`
   and `ConfigCatalog`. Letting it run first discards the entire reason this template exists.

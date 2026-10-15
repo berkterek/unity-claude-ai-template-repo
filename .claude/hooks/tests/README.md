@@ -47,6 +47,7 @@ tested in this same directory — one runner, one place to look. Known gap:
 | `guard-gate-cleared.bats` | `guard-gate-cleared.sh` |
 | `validate-plan-facts.bats` | `.claude/scripts/validate-plan-facts.sh` — plan-time fact gate (`Callers:`/`Wiring:`), fence handling, `_templates/` skip |
 | `check-duplicate-siblings.bats` | `.claude/scripts/check-duplicate-siblings.py` — Card 5 structural duplicate detector; pins the two false positives it originally shipped with |
+| `check-unity-cli.bats` | `check-unity-cli.sh` + `.claude/scripts/check-unity-cli.py` — Unity CLI live-Editor code-channel ban (69 tests); includes the `/bin/bash -n` parse check and the fail-closed regex path when the judge file is missing |
 
 ## What each test covers
 
