@@ -89,7 +89,8 @@ Optional Claude Code plugins. Each pipeline command checks for these at Step 0/0
 | `code-simplifier` | `/implement` | always |
 | `claude-md-management:revise-claude-md` | `/implement`, `/fix` | always |
 
-**Unity official plugin (`unity:*`):** this repo's rules win on every conflict; `unity command eval` is forbidden;
+**Unity official plugin (`unity:*`):** this repo's rules win on every conflict; the CLI's live-Editor code channel (`unity command`
+incl. `eval`, `unity run --command`, `unity shell`) is forbidden and blocked by `check-unity-cli.sh`;
 `unity:new-unity-project` never replaces `/setup-project`; `unity:ui-ugui` / `unity:ui-uitk` output is reshaped to our
 rules before it lands. → `docs/incidents/mcp-and-framework.md`
 

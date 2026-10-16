@@ -926,7 +926,7 @@ need the Unity Editor and MCP. Nothing here compiles anything.
 |------|---------------|
 | `block-git-push` | `git push` — Claude cannot push; user always pushes manually |
 | `check-write-via-bash` | Writing a project file through Bash (`>`, `>>`, `tee`, `sed -i`, `cp`/`mv`). The content hooks all match `Edit\|Write` and never see a Bash command — this closes that bypass. `/tmp` is exempt |
-| `check-unity-cli` | The Unity CLI's live-Editor code channel in a Bash call: every named `unity command` (incl. `eval`/`eval_file`), `unity run --command`, `unity shell`, bare `unity mcp` and `unity mcp configure` (except `--list`/`--dry-run`), `unity pipeline install\|upgrade`. Quote-aware judge in `.claude/scripts/check-unity-cli.py`; `unity test`/`build`/`status` pass. Blocks only once registered in `settings.json`. Not airtight — accepted gaps in `docs/incidents/mcp-and-framework.md` |
+| `check-unity-cli` | The Unity CLI's live-Editor code channel in a Bash call: every named `unity command` (incl. `eval`/`eval_file`), `unity run --command`, `unity shell`, bare `unity mcp` and `unity mcp configure` (except `--list`/`--dry-run`), `unity pipeline install\|upgrade`. Quote-aware judge in `.claude/scripts/check-unity-cli.py`; `unity test`/`build`/`status` pass. Not airtight — accepted gaps in `docs/incidents/mcp-and-framework.md` |
 | `block-scene-edit` | Direct editing of `.unity`, `.prefab`, `.asset` YAML |
 | `guard-editor-runtime` | `UnityEditor` namespace in runtime code without `#if UNITY_EDITOR` |
 | `check-no-monobehaviour-in-services` | `class FooHandler : MonoBehaviour` and `class FooModule : ScriptableObject` blocked by inheritance (always). For `using UnityEngine` in service/domain files: legitimacy is judged **structurally** — a class satisfying Card 0 (own `[SerializeField]` field and/or a Unity lifecycle callback) passes regardless of name (covers `*Provider`/`*View`/`*Controller`/`*Manager`); name-exempt for structurally-undetectable pure-C# categories (`*Handler`, `*Loader`/`*Dal`/`*Client`, `*Extensions`, `*Installer`/`*Scope`), `*Events` files, and ScriptableObject configs (`*Configuration`/`*Config`/`*Catalog`/`*Definition`). Interface-only files named `I*Controller`/`I*Manager` are also exempt (the contract of a MonoBehaviour may name `Transform` etc.; a `class`/`struct` in the file, `I*View`, `I*Service` and `I*Provider` still block). Even without Card 0 structure, a file whose only `UnityEngine` surface is math value types (`Mathf`/`Vector3`/`Quaternion`/`Color`...) or `Debug` logging passes; only real engine/scene/asset/input/time API is blocked. Path-based Editor/third-party/test exclusion via `should_skip_path()` |
@@ -1260,8 +1260,8 @@ because that file is what every session actually loads. The short version:
    Editor over Bash — the same failure shape as
    [reaching past a missing MCP bridge to its transport](#mcp-servers-are-frozen-at-session-start-non-negotiable):
    it skips the MCP pre-flight skill, and because it is a Bash call rather than a write, no
-   content hook could see it — nothing looked at the call until `check-unity-cli.sh` (added 2026-10-15;
-   blocks it once registered in `settings.json`; accepted gaps: `docs/incidents/mcp-and-framework.md`). The rest of that skill
+   content hook could see it — nothing looked at the call until `check-unity-cli.sh` (added 2026-10-15,
+   registered in `settings.json` 2026-10-16; accepted gaps: `docs/incidents/mcp-and-framework.md`). The rest of that skill
    (editor install, licences, `unity build`/`test`) is fine.
 3. **`unity:new-unity-project` must not front-run `/setup-project`**, and **`unity:ui-ugui`
    output must be reshaped** to `rules/scene-hierarchy.md` and `rules/unity-prefabs.md` before it
@@ -1618,25 +1618,9 @@ The log is capped at 500 lines and rotates automatically. It is global across al
 
 **settings.json hook entries** — Claude cannot edit `settings.json` (blocked by `check-config-protection.sh`), so any newly created hook has to be registered by hand. `settings.json` is tracked in git, so a project derived from this template inherits every registration already in it — this list only ever holds hooks that ship unregistered.
 
-Currently pending: **`check-unity-cli.sh`** — register it as a `PreToolUse` entry with `"matcher": "Bash"`, directly after the `check-write-via-bash.sh` entry, then restart the session:
+Currently pending: none.
 
-```json
-{
-  "matcher": "Bash",
-  "hooks": [
-    {
-      "type": "command",
-      "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-unity-cli.sh",
-      "timeout": 5,
-      "statusMessage": "Checking for banned Unity CLI channel (command eval)..."
-    }
-  ]
-}
-```
-
-Until it is registered the `unity command eval` ban is prose only. Delete this entry in the same change that registers it.
-
-The last entry this list carried was `check-write-via-bash.sh`, and it stayed here after being registered — found 2026-09-27, when the hook blocked a `cat > Foo.cs` in a session whose README was still calling it pending. A registration is a one-line edit; clearing this list afterwards is the step that gets skipped, and the stale entry is worse than a missing one: it tells a reader a live protection is off, so the next person to "fix" it either duplicates the entry or stops trusting the list. Verify against `settings.json` before adding a name here, and delete the name in the same change that registers it.
+The last entry this list carried was `check-unity-cli.sh`, registered 2026-10-16. The one before it was `check-write-via-bash.sh`, and it stayed here after being registered — found 2026-09-27, when the hook blocked a `cat > Foo.cs` in a session whose README was still calling it pending. A registration is a one-line edit; clearing this list afterwards is the step that gets skipped, and the stale entry is worse than a missing one: it tells a reader a live protection is off, so the next person to "fix" it either duplicates the entry or stops trusting the list. Verify against `settings.json` before adding a name here, and delete the name in the same change that registers it.
 
 When this list does hold a name, it takes this shape — the hook's own block under the matcher it belongs to:
 

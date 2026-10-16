@@ -79,6 +79,17 @@
         ]
       },
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-unity-cli.sh",
+            "timeout": 5,
+            "statusMessage": "Checking for Unity CLI live-Editor code channel..."
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write",
         "hooks": [
           {
