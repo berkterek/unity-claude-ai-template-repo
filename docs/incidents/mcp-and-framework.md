@@ -22,8 +22,8 @@ skills are wired to do the job a rule here already owns.
 - **This repo's rules win on every conflict.** A plugin skill is a reference, never an
   authority — it is not a rule file, and "the skill said so" is not a reason to write code a
   hook or a `rules/*.md` card forbids.
-- **`unity:unity-cli`'s `unity command eval` is forbidden here — `check-unity-cli.sh` added 2026-10-15;
-  enforced once registered in `settings.json`** (judge: `.claude/scripts/check-unity-cli.py`). `eval` (and every named
+- **`unity:unity-cli`'s `unity command eval` is forbidden here — `check-unity-cli.sh` added 2026-10-15,
+  registered in `settings.json` 2026-10-16** (judge: `.claude/scripts/check-unity-cli.py`). `eval` (and every named
   `unity command`, plus `unity run --command` and `unity shell`) runs C# inside a live Editor, issued
   as a Bash command. That is an unreviewed channel: the C# never becomes a file, so no `Edit|Write`
   content hook sees it, and it skips the MCP pre-flight in `skills/core/mcp-preflight.md` (instance
@@ -67,7 +67,7 @@ skills are wired to do the job a rule here already owns.
   `minimal` profile, where the hook does not run; `unity close`, `unity watch`, `unity setup` /
   `unity skill install` (prose-only bans in the skill); `unity vcs` / `cm` remote writes, which
   `block-git-push.sh` does not cover; and MCP's own `execute_code`, a different channel outside this
-  hook's reach. The hook does nothing until it is registered in `settings.json` (user-owned).
+  hook's reach.
 - **`unity:new-unity-project` never replaces `/setup-project`.** It creates a stock Unity project;
   `/setup-project` generates `_Framework`, the asmdef graph, `DLog`, the SaveLoad chain, `AppScope`
   and `ConfigCatalog`. Letting it run first discards the entire reason this template exists.

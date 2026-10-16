@@ -1,6 +1,6 @@
 ---
 name: unity-cli-verify
-description: "Headless compile/test verification through the Unity 6 CLI (`unity`) when no live-Editor (MCP) verdict is available. Preflight (binary → doctor → Editor-open detection, `editors running` first) → ONE batch `unity test` per verify iteration → exit-code reading (0 / 8 / 6). MCP stays the only live-Editor channel. Forbidden, and hook-enforced once registered in settings.json (check-unity-cli.sh): every named `unity command` incl. eval/eval_file, `unity run --command`, `unity shell`, `unity mcp` (except --help, configure --list/--dry-run), `unity pipeline install|upgrade`."
+description: "Headless compile/test verification through the Unity 6 CLI (`unity`) when no live-Editor (MCP) verdict is available. Preflight (binary → doctor → Editor-open detection, `editors running` first) → ONE batch `unity test` per verify iteration → exit-code reading (0 / 8 / 6). MCP stays the only live-Editor channel. Forbidden, and hook-enforced (check-unity-cli.sh): every named `unity command` incl. eval/eval_file, `unity run --command`, `unity shell`, `unity mcp` (except --help, configure --list/--dry-run), `unity pipeline install|upgrade`."
 model-tier: light
 ---
 
@@ -21,7 +21,7 @@ Allowed: `unity test`, `unity build`, `unity run` (without `--command`), `unity 
 (`--query --tag --limit --sort --caller --skill …`), `unity list`, `unity pipeline list`,
 `unity mcp --help`, `unity mcp configure --list` / `--dry-run`.
 
-Forbidden, hook-enforced once registered in `settings.json` (`check-unity-cli.sh` → `.claude/scripts/check-unity-cli.py`):
+Forbidden, hook-enforced (`check-unity-cli.sh` → `.claude/scripts/check-unity-cli.py`):
 - `unity command <any name>` (alias `cmd`; incl. `eval`, `eval_file`, and a name after `--`)
 - `unity run … --command <name>` (before any `--`)
 - `unity shell` (except `-h` / `--help`)

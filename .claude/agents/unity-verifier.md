@@ -111,7 +111,7 @@ fallback is removed: nobody checked that it produced a Unity compile verdict.
   State 2 checklist. Report `NOT VERIFIED — <reason>` and end the loop; the calling command
   decides what happens next. Do not start a batch run against an open project (its behaviour
   there is unmeasured), never run a named `unity command` (incl. `eval`) or `unity mcp`
-  (blocked by `check-unity-cli.sh` once registered in `settings.json`), and never substitute a non-Unity build.
+  (blocked by `check-unity-cli.sh`), and never substitute a non-Unity build.
 
 The Editor-open check is prose, not enforced — no hook runs it. Report which state (2/3) and
 which branch (2a/2b) you were in.

@@ -79,7 +79,7 @@ There are two reasons for this plan:
 - [ ] Every verifier report names the channel that produced its verdict.
 - [ ] `check-unity-cli.sh` blocks the Unity CLI's live-Editor code channel with exit 2 and an explicit stderr line, and the bats suite asserts on that line.
 - [ ] The hook parses under `/bin/bash` (bash 3.2), and it fails closed when its judge file is missing.
-- [ ] The user registers the hook in `settings.json`. This is confirmed by reading the file, not assumed.
+- [x] The user registers the hook in `settings.json`. This is confirmed by reading the file, not assumed. (2026-10-16, `b3943fa`)
 - [ ] The incident doc states the ban's reason accurately and lists the hook's accepted gaps. README does the same if scope addition (d) is approved.
 - [ ] Task 10 has been run in a real Unity project and its measurements are recorded in the skill. Until then, the skill's "Measured" section says `NOT YET MEASURED`.
 
@@ -87,15 +87,15 @@ There are two reasons for this plan:
 
 | Order | Task | Status | parallel_group |
 |-------|------|--------|----------------|
-| 1 | Task 3: write `check-unity-cli.bats` (RED) | Pending | — (first) |
-| 2 | Task 4: implement `check-unity-cli.sh` + `check-unity-cli.py` (GREEN), `chmod +x` | Pending | — (after Task 3) |
-| any time after Task 4 | Task 5: **[USER ACTION]** register the hook in `settings.json` | Pending | — |
-| 3 | Task 1: create the `unity-cli-verify` skill | Pending | B |
-| 3 | Task 7: hook docs under `.claude/` | Pending | B |
-| 3 | Task 8: incident doc + README | Pending | B |
-| 4 | Task 2: register the skill in `skills-index.md` | Pending | C |
-| 4 | Task 6: rewrite the no-MCP branches of `unity-verifier.md` Step 4 | Pending | C |
-| 5 | Task 9: in-repo verification | Pending | — (after C; V3 needs Task 5) |
+| 1 | Task 3: write `check-unity-cli.bats` (RED) | Done (`cb8251b`) | — (first) |
+| 2 | Task 4: implement `check-unity-cli.sh` + `check-unity-cli.py` (GREEN), `chmod +x` | Done (`cb8251b`) | — (after Task 3) |
+| any time after Task 4 | Task 5: **[USER ACTION]** register the hook in `settings.json` | Done (`b3943fa`, 2026-10-16) | — |
+| 3 | Task 1: create the `unity-cli-verify` skill | Done (`cb8251b`) | B |
+| 3 | Task 7: hook docs under `.claude/` | Done (`cb8251b`) | B |
+| 3 | Task 8: incident doc + README | Done (`cb8251b`; pending entry removed in `b3943fa`) | B |
+| 4 | Task 2: register the skill in `skills-index.md` | Done (`cb8251b`) | C |
+| 4 | Task 6: rewrite the no-MCP branches of `unity-verifier.md` Step 4 | Done (`cb8251b`) | C |
+| 5 | Task 9: in-repo verification | Partial — V1 bats 69/69 green (2026-10-16), V3 file read + README reconciled; V3 live probe (new session) open | — (after C; V3 needs Task 5) |
 | — | Task 10: real-project measurement **[BLOCKED — needs real Unity project]** | Blocked | — |
 
 **Group B** starts after Task 4 is green. All three of its tasks describe the hook as built, and Task 1's forbidden list must match the final judge. Each task writes its own files (the skill; three `.claude/` docs; the incident doc plus README), and none reads another's output. Tasks 7 and 8 name the skill only by its path, which is fixed by this plan.
