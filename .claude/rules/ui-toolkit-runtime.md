@@ -228,6 +228,19 @@ allocations` and the app freezes — a few dozen swaps on a ~1,000-element scree
 animation (spinners, shimmer): drive those from C# in the View's owning handler, not from a
 never-ending transition.
 
+**What counts as layout, in practice.** A popup that pops in with `scale: 0.8 → 1` + `opacity` is fine: the element's slot
+in its parent never changes, so neighbours are not touched. The cost comes from changing the **slot itself** —
+accordion `height: 0 → 200px`, a bar filled by `width: 20% → 80%`, a list item sliding in via `margin`. Each frame
+Unity re-lays-out the siblings and children. Fill a bar with `scale: <x> 1` + `transform-origin: left` instead
+(`scale` also scales the element's children, so keep nothing in a fill element that must stay undistorted).
+
+**Moving every frame from C#:** set `style.translate` (never `left`/`top`) and give the element
+`usageHints = UsageHints.DynamicTransform` (UXML: `usage-hints="DynamicTransform"`) — the transform is then pushed to
+the GPU without regenerating the element's vertices. For a container whose children move together, Unity's docs name
+`GroupTransform`. Source: Unity manual "USS transition", "USS transform", "Optimizing performance", and "Optimize
+performance of moving elements at runtime". Not yet measured in this repo: the minimum Unity version of each hint —
+check the Script Reference for `UsageHints` against `ProjectVersion.txt` before relying on it.
+
 ---
 
 ### Card 7: A Font Without an Explicit Fallback Chain Is a Bug — the Editor Hides It
