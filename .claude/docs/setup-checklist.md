@@ -21,10 +21,11 @@ These are NOT manual — `/setup-project` Step 5d handles them via `manage_scene
   {
     "type": "command",
     "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-write-via-bash.sh",
-    "timeout": 3000,
+    "timeout": 3,
     "statusMessage": "Checking for hook-bypassing file writes..."
   }
   ```
+  `timeout` is in **seconds**, not milliseconds — `3000` would let a hung hook stall the prompt for 50 minutes.
   Until this entry exists the hook sits on disk and never runs, so `cat > Foo.cs` still skips every `Edit|Write` content hook.
 
 > `check-test-scene-exists.sh`, `guard-reviewer-order.sh` and `track-codex-review.sh` used to be listed here. They are registered in the tracked `.claude/settings.json` and are inherited by any project derived from this template — nothing to do. `check-save-load.sh` and `check-dlog-usage.sh` were added on 2026-09-02 and are registered the same way, so they are inherited too. Verify with `bats .claude/hooks/tests/check-save-load.bats .claude/hooks/tests/check-dlog-usage.bats` (35 tests).

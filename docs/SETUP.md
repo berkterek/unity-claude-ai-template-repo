@@ -39,7 +39,7 @@ After running `/setup-project`, complete these steps manually (Claude cannot do 
   ```json
   {
     "matcher": "Write|Edit",
-    "hooks": [{ "type": "command", "command": ".claude/hooks/check-test-scene-exists.sh", "timeout": 5000, "statusMessage": "Checking test scene exists..." }]
+    "hooks": [{ "type": "command", "command": ".claude/hooks/check-test-scene-exists.sh", "timeout": 5, "statusMessage": "Checking test scene exists..." }]
   }
   ```
 

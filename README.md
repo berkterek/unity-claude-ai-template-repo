@@ -1628,11 +1628,12 @@ When this list does hold a name, it takes this shape — the hook's own block un
 {
   "type": "command",
   "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/<hook>.sh",
-  "timeout": 3000,
+  "timeout": 3,
   "statusMessage": "…"
 }
 ```
 
+`timeout` is in **seconds**, not milliseconds — `3000` would let a hung hook stall the prompt for 50 minutes.
 Until that entry exists the hook sits on disk and never runs — registered is the only state in which a hook enforces anything.
 
 To check the whole set at once, diff the hooks on disk against the ones `settings.json` names:
