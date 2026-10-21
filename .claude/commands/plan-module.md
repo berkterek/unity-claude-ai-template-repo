@@ -26,6 +26,28 @@ Creates a single module's `docs/modules/<n>-<name>/` folder: `spec.md`, `design.
 
 ## Process
 
+### Preflight — Plan Templates (BLOCKING)
+
+Before anything else, check that the three format templates exist:
+
+```bash
+for f in spec design tasks; do
+  [ -f "docs/modules/_templates/$f.md" ] || echo "MISSING: docs/modules/_templates/$f.md"
+done
+```
+
+Any `MISSING` line → stop and print:
+
+```
+⛔ /plan-module needs docs/modules/_templates/{spec,design,tasks}.md — missing: [list]
+Copy them from the template repository, then re-run:
+  cp -R <template-repo>/docs/modules/_templates docs/modules/
+```
+
+Do not copy the files yourself, and never take the format from another module's plan instead.
+
+> **Why this blocks instead of falling back:** nothing installs `_templates/` into a downstream project — `/setup-project` does not copy it. Without the check, a missing template produced no error: the Plan agent silently used an earlier module's `tasks.md` as its format, and that module's extra bookkeeping (a status table, per-task `Result:` fields) spread into every new plan. Measured on a downstream project, Oct 2026.
+
 ### Step 0 — Knowledge Graph Preload
 
 Before any codebase scan or subagent spawn, decide whether the knowledge graph can speed up planning this module.
@@ -148,12 +170,34 @@ Do not proceed to the next step until the gate is approved (the user types `go`)
 
 ### Step 3 — Planning Subagent
 
-Spawn the `Plan` subagent (`subagent_type: "Plan"`, `model: opus`) — the same agent as `/create-plan` Step 2. **Do not use `lean-planner`:** by definition that agent produces no acceptance criteria, no `parallel_group` annotations and no code skeletons, and its output is a single 3-5 row table; this command needs three separate documents (spec/design/tasks), the Given/When/Then ACs the Step 4 reviewer looks for, and the `Callers:`/`Wiring:` lines Step 5's `validate-plan-facts.sh` requires. Give the subagent:
-- The module's GDD summary
-- TDD'deki ilgili mimari kararlar
-- The results of the existing codebase scan
-- The Knowledge Graph block below (from Step 0)
-- The template format: the spec/design/tasks templates under `docs/modules/_templates/`
+Spawn the `Plan` subagent (`subagent_type: "Plan"`, `model: opus`) — the same agent as `/create-plan` Step 2. **Do not use `lean-planner`:** by definition that agent produces no acceptance criteria, no `parallel_group` annotations and no code skeletons, and its output is a single 3-5 row table; this command needs three separate documents (spec/design/tasks), the Given/When/Then ACs the Step 4 reviewer looks for, and the `Callers:`/`Wiring:` lines Step 5's `validate-plan-facts.sh` requires.
+
+Give the subagent a **context packet** built from what Step 1 already read. Paste the text itself, quoted under its original heading — never a file pointer:
+- **ROADMAP:** this module's row (name, dependencies, milestone, priority), the open milestone's entry with its inline stub scope, and the suggested build order
+- **TDD:** the Milestone Acceptance stub definition for this system (if any), then every section holding this module's architecture decisions
+- **GDD:** the section(s) covering this module
+- **Scope:** the scope ceiling decided in Step 1 and the list of deliberately omitted items with the milestone that owns each
+- **Structure:** the ARCHITECTURE_GATE proposal as approved in Step 2, including any change the user asked for
+- **Codebase:** the existing-file scan from Step 1, one line per file
+- **Graph:** the Knowledge Graph block below (from Step 0)
+- **Format:** the spec/design/tasks templates under `docs/modules/_templates/`
+
+Add this instruction to the prompt, verbatim:
+
+```
+The context packet above is the authoritative extract of ROADMAP, GDD and TDD for this
+module. Do not re-read those three documents in full — no `cat`, no full Read. Open one
+only for a specific section the packet lacks, and list each such section under an
+"Extra reads" heading at the end of your output. Source files, rules and templates you
+may read as needed.
+
+For a task whose output needs no test — a type the Test Type Decision Tree in
+.claude/rules/testing.md sends to NoTest, or a non-code task (docs, assets, scene setup) —
+write `Test type: NoTest` on the task. /orchestrate skips the tester step for it; do not
+invent another way to skip it.
+```
+
+**Why a packet and not pointers:** measured on a downstream project (Oct 2026, 11 Plan runs): the prompt was ~2k tokens with no document text, and the Plan agent re-read ROADMAP/GDD/TDD itself through ~227 `cat` commands (~1.1M characters) — the same reads Step 1 had just done. Each run took 17-50 minutes. The "Extra reads" list makes any remaining re-read visible instead of silent.
 
 Add this block to the prompt:
 

@@ -264,9 +264,18 @@ Each task runs four steps in sequence (TDD: tests first, then implementation). A
 
 ---
 
-#### Step 1 — Test Writer (skip if `Agent: unity-setup`)
+#### Step 1 — Test Writer (skip if `Agent: unity-setup` or `Test type: NoTest`)
 
-If `Agent: unity-setup` → skip this step, go directly to Step 2.
+Skip this step and go directly to Step 2 when either holds:
+- `Agent: unity-setup`
+- the task carries a `Test type: NoTest` line (`Test Type:` in `/create-plan` output — match case-insensitively). Valid only for a type that `.claude/rules/testing.md`'s Test Type Decision Tree or `/create-plan`'s Test Type Decision Matrix sends to NoTest, or for a non-code task (docs, assets, scene setup). A `NoTest` on any other `.cs` task is a plan defect: run this step anyway and say so in one line.
+
+On a NoTest skip, append to `docs/EVENTS.jsonl`:
+```jsonl
+{"event":"TESTER_SKIPPED","id":"[task id]","reason":"NoTest","timestamp":"[ISO8601]"}
+```
+
+> **Why `NoTest` is read here:** before this line existed, only `unity-setup` skipped the tester. A plan with a legitimately untested task (an Editor-only tool, a config asset) had no way to say so — the tester was spawned with "write failing tests", and either invented tests the plan had ruled out or reported BLOCKED, which stops the run. Plans worked around it with hand-edited tester prompts, and plan reviewers rejected the workaround: a review → fix cycle per module, measured on a downstream project in Oct 2026.
 
 Spawn Agent with `subagent_type: "claude"` (`model: sonnet` — isolated tester is worker-tier) with this prompt:
 
@@ -374,6 +383,8 @@ Do NOT commit anything.
 Report: DONE or BLOCKED with reason.
 ```
 
+For a task Step 1 skipped as `NoTest`: drop "Tests have already been written — your job is to make them pass." and the `## Existing Tests` section, add `No tests for this task (Test type: NoTest) — do not write any.`, and replace `Confirm all tests now pass.` with `Confirm the project compiles.`
+
 **Unity Setup prompt:**
 ```
 You are a Unity scene architect setting up a specific task.
@@ -479,7 +490,7 @@ must never be reported as a scope violation: `.claude/**`, `docs/**`, `*.json`,
 [list every criterion from tasks.md]
 
 ## Review Criteria
-1. Tests pass — all pre-written tests pass; no test files were modified
+1. Tests pass — all pre-written tests pass; no test files were modified. For a `Test type: NoTest` task there are no tests by design: do not flag their absence; flag only a test file the coder added
 2. Acceptance criteria — does the implementation satisfy all of them?
 3. Architecture (gate `TD-ARCHITECTURE`) — VContainer DI, no singletons, interfaces only across modules
 4. Naming — PascalCase types, _camelCase private fields
