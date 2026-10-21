@@ -149,6 +149,28 @@ instruction — check whether it reproduces outside the sandbox first.
 - **Costs one long agent invocation** (~3 min). Run it when a pipeline's step order or
   state-file handling changes — not on every commit.
 
+### 2026-10-20 — `/orchestrate`, `Test type: NoTest` skips the tester
+
+Three-task plan: T001 `NoTest` (ScriptableObject config), T002 and T003 `EditMode`. All subagents
+scripted to pass; the review/exhaustion branches were not exercised, so P5-P7 are not measured.
+
+| Field | Result |
+|---|---|
+| `TESTER_SPAWNED` | **T001=no** (skipped, step 13) · T002=yes (22) · T003=yes (31) |
+| `TESTER_SKIPPED_EVENTS` | one line, T001, `reason: NoTest` |
+| T001 coder prompt | no `## Existing Tests`, carries the no-tests line and "Confirm the project compiles." |
+| P1, P2, P3 | **PASS** — SCOPE_GATE step 9 before first spawn step 15; `gate-cleared` after `go`; SPARC before coder |
+| P8, P9 | **PASS** — state dir empty; `DIRECTOR_EDITED_CS: no` |
+| P4 | **does not apply as written** — see below |
+
+**Pre-existing finding, not caused by this change:** `/orchestrate` runs the reviewer (Step 3)
+*before* the verifier (Step 3.5). P4 was written for `/implement`, where the validator comes first,
+so a reviewer here can approve code that has not compiled. Recorded, not fixed in this run.
+
+**Harness gaps:** the sandbox has no `.claude/scripts/validate-plan-*.sh` and no `docs/ROADMAP.md`, so
+plan validation exited 127 and the Milestone line had no source. The Director batched T002/T003's steps
+instead of printing each, so their evidence is a summary.
+
 ### 2026-09-13 — `/implement`, first run measuring P3b/P8b
 
 `GATE_ORDER: SCOPE_GATE, SPARC_GATE, QUALITY_GATE, QUALITY_GATE, EXHAUSTION_GATE, COMMIT_GATE`
