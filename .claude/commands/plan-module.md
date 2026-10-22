@@ -195,6 +195,20 @@ For a task whose output needs no test — a type the Test Type Decision Tree in
 .claude/rules/testing.md sends to NoTest, or a non-code task (docs, assets, scene setup) —
 write `Test type: NoTest` on the task. /orchestrate skips the tester step for it; do not
 invent another way to skip it.
+
+Before you return, check the drafts against the defects plan reviewers reject most often:
+- The project compiles after EVERY task, not only at the end. A task that removes or
+  renames a field, method or signature also updates every reader of it in the same task —
+  never "T010 renames, T013 fixes the callers".
+- A RED test task compiles against signatures that exist at that point. If the signature
+  is new or changed, either add a stub/signature task before the tests, or write
+  "RED = compile failure" on the test task explicitly.
+- Every `git status` / "no other change" check names its paths
+  (`git status --short HoleSphere docs/decisions`) — the tree is never assumed clean.
+- Every `file:line` you cite was opened and verified in this run. Name each value's real
+  source; never attribute a value to a document you did not see it in.
+- Tasks in the same `parallel_group` share no output file and no work directory.
+- A placeholder value in a task body is labelled `placeholder — set at <task id>`.
 ```
 
 **Why a packet and not pointers:** measured on a downstream project (Oct 2026, 11 Plan runs): the prompt was ~2k tokens with no document text, and the Plan agent re-read ROADMAP/GDD/TDD itself through ~227 `cat` commands (~1.1M characters) — the same reads Step 1 had just done. Each run took 17-50 minutes. The "Extra reads" list makes any remaining re-read visible instead of silent.
@@ -218,9 +232,30 @@ Spawn the `reviewer` subagent (`model: sonnet`). Ask it to check:
 - Are `spec.md`'s acceptance criteria testable? (Given/When/Then format)
 - Do `design.md`'s interface signatures comply with the current architecture rules?
 
-The reviewer must end with exactly one verdict line: `APPROVED` or `CHANGES NEEDED`.
+Add this severity contract to the reviewer prompt, verbatim:
 
-On `CHANGES NEEDED`, show **QUALITY_GATE** — definition and exact format in `.claude/docs/director-gates.md` → QUALITY_GATE. Do not restate the options here; that file owns them. If the user picks `fix`, hand the feedback back to the Step 3 `Plan` subagent and re-review — at most **3 reviewer passes** total. Never reach Step 5 on an unresolved `CHANGES NEEDED`, and never fix the plan yourself instead of showing the gate: that decision is the user's.
+```
+Classify every finding as exactly one of:
+- BLOCKING — the plan as written would fail: /orchestrate cannot run a task, the project
+  does not compile after some task, a task points at a wrong file/line/value that would
+  produce wrong code, or an acceptance criterion cannot be tested — including a check
+  that cannot pass on the real working tree (an unscoped `git status` on a dirty tree).
+- MINOR — anything else worth changing: wording, missing tolerances that do not block a
+  test, labelling, a citation off by a few lines that still lands on the right content.
+Do not list items you checked and found correct — a confirmation is not a finding.
+
+Output: a "BLOCKING" list and a "MINOR" list, each item with file:line. Then exactly one
+verdict line: `CHANGES NEEDED` if the BLOCKING list is non-empty, otherwise `APPROVED`
+(MINOR items do not block).
+```
+
+On `CHANGES NEEDED`, show **QUALITY_GATE** — definition and exact format in `.claude/docs/director-gates.md` → QUALITY_GATE. Do not restate the options here; that file owns them. If the user picks `fix`, hand **both** lists back to the Step 3 `Plan` subagent — MINOR items are fixed in the same pass, they never earn a pass of their own.
+
+**A re-review is a delta review, not a fresh one.** Pass 2 and 3 get the previous BLOCKING list and the revised drafts, and answer only: is each previous BLOCKING item resolved, and did the fix introduce a new BLOCKING defect? A fresh full review on every pass finds new MINOR items every time and never converges. At most **3 reviewer passes** total. Never reach Step 5 on an unresolved `CHANGES NEEDED`, and never fix the plan yourself instead of showing the gate: that decision is the user's.
+
+On `APPROVED` with a non-empty MINOR list, show the MINOR list to the user in one block before Step 5 — they may ask for a fix pass; it is not required.
+
+> **Why severity and delta review:** measured on a downstream project (Oct 2026): 27 plan reviews across 16 modules, and **no module plan was approved on its first review**; 7 modules needed 2-3 passes. Module 41's first review listed 21 items, of which about 5 would actually have failed the run (a field renamed in one task while its readers changed three tasks later; RED tests written against signatures that did not exist yet; a `git status` check run on an already dirty tree; two wrong `file:line` citations). The rest were MINOR suggestions and confirmations — and with one verdict for all of them, each pass reopened the plan for everything and the next full review found new MINOR items. The checklist in the Step 3 prompt targets those five recurring BLOCKING kinds at the source.
 
 ### Step 5 — SAVE
 
