@@ -128,10 +128,10 @@ Plugins: superpowers:verification-before-completion [✓/✗]
 - Constructor injection used for dependencies
 
 **Test Phase:**
-- Every logic class has a corresponding test class
+- Every class with branching, math or state has a corresponding test class (NoTest categories: `rules/testing.md` → Risk-Based TDD)
 - Tests cover happy paths, edge cases, and error paths
 - Test naming follows conventions
-- No mocking frameworks used (hand-rolled fakes only)
+- Mocks: NSubstitute on interfaces when the `testing` feature is enabled, hand-rolled fakes when disabled — never a mocked concrete class
 
 **Unity Integration Phase:**
 - MonoBehaviours are thin adapters

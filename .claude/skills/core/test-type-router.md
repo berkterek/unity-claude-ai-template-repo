@@ -12,9 +12,15 @@ Given a class name, file path, or task description, emit one of four test type d
 
 ## Decision Matrix
 
-### 1 — Path-based (fastest, most reliable)
+### 0 — Risk gate (always first)
 
-If the target file path is known:
+Before any path rule, apply the NoTest categories in `.claude/rules/testing.md` → Risk-Based TDD: thin Controller / View / Manager (no branch, math or state), Provider, `*Module`, `LifetimeScope`, `ScriptableObject` config, visual work (VFX, animation, shader, UI layout). A match is **NoTest** — stop here.
+
+> Path rules used to run first, so everything under `Games/Concretes/` became EditMode and the "MonoBehaviour with no logic → NoTest" row below was never reached. Thin shells got tested by default.
+
+### 1 — Path-based
+
+If the target file path is known and the risk gate did not match:
 
 | Path contains | Decision |
 |---------------|----------|

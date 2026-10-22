@@ -5,9 +5,26 @@ paths:
 ---
 # Testing Rules
 
-## Mandatory TDD
+## Risk-Based TDD
 
-Every class under `_GameFolders/Scripts/` must have a corresponding test. Rule: **write test first, then implementation**.
+Tests are written by **risk**, not by class count. When a class is tested, the rule is still **write test first, then implementation**.
+
+**Tested (test-first, usually EditMode):**
+1. Pure C# logic with branching, math, or a state machine
+2. Data parsing and validation (level files, save data) — one parameterized test over every shipped data file is cheap and catches the most
+3. Anything that has already produced a bug — every fix gets a regression test
+4. Algorithms ported from a reference source — the test pins the source behavior
+
+**NoTest (the plan task says `Test type: NoTest` and names the category below):**
+- Thin Mono shells — Controller / View / Manager whose bodies only cache refs, assign fields, or forward a call
+- Providers — the Unity API wrapper itself
+- `*Module` installers, `LifetimeScope` subclasses, `ScriptableObject` configs
+- Visual and feel work — VFX, animation, shaders, UI layout. Verified by eye in Play mode
+- Any body with no branch, no math and no state — it only forwards
+
+`NoTest` is valid only for these categories. A free-text reason does not make a class NoTest; a class with a branch, math or state is tested no matter how it is named. Existing tests are not mass-deleted — prune redundant ones only in a file you are already changing.
+
+> **Why risk and not "every class":** measured on a downstream project (Oct 2026): 5,759 lines of game code carried 13,993 lines of tests (567 test methods, 321 `[TestCase]` rows). A 120-line Controller had 31 cases — 27 of them asserted one field assignment per slot index — and a 114-line View had 32. Those catch no regression a Play-mode look would miss, and every refactor pays for them.
 
 ---
 
@@ -16,9 +33,15 @@ Every class under `_GameFolders/Scripts/` must have a corresponding test. Rule: 
 Before writing any test, apply this tree top-to-bottom — stop at the first match:
 
 ```
-Is it a NoTest type? (stop here if any match)
+Is it a NoTest type? (stop here if any match — checked BEFORE any path rule)
 ├── LifetimeScope subclass       → NoTest  (DI wiring — tested via integration)
 ├── ScriptableObject config      → NoTest  (data container — no logic)
+├── *Module static installer     → NoTest  (registration only)
+├── Provider (Unity API wrapper) → NoTest  (the wrapper is the Unity call)
+├── Controller / View / Manager with no branch, math or state
+│                                → NoTest  (thin shell — verified in Play mode)
+├── VFX / animation / shader / UI layout
+│                                → NoTest  (visual — verified by eye)
 ├── IComponentData struct        → NoTest  (data only)
 ├── Baker<T> inner class         → NoTest  (bake-time only)
 └── NO → continue below
@@ -92,6 +115,8 @@ public IEnumerator MoveHandler_WhenTickCalled_MovesRigidbodyForward()
 ---
 
 ## What Requires Tests
+
+This table gives the test **type** for a class that the Risk-Based TDD section above says is tested. It never overrides a NoTest category — a thin Controller under `Games/Concretes/` is NoTest, not PlayMode.
 
 | Folder | Test Type | Tool |
 |--------|-----------|------|
@@ -205,6 +230,37 @@ public void TakeDamage_WhenDamageExceedsHealth_SetsHealthToZero()
     Assert.AreEqual(0, enemy.Health);
 }
 ```
+
+### One Scenario per Test — not One Assertion
+
+A test is **one scenario: one Arrange, one Act.** Every observable outcome of that scenario is asserted in the same test, inside `Assert.Multiple` — it runs every assertion and reports each failure separately, so a failing test still names what broke. Open a new test only when the Arrange or the Act differs.
+
+```csharp
+// WRONG — one Act split into N tests, each re-running the same setup for one assertion
+[Test] public void LoadLevel_WhenFound_EntersPlaying()   { _sut.LoadLevel(1); Assert.AreEqual(LevelPhase.Playing, _sut.Phase.CurrentValue); }
+[Test] public void LoadLevel_WhenFound_EnablesDrag()     { _sut.LoadLevel(1); _drag.Received(1).SetEnabled(true); }
+[Test] public void LoadLevel_WhenFound_PublishesLoaded() { _sut.LoadLevel(1); _eventBus.Received(1).Publish(Arg.Any<LevelLoadedEvent>()); }
+
+// RIGHT — one scenario, all of its outcomes
+[Test]
+public void LoadLevel_WhenFound_StartsTheLevel()
+{
+    // Act
+    _sut.LoadLevel(1);
+
+    // Assert
+    Assert.Multiple(() =>
+    {
+        Assert.AreEqual(LevelPhase.Playing, _sut.Phase.CurrentValue);
+        _drag.Received(1).SetEnabled(true);
+        _eventBus.Received(1).Publish(Arg.Any<LevelLoadedEvent>());
+    });
+}
+```
+
+**`[TestCase]` rows are equivalence classes, not indices.** Add a row where the behavior changes (0, 1, the boundary, past the boundary) — never one row per slot or per item that runs the same code. Nine slots handled by one loop are one test that iterates the slots.
+
+> **Why:** measured on a downstream project (Oct 2026), "one assertion per test" was the main multiplier — not the number of classes tested. A 164-line service had 64 cases in 972 lines; its success path alone was 7 tests with identical setup and the same `LoadLevel(1)` call, each asserting one field, plus an eighth re-checking the other seven in order. `Assert.Multiple` appeared 0 times in the project.
 
 ---
 

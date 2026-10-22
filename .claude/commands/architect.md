@@ -31,11 +31,11 @@ These are hard requirements. Every architectural decision must satisfy ALL of th
 - Pattern: `MonoBehaviour (View/Adapter) → Interface → Pure C# System (Logic)`
 
 ### Mandatory Testing
-- Every pure C# logic class has a corresponding test class
+- Tests by risk (`rules/testing.md` → Risk-Based TDD): every class with branching, math or state has a test class; thin shells, providers, installers and configs do not
 - Use NUnit for pure logic tests, Unity Test Framework for integration tests
 - Test coverage targets: 90%+ for logic, 70%+ for integration
 - Tests must be fast — no frame delays in unit tests
-- Test structure: Arrange-Act-Assert, one assertion per test method
+- Test structure: Arrange-Act-Assert, one scenario per test (`Assert.Multiple` for its outcomes)
 
 ### Zero Coupling
 - Systems communicate through: interfaces, events/delegates, message bus, or ScriptableObject events

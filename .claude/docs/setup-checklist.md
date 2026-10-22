@@ -64,6 +64,7 @@ Every class goes through `test-type-router` before a test is written. Some class
 | `ScriptableObject` | NoTest — data container, no logic |
 | `IComponentData` struct | NoTest — data only |
 | `Baker<T>` | NoTest — bake-time only |
+| `*Module`, Provider, thin Controller / View / Manager, visual work | NoTest — risk gate (`rules/testing.md` → Risk-Based TDD) |
 | Pure C# service | EditMode |
 | MonoBehaviour (no lifecycle deps) | EditMode or PlayMode-Programmatic |
 | MonoBehaviour (lifecycle matters) | PlayMode-Programmatic or PlayMode-Scene |

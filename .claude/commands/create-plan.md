@@ -255,7 +255,9 @@ _(see Test Type Decision Matrix below — apply it to the primary file for this 
 
 For each task, apply this decision matrix to its **primary file** to fill the `**Test Type:**` field:
 
-**Path-based (fastest):**
+**Risk gate (first — overrides the path table):** thin Controller / View / Manager (no branch, math or state), Provider, `*Module`, `LifetimeScope`, `ScriptableObject` config, visual work (VFX, animation, shader, UI layout) → **NoTest**. Full list: `.claude/rules/testing.md` → Risk-Based TDD.
+
+**Path-based:**
 | Path contains | Decision |
 |---------------|----------|
 | `Games/Abstracts/` or `Games/Concretes/` | **EditMode** |
