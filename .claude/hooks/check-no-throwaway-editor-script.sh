@@ -44,13 +44,13 @@ CONTENT=$(echo "$INPUT" | jq -r '.tool_input.content // .tool_input.new_string /
 REASON=""
 
 # Signal 1 — path lives in a scratch/temp Editor location
-if echo "$FILE_PATH" | grep -qiE '/Editor/(Temp|Tmp|Scratch|OneShot|Throwaway)/'; then
+if grep -qiE '/Editor/(Temp|Tmp|Scratch|OneShot|Throwaway)/' <<< "$FILE_PATH"; then
     REASON="scratch Editor location: $FILE_PATH"
 fi
 
 # Signal 2 — content declares itself disposable
 if [ -z "$REASON" ] && [ -n "$CONTENT" ]; then
-    if echo "$CONTENT" | grep -qiE 'delete (this|the) file (once|after|when)|throwaway|one-shot (wiring|helper)|temporary wiring helper|geçici (editor )?script|EditorTemp'; then
+    if grep -qiE 'delete (this|the) file (once|after|when)|throwaway|one-shot (wiring|helper)|temporary wiring helper|geçici (editor )?script|EditorTemp' <<< "$CONTENT"; then
         REASON="disposable content marker (throwaway / delete-after-use) in $FILE_PATH"
     fi
 fi

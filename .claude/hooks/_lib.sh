@@ -171,10 +171,10 @@ should_skip_path() {
 #   silently exempting exactly the Card 0 candidates this function exists to catch.
 unity_monobehaviour_is_justified() {
     local stripped; stripped=$(cat)
-    if echo "$stripped" | grep -qE "\[SerializeField\]"; then
+    if grep -qE "\[SerializeField\]" <<< "$stripped"; then
         return 0
     fi
-    if echo "$stripped" | grep -qE "\b(Awake|Start|OnEnable|OnDisable|OnDestroy|Update|FixedUpdate|LateUpdate|OnGUI|OnValidate|OnTrigger[A-Za-z]*|OnCollision[A-Za-z]*|OnMouse[A-Za-z]*|OnApplication[A-Za-z]*|OnDrawGizmos[A-Za-z]*|OnParticle[A-Za-z]*|OnAnimator[A-Za-z]*|OnTransform[A-Za-z]*Changed|OnJointBreak[A-Za-z0-9]*|OnBecame(Visible|Invisible)|OnControllerColliderHit|OnAudioFilterRead|OnPreCull|OnPreRender|OnPostRender|OnRenderObject|OnRenderImage|OnWillRenderObject|OnLevelWasLoaded)\s*\("; then
+    if grep -qE "\b(Awake|Start|OnEnable|OnDisable|OnDestroy|Update|FixedUpdate|LateUpdate|OnGUI|OnValidate|OnTrigger[A-Za-z]*|OnCollision[A-Za-z]*|OnMouse[A-Za-z]*|OnApplication[A-Za-z]*|OnDrawGizmos[A-Za-z]*|OnParticle[A-Za-z]*|OnAnimator[A-Za-z]*|OnTransform[A-Za-z]*Changed|OnJointBreak[A-Za-z0-9]*|OnBecame(Visible|Invisible)|OnControllerColliderHit|OnAudioFilterRead|OnPreCull|OnPreRender|OnPostRender|OnRenderObject|OnRenderImage|OnWillRenderObject|OnLevelWasLoaded)\s*\(" <<< "$stripped"; then
         return 0
     fi
     return 1

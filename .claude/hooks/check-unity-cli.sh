@@ -20,7 +20,7 @@ CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty')
 [ -z "$CMD" ] && exit 0
 
 W='[^A-Za-z0-9_-]'   # word boundary for `unity`; BSD grep has no portable \b
-printf '%s\n' "$CMD" | grep -qiE "(^|$W)unity($W|\$)" || exit 0
+grep -qiE "(^|$W)unity($W|\$)" <<< "$CMD" || exit 0
 
 JUDGE="${SCRIPT_DIR}/../scripts/check-unity-cli.py"
 VERDICT=""
@@ -30,11 +30,11 @@ case "$VERDICT" in
     ALLOW) exit 0 ;;
     "BLOCK "*) REASON="${VERDICT#BLOCK }" ;;
     *)  # judge missing/unreadable, python3 absent, or crashed: fail closed on a narrow regex
-        if printf '%s\n' "$CMD" | grep -qiE \
+        if grep -qiE \
             -e "(^|$W)unity$W(.*$W)?(command|cmd)[[:space:]]+[^-[:space:]]" \
             -e "(^|$W)unity$W(.*$W)?pipe(line)?[[:space:]]+(install|upgrade)" \
             -e "(^|$W)unity$W(.*$W)?(shell|mcp)($W|\$)" \
-            -e "(^|$W)unity$W.*--command"; then
+            -e "(^|$W)unity$W.*--command" <<< "$CMD"; then
             REASON="judge unavailable (${JUDGE##*/} missing or failed) - conservative regex match"
         else
             exit 0

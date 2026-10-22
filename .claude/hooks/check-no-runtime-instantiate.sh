@@ -31,7 +31,7 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -66,7 +66,7 @@ WARNINGS=""
 
 # Check for Destroy (warning only — Addressables.ReleaseInstance or pool.Return preferred)
 # Check for Destroy — allowed in Pool/Manager/Spawner files, warning elsewhere
-if ! echo "$FILE_PATH" | grep -qiE "(Pool|Manager|Spawner)\.cs$"; then
+if ! grep -qiE "(Pool|Manager|Spawner)\.cs$" <<< "$FILE_PATH"; then
     DESTROY=$(echo "$STRIPPED" | grep -nE "\bDestroy[[:space:]]*\(" | grep -v "OnDestroy")
     if [ -n "$DESTROY" ]; then
         WARNINGS="${WARNINGS}\nDestroy() found — if this object is pool-managed, call pool.Return() instead:\n${DESTROY}\n"

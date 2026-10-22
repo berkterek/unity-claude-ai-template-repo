@@ -51,15 +51,15 @@ VIOLATION=""
 #   "quoted"    > "Assets/My Folder/Foo.cs"
 #   'quoted'    > 'Assets/My Folder/Foo.cs'
 REDIR_RE=">>?[[:space:]]*(\"[^\"]*\.($EXT_RE)\"|'[^']*\.($EXT_RE)'|[^[:space:]'\"|;&]*\.($EXT_RE)([[:space:]]|\$))"
-if echo "$CMD" | grep -qE "$REDIR_RE"; then
+if grep -qE "$REDIR_RE" <<< "$CMD"; then
     TARGET=$(echo "$CMD" | grep -oE "$REDIR_RE" | head -1)
-    echo "$TARGET" | grep -qE "$TMP_RE" || VIOLATION="shell redirection ($TARGET)"
+    grep -qE "$TMP_RE" <<< "$TARGET" || VIOLATION="shell redirection ($TARGET)"
 fi
 
 # --- 2. tee ---
-if [ -z "$VIOLATION" ] && echo "$CMD" | grep -qE "\btee\b([[:space:]]+-[a-zA-Z]+)*[[:space:]]+['\"]?[^[:space:]'\"|;&]*\.($EXT_RE)"; then
+if [ -z "$VIOLATION" ] && grep -qE "\btee\b([[:space:]]+-[a-zA-Z]+)*[[:space:]]+['\"]?[^[:space:]'\"|;&]*\.($EXT_RE)" <<< "$CMD"; then
     TARGET=$(echo "$CMD" | grep -oE "\btee\b([[:space:]]+-[a-zA-Z]+)*[[:space:]]+['\"]?[^[:space:]'\"|;&]*\.($EXT_RE)" | head -1)
-    echo "$TARGET" | grep -qE "$TMP_RE" || VIOLATION="tee ($TARGET)"
+    grep -qE "$TMP_RE" <<< "$TARGET" || VIOLATION="tee ($TARGET)"
 fi
 
 # --- 3. In-place edit:  sed -i   perl -i ---
@@ -72,9 +72,9 @@ fi
 if [ -z "$VIOLATION" ]; then
     _segments=$(echo "$CMD" | tr ';|&' '\n')
     while IFS= read -r _seg; do
-        echo "$_seg" | grep -qE "\b(sed|perl)\b.*[[:space:]]-i([[:space:]]|')" || continue
-        echo "$_seg" | grep -qE "\.($EXT_RE)([[:space:]]|['\"]|$)" || continue
-        echo "$_seg" | grep -qE "$TMP_RE" && continue
+        grep -qE "\b(sed|perl)\b.*[[:space:]]-i([[:space:]]|')" <<< "$_seg" || continue
+        grep -qE "\.($EXT_RE)([[:space:]]|['\"]|$)" <<< "$_seg" || continue
+        grep -qE "$TMP_RE" <<< "$_seg" && continue
         VIOLATION="in-place edit (sed -i / perl -i)"
         break
     done <<EOF
@@ -97,8 +97,8 @@ fi
 if [ -z "$VIOLATION" ]; then
     _segments=$(echo "$CMD" | tr ';|&' '\n')
     while IFS= read -r _seg; do
-        echo "$_seg" | grep -qE "\b(cp|mv|install)\b" || continue
-        echo "$_seg" | grep -qE "\.($EXT_RE)([[:space:]]|['\"]|\$)" || continue
+        grep -qE "\b(cp|mv|install)\b" <<< "$_seg" || continue
+        grep -qE "\.($EXT_RE)([[:space:]]|['\"]|\$)" <<< "$_seg" || continue
 
         _args=$(echo "$_seg" | sed -E 's/^.*\b(cp|mv|install)\b//' | tr -d "'\"")
         # shellcheck disable=SC2086
@@ -134,7 +134,7 @@ if [ -z "$VIOLATION" ]; then
         for _t in $_targets; do
             case "$_t" in
                 *.cs|*.asmdef|*.asmref|*.unity|*.prefab|*.asset|*.meta|*.inputactions|*.shader|*.shadergraph|*.mat|*.controller|*.uxml|*.uss)
-                    echo "$_t" | grep -qE '^(/tmp/|/private/tmp/|/var/folders/)' && continue
+                    grep -qE '^(/tmp/|/private/tmp/|/var/folders/)' <<< "$_t" && continue
                     VIOLATION="cp/mv into a project file ($_t)"
                     break
                     ;;

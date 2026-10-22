@@ -146,7 +146,7 @@ unity_task_mode() {
 
 # _unity_has_field <body> <FieldName> — non-empty "- FieldName: value" sub-bullet?
 _unity_has_field() {
-    printf '%s\n' "$1" | grep -qE "^[[:space:]]*-[[:space:]]*$2:[[:space:]]*[^[:space:]]"
+    grep -qE "^[[:space:]]*-[[:space:]]*$2:[[:space:]]*[^[:space:]]" <<< "$1"
 }
 
 # unity_validate_task_facts <script-path> <new|edit>
@@ -199,7 +199,7 @@ unity_validate_task_facts() {
     # effective-content bug in CLAUDE.md, one layer up. All four existing bats tests
     # used a body whose title was a real field rename, so the branch was green with
     # this hole in it; the arrow case now has its own regression guard.
-    if printf '%s\n' "$body" | head -n 1 | grep -qiE 'rename|yeniden adlandır|eski ad'; then
+    if grep -qiE 'rename|yeniden adlandır|eski ad' <<< "${body%%$'\n'*}"; then
         if grep -q '\[SerializeField\]' "$target" 2>/dev/null; then
             _unity_has_field "$body" "FormerlySerializedAs" || {
                 echo "task signals a rename on a file containing [SerializeField] but declares no 'FormerlySerializedAs:' field — without it every configured value in every scene, prefab and ScriptableObject silently resets to default"

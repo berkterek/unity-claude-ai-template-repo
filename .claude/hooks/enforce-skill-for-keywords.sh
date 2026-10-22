@@ -154,7 +154,7 @@ for entry in "${KEYWORD_MAP[@]}"; do
     keyword="${entry%%:*}"
     skill="${entry##*:}"
 
-    if echo "$PROMPT" | grep -qF "$keyword"; then
+    if grep -qF "$keyword" <<< "$PROMPT"; then
         # Skip if already invoked via Skill tool this session
         if grep -qxF "$skill" "$INVOKED_FILE" 2>/dev/null; then
             continue

@@ -31,7 +31,7 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 

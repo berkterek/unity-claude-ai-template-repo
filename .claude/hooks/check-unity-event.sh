@@ -33,17 +33,17 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
 # Skip test files
-if echo "$FILE_PATH" | grep -qiE "(Tests?|Spec)/"; then
+if grep -qiE "(Tests?|Spec)/" <<< "$FILE_PATH"; then
     exit 0
 fi
 
 # Skip Editor-only files
-if echo "$FILE_PATH" | grep -qE "/Editor/"; then
+if grep -qE "/Editor/" <<< "$FILE_PATH"; then
     exit 0
 fi
 

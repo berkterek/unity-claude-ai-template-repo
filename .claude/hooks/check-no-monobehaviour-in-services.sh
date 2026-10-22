@@ -39,7 +39,7 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -122,26 +122,26 @@ Rule (bootstrap-pattern.md): Modules are static classes. Use [Module]Module.Inst
 fi
 
 # --- Check 3: UnityEngine imports in domain/service files (blocking) ---
-if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.*\.cs$"; then
+if grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.*\.cs$" <<< "$FILE_PATH"; then
     # Filename whitelist: ONLY structurally-undetectable pure-C# role categories.
     # *Handler (constructor-ref Unity access), *Loader/*Dal/*Client (Tier 4 swappable
     # backends, architecture.md Card 2.1), *Extensions (static extensions on Unity types),
     # *Installer/*Scope (VContainer wiring). Everything else — Provider/View/Controller/
     # Panel/Button/Inspector/Editor/Drawer — is now judged STRUCTURALLY (justified MB)
     # or excluded by should_skip_path (path-based Editor folders).
-    if echo "$FILE_PATH" | grep -qiE "(Handler|Loader|Dal|Client|Extensions|Installer|Scope)\.(cs)$"; then
+    if grep -qiE "(Handler|Loader|Dal|Client|Extensions|Installer|Scope)\.(cs)$" <<< "$FILE_PATH"; then
         exit 0
     fi
 
     # Skip event files — IEvent structs are data containers that may use Unity math types (Vector3 etc.)
-    if echo "$FILE_PATH" | grep -qiE "Events?\.(cs)$"; then
+    if grep -qiE "Events?\.(cs)$" <<< "$FILE_PATH"; then
         exit 0
     fi
 
     # Skip ScriptableObject config classes — csharp-unity.md data taxonomy classifies these
     # as *Configuration/*Config/*Catalog/*Definition. They legitimately `using UnityEngine`
     # for [SerializeField]/ScriptableObject and are never treated as pure-C# services.
-    if echo "$FILE_PATH" | grep -qiE "(Configuration|Config|Catalog|Definition)\.(cs)$"; then
+    if grep -qiE "(Configuration|Config|Catalog|Definition)\.(cs)$" <<< "$FILE_PATH"; then
         exit 0
     fi
 
@@ -163,9 +163,9 @@ if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.
         # there are a real leak.
         # Measured 2026-10-12 downstream: IChestController (Transform ChestTransform) blocked
         # every rewrite of the file even though that member predated the edit.
-        if echo "$FILE_PATH" | grep -qE "/I[A-Z][A-Za-z0-9]*(Controller|Manager)\.cs$" \
-            && echo "$STRIPPED" | grep -qE "\binterface[[:space:]]+I[A-Za-z0-9]+" \
-            && ! echo "$STRIPPED" | grep -qE "\b(class|struct)[[:space:]]+[A-Za-z0-9_]+"; then
+        if grep -qE "/I[A-Z][A-Za-z0-9]*(Controller|Manager)\.cs$" <<< "$FILE_PATH" \
+            && grep -qE "\binterface[[:space:]]+I[A-Za-z0-9]+" <<< "$STRIPPED" \
+            && ! grep -qE "\b(class|struct)[[:space:]]+[A-Za-z0-9_]+" <<< "$STRIPPED"; then
             exit 0
         fi
         UNITY_IMPORTS=$(grep -n "using UnityEngine" "$EFFECTIVE_FILE" 2>/dev/null)
@@ -195,7 +195,7 @@ if echo "$FILE_PATH" | grep -qiE "(_Framework|Games/Abstracts|Games/Concretes)/.
             # while the architecture-mandated line is present, which reads as "the hook is
             # broken" rather than "the prescribed line is blocked".
             LEAK_SOURCE="$STRIPPED"
-            if echo "$FILE_PATH" | grep -qE "Module\.cs$"; then
+            if grep -qE "Module\.cs$" <<< "$FILE_PATH"; then
                 LEAK_SOURCE=$(echo "$STRIPPED" | sed -E 's/RegisterFactory[[:space:]]*<[^>]*>/RegisterFactory<>/g')
             fi
             LEAK=$(echo "$LEAK_SOURCE" | grep -noE "$UNITY_ENGINE_LEAK_RE" | head -5)

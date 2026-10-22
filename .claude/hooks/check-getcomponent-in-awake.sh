@@ -35,7 +35,7 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -44,7 +44,7 @@ if [ ! -f "$FILE_PATH" ]; then
 fi
 
 # Skip test files
-if echo "$FILE_PATH" | grep -qiE "(Tests?|Spec)/"; then
+if grep -qiE "(Tests?|Spec)/" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -65,13 +65,13 @@ AWAKE_BODY=$(echo "$STRIPPED" | sed -n "${AWAKE_LINE},${END_LINE}p")
 WARNINGS=""
 
 # GetComponent<T>() or GetComponent(typeof(T))
-if echo "$AWAKE_BODY" | grep -qE "\bGetComponent\s*[<(]"; then
+if grep -qE "\bGetComponent\s*[<(]" <<< "$AWAKE_BODY"; then
     HITS=$(echo "$STRIPPED" | grep -nE "\bGetComponent\s*[<(]" | awk -F: -v start="$AWAKE_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
     WARNINGS="${WARNINGS}\n  GetComponent — use [SerializeField] and assign in Inspector:\n$(echo "$HITS" | sed 's/^/    Line /')"
 fi
 
 # GetComponentInChildren<T>()
-if echo "$AWAKE_BODY" | grep -qE "\bGetComponentInChildren\s*[<(]"; then
+if grep -qE "\bGetComponentInChildren\s*[<(]" <<< "$AWAKE_BODY"; then
     HITS=$(echo "$STRIPPED" | grep -nE "\bGetComponentInChildren\s*[<(]" | awk -F: -v start="$AWAKE_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
     WARNINGS="${WARNINGS}\n  GetComponentInChildren — use [SerializeField] and assign in Inspector:\n$(echo "$HITS" | sed 's/^/    Line /')"
 fi

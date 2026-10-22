@@ -43,7 +43,7 @@ if [ -n "$_CWD" ] && [ -f "$_CWD/.claude/project-features.json" ]; then
 fi
 
 # Only check PlayMode test files
-if ! echo "$FILE_PATH" | grep -qiE "PlayModeTest/.*\.cs$"; then
+if ! grep -qiE "PlayModeTest/.*\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 

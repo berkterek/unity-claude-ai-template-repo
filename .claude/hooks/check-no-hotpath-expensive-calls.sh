@@ -34,7 +34,7 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -66,27 +66,27 @@ for METHOD_LINE in $HOT_METHOD_LINES; do
     BODY=$(echo "$STRIPPED" | sed -n "${METHOD_LINE},${END_LINE}p")
 
     # Check for each expensive call pattern
-    if echo "$BODY" | grep -qE "GetComponent\s*[<(]"; then
+    if grep -qE "GetComponent\s*[<(]" <<< "$BODY"; then
         HITS=$(echo "$STRIPPED" | grep -nE "GetComponent\s*[<(]" | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
         WARNINGS="${WARNINGS}\n  [${METHOD_NAME}] GetComponent<T>() — cache in Awake instead:\n$(echo "$HITS" | sed 's/^/    Line /')"
     fi
 
-    if echo "$BODY" | grep -qE "Camera\.main"; then
+    if grep -qE "Camera\.main" <<< "$BODY"; then
         HITS=$(echo "$STRIPPED" | grep -n "Camera\.main" | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
         WARNINGS="${WARNINGS}\n  [${METHOD_NAME}] Camera.main — calls FindObjectOfType internally; cache in Awake:\n$(echo "$HITS" | sed 's/^/    Line /')"
     fi
 
-    if echo "$BODY" | grep -qE "FindObjectOfType|FindObjectsOfType|FindFirstObjectByType|FindAnyObjectByType"; then
+    if grep -qE "FindObjectOfType|FindObjectsOfType|FindFirstObjectByType|FindAnyObjectByType" <<< "$BODY"; then
         HITS=$(echo "$STRIPPED" | grep -n "FindObjectOfType\|FindObjectsOfType\|FindFirstObjectByType\|FindAnyObjectByType" | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
         WARNINGS="${WARNINGS}\n  [${METHOD_NAME}] FindObjectOfType — O(n) scene scan; use VContainer injection or cache:\n$(echo "$HITS" | sed 's/^/    Line /')"
     fi
 
-    if echo "$BODY" | grep -qE 'tag\s*==\s*"'; then
+    if grep -qE 'tag\s*==\s*"' <<< "$BODY"; then
         HITS=$(echo "$STRIPPED" | grep -n 'tag\s*==\s*"' | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
         WARNINGS="${WARNINGS}\n  [${METHOD_NAME}] tag == \"...\" — allocates string; use CompareTag(\"...\") instead:\n$(echo "$HITS" | sed 's/^/    Line /')"
     fi
 
-    if echo "$BODY" | grep -qE "SendMessage\s*\(|BroadcastMessage\s*\("; then
+    if grep -qE "SendMessage\s*\(|BroadcastMessage\s*\(" <<< "$BODY"; then
         HITS=$(echo "$STRIPPED" | grep -nE "SendMessage\s*\(|BroadcastMessage\s*\(" | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
         WARNINGS="${WARNINGS}\n  [${METHOD_NAME}] SendMessage/BroadcastMessage — slow reflection; use IEventBus or direct reference:\n$(echo "$HITS" | sed 's/^/    Line /')"
     fi
@@ -94,7 +94,7 @@ for METHOD_LINE in $HOT_METHOD_LINES; do
     # Bare transform property access: matches "transform." but not "_transform."
     # Allow if class already has a cached _transform field
     if [ "$HAS_CACHED_TRANSFORM" -eq 0 ]; then
-        if echo "$BODY" | grep -qE "(^|[^_a-zA-Z0-9])transform\."; then
+        if grep -qE "(^|[^_a-zA-Z0-9])transform\." <<< "$BODY"; then
             HITS=$(echo "$STRIPPED" | grep -n -E "(^|[^_a-zA-Z0-9])transform\." | awk -F: -v start="$METHOD_LINE" -v end="$END_LINE" '$1>=start && $1<=end {print}')
             if [ -n "$HITS" ]; then
                 WARNINGS="${WARNINGS}\n  [${METHOD_NAME}] Bare transform property — add a serialized field and assign in Inspector:\n    [SerializeField] private Transform _transform;\n  Then use _transform in hot paths:\n$(echo "$HITS" | sed 's/^/    Line /')"

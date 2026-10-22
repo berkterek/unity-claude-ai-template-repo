@@ -178,7 +178,7 @@ if [ -n "$REPO_ROOT" ]; then
             wt_name=$(basename "$wt_path")
             lock_file="${GIT_WORKTREES_META}/${wt_name}/locked"
             if [ -f "$lock_file" ]; then
-                pid=$(grep -oE 'pid [0-9]+' "$lock_file" 2>/dev/null | grep -oE '[0-9]+' | head -1)
+                pid=$(grep -oE 'pid [0-9]+' "$lock_file" 2>/dev/null | grep -oE '[0-9]+' | head -1 || true)
                 if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
                     # >/dev/null too: `branch -D` prints "Deleted branch …" on stdout,
                     # which would corrupt the additionalContext JSON emitted above.

@@ -13,7 +13,7 @@ TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
 CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
 # Skip git commands entirely (commit messages may contain ls|grep as text)
-if echo "$CMD" | grep -qE '^\s*git\b'; then
+if grep -qE '^\s*git\b' <<< "$CMD"; then
     exit 0
 fi
 
@@ -21,7 +21,7 @@ fi
 # `ls` must be at a command position — start of line or after a separator (; & |)
 # and followed by whitespace — so substrings like `check-ls-grep.sh`, `git ls-files`,
 # or a `grep ... | head` over a file whose name contains "ls" are NOT matched.
-if echo "$CMD" | grep -qE '(^|[;&|])[[:space:]]*ls[[:space:]][^|]*\|[[:space:]]*(grep|awk|sed)'; then
+if grep -qE '(^|[;&|])[[:space:]]*ls[[:space:]][^|]*\|[[:space:]]*(grep|awk|sed)' <<< "$CMD"; then
     echo "[check-ls-grep] BLOCKED: ls|grep detected. Use 'tree' for directory listings." >&2
     echo "[check-ls-grep] Examples: tree -L 2 | tree --gitignore | tree src/" >&2
     exit 2

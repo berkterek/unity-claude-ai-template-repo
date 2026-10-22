@@ -32,7 +32,7 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -41,7 +41,7 @@ if [ ! -f "$FILE_PATH" ]; then
 fi
 
 # Skip test files
-if echo "$FILE_PATH" | grep -qiE "(Tests?|Spec)/"; then
+if grep -qiE "(Tests?|Spec)/" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -57,17 +57,17 @@ while IFS= read -r match; do
     LINE_CONTENT=$(echo "$match" | cut -d: -f2-)
 
     # Skip if already has CancellationToken
-    if echo "$LINE_CONTENT" | grep -qE "CancellationToken"; then
+    if grep -qE "CancellationToken" <<< "$LINE_CONTENT"; then
         continue
     fi
 
     # Skip override methods — they must match base signature
-    if echo "$LINE_CONTENT" | grep -qE "\boverride\b"; then
+    if grep -qE "\boverride\b" <<< "$LINE_CONTENT"; then
         continue
     fi
 
     # Skip interface declarations (no body)
-    if echo "$LINE_CONTENT" | grep -qE ";\s*$"; then
+    if grep -qE ";\s*$" <<< "$LINE_CONTENT"; then
         continue
     fi
 

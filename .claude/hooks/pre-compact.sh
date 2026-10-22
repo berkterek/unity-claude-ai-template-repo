@@ -15,7 +15,7 @@ BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 COMMITS=$(git log --oneline -5 2>/dev/null || echo "(no commits)")
 MODIFIED="(none)"
 if [ -f "$UNITY_EDITS_FILE" ]; then
-    MODIFIED=$(sort -u "$UNITY_EDITS_FILE" | head -20)
+    MODIFIED=$(sort -u "$UNITY_EDITS_FILE" | head -20 || true)   # || true: head closes early, sort gets SIGPIPE (141) under pipefail
 fi
 
 cat > "$OUT" <<EOF

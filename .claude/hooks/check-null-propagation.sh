@@ -33,7 +33,7 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -47,7 +47,7 @@ if ! grep -qE "using UnityEngine|MonoBehaviour|ScriptableObject|Component" "$FIL
 fi
 
 # Skip test files and editor files
-if echo "$FILE_PATH" | grep -qiE "(Tests?|Spec|/Editor/)"; then
+if grep -qiE "(Tests?|Spec|/Editor/)" <<< "$FILE_PATH"; then
     exit 0
 fi
 

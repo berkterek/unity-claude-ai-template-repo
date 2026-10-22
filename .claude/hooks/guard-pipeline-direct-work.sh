@@ -148,7 +148,7 @@ _blocked() {
 
 if [ "$TOOL_NAME" = "Bash" ]; then
     COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
-    if echo "$COMMAND" | grep -qE '(^|[;&|]|\s)git\s+commit(\s|$)'; then
+    if grep -qE '(^|[;&|]|\s)git\s+commit(\s|$)' <<< "$COMMAND"; then
         _blocked "Direct 'git commit' while a gate is open — that is the committer agent's job."
     fi
     exit 0
@@ -156,7 +156,7 @@ fi
 
 # Edit/MultiEdit/Write — only guard actual game code, not docs/plans/state files
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
-if echo "$FILE_PATH" | grep -qE '_GameFolders/Scripts/.*\.cs$'; then
+if grep -qE '_GameFolders/Scripts/.*\.cs$' <<< "$FILE_PATH"; then
     _blocked "Direct edit to '$FILE_PATH' while a gate is open — that is the coder/tester agent's job."
 fi
 

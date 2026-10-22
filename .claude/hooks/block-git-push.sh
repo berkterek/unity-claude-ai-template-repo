@@ -16,7 +16,7 @@ CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
 # Strip quoted strings first, then check for git push subcommand
 STRIPPED=$(echo "$CMD" | sed "s/'[^']*'//g" | sed 's/"[^"]*"//g')
-if echo "$STRIPPED" | grep -qE '(^|[;&|]\s*)git\s+push(\s|$)'; then
+if grep -qE '(^|[;&|]\s*)git\s+push(\s|$)' <<< "$STRIPPED"; then
     echo "BLOCKED: git push is not allowed." >&2
     echo "" >&2
     echo "  Pushing is the user's responsibility — push manually when ready." >&2

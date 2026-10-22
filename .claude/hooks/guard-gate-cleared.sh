@@ -32,7 +32,7 @@ SUBAGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty')
 # Pipeline agents that require a cleared gate
 PIPELINE_AGENTS="^(tester|coder|unity-coder|unity-fixer|committer|unity-migrator|migrator|unity-setup)$"
 
-if ! echo "$SUBAGENT_TYPE" | grep -qE "$PIPELINE_AGENTS"; then
+if ! grep -qE "$PIPELINE_AGENTS" <<< "$SUBAGENT_TYPE"; then
     exit 0  # Not a pipeline agent — allow through
 fi
 

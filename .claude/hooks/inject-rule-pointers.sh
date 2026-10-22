@@ -107,11 +107,11 @@ _feature_enabled() {
     [ "$(jq -r --arg f "$feature" 'if has($f) then .[$f] else true end' "$FEATURES_FILE" 2>/dev/null)" != "false" ]
 }
 
-_word() { printf '%s' "$PROMPT" | grep -qE "(^|[[:space:][:punct:]])($1)"; }
+_word() { grep -qE "(^|[[:space:][:punct:]])($1)" <<< "$PROMPT"; }
 
 MATCHED=()
 _test_request() {
-    { _word test || printf '%s' "$PROMPT" | grep -qE 'tests?\.cs'; } || return 1
+    { _word test || grep -qE 'tests?\.cs' <<< "$PROMPT"; } || return 1
     _word "$TEST_ACTION_EN" || _word "$TEST_ACTION_TR"
 }
 
@@ -120,7 +120,7 @@ if _test_request && _feature_enabled testing && [ -f "${RULES_DIR}/testing.md" ]
 fi
 for entry in "${RULE_MAP[@]}"; do
     IFS='|' read -r stem rules feature <<< "$entry"
-    printf '%s' "$PROMPT" | grep -qE "(^|[[:space:][:punct:]])${stem}" || continue
+    grep -qE "(^|[[:space:][:punct:]])${stem}" <<< "$PROMPT" || continue
     _feature_enabled "$feature" || continue
     for rule in $rules; do
         [ -f "${RULES_DIR}/${rule}.md" ] || continue

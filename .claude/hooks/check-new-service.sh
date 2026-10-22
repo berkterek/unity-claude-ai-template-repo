@@ -36,12 +36,12 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
 # Limit scope to _GameFolders/Scripts/
-if ! echo "$FILE_PATH" | grep -qE "_GameFolders/Scripts/"; then
+if ! grep -qE "_GameFolders/Scripts/" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -103,7 +103,7 @@ STRIPPED=$(strip_cs_noise "$EFFECTIVE_FILE")
 SERVICE_VIOLATIONS=$(echo "$STRIPPED" | grep -nE "\bnew\s+\w+Service\s*\(" | head -10)
 if [ -n "$SERVICE_VIOLATIONS" ]; then
     FILENAME=$(basename "$FILE_PATH")
-    if ! echo "$FILENAME" | grep -qiE "Module\.cs$"; then
+    if ! grep -qiE "Module\.cs$" <<< "$FILENAME"; then
         unity_hook_block "Forbidden: 'new *Service()' or 'new *Provider()' in runtime code.
 File: $FILE_PATH
 
@@ -120,7 +120,7 @@ fi
 PROVIDER_VIOLATIONS=$(echo "$STRIPPED" | grep -nE "\bnew\s+\w+Provider\s*\(" | head -10)
 if [ -n "$PROVIDER_VIOLATIONS" ]; then
     FILENAME=$(basename "$FILE_PATH")
-    if ! echo "$FILENAME" | grep -qiE "Module\.cs$"; then
+    if ! grep -qiE "Module\.cs$" <<< "$FILENAME"; then
         unity_hook_block "Forbidden: 'new *Service()' or 'new *Provider()' in runtime code.
 File: $FILE_PATH
 
@@ -146,7 +146,7 @@ HANDLER_VIOLATIONS=$(echo "$STRIPPED" | grep -nE "\bnew\s+\w+Handler\s*\(" | hea
 if [ -n "$HANDLER_VIOLATIONS" ]; then
     FILENAME=$(basename "$FILE_PATH")
     # Allow inside *Controller.cs, *View.cs and *Module.cs files
-    if ! echo "$FILENAME" | grep -qiE "(Controller|View|Module)\.cs$"; then
+    if ! grep -qiE "(Controller|View|Module)\.cs$" <<< "$FILENAME"; then
         unity_hook_block "'new *Handler()' is only allowed inside *Controller, *View or *Module files.
 File: $FILE_PATH
 

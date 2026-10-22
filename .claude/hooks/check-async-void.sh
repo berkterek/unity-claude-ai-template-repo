@@ -33,7 +33,7 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -42,7 +42,7 @@ if [ ! -f "$FILE_PATH" ]; then
 fi
 
 # Skip test files
-if echo "$FILE_PATH" | grep -qiE "(Tests?|Spec)/"; then
+if grep -qiE "(Tests?|Spec)/" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -63,7 +63,7 @@ while IFS= read -r line; do
     METHOD_NAME=$(echo "$LINE_CONTENT" | grep -oE "async\s+void\s+(\w+)" | grep -oE "[A-Za-z_]\w+$")
 
     # Skip Unity lifecycle methods
-    if echo "$METHOD_NAME" | grep -qE "^${LIFECYCLE_PATTERN}$"; then
+    if grep -qE "^${LIFECYCLE_PATTERN}$" <<< "$METHOD_NAME"; then
         continue
     fi
 

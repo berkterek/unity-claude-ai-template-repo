@@ -34,10 +34,10 @@ INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 
 [ -z "$FILE_PATH" ] && exit 0
-echo "$FILE_PATH" | grep -qE "\.cs$" || exit 0
-echo "$FILE_PATH" | grep -qE "(_GameFolders/Scripts/Games/|_Framework/)" || exit 0
+grep -qE "\.cs$" <<< "$FILE_PATH" || exit 0
+grep -qE "(_GameFolders/Scripts/Games/|_Framework/)" <<< "$FILE_PATH" || exit 0
 should_skip_path "$FILE_PATH" && exit 0
-echo "$FILE_PATH" | grep -qE "(^|/)Editors?/" && exit 0
+grep -qE "(^|/)Editors?/" <<< "$FILE_PATH" && exit 0
 
 FILENAME=$(basename "$FILE_PATH")
 

@@ -42,7 +42,7 @@ REASON=""
 # Assembly definition files — changing references or constraints breaks compile
 # Exception: test assembly definitions (EditModeTest, PlayModeTest) may need precompiledReferences updates
 if [ "$EXT" = "asmdef" ]; then
-    if echo "$FILE_PATH" | grep -qiE "(EditModeTest|PlayModeTest)"; then
+    if grep -qiE "(EditModeTest|PlayModeTest)" <<< "$FILE_PATH"; then
         : # test assembly — allowed
     elif [ ! -f "$FILE_PATH" ]; then
         # New file — safe to create. This hook's stated reason ("modifying them to
@@ -61,7 +61,7 @@ if [ "$EXT" = "asmdef" ]; then
 fi
 
 # Claude Code settings — hooks and permissions should not be weakened to bypass errors
-if [ "$FILENAME" = "settings.json" ] && echo "$FILE_PATH" | grep -q "\.claude/"; then
+if [ "$FILENAME" = "settings.json" ] && grep -q "\.claude/" <<< "$FILE_PATH"; then
     BLOCKED=true
     REASON=".claude/settings.json controls hooks and permissions. Do not disable hooks to work around errors — fix the code instead."
 fi
@@ -73,7 +73,7 @@ if [ "$EXT" = "inputactions" ]; then
 fi
 
 # Package manifest — dependency changes should be intentional
-if [ "$FILENAME" = "manifest.json" ] && echo "$FILE_PATH" | grep -q "Packages/"; then
+if [ "$FILENAME" = "manifest.json" ] && grep -q "Packages/" <<< "$FILE_PATH"; then
     BLOCKED=true
     REASON="Packages/manifest.json controls Unity package dependencies. Do not modify to work around errors — diagnose the root cause instead."
 fi

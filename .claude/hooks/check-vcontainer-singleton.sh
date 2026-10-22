@@ -33,7 +33,7 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -42,18 +42,18 @@ if [ ! -f "$FILE_PATH" ]; then
 fi
 
 # Skip test files and editor files
-if echo "$FILE_PATH" | grep -qiE "(Tests?|Spec|/Editor/)"; then
+if grep -qiE "(Tests?|Spec|/Editor/)" <<< "$FILE_PATH"; then
     exit 0
 fi
 
 # Skip the approved accessor files
 FILENAME=$(basename "$FILE_PATH" .cs)
-if echo "$FILENAME" | grep -qiE "^(EventBusAccessor|ServiceAccessor)$"; then
+if grep -qiE "^(EventBusAccessor|ServiceAccessor)$" <<< "$FILENAME"; then
     exit 0
 fi
 
 # Skip ECS systems — they use SystemAPI, not singletons
-if echo "$FILE_PATH" | grep -qiE "Games/Ecs/Systems/"; then
+if grep -qiE "Games/Ecs/Systems/" <<< "$FILE_PATH"; then
     exit 0
 fi
 

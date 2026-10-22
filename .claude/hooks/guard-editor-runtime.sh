@@ -125,9 +125,9 @@ EFFECTIVE_CONTENT=$(cat "$EFFECTIVE_FILE")
 STRIPPED_CONTENT=$(strip_cs_noise "$EFFECTIVE_FILE")
 
 # Check if the effective content uses UnityEditor namespace
-if echo "$STRIPPED_CONTENT" | grep -qE '(using\s+UnityEditor|UnityEditor\.)'; then
+if grep -qE '(using\s+UnityEditor|UnityEditor\.)' <<< "$STRIPPED_CONTENT"; then
     # Check if it's properly guarded with #if UNITY_EDITOR (check original, not stripped)
-    if ! echo "$EFFECTIVE_CONTENT" | grep -qE '#if\s+UNITY_EDITOR'; then
+    if ! grep -qE '#if\s+UNITY_EDITOR' <<< "$EFFECTIVE_CONTENT"; then
         echo "BLOCKED: UnityEditor namespace used in runtime code without #if UNITY_EDITOR guard." >&2
         echo "" >&2
         echo "  File: $FILE_PATH" >&2

@@ -44,7 +44,7 @@ if [ -n "$_CWD" ] && [ -f "$_CWD/.claude/project-features.json" ]; then
 fi
 
 # Only check ECS system files
-if ! echo "$FILE_PATH" | grep -qE "Games/Ecs/Systems/"; then
+if ! grep -qE "Games/Ecs/Systems/" <<< "$FILE_PATH"; then
     exit 0
 fi
 

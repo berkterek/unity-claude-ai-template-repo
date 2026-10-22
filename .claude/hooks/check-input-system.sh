@@ -33,7 +33,7 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -134,13 +134,13 @@ fi
 IN_FIXED_UPDATE=false
 INPUT_IN_FIXED=""
 while IFS= read -r line; do
-    if echo "$line" | grep -qE "void[[:space:]]+FixedUpdate[[:space:]]*\("; then
+    if grep -qE "void[[:space:]]+FixedUpdate[[:space:]]*\(" <<< "$line"; then
         IN_FIXED_UPDATE=true
         continue
     fi
     if [ "$IN_FIXED_UPDATE" = true ]; then
         # Detect next method declaration = end of FixedUpdate
-        if echo "$line" | grep -qE "^[[:space:]]*(private|public|protected|internal|void|static|async|override|virtual)[[:space:]]+[[:alnum:]_]+.*\("; then
+        if grep -qE "^[[:space:]]*(private|public|protected|internal|void|static|async|override|virtual)[[:space:]]+[[:alnum:]_]+.*\(" <<< "$line"; then
             IN_FIXED_UPDATE=false
             continue
         fi
@@ -166,7 +166,7 @@ if [ -n "$BARE_ASSET" ]; then
 fi
 
 if [ -n "$ISSUES" ]; then
-    if echo "$ISSUES" | grep -q "BLOCKING"; then
+    if grep -q "BLOCKING" <<< "$ISSUES"; then
         unity_hook_block "INPUT SYSTEM ERROR in: $FILE_PATH"$'\n'"$(echo -e "$ISSUES")"
     else
         echo "Input System issues in: $FILE_PATH" >&2

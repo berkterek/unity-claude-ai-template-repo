@@ -45,7 +45,7 @@ REASON=""
 # AppScope — wiring for all DI, changes break entire app
 # Exception: creating a brand-new AppScope.cs (file doesn't exist yet) is safe —
 # there is no existing wiring to break.
-if echo "$FILENAME_NO_EXT" | grep -qiE "^AppScope$"; then
+if grep -qiE "^AppScope$" <<< "$FILENAME_NO_EXT"; then
     if [ ! -f "$FILE_PATH" ]; then
         : # new file — safe to create
     else
@@ -56,7 +56,7 @@ fi
 
 # InputService — sole owner of PlayerControls, changes affect all input
 # Exception: creating a brand-new InputService.cs (file doesn't exist yet) is safe.
-if echo "$FILENAME_NO_EXT" | grep -qiE "^InputService$"; then
+if grep -qiE "^InputService$" <<< "$FILENAME_NO_EXT"; then
     if [ ! -f "$FILE_PATH" ]; then
         : # new file — safe to create
     else
@@ -67,8 +67,8 @@ fi
 
 # Any Installer — registers services into VContainer scope
 # Exception: test infrastructure installers under TestScopes/ or Tests/ paths are safe to create/edit
-if echo "$FILENAME_NO_EXT" | grep -qiE "Installer$"; then
-    if echo "$FILE_PATH" | grep -qiE "(TestScopes|EditModeTest|PlayModeTest|EditMode|PlayMode)/"; then
+if grep -qiE "Installer$" <<< "$FILENAME_NO_EXT"; then
+    if grep -qiE "(TestScopes|EditModeTest|PlayModeTest|EditMode|PlayMode)/" <<< "$FILE_PATH"; then
         : # test installer — allowed
     elif [ ! -f "$FILE_PATH" ]; then
         : # new file — safe to create, hook only protects existing wiring
@@ -80,7 +80,7 @@ fi
 
 # IEventBus, EventBus — cross-system communication contract
 # Exception: creating a brand-new file (doesn't exist yet) is safe.
-if echo "$FILENAME_NO_EXT" | grep -qiE "^(IEventBus|EventBus|EventBusAccessor)$"; then
+if grep -qiE "^(IEventBus|EventBus|EventBusAccessor)$" <<< "$FILENAME_NO_EXT"; then
     if [ ! -f "$FILE_PATH" ]; then
         : # new file — safe to create
     else
@@ -104,7 +104,7 @@ fi
 
 # AppModules — lists every registered module, changes affect entire app DI graph
 # Exception: creating a brand-new AppModules.cs (file doesn't exist yet) is safe.
-if echo "$FILENAME_NO_EXT" | grep -qiE "^AppModules$"; then
+if grep -qiE "^AppModules$" <<< "$FILENAME_NO_EXT"; then
     if [ ! -f "$FILE_PATH" ]; then
         : # new file — safe to create
     else
@@ -116,7 +116,7 @@ fi
 # ConfigCatalog — single config aggregator, changes break module initialization
 # Exception: creating a brand-new ConfigCatalog.cs (file doesn't exist yet) is safe —
 # there is no existing wiring to break.
-if echo "$FILENAME_NO_EXT" | grep -qiE "^ConfigCatalog$"; then
+if grep -qiE "^ConfigCatalog$" <<< "$FILENAME_NO_EXT"; then
     if [ ! -f "$FILE_PATH" ]; then
         : # new file — safe to create
     else

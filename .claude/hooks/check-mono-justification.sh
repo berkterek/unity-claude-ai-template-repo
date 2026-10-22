@@ -35,12 +35,12 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
 # Limit scope to _GameFolders/Scripts/Games/
-if ! echo "$FILE_PATH" | grep -qE "_GameFolders/Scripts/Games/"; then
+if ! grep -qE "_GameFolders/Scripts/Games/" <<< "$FILE_PATH"; then
     exit 0
 fi
 

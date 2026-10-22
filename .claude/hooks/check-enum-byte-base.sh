@@ -43,7 +43,7 @@ if [ -z "$FILE_PATH" ]; then
     exit 0
 fi
 
-if ! echo "$FILE_PATH" | grep -qE "\.cs$"; then
+if ! grep -qE "\.cs$" <<< "$FILE_PATH"; then
     exit 0
 fi
 
@@ -99,7 +99,7 @@ esac
 IS_ECS_PATH=false
 IS_EVENT_OR_COMPONENT=false
 
-if echo "$FILE_PATH" | grep -qE "/Ecs/"; then
+if grep -qE "/Ecs/" <<< "$FILE_PATH"; then
     IS_ECS_PATH=true
 fi
 
@@ -123,7 +123,7 @@ while IFS= read -r line; do
     LINE_CONTENT=$(echo "$line" | cut -d: -f2-)
 
     # Skip if already has byte base
-    if echo "$LINE_CONTENT" | grep -qE "enum[[:space:]]+[[:alnum:]_]+[[:space:]]*:[[:space:]]*byte"; then
+    if grep -qE "enum[[:space:]]+[[:alnum:]_]+[[:space:]]*:[[:space:]]*byte" <<< "$LINE_CONTENT"; then
         continue
     fi
 

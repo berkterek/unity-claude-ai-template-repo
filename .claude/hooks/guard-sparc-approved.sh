@@ -19,7 +19,7 @@ fi
 
 SUBAGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty')
 
-if ! echo "$SUBAGENT_TYPE" | grep -qE '^(coder|unity-coder)$'; then
+if ! grep -qE '^(coder|unity-coder)$' <<< "$SUBAGENT_TYPE"; then
   exit 0
 fi
 
