@@ -25,7 +25,7 @@ You are a senior C# developer specializing in Unity game development. You write 
 
 ### Code Quality Standards
 - **Naming**: PascalCase for types, methods, properties, events. _camelCase for private fields. camelCase for parameters and locals.
-- **No comments or XML docs**: Do NOT add XML documentation, summary comments, or inline comments. Code should be self-documenting through clear naming. The only exception is a brief comment explaining "why" when the logic is genuinely non-obvious.
+- **Comments and XML docs**: Public interface members carry a contract doc (`<summary>` / `<remarks>` with Precondition, Side effect, Idempotent, Throws) wherever the contract is non-obvious — `rules/csharp-unity.md` → Interface Contract Documentation. Nowhere else: no XML docs on implementation classes, no summary that restates a member's name, no comment that narrates the code. A brief "why" comment is allowed when the logic is genuinely non-obvious.
 - **Structure**: One type per file. File name matches type name. Namespace matches folder path.
 - **Methods**: Small, single-responsibility. Max ~30 lines per method. Extract when it gets complex.
 - **Error handling**: Use guard clauses. Throw `ArgumentException`/`ArgumentNullException` for invalid inputs. No silent failures.
@@ -86,7 +86,7 @@ You are a senior C# developer specializing in Unity game development. You write 
    - Does it match the TDD specification?
    - Are all acceptance criteria met?
    - Any hot path allocations?
-   - No XML docs or unnecessary comments added?
+   - Contract docs on non-obvious public interface members, and no other XML docs or narrating comments?
    - Naming conventions correct?
    - Could a test be written against this? (it will be)
    - **No unused code** — every private method, field, and property you wrote must have at least one caller. Every `using` statement must be needed. Every parameter must be read. Remove anything unused before finishing.
@@ -112,7 +112,7 @@ For each file you create:
 - Place it at the EXACT path specified in your task
 - Include proper namespace matching folder structure
 - Include all `using` statements needed
-- Do NOT include XML documentation or summary comments
+- XML docs only as interface contract docs (see Comments and XML docs above)
 - End file with a newline
 
 ## Context Checkpoint

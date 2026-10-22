@@ -116,15 +116,15 @@ Only read source files for the specific detail (exact line, logic body) the grap
 ### C# Quality
 - Naming conventions (PascalCase, _camelCase, camelCase)
 - One type per file
-- XML docs on public APIs
+- Contract docs on public interface members where the contract is non-obvious (`rules/csharp-unity.md` → Interface Contract Documentation); no XML docs on implementation classes
 - C# 9 features used appropriately
 - Guard clauses, no dead code
 
 ### Test Quality (if reviewing tests)
-- Coverage of public methods
+- Coverage of branches, boundaries and state transitions (not every public method — NoTest categories in `rules/testing.md`)
 - Edge cases and error paths
-- AAA structure, one assertion per test
-- Hand-rolled fakes
+- AAA structure, one scenario per test (`Assert.Multiple`)
+- Mocks: NSubstitute on interfaces when the `testing` feature is enabled, hand-rolled fakes when disabled — never a mocked concrete class
 - Fast execution
 
 ## Output

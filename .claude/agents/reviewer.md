@@ -161,7 +161,7 @@ evidence about anything below** — every item here is a judgment the hook canno
 ### C# Quality
 - [ ] Naming conventions: PascalCase (types, methods, properties), _camelCase (private fields), camelCase (params, locals)
 - [ ] One type per file, file name matches type name
-- [ ] No XML documentation or unnecessary comments (code should be self-documenting)
+- [ ] XML docs only as contract docs on public interface members (`rules/csharp-unity.md` → Interface Contract Documentation) — a contract doc there is required where the contract is non-obvious, never a finding. Flag XML docs on implementation classes, summaries that restate a name, and comments that narrate code. Not narration: the `// Arrange` / `// Act` / `// Assert` markers in tests — `rules/testing.md` requires them
 - [ ] Proper use of C# 9 features where appropriate (records, pattern matching, switch expressions)
 - [ ] Guard clauses for invalid inputs
 - [ ] No dead code, no commented-out code, no TODOs
@@ -181,11 +181,11 @@ evidence about anything below** — every item here is a judgment the hook canno
 - [ ] Return types are appropriate (no unnecessary boxing)
 
 ### Test Quality (when reviewing tests)
-- [ ] Every public method has tests
+- [ ] Every class with branching, math or state has tests; NoTest categories (`testing.md` → Risk-Based TDD) have none and that is not a gap
 - [ ] Edge cases covered (null, empty, boundary values)
 - [ ] Error paths tested (exceptions, invalid states)
 - [ ] Arrange-Act-Assert structure
-- [ ] One assertion per test method
+- [ ] One scenario per test — one scenario's outcomes split across several tests with identical setup is a finding; `[TestCase]` rows per index rather than per equivalence class is a finding
 - [ ] Descriptive test names: `Method_Scenario_Expected`
 - [ ] No test depends on another test
 - [ ] Mocking: `Substitute.For<IInterface>()` (NSubstitute) when testing feature enabled; hand-rolled fakes otherwise — never mock concrete classes
@@ -356,7 +356,7 @@ unverified. "The quoted line exists" is not verification of anything but the quo
 
 ### Severity Levels
 - **CRITICAL (blocks PASS)**: Unity compilation errors (automatic FAIL), runtime errors in Play mode (automatic FAIL), architecture violations, performance violations on hot paths, missing acceptance criteria, missing interfaces
-- **MAJOR (blocks PASS)**: Wrong naming conventions on public APIs, unnecessary coupling, missing edge case handling, XML docs or excessive comments present (code should be comment-free)
+- **MAJOR (blocks PASS)**: Wrong naming conventions on public APIs, unnecessary coupling, missing edge case handling. (Comments are at most MINOR: narrating comments or XML docs outside interface contracts. An interface contract doc is required by `csharp-unity.md`, never a finding)
 - **MINOR (does NOT block PASS)**: Style preferences, extra optimization opportunities, suggestions for readability
 
 Only CRITICAL and MAJOR issues cause a FAIL. MINOR issues are noted but don't block.
