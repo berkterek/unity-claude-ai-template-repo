@@ -217,7 +217,7 @@ path-scoped and loads as described in [What loads when](#what-loads-when). Each 
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
 | `unity-input.md` | New Input System, InputService (pure C#, pull-based — no tick) + InputHandler (per-prefab), action map switching, `FixedUpdate` latch rule |
 | `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, BaseCanvas pattern, Prefab Variants (Base+Variant decision table), **prefab DRY — same-parent duplicate siblings must be extracted (Card 5, + layout prerequisite, verified by `.claude/scripts/check-duplicate-siblings.py`)**, folder structure, logic/visual separation |
-| `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
+| `testing.md` | Risk-based TDD gate (thin shells, providers, modules, visual work → NoTest), test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), one scenario per test (`Assert.Multiple`), NSubstitute on interfaces, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event vs R3 `ReactiveProperty` decision tree (Card 5: a late subscriber gets the current value from R3 and nothing from a C# event) |
@@ -865,7 +865,7 @@ DISABLE_HOOK_CHECK_PURE_CSHARP=1 claude
 
 Full profile documentation: `.claude/docs/hook-profiles.md`
 
-### Self-Tests — four layers, four different things measured
+### Self-Tests — several layers, each measuring a different thing
 
 Do not read a green run in one layer as evidence about another. Measured 2026-08-21: two
 edits to the reviewer criteria passed all 417 hook tests, every cited line number and a
@@ -877,6 +877,9 @@ prompt; that is not a gap in them, it is the boundary of what they measure.
 | Hook behaviour | `.claude/hooks/tests/` | a hook's exit code for a given input | **Yes** — same input, same result |
 | Reviewer prompts | `.claude/tests/reviewer-fixtures/` | which criteria fire against planted defects, and whether a `GAP` verdict has a real violation behind it | No — LLM output varies |
 | Pipeline sequencing | `.claude/tests/pipeline-dry-run/` | gate order, and whether a pipeline creates its state file at the right step and removes it at the end | No — LLM output varies |
+| Rule loading | `.claude/tests/rule-awareness-probe/` | which rules a fresh session actually plans by | No — LLM output varies |
+| Generated project compile | `.claude/tests/setup-compile-probe/` | the framework package and generated asmdefs compile against game code | **Yes** — real Unity compile |
+| Hook pipe safety | `.claude/tests/hook-sigpipe-probe/` | a hook under `pipefail` still judges a file larger than the pipe buffer (~64KB) correctly; no `echo "$VAR" \| grep -q` left in hooks | **Yes** — no model in the loop |
 | Binary asset contract | `.claude/tests/blender-fbx-probe/` | an exported `.fbx` after a real Unity import — world size, root scale, root euler, mesh/material/bone counts | **Yes** — real Blender + `Unity -batchmode`, no model in the loop |
 
 ```bash
@@ -890,6 +893,9 @@ FIXTURE_DIR="$(.claude/tests/reviewer-fixtures/make-fixture.sh)"
 
 # Layer 3 — pipeline dry run (generates a fake Unity project into a temp dir)
 SB="$(.claude/tests/pipeline-dry-run/make-sandbox.sh)"
+
+# Hook pipe safety — run after editing any hook that pipes a variable into grep
+.claude/tests/hook-sigpipe-probe/run-probe.sh
 
 # Layer 4 — Blender -> FBX -> Unity probe (needs Blender + MCP add-on on an empty file,
 # and a Unity 6 Editor). Exit 0 = green. Run after changing the FBX export contract.
@@ -905,7 +911,7 @@ that flag pass a size-only check, including the two that import with a `scale=10
 `270.020°` rotation. On its first run the harness then disproved a claim in the skill it tests.
 Still covered by no layer: `TD-COMPILE` against real project code, PlayMode, prefab/scene work.
 
-**49 bats files / 595 tests** cover every blocking hook with happy path, blocking trigger,
+**56 bats files / 732 tests** cover every blocking hook with happy path, blocking trigger,
 profile skip, and warn-mode scenarios — and all six `guard-*.sh` are covered there *and*
 verified as registered in `settings.json`.
 
@@ -1461,7 +1467,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations, plus four measured Play-mode/test traps (Rule 9) — each produces a plausible wrong diagnosis, so it names the boring cause to rule out first |
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope, UnityTest patterns |
 | `mcp-preflight` | MCP availability + active-instance check — connected (verify the instance targets this repo) / wrong-or-multiple instance / disconnected / not installed. Every MCP-driving pipeline must run it before the first write; `/orchestrate` calls it at Step 0 |
-| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Programmatic / PlayMode-Scene / NoTest) from class name or file path |
+| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Programmatic / PlayMode-Scene / NoTest) from class name or file path; the risk gate (thin Controller / View / Manager, Provider, `*Module`, `LifetimeScope`, config, visual work → NoTest) runs first |
 | `unity-ugui` | Runtime UGUI implementation (all runtime UI below Unity 6; world-anchored / Animator-driven UI on 6+) — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area, Canvas split strategy, performance rules |
 | `unity-git` | Unity git conventions — .meta hygiene, .gitattributes (YAML merge / binary), LFS patterns, conventional commits, commit grouping by dependency order; loaded by `committer` and `unity-git-master` agents |
 
