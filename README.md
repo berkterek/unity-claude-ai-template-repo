@@ -217,7 +217,7 @@ path-scoped and loads as described in [What loads when](#what-loads-when). Each 
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
 | `unity-input.md` | New Input System, InputService (pure C#, pull-based — no tick) + InputHandler (per-prefab), action map switching, `FixedUpdate` latch rule |
 | `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, BaseCanvas pattern, Prefab Variants (Base+Variant decision table), **prefab DRY — same-parent duplicate siblings must be extracted (Card 5, + layout prerequisite, verified by `.claude/scripts/check-duplicate-siblings.py`)**, folder structure, logic/visual separation |
-| `testing.md` | Risk-based TDD gate (thin shells, providers, modules, visual work → NoTest), test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), one scenario per test (`Assert.Multiple`), NSubstitute on interfaces, AAA pattern, assembly setup |
+| `testing.md` | Risk-based TDD gate (thin shells, providers, static installers, visual work, dev-only tooling → NoTest; a guard clause is not a branch; excess tests are findings like missing ones), test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), one scenario per test (`Assert.Multiple`), NSubstitute on interfaces, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event vs R3 `ReactiveProperty` decision tree (Card 5: a late subscriber gets the current value from R3 and nothing from a C# event) |
@@ -1467,7 +1467,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 | `unity-mcp-patterns` | MCP tool call patterns for scene/prefab/asset operations, plus four measured Play-mode/test traps (Rule 9) — each produces a plausible wrong diagnosis, so it names the boring cause to rule out first |
 | `playmode-scene-testing` | Play Mode scene test pattern — TestBootstrap prefab, TestScope, UnityTest patterns |
 | `mcp-preflight` | MCP availability + active-instance check — connected (verify the instance targets this repo) / wrong-or-multiple instance / disconnected / not installed. Every MCP-driving pipeline must run it before the first write; `/orchestrate` calls it at Step 0 |
-| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Programmatic / PlayMode-Scene / NoTest) from class name or file path; the risk gate (thin Controller / View / Manager, Provider, `*Module`, `LifetimeScope`, config, visual work → NoTest) runs first |
+| `test-type-router` | Determines test type (EditMode / PlayMode-ECS / PlayMode-Programmatic / PlayMode-Scene / NoTest) from class name or file path; the risk gate (thin Controller / View / Manager, Provider, `*Module`, `LifetimeScope`, config, visual work, dev-only tooling → NoTest; a guard clause is not a branch) runs first |
 | `unity-ugui` | Runtime UGUI implementation (all runtime UI below Unity 6; world-anchored / Animator-driven UI on 6+) — View scripts, Canvas/MCP setup, HUD, Popup/Dialog, Scroll View pool, safe area, Canvas split strategy, performance rules |
 | `unity-git` | Unity git conventions — .meta hygiene, .gitattributes (YAML merge / binary), LFS patterns, conventional commits, commit grouping by dependency order; loaded by `committer` and `unity-git-master` agents |
 

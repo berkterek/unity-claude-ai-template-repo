@@ -16,7 +16,7 @@ Detailed coding standards in `.claude/rules/`:
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
 | `unity-input.md` | New Input System, InputService (pure C#, **pull-based — no tick**) + InputHandler (per-prefab), action map switching, `FixedUpdate` latch rule. InputView removed. |
 | `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, BaseCanvas pattern, Prefab Variants (Base+Variant decision table), **prefab DRY — same-parent duplicate siblings must be extracted (Card 5, + layout prerequisite, verified by `.claude/scripts/check-duplicate-siblings.py`)**, folder structure, logic/visual separation |
-| `testing.md` | Test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
+| `testing.md` | Risk-based TDD gate (NoTest categories, guard clause ≠ branch, excess tests are findings), test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), NSubstitute, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking; ECS→VContainer push-inject bridge (no singleton `Instance` from ECS) |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event vs R3 `ReactiveProperty` decision tree (Card 5: a late subscriber gets the current value from R3 and nothing from a C# event) |
