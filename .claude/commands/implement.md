@@ -38,7 +38,7 @@ Check which of these plugins are available in the skill list:
 
 | Plugin | Used in | Fallback |
 |--------|---------|---------|
-| `superpowers:test-driven-development` | Step 0c — TDD constraint setup | Proceed with built-in test-type-router only |
+| `superpowers:test-driven-development` | Step 0c — test-first discipline, only after the router chose a test type | Proceed with built-in test-type-router only |
 | `superpowers:brainstorming` | Complex tasks (score ≥ 0.7) — design exploration before coding | Skip brainstorming |
 | `code-simplifier` | Post-implementation quality pass | Skip simplification step |
 | `claude-md-management:revise-claude-md` | Completion — update CLAUDE.md with learnings | Skip |
@@ -168,6 +168,8 @@ TEST TYPE DECISION
   Decision: [EditMode | PlayMode-ECS | PlayMode-Scene | NoTest]
   Reason:   [one sentence]
 ```
+
+**`superpowers:test-driven-development` decides HOW, never WHETHER.** Its "no production code without a failing test, no exceptions" applies only to targets this router sends to a test type. A NoTest decision is the human-approved exception the skill itself allows — do not invoke the skill for a NoTest target, and do not let it reopen the decision.
 
 - **NoTest** → skip Step 1 (Test Writer) entirely; proceed directly to Step 2 (Coder)
 - **PlayMode-Scene** → Test Writer writes the stub only; note that `/create-test` must be run separately for scene + TestBootstrap wiring
