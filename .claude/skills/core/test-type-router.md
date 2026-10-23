@@ -14,7 +14,7 @@ Given a class name, file path, or task description, emit one of four test type d
 
 ### 0 — Risk gate (always first)
 
-Before any path rule, apply the NoTest categories in `.claude/rules/testing.md` → Risk-Based TDD: thin Controller / View / Manager (no branch, math or state), Provider, `*Module`, `LifetimeScope`, `ScriptableObject` config, visual work (VFX, animation, shader, UI layout). A match is **NoTest** — stop here.
+Before any path rule, apply the NoTest categories in `.claude/rules/testing.md` → Risk-Based TDD: thin Controller / View / Manager (no branch, math or state), Provider, `*Module`, `LifetimeScope`, `ScriptableObject` config, visual work (VFX, animation, shader, UI layout), dev-only tooling (`#if DEVELOPMENT_BUILD` cheats / debug panels). A guard clause (`null` check + log + return) is not a branch. A match is **NoTest** — stop here.
 
 > Path rules used to run first, so everything under `Games/Concretes/` became EditMode and the "MonoBehaviour with no logic → NoTest" row below was never reached. Thin shells got tested by default.
 

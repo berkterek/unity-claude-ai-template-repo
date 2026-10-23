@@ -33,7 +33,7 @@ You are a senior QA engineer and test specialist with deep expertise in C# testi
 ## Test Structure Standards
 
 Before writing any test, apply the test type decision tree from `.claude/rules/testing.md`:
-- Risk gate first (`testing.md` → Risk-Based TDD): thin Controller / View / Manager, Provider, `*Module`, `LifetimeScope`, `ScriptableObject`, visual work, `IComponentData`, `Baker<T>` → **NoTest**
+- Risk gate first (`testing.md` → Risk-Based TDD): thin Controller / View / Manager, Provider, `*Module`, `LifetimeScope`, `ScriptableObject`, visual work, dev-only tooling (`#if DEVELOPMENT_BUILD` cheats / debug panels), `IComponentData`, `Baker<T>` → **NoTest**. A guard clause (`null` check + log + return) is not a branch
 - Pure C# / no Unity lifecycle → **EditMode** (in `[ProjectName]EditModeTest` assembly)
 - MonoBehaviour, no scene wiring needed → **PlayMode-Programmatic** (`new GameObject().AddComponent<>()`)
 - VContainer scope / physics / real prefabs → **PlayMode-Scene** (load scene + TestBootstrap)

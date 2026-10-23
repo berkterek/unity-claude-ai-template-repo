@@ -18,11 +18,20 @@ Tests are written by **risk**, not by class count. When a class is tested, the r
 **NoTest (the plan task says `Test type: NoTest` and names the category below):**
 - Thin Mono shells — Controller / View / Manager whose bodies only cache refs, assign fields, or forward a call
 - Providers — the Unity API wrapper itself
-- `*Module` installers, `LifetimeScope` subclasses, `ScriptableObject` configs
+- Static installers — by role, not name (`*Module`, `AppModules`, `SceneModules`) — `LifetimeScope` subclasses, `ScriptableObject` configs
 - Visual and feel work — VFX, animation, shaders, UI layout. Verified by eye in Play mode
 - Any body with no branch, no math and no state — it only forwards
+- Dev-only tooling — cheat menus, debug panels, anything compiled only under `#if DEVELOPMENT_BUILD || UNITY_EDITOR`. It never reaches a player, and the person who opens the panel sees a failure at once. This holds even when the tool has real boundary logic
 
 `NoTest` is valid only for these categories. A free-text reason does not make a class NoTest; a class with a branch, math or state is tested no matter how it is named. Existing tests are not mass-deleted — prune redundant ones only in a file you are already changing.
+
+**A guard clause is not a branch.** `if (x == null) { log; return; }`, a missing-reference `LogError`, a "called before Load" check — these exist in nearly every class, so counting them would send every class past the gate. A branch is a decision the feature makes (a rule, a boundary, a state transition). A class whose only `if` is a guard is a forwarder. Likewise, holding a reference to a dependency (`Current = new Board(...)`) is not state — state is a value the class itself computes or mutates.
+
+**Test a behavior where it lives.** A wrapper that delegates to a dependency is tested for its own decisions only — never re-test the dependency's logic through it. Board shapes are `LevelParser` / `Board` tests, not `BoardService` tests; the one-test-over-every-shipped-data-file check lives with the parser. A contract the class's **interface documents** (emission rate, replay to late subscribers) is the class's own behavior even when a library implements it — keep that test; an undocumented library internal is not.
+
+**Logic inside a Mono shell is extracted, not tested in place.** A View or Controller with real math (star count from a time ratio) moves that math to a pure helper, which is tested in EditMode; the shell stays NoTest. Assert observable behavior only — never read private fields through reflection.
+
+**Excess is a finding, not a free extra.** A test on a NoTest category, one scenario split across tests, per-index `[TestCase]` rows, and a dependency re-tested through its wrapper all return CHANGES NEEDED — the same weight as a missing test. Penalizing only the gap made over-testing the agent's safe default.
 
 > **Why risk and not "every class":** measured on a downstream project (Oct 2026): 5,759 lines of game code carried 13,993 lines of tests (567 test methods, 321 `[TestCase]` rows). A 120-line Controller had 31 cases — 27 of them asserted one field assignment per slot index — and a 114-line View had 32. Those catch no regression a Play-mode look would miss, and every refactor pays for them.
 
@@ -36,12 +45,14 @@ Before writing any test, apply this tree top-to-bottom — stop at the first mat
 Is it a NoTest type? (stop here if any match — checked BEFORE any path rule)
 ├── LifetimeScope subclass       → NoTest  (DI wiring — tested via integration)
 ├── ScriptableObject config      → NoTest  (data container — no logic)
-├── *Module static installer     → NoTest  (registration only)
+├── Static installer (any name)  → NoTest  (registration only)
 ├── Provider (Unity API wrapper) → NoTest  (the wrapper is the Unity call)
 ├── Controller / View / Manager with no branch, math or state
 │                                → NoTest  (thin shell — verified in Play mode)
 ├── VFX / animation / shader / UI layout
 │                                → NoTest  (visual — verified by eye)
+├── Dev-only tooling (#if DEVELOPMENT_BUILD cheats / debug panels)
+│                                → NoTest  (never ships to a player)
 ├── IComponentData struct        → NoTest  (data only)
 ├── Baker<T> inner class         → NoTest  (bake-time only)
 └── NO → continue below

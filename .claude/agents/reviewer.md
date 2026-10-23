@@ -181,7 +181,8 @@ evidence about anything below** — every item here is a judgment the hook canno
 - [ ] Return types are appropriate (no unnecessary boxing)
 
 ### Test Quality (when reviewing tests)
-- [ ] Every class with branching, math or state has tests; NoTest categories (`testing.md` → Risk-Based TDD) have none and that is not a gap
+- [ ] Every class with branching, math or state has tests; NoTest categories (`testing.md` → Risk-Based TDD) have none and that is not a gap. A guard clause (`null` check + log + return) is not a branch
+- [ ] No excess tests — each is a finding with the same weight as a missing test: a test on a NoTest category (`*Module`, scope, config, thin shell, Provider, visual, dev-only tooling), a forwarder test (`Click_CallsX`), or a dependency's logic re-tested through a wrapper
 - [ ] Edge cases covered (null, empty, boundary values)
 - [ ] Error paths tested (exceptions, invalid states)
 - [ ] Arrange-Act-Assert structure

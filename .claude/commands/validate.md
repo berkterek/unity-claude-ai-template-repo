@@ -128,7 +128,8 @@ Plugins: superpowers:verification-before-completion [✓/✗]
 - Constructor injection used for dependencies
 
 **Test Phase:**
-- Every class with branching, math or state has a corresponding test class (NoTest categories: `rules/testing.md` → Risk-Based TDD)
+- Every class with branching, math or state has a corresponding test class (NoTest categories: `rules/testing.md` → Risk-Based TDD; a guard clause is not a branch)
+- No test class exists for a NoTest category, and no test re-tests a dependency through its wrapper — excess fails the phase like a gap does
 - Tests cover happy paths, edge cases, and error paths
 - Test naming follows conventions
 - Mocks: NSubstitute on interfaces when the `testing` feature is enabled, hand-rolled fakes when disabled — never a mocked concrete class
