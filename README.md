@@ -217,7 +217,7 @@ path-scoped and loads as described in [What loads when](#what-loads-when). Each 
 | `unity-async.md` | UniTask, no coroutines, CancellationToken, DontDestroyOnLoad |
 | `unity-input.md` | New Input System, InputService (pure C#, pull-based — no tick) + InputHandler (per-prefab), action map switching, `FixedUpdate` latch rule |
 | `unity-prefabs.md` | Prefab rules, new GameObject() forbidden, Destroy() rules, BaseCanvas pattern, Prefab Variants (Base+Variant decision table), **prefab DRY — same-parent duplicate siblings must be extracted (Card 5, + layout prerequisite, verified by `.claude/scripts/check-duplicate-siblings.py`)**, folder structure, logic/visual separation |
-| `testing.md` | Risk-based TDD gate (thin shells, providers, static installers, visual work, dev-only tooling → NoTest; a guard clause is not a branch; excess tests are findings like missing ones), test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), one scenario per test (`Assert.Multiple`), NSubstitute on interfaces, AAA pattern, assembly setup |
+| `testing.md` | Risk-based TDD gate (thin shells, providers, static installers, visual work, dev-only tooling → NoTest; a guard clause is not a branch; excess tests are findings like missing ones), test type decision tree (EditMode / PlayMode-Programmatic / PlayMode-Scene / ECS / NoTest), one scenario per test (`AssertEx.All` — Unity's NUnit 3.5 has no `Assert.Multiple`; `/setup-project` generates the helper into both test assemblies), NSubstitute on interfaces, AAA pattern, assembly setup |
 | `ecs-dots.md` | Authoring/Baker, component naming, ISystem+IJobEntity, ECB, Hybrid linking |
 | `addressables.md` | No Resources.Load, async loading, handle lifecycle, address constants |
 | `event-patterns.md` | UnityEvent forbidden, IEventBus vs Action vs C# event vs R3 `ReactiveProperty` decision tree (Card 5: a late subscriber gets the current value from R3 and nothing from a C# event) |
@@ -631,6 +631,8 @@ It carries four assemblies — `FrameworkEvents`, `FrameworkLogging`, `Framework
 and the Editor-only `FrameworkEditor` — each with its own `.asmdef` and its own
 `ARCHITECTURE.md`, plus `SERIALIZED_OPS_MANIFEST.md`, the input contract for the applier.
 
+`FrameworkSaveLoadSystems` ships two `ISaveLoadDal` backends: `LocalSaveLoadDal` (file system, atomic write) and `PlayerPrefsSaveLoadDal` (one PlayerPrefs string per key; no atomic swap, so it flushes on every save). Both share the corrupt-save contract — log, return `default`. The package is at `0.2.0` in `package.json`.
+
 **Why it changed, measured rather than argued.** For a while both channels existed: generated
 blocks inside `setup-project.md` and a hand-exported `Framework.unitypackage`. They were
 compared file by file in September 2026 and **ten of twelve files differed**, in both
@@ -747,7 +749,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 | Command | How it runs | What it does |
 |---------|------------|-------------|
 | `/roadmap` | Manual — single step | Reads GDD + TDD + existing `docs/modules/` → maintains `docs/ROADMAP.md`: milestone mapping, module table, gap analysis. **Milestone-gated** — stops and asks if the GDD defines no milestones, and priority follows the open milestone rather than the bare dependency graph. **Edits the file in place, never regenerates it**: verdict lines, the `← OPEN` marker and hand-written row annotations are preserved (a verdict has no other home, so overwriting one silently reopens a closed milestone). Run once after TDD is approved, and again whenever the milestone mapping goes stale. |
-| `/plan-module <n>` | Manual — single step | Just-in-time planner for a single module. ARCHITECTURE_GATE fires before spawning agents. Produces `docs/modules/<n>-<name>/spec.md`, `design.md`, and `tasks.md`. Scopes the plan to the module's **stub ceiling** — the inline `NN (minimal — …)` qualifier in the ROADMAP milestone entry plus TDD §14's stub row, both read *before* the module's full system section — and warns (never blocks) if the module sits outside the open milestone. Run immediately before you orchestrate that module. |
+| `/plan-module <n>` | Manual — single step | Just-in-time planner for a single module. ARCHITECTURE_GATE fires before spawning agents. Produces `docs/modules/<n>-<name>/spec.md`, `design.md`, and `tasks.md`. Scopes the plan to the module's **stub ceiling** — the inline `NN (minimal — …)` qualifier in the ROADMAP milestone entry plus TDD §14's stub row, both read *before* the module's full system section — and warns (never blocks) if the module sits outside the open milestone. Run immediately before you orchestrate that module. **Dependency gate:** a module whose `Depends on` entries are not all `✅ Complete` is not planned — it prints `⛔ BLOCKED` and only an explicit `go` overrides. **With no argument** it lists the modules plannable right now (no plan folder, not Frozen, dependencies Complete) and stops — each of those can be planned in its own terminal. |
 | `/dry-run` | Manual — single step | *(optional)* Preview pending tasks in a `tasks.md` without executing |
 | `/plan-summary <file>` | Manual — single step | *(optional)* Reads a plan file and produces a 3-section human-readable summary — what we're doing, how, and what you'll see at the end. |
 
@@ -768,7 +770,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 
 | Command | How it runs | What it does |
 |---------|------------|-------------|
-| `/qa` | Manual to start. Inside: **ralph → silent-failure-hunt → validate** run **automatically** | Full quality pipeline — preferred entry point for Phase 5 |
+| `/qa` | Manual to start. Inside: **ralph → silent-failure-hunt → validate → test-excess audit** run **automatically** | Full quality pipeline — preferred entry point for Phase 5 |
 | `/validate` | Manual — single step | Verifies exit criteria for a completed phase |
 | `/review-code` | Manual — single step | Deep review of specific files via `unity-reviewer` |
 | `/silent-failure-hunt` | Manual — single step | Audits for swallowed exceptions, async void, event leaks |
@@ -1045,7 +1047,7 @@ Both JSONL files are persistent (not auto-expired) and gitignored. See `.claude/
 | `/refine-gdd` | Manual — single step | Iterate on an existing GDD |
 | `/refine-tdd` | Manual — single step | Iterate on an existing TDD |
 | `/roadmap` | Manual — single step | Read GDD + TDD + existing modules → produce `docs/ROADMAP.md` module table with gap analysis. Run once after TDD is approved. |
-| `/plan-module <n>` | Manual — single step | Just-in-time module planner: ARCHITECTURE_GATE → `Plan` (Opus) → reviewer (QUALITY_GATE on CHANGES NEEDED) → writes `docs/modules/<n>-<name>/spec.md`, `design.md`, `tasks.md` → two BLOCKING plan validators → updates ROADMAP.md. Run immediately before orchestrating that module. |
+| `/plan-module <n>` | Manual — single step | Just-in-time module planner: ARCHITECTURE_GATE → `Plan` (Opus) → reviewer (QUALITY_GATE on CHANGES NEEDED) → writes `docs/modules/<n>-<name>/spec.md`, `design.md`, `tasks.md` → two BLOCKING plan validators → updates ROADMAP.md. Run immediately before orchestrating that module. Blocks on unfinished dependencies (`go` overrides); no argument lists the plannable modules. Plans cite code by symbol, never by bare line number. |
 
 ### Pipelines (multi-agent)
 
@@ -1061,7 +1063,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/scene-setup <description>` | Manual to start → coder + unity-setup → verifier → reviewer → committer | Scene and prefab wiring pipeline |
 | `/create-plan <file> <what>` | Manual to start → researcher (reads existing Modify files + scene/prefab pre-scan via graph) → planner (Opus) → reviewer loop (BREAKING revisions pause for user) → save → optional implementer | Create a phased plan from a spec |
 | `/create-plan --lean <file> <what>` | Manual to start → researcher → **lean-planner** (Sonnet) → reviewer → save. No implementer auto-spawn. | Compact 3-5 task table plan — faster for small tasks. |
-| `/update-plan <file> <change>` | Manual to start → analyzer → planner (Opus) → reviewer loop → save → optional implementer | Update an existing plan |
+| `/update-plan <file> <change>` | Manual to start → analyzer → planner (Opus) → reviewer loop → save → optional implementer | Update an existing plan — the analyzer runs a **drift check** (`git log <baseline>..HEAD` per file, re-resolved by symbol) and reports `DRIFT:` lines |
 | `/update-plan --lean <file> <change>` | analyzer → **lean-planner** (Sonnet) → reviewer → save. No implementer auto-spawn. | Small plan changes — task add/remove, file path fix. |
 | `/smart-commit` | Manual to start → analyze dirty tree → group commits → commit | Group working tree changes into logical semantic commits |
 | `/smart-commit-selected` | Manual to start → analyze → plan groups → multiSelect checklist → commit selected | Commit only user-selected groups from working tree |
@@ -1081,7 +1083,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 
 | Command | How it runs | Description |
 |---------|------------|-------------|
-| `/qa` | Manual to start → ralph → silent-failure-hunt → validate | Full quality pipeline — run after any implementation or before push |
+| `/qa` | Manual to start → ralph → silent-failure-hunt → validate → test-excess audit (report-only) | Full quality pipeline — run after any implementation or before push |
 | `/ralph` | Manual to start → compile + test → fix loop (max 10 iterations) | Relentless verify-fix loop — refuses to stop until green or stuck |
 | `/validate` | Manual — single step | Validate a completed phase via unity-verifier |
 | `/review-code` | Manual — single step | Deep code review on specific files via unity-reviewer |
@@ -1355,6 +1357,7 @@ Pointed at a folder that does not exist yet, `validate-plan-facts.sh` prints `no
 |--------|----------------------|---------|
 | `.claude/scripts/validate-plan-paths.sh` | `hooks/lib-path-rules.sh` → `check-domain-folder-structure.sh` | Illegal folder structure authored in `tasks.md` — an unknown top-level folder, a layer name or catch-all as a domain, a `.cs` with no domain folder |
 | `.claude/scripts/validate-plan-facts.sh` | `hooks/lib-gateguard-facts.sh` → `gateguard.sh` (Guard 2) | A task that names a file but declares no `Callers:` / `Wiring:`, or declares a source that resolves nowhere in the plan or on disk; a new `.cs` with no owning `.asmdef`; a duplicate type name |
+| `.claude/scripts/audit-test-excess.py` | `/qa` Stage 4 (report-only, no hook) | Tests that `testing.md` calls excess and that predate or escaped the risk gate: a test on a NoTest category (ScriptableObject, `LifetimeScope`, static installer, Provider, dev-only tooling), per-index `[TestCase]` runs, private-member reflection, many tests with no `AssertEx.All`. Lists and totals lines; deletes nothing — pruning needs the user's approval |
 
 Both take either a single file or a directory to walk, but **they do not walk the same corpus** — `validate-plan-facts.sh` collects only `tasks.md` and skips `_templates/`, while `validate-plan-paths.sh` collects every `*.md` it finds. Point them at a module plan folder (`docs/modules/NN-name/`), which is what the three commands pass; pointing the path validator at a broad root makes it read illustrative `WRONG:` paths out of prose and report them as violations.
 
