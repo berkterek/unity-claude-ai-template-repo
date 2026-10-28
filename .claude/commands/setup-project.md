@@ -854,6 +854,50 @@ namespace Game.EditModeTest
 }
 ```
 
+#### `_GameFolders/Scripts/Tests/[ProjectName]EditModeTest/AssertEx.cs`
+
+Unity ships NUnit 3.5, which has no `Assert.Multiple`. `testing.md` → One Scenario per Test requires one test to assert every outcome of a scenario, so the project ships this helper from day one — without it every project reinvents it or falls back to one assertion per test.
+
+```csharp
+using System;
+using System.Collections.Generic;
+using NUnit.Framework;
+
+namespace Game.EditModeTest
+{
+    // Unity ships a custom NUnit 3.5 with no Assert.Multiple (added in 3.6).
+    // All() runs every check and reports every failure together, so one test can assert a whole scenario.
+    public static class AssertEx
+    {
+        public static void All(params Action[] checks)
+        {
+            var failures = new List<string>();
+            for (var i = 0; i < checks.Length; i++)
+            {
+                try
+                {
+                    checks[i]();
+                }
+                // Not only AssertionException: an NSubstitute Received() failure or a NullReferenceException
+                // inside a check must be reported with the others, not abort the scenario. NUnit's own
+                // control-flow results (Assert.Pass / Ignore / Inconclusive) keep propagating.
+                catch (Exception ex) when (ex is AssertionException || !(ex is ResultStateException))
+                {
+                    failures.Add($"  {i + 1}) {ex.Message.Trim()}");
+                }
+            }
+
+            if (failures.Count > 0)
+            {
+                Assert.Fail($"{failures.Count} of {checks.Length} checks failed:\n{string.Join("\n", failures)}");
+            }
+        }
+    }
+}
+```
+
+Write the same file to `_GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/AssertEx.cs` with `namespace Game.PlayModeTest` — a test assembly cannot reference the other one, so each carries its own copy.
+
 #### `_GameFolders/Scripts/Tests/[ProjectName]PlayModeTest/SamplePlayModeTests.cs`
 ```csharp
 using System.Collections;

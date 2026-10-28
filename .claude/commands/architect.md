@@ -35,7 +35,7 @@ These are hard requirements. Every architectural decision must satisfy ALL of th
 - Use NUnit for pure logic tests, Unity Test Framework for integration tests
 - Test coverage targets: 90%+ for logic, 70%+ for integration
 - Tests must be fast — no frame delays in unit tests
-- Test structure: Arrange-Act-Assert, one scenario per test (`Assert.Multiple` for its outcomes)
+- Test structure: Arrange-Act-Assert, one scenario per test (`AssertEx.All` for its outcomes)
 
 ### Zero Coupling
 - Systems communicate through: interfaces, events/delegates, message bus, or ScriptableObject events

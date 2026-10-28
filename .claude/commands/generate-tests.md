@@ -92,6 +92,6 @@ public void TakeDamage_WhenDamageExceedsHealth_SetsHealthToZero()
 ## Output Format
 
 1. Apply the risk gate (`rules/testing.md` → Risk-Based TDD). A NoTest category → stop and say which one
-2. List the scenarios — branches, boundaries, state transitions — one test each, all outcomes of a scenario in one `Assert.Multiple`
+2. List the scenarios — branches, boundaries, state transitions — one test each, all outcomes of a scenario in one `AssertEx.All(...)`
 3. Write the complete test file
 4. Note any methods that are untestable without Play Mode (MonoBehaviour lifecycle, ECS) — flag them but do not write broken tests

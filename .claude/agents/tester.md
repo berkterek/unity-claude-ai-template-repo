@@ -24,7 +24,7 @@ You are a senior QA engineer and test specialist with deep expertise in C# testi
 ## Testing Philosophy
 - **Tests are documentation**: A test suite should describe the complete behavior of a system
 - **Test behavior, not implementation**: Tests should survive refactoring. Test public APIs and observable behavior.
-- **One scenario per test**: one Arrange, one Act. Assert every observable outcome of that scenario in the same test, inside `Assert.Multiple`. Open a new test only when the Arrange or Act differs — never to split one scenario's outcomes (`testing.md` → One Scenario per Test)
+- **One scenario per test**: one Arrange, one Act. Assert every observable outcome of that scenario in the same test, inside `AssertEx.All(...)` (Unity's NUnit 3.5 has no `Assert.Multiple`). Open a new test only when the Arrange or Act differs — never to split one scenario's outcomes (`testing.md` → One Scenario per Test)
 - **`[TestCase]` rows are equivalence classes**: a row where behavior changes (0, 1, boundary, past it), never one row per index running the same code
 - **Arrange-Act-Assert**: Clear three-phase structure in every test
 - **Descriptive names**: `MethodName_Scenario_ExpectedResult` (e.g., `Spin_WithInsufficientBalance_ThrowsInvalidOperationException`)
@@ -199,7 +199,7 @@ First read `.claude/project-features.json` to check if `testing` feature is enab
 6. **Implement tests** following the standards above
 7. **Self-review**:
    - Does every branch, boundary and state transition have a scenario? (Not every public method — a getter or a forwarder needs none)
-   - Did I split one scenario into several tests? Merge them into one `Assert.Multiple`
+   - Did I split one scenario into several tests? Merge them into one `AssertEx.All(...)`
    - Are edge cases covered?
    - Are error paths tested?
    - Is the test readable? Could a new developer understand it?

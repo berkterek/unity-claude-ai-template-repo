@@ -73,7 +73,7 @@ public IEnumerator Player_OnSpawn_HasFullHealth()
 
 ### Step 3: Write Tests
 - Naming: `MethodName_Condition_ExpectedResult`
-- One scenario per test — all of its outcomes in one `Assert.Multiple` (`testing.md` → One Scenario per Test)
+- One scenario per test — all of its outcomes in one `AssertEx.All(...)` (`testing.md` → One Scenario per Test)
 - Arrange-Act-Assert pattern
 - Clean up GameObjects in `[UnityTearDown]`
 

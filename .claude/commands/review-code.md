@@ -123,7 +123,7 @@ Only read source files for the specific detail (exact line, logic body) the grap
 ### Test Quality (if reviewing tests)
 - Coverage of branches, boundaries and state transitions (not every public method — NoTest categories in `rules/testing.md`)
 - Edge cases and error paths
-- AAA structure, one scenario per test (`Assert.Multiple`)
+- AAA structure, one scenario per test (`AssertEx.All`)
 - Mocks: NSubstitute on interfaces when the `testing` feature is enabled, hand-rolled fakes when disabled — never a mocked concrete class
 - Fast execution
 

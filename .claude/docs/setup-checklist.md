@@ -42,6 +42,7 @@ When `testing: true` in `project-features.json`, `/setup-project` generates the 
 | Play Mode test assembly | `Scripts/Tests/[Project]PlayModeTest/[Project]PlayModeTest.asmdef` | All platforms, NSubstitute refs included if DLL present |
 | Edit Mode sample test | `Scripts/Tests/[Project]EditModeTest/SampleEditModeTests.cs` | AAA pattern, IEventBus mock example |
 | Play Mode sample test | `Scripts/Tests/[Project]PlayModeTest/SamplePlayModeTests.cs` | UnityTest + yield return pattern |
+| `AssertEx` helper (both test assemblies) | `Scripts/Tests/[Project]EditModeTest/AssertEx.cs`, `Scripts/Tests/[Project]PlayModeTest/AssertEx.cs` | `AssertEx.All(...)` — Unity's NUnit 3.5 has no `Assert.Multiple` |
 
 ## NSubstitute Dependency
 

@@ -23,7 +23,7 @@ Tests are written by **risk**, not by class count. When a class is tested, the r
 - Any body with no branch, no math and no state — it only forwards
 - Dev-only tooling — cheat menus, debug panels, anything compiled only under `#if DEVELOPMENT_BUILD || UNITY_EDITOR`. It never reaches a player, and the person who opens the panel sees a failure at once. This holds even when the tool has real boundary logic
 
-`NoTest` is valid only for these categories. A free-text reason does not make a class NoTest; a class with a branch, math or state is tested no matter how it is named. Existing tests are not mass-deleted — prune redundant ones only in a file you are already changing.
+`NoTest` is valid only for these categories. A free-text reason does not make a class NoTest; a class with a branch, math or state is tested no matter how it is named. Existing tests are never deleted silently, and never in bulk on your own initiative. Two routes only: prune redundant ones in a file you are already changing, or run `python3 .claude/scripts/audit-test-excess.py` (also `/qa` Stage 4) — it lists tests on NoTest categories, per-index `[TestCase]` runs, private-member reflection and unsplit scenarios — and prune what it flags **after the user approves the list**. Before deleting a flagged file, check `docs/fixes/` and `git log` for a test that guards a past bug; that one stays.
 
 **A guard clause is not a branch.** `if (x == null) { log; return; }`, a missing-reference `LogError`, a "called before Load" check — these exist in nearly every class, so counting them would send every class past the gate. A branch is a decision the feature makes (a rule, a boundary, a state transition). A class whose only `if` is a guard is a forwarder. Likewise, holding a reference to a dependency (`Current = new Board(...)`) is not state — state is a value the class itself computes or mutates.
 
@@ -244,7 +244,9 @@ public void TakeDamage_WhenDamageExceedsHealth_SetsHealthToZero()
 
 ### One Scenario per Test — not One Assertion
 
-A test is **one scenario: one Arrange, one Act.** Every observable outcome of that scenario is asserted in the same test, inside `Assert.Multiple` — it runs every assertion and reports each failure separately, so a failing test still names what broke. Open a new test only when the Arrange or the Act differs.
+A test is **one scenario: one Arrange, one Act.** Every observable outcome of that scenario is asserted in the same test, inside `AssertEx.All(...)` — it runs every check and reports each failure separately, so a failing test still names what broke. Open a new test only when the Arrange or the Act differs.
+
+> **Why `AssertEx.All` and not `Assert.Multiple`:** Unity ships its own NUnit 3.5 (`com.unity.ext.nunit`); `Assert.Multiple` arrived in NUnit 3.6 and does not exist there. `/setup-project` Step 5 generates `AssertEx.cs` into both test assemblies (`Game.EditModeTest.AssertEx`, `Game.PlayModeTest.AssertEx`). If a project's test package ever ships NUnit ≥ 3.6, `Assert.Multiple` is equivalent — do not mix the two in one project.
 
 ```csharp
 // WRONG — one Act split into N tests, each re-running the same setup for one assertion
@@ -260,12 +262,10 @@ public void LoadLevel_WhenFound_StartsTheLevel()
     _sut.LoadLevel(1);
 
     // Assert
-    Assert.Multiple(() =>
-    {
-        Assert.AreEqual(LevelPhase.Playing, _sut.Phase.CurrentValue);
-        _drag.Received(1).SetEnabled(true);
-        _eventBus.Received(1).Publish(Arg.Any<LevelLoadedEvent>());
-    });
+    AssertEx.All(
+        () => Assert.AreEqual(LevelPhase.Playing, _sut.Phase.CurrentValue),
+        () => _drag.Received(1).SetEnabled(true),
+        () => _eventBus.Received(1).Publish(Arg.Any<LevelLoadedEvent>()));
 }
 ```
 
