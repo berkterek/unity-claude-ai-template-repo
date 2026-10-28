@@ -38,7 +38,7 @@ Plugins: superpowers:verification-before-completion [✓/✗]
 ```
 [Step 0] Knowledge Graph Preload → GRAPH_CONTEXT (or empty on stale/empty/disabled)
     ↓
-[Stage 1] Ralph → [Stage 2] Silent Failure Hunt → [Stage 3] Validate → [Report]
+[Stage 1] Ralph → [Stage 2] Silent Failure Hunt → [Stage 3] Validate → [Stage 4] Test Excess Audit → [Report]
 ```
 
 ---
@@ -190,6 +190,24 @@ Print result: `✓ Stage 3 — Validate: PASS` or `⚠ Stage 3 — Validate: FAI
 
 ---
 
+## Stage 4 — Test Excess Audit
+
+Skip with `Stage 4 skipped — testing feature disabled.` when `project-features.json` has `testing: false`.
+
+Run, from the repo root (it resolves `unity_project_folder` itself):
+
+```bash
+python3 .claude/scripts/audit-test-excess.py
+```
+
+It prints `VIOLATION` (test on a NoTest category: ScriptableObject config, `LifetimeScope`, static installer, Provider, dev-only tooling), `REVIEW` (Mono shell, Provider-named class without a `UnityEngine` import, extreme test/source ratio) and `FLAG` (per-index `[TestCase]` runs, private-member reflection, many tests with no `AssertEx.All`), then a per-severity line total. Exit 2 = at least one `VIOLATION`; exit 1 = no test files.
+
+Print result: `✓ Stage 4 — Test excess: CLEAN` or `⚠ Stage 4 — Test excess: [N] VIOLATION / [N] REVIEW / [N] FLAG files ([L] lines)`.
+
+This stage reports only. It never deletes a test and never blocks the commit — pruning follows `testing.md` → Risk-Based TDD (user approves the list first; a test guarding a past bug stays). The script cannot see visual/feel work, a dependency re-tested through its wrapper, or a regression guard — a human or the reviewer decides those.
+
+---
+
 ## Final Report
 
 ```
@@ -198,11 +216,12 @@ Print result: `✓ Stage 3 — Validate: PASS` or `⚠ Stage 3 — Validate: FAI
 Stage 1 — Ralph:          ✓ green  |  ⚠ [N issues]
 Stage 2 — Silent failures: ✓ CLEAN  |  ⚠ [N findings]
 Stage 3 — Validate:        ✓ PASS   |  ⚠ FAIL ([N criteria])
+Stage 4 — Test excess:     ✓ CLEAN  |  ⚠ [N] VIOLATION / [N] REVIEW / [N] FLAG files (report only — never blocks)
 ─────────────────────────────────────
 Overall: CLEAN ✓  |  ISSUES FOUND ⚠
 ```
 
-**If `superpowers:verification-before-completion` is available AND overall status is CLEAN:** Invoke it before reporting done. Confirm all three stages passed with evidence.
+**If `superpowers:verification-before-completion` is available AND overall status is CLEAN:** Invoke it before reporting done. Confirm Stages 1–3 passed with evidence (Stage 4 is report-only and does not decide CLEAN).
 
 If **CLEAN** → print: `Project is clean. Safe to proceed.`
 
