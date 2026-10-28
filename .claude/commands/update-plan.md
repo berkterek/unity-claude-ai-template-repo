@@ -121,6 +121,21 @@ Read each of those files now. Note:
 - Subscribe/Unsubscribe pairs already in place
 - Namespace collision risk: does the domain name match a UnityEngine type? (Camera, Random, Object, Input, Physics…)
 
+## Drift Check (MANDATORY when the plan predates other work)
+Baseline commit: the commit the plan says it was written or rebased against (revision note, "HEAD <sha>",
+"@<sha>") wins; only when the plan names none, use `git log --format=%h -1 -- <plan file>`. State which you used.
+Files to check: the plan's File Map if it has one, otherwise every existing (non-new) path in the tasks'
+"Files to modify" / header lines. New files have no history and are skipped.
+For each such file run `git log --oneline <baseline>..HEAD -- <file>`; a file with no commits since is not re-checked.
+For each file with commits since, re-resolve **the symbols the plan's tasks edit, call or add next to** (not every
+symbol in the prose) against the current file and report only a change a task must now account for: a symbol
+renamed or gone, a constructor or method signature that changed, a new member or field the task's insertion point
+or edit interacts with, a rule added ahead of the one the plan edits. Commits that touch only other members of
+the file are not a finding. Line numbers are never a finding — re-read by symbol.
+Prefabs, scenes and `.md` files have no symbols: diff the hierarchy or the cited section and report only what the
+plan's task edits or merges into.
+Output this under "Gaps Found" as `DRIFT: <file> → <symbol>: <what changed>`, one line per file where possible.
+
 ## Scene & Prefab Pre-Scan (if change touches UI, scene objects, or VContainer registration)
 Graph age check: read `.claude/graph/graph.json` → `metadata.generated_at`. If < 24h:
 - Read `codebase.scenes[].gameobjects[]` — flag any `active: false` GO that a VContainer registration depends on
@@ -219,6 +234,7 @@ After writing all new tasks, analyze dependencies across ALL tasks (existing + n
    - Code snippets showing method signatures and key logic (not full implementations)
    - Clear acceptance criteria
 5. Keep existing tasks and content untouched — only append
+6. Cite code by symbol (`Board.cs → Board()`), not by line number; a line number is optional and must carry `@<commit>`. Existing line-number citations are rewritten to symbols only where the Analyzer reported DRIFT on that file
 
 ## Output
 Return the FULL updated plan file content.

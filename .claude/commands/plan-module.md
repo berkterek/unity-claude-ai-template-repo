@@ -15,6 +15,7 @@ Creates a single module's `docs/modules/<n>-<name>/` folder: `spec.md`, `design.
 ```
 /plan-module 01
 /plan-module 01-core-loop
+/plan-module              # no argument — lists the modules that can be planned right now
 ```
 
 ## Kurallar
@@ -25,6 +26,29 @@ Creates a single module's `docs/modules/<n>-<name>/` folder: `spec.md`, `design.
 - If `docs/modules/<n>-<name>/` already exists: stop with "this module is already planned" — never overwrite it
 
 ## Process
+
+### Mode — No Argument (list plannable modules, then stop)
+
+If `$ARGUMENTS` is empty: read `docs/ROADMAP.md` and print every module that is **plannable now**, then stop —
+no template check, no graph preload, no subagent, nothing written.
+
+A module is plannable now when **all three** hold:
+1. no `docs/modules/<n>-*/` folder exists yet
+2. its Status is not `❄️ Frozen`
+3. every module in its `Depends on` cell is `✅ Complete` (status read as in Step 1 → Dependency gate)
+
+```
+## Plannable now
+- 03 inventory      (milestone M0, depends on: 01 ✅)
+- 07 settings       (milestone M1, depends on: —)
+
+## Blocked (not listed above)
+- 05 end-panels     waiting on: 01 core-loop (🔄 In Progress)
+```
+
+Modules in the first list do not depend on one another's code, so each can be planned in its own terminal.
+If the first list is empty, say so and name what unblocks the nearest module. This lists facts only — the milestone
+scope check below still applies when the developer picks one.
 
 ### Preflight — Plan Templates (BLOCKING)
 
@@ -149,6 +173,27 @@ Use /update-plan to change the existing plan.
 ```
 diyerek dur.
 
+**Dependency gate — do not write a full plan against unfinished dependencies.**
+For every module named in this module's `Depends on` cell, read its status the way `/roadmap` does ("Status arbiter"):
+from the checkboxes of its own `docs/modules/<n>-<name>/tasks.md` when that file exists, the ROADMAP Status cell
+otherwise. `—` means no dependencies. Every dependency `✅ Complete` → continue to Step 2.
+
+Any dependency not `✅ Complete` → write nothing and print:
+
+```
+⛔ BLOCKED: <n>-<name> depends on:
+- <dep> <dep-name> (<status>)
+Not planned — the plan would be written against code that does not exist yet and need /update-plan later.
+Re-run /plan-module <n> once these are ✅ Complete. To plan anyway, type `go`.
+```
+
+Then wait. Only an explicit `go` continues, and the plan header must list the unfinished dependencies so
+`/update-plan` has a known starting point. This command does not edit the ROADMAP row to `🚫 Blocked` — status
+changes stay with `/roadmap` and `/orchestrate`.
+
+> **Why a recorded edge can be wrong:** `/roadmap` Step 4 documents a false dependency that held a module back for
+> weeks. If the blocker looks wrong, `go` overrides it — then fix the `Depends on` cell via `/roadmap`.
+
 ### Step 2 — ARCHITECTURE_GATE
 
 Show the user the following and ask for approval:
@@ -205,8 +250,12 @@ Before you return, check the drafts against the defects plan reviewers reject mo
   "RED = compile failure" on the test task explicitly.
 - Every `git status` / "no other change" check names its paths
   (`git status --short HoleSphere docs/decisions`) — the tree is never assumed clean.
-- Every `file:line` you cite was opened and verified in this run. Name each value's real
-  source; never attribute a value to a document you did not see it in.
+- Cite code by symbol, not by line: `Board.cs → Board()` or `BoardViewProvider.cs →
+  SpawnBlocks`. A line number is optional; when you write one, tag it with the commit it was
+  read at (`Board.cs:91 @a1b2c3d`) and treat it as a hint — a plan outlives the file's
+  layout, a symbol outlives it far longer. Every symbol you cite was opened and found in this
+  run. Name each value's real source; never attribute a value to a document you did not see
+  it in.
 - Tasks in the same `parallel_group` share no output file and no work directory.
 - A placeholder value in a task body is labelled `placeholder — set at <task id>`.
 ```
@@ -237,11 +286,14 @@ Add this severity contract to the reviewer prompt, verbatim:
 ```
 Classify every finding as exactly one of:
 - BLOCKING — the plan as written would fail: /orchestrate cannot run a task, the project
-  does not compile after some task, a task points at a wrong file/line/value that would
+  does not compile after some task, a task points at a wrong file/symbol/value that would
   produce wrong code, or an acceptance criterion cannot be tested — including a check
   that cannot pass on the real working tree (an unscoped `git status` on a dirty tree).
 - MINOR — anything else worth changing: wording, missing tolerances that do not block a
-  test, labelling, a citation off by a few lines that still lands on the right content.
+  test, labelling, a line number that drifted while its symbol still resolves in the named
+  file, including one that is right at the commit the plan cites but moved on a dirty working
+  tree (judge against the cited commit). Verify cited symbols; do not open every cited line
+  number — spot-check at most five.
 Do not list items you checked and found correct — a confirmation is not a finding.
 
 Output: a "BLOCKING" list and a "MINOR" list, each item with file:line. Then exactly one
