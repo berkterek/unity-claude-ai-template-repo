@@ -592,6 +592,8 @@ framework is a package (below). It is optional and not wired into `/setup-projec
 |---|---|---|
 | Opening screens and popups | `IScreenService` (`ShowAsync<T>`, `BackAsync`, `ShowPopupAsync<TPopup, TResult>`); every screen inherits `ScreenView`; one `UIDocument` per screen, inactive until shown | `ui-toolkit-runtime.md` Card 13 |
 | Fade / slide / pop animations | USS transitions from one `Motion.uss`; C# only flips a class and awaits `UssTransition`; count-up and loops use the project's tween library | Card 14 |
+| Button press / hover / focus / disabled feedback | `.btn` + `:active` / `:hover` / `:focus` / `:disabled` pseudo-classes in `Motion.uss` — no C#; on touch only `:active` fires | Card 14, skill → "1b. Buttons" |
+| Look of a screen before it is built | An approved HTML/CSS mockup saved at `docs/ui/mockups/<Screen>.html` (+ PNG per state), constrained to what USS can do; the builder reads it, Play mode is compared to it at two widths. Not hook-enforced | "Design Workflow" → Mockup → Approval → Build |
 | When a screen gets a ViewModel | Only when it has state of its own (tabs, draft/apply, formatting, two services) — MVVM with R3, never on a buttons-only screen | Card 11 |
 | Play button → Game scene, selected level | An interface call to `ISceneService.LoadAsync`, never an event; cross-scene data in an app-scope service | `bootstrap-pattern.md` Card 7 |
 
