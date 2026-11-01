@@ -69,6 +69,7 @@ Infrastructure skills that govern how Claude reasons and acts across all tasks:
 | `physics` | Layer matrix, non-alloc queries, trigger vs collision |
 | `shader-graph` | URP shader nodes, property exposure, keyword variants |
 | `ui-toolkit` | Runtime game UI on Unity 6 (6000.0)+ — USS, UXML, tokens, theming, `*View` pattern, MVVM with R3 (Screen With a ViewModel), ListView. Governed by `rules/ui-toolkit-runtime.md` |
+| `ui-mockup` | Visual UI/UX mockup for UI Toolkit screens — USS-portable HTML/CSS (flexbox, tokens, transform/opacity only), hierarchy/spacing/type/touch-target/state checklist, approval → `docs/ui/mockups/` handoff. Use before building any runtime UI Toolkit screen |
 | `urp-pipeline` | Renderer features, camera stacking, custom render passes, SRP Batcher, Forward+ |
 | `urp-quality-settings` | URP quality tiers (Low/Medium/High/Ultra), runtime asset swap, auto-detect, adaptive performance |
 | `urp-lighting-shadows` | Directional/point/spot lights, shadow cascades, bias tuning, light layers, light cookies, reflection probes |

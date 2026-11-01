@@ -58,7 +58,7 @@ World-space UI Toolkit on WebGL needs engine workarounds for custom materials �
 **RIGHT:**
 ```css
 /* Theme/DesignTokens.uss — the only file that holds raw values */
-:root { --color-surface: #1F2937; --space-3: 12px; --radius-md: 8px; --transition-fast: 150ms; }
+:root { --color-surface: #1F2937; --space-3: 12px; --radius-md: 8px; --motion-fast: 150ms; }
 
 /* Components/Buttons.uss */
 .ds-btn { background-color: var(--color-surface); padding-left: var(--space-3); border-radius: var(--radius-md); }
@@ -524,6 +524,7 @@ await UssTransition.SetStateAsync(root, "is-open", true, ct);   // flips the cla
 | Need | Tool |
 |---|---|
 | Fade, slide, pop, hover, press, selected-state — any A → B | USS transition + a state class (`is-open`, `is-active`) |
+| Button press / hover / focus / disabled feedback | `.btn` + `:active` / `:hover` / `:focus` / `:disabled` in `Motion.uss` — a pseudo-class, no class flip, no C#. **Every interactive element gets it**; a screen with flat, unresponsive buttons is not done (Card 10). On touch `:active` is the only one that fires. Recipe: `skills/systems/ui-toolkit/SKILL.md` → "1b. Buttons" |
 | Waiting for it to finish | `UssTransition.SetStateAsync` — never raw `TransitionEndEvent`, never `Delay` |
 | Count-up numbers, infinite loops (spinner, pulse), multi-step sequences | C# tween — the project's **existing** library: PrimeTween ≥ 1.3.1 animates `VisualElement` natively; DOTween via the generic `DOTween.To(getter, setter, …)`. Never both. Kill rules from `unity-lifecycle.md` apply unchanged |
 | Blur / grayscale / drop-shadow on an element | USS `filter` — **6000.3+** only |
@@ -577,6 +578,32 @@ Unity is the worst place to *design* a screen and a fine place to *build* one. D
 CSS subset and Figma Auto Layout is flexbox, so the translation is mechanical. Figma → UI Toolkit
 converters exist (open-source `FigmaToUnity`, commercial D.A. Assets); evaluate one before hand-porting
 a large Figma file.
+
+### Mockup → Approval → Build
+
+No screen is built before its mockup is approved, and the approved mockup is a **file in the repo** —
+the thing Card 10 compares against. Chat screenshots and "like the last one" are not a reference.
+
+1. **Produce** one self-contained HTML/CSS file per screen (or per state: default, popup open, empty,
+   disabled) with the `ui-mockup` skill (`skills/systems/ui-mockup/SKILL.md`). Publish it as an Artifact
+   so the human can open it in a browser at phone width.
+2. **Constrain it to what USS can do**, or the port is a redesign: flexbox only (no `grid`, no `float`),
+   `px` at the reference resolution (Card 4), colours/spacing/radius/durations as CSS custom properties
+   **named exactly like the tokens in `DesignTokens.uss`** (Card 2) — a raw hex in a mockup is a raw hex
+   in the port — `transition` on `translate`/`scale`/`opacity`/`background-color` only, no `@keyframes`
+   (Card 14). Button states are written as `:hover` / `:active` / `:disabled`; they are the spec for the
+   `.btn` rules, not decoration. Draw at **both** widths (reference and narrow, Card 8/10).
+3. **Approve**: the human says so explicitly. A mockup still in discussion is a draft and nothing is
+   built from it. A change after approval is a new approval, not an edit in place.
+4. **Save** to `docs/ui/mockups/<Screen>.html` (+ a `<Screen>.png` of each state) and commit it before
+   any View or UXML is written. The builder **Reads this file** and takes structure, hierarchy, spacing
+   and state styling from it; it does not re-interpret a description of it.
+5. **Verify** (Card 10): Play mode at both widths, side by side with the PNG. A visible difference is
+   fixed in the UXML/USS or listed as a deliberate deviation — never silently accepted.
+
+**GOTCHA:** Nothing enforces step 3. No hook knows a mockup exists, so "approved" is only as real as the
+human's word and the file's presence in `docs/ui/mockups/`. If that file is missing, the builder stops
+and asks for it rather than designing the screen itself.
 
 ## What UI Toolkit Still Lacks (every version)
 

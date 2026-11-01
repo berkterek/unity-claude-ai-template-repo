@@ -895,8 +895,33 @@ animation code and no navigation plumbing**. It maps onto what you know from the
 .anim-pop.is-open .popup-panel   { scale: 1 1; }
 ```
 
+### 1b. Buttons — press, hover, disabled (pseudo-classes, no C#)
+
+A button's feedback is a **transition on the base state plus a pseudo-class that changes the target** —
+release animates back by itself. No class flipping, no `UssTransition`, no C# at all. Put it in
+`Motion.uss` so every `ui:Button` carrying `.btn` is covered by one rule:
+
+```css
+.btn                { scale: 1 1; opacity: 1; transition-property: scale, background-color, opacity;
+                      transition-duration: var(--motion-fast); transition-timing-function: ease-out-cubic; }
+.btn:hover          { background-color: var(--color-surface-hover); }   /* desktop/gamepad focus only — touch has no hover */
+.btn:active         { scale: 0.94 0.94; }                               /* the one that matters on mobile */
+.btn:focus          { background-color: var(--color-surface-hover); }   /* gamepad / keyboard navigation */
+.btn:disabled       { opacity: 0.4; }
+
+/* Optional: a softer, bouncier release for the primary call-to-action */
+.btn--primary       { transition-timing-function: ease-out-back; }
+```
+
+- **Mobile target ⇒ `:active` is mandatory, `:hover` is decoration.** A touch screen never fires `:hover`.
+- Transition `scale`/`opacity`/`background-color` only — never `width`/`height`/`padding` (Card 6: relayout).
+- `scale` on `:active` also scales children (label, icon) — that is the intended "pressed" look.
+- Tokens only (`--color-surface-hover` etc.); if the game theme has no hover token, add it to the token file, not here.
+- Anything beyond a state change — a bounce sequence, a punch-scale on purchase, a shake on error — is a C#
+  tween (Card 14 table), triggered from the View's handler, not from USS.
+
 Every animation class transitions `opacity` — that is the single property the helper in step 2 waits
-for. A new animation kind is a new class here, never durations inside a screen's own USS.
+for. (Button classes in 1b are exempt: nothing awaits them.) A new animation kind is a new class here, never durations inside a screen's own USS.
 
 ### 2. `UssTransition` — flip a class, await the real end
 
