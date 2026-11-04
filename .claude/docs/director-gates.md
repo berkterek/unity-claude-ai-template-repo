@@ -443,7 +443,7 @@ These gates are enforced automatically by PreToolUse hooks — the hook exits 2 
 
 | Property | Value |
 |----------|-------|
-| **Fires** | Before `coder` / `unity-coder` spawn, after SCOPE_GATE |
+| **Fires** | Before `coder` / `unity-coder` spawn, after SCOPE_GATE. In `/orchestrate` it is folded into SCOPE_GATE — one `go` per run, renewed in one line when the 45-minute approval expires (`orchestrate.md` Step 0b.5) |
 | **Commands** | Any pipeline command spawning a coder-class agent (`/implement`, `/orchestrate`, `/fix` when complexity ≥ 0.4) |
 | **State file** | `.claude/state/sparc-approved` (independent of `gate-cleared`) |
 | **Shows user** | Specification (what will be built) + Architecture (which files, interfaces, data flow) |

@@ -181,20 +181,31 @@ Pending: [count] (completed [count] will be skipped)
 Complexity: [score] — [Label]
 Review Mode: [solo|lean|full]
 
-Type `go` to continue:
+SPARC — Specification: [one sentence from spec.md: what this module builds]
+SPARC — Architecture: [new files per folder, e.g. "Concretes/Boards: 6 new, 2 edited"; the interfaces design.md adds]
+
+Type `go` to approve scope and SPARC for the whole run:
 ```
 
-Wait for `go` before spawning any agents.
+Wait for `go` before spawning any agents. This one `go` is also the SPARC_GATE approval for every task in this run — the spec and architecture were already approved at `/plan-module` (ARCHITECTURE_GATE + plan review), so asking again per task re-asks a settled question.
+
+> **Why SPARC moved here:** measured on a downstream project (Nov 2026): SPARC_GATE was shown 20 times across 4 `/orchestrate` runs — per task, and again whenever the 45-minute approval expired — costing ~26 minutes of waiting plus an interruption each time, for content the plan had already approved twice.
 
 Read the `Milestone` line's values from `docs/ROADMAP.md`. This command does **not** enforce
 the milestone constraint — it displays it, because this gate is the only enforcement point
 `rules/roadmap-milestones.md` has. If the module's milestone is not the open one, say so in
 one sentence above the block rather than leaving the human to compare two identifiers.
 
-After receiving `go` → run:
+After receiving `go` → run (both files — the second is the SPARC approval):
 ```bash
-mkdir -p "$(git rev-parse --show-toplevel)/.claude/state" && echo '{"gate":"SCOPE_GATE","pipeline":"orchestrate","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared"
+mkdir -p "$(git rev-parse --show-toplevel)/.claude/state" && echo '{"gate":"SCOPE_GATE","pipeline":"orchestrate","ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}' > "$(git rev-parse --show-toplevel)/.claude/state/gate-cleared" && touch "$(git rev-parse --show-toplevel)/.claude/state/sparc-approved"
 ```
+
+**Approval expiry — renew in one line, never re-show the blocks.** Both files expire 45 minutes after `go` (`UNITY_GATE_TTL`; it is not an input — never extend it and never re-stamp a file without a fresh `go`). A long run outlives that. When a guard hook blocks with "expired", or before starting a task more than 40 minutes after the last approval, print exactly:
+```
+⏸ Approval expired (45 min). Next: [task id] [title] — [n] task(s) left. Type `go` to continue.
+```
+On `go`, re-run the command above, which re-stamps both files. Anything else from the user → treat it as a redirect.
 
 Note: per-task COMMIT_GATE is intentionally omitted — orchestration is designed to run tasks hands-free. The Phase Gate (Checkpoint) at the end of each checkpoint serves as the human checkpoint before the next section begins.
 
@@ -236,10 +247,12 @@ Before executing tasks, check for `parallel_group` annotations in tasks.md:
    ⚠ PARALLEL CONFLICT: [T1] and [T2] both write to [file]
    [T2] demoted to sequential. Running [T1] first.
    ```
-3. Execute tasks in the same group simultaneously. Each spawns its own full pipeline (tester → coder → verifier → reviewer).
-4. Wait for all tasks in the group to complete before starting the next group or sequential task.
+3. Execute tasks in the same group simultaneously. Each task runs its own Step 1 (tester) and Step 2 (coder / unity-setup).
+4. Wait for every task's Step 2 to finish, then run **one** Step 3 reviewer for the whole group: "Files Changed" is the union of every task's files, and "Acceptance Criteria" lists each task's criteria under its task ID — the output contract still requires one line per criterion of every task, plus the 12 review criteria once. On CHANGES NEEDED, the Review Loop spawns one coder per task that has a finding, then re-reviews the group (delta: only the previous findings and the files those coders touched). Then **one** Step 3.5 verifier for the group. **Size cap:** if the union holds more than 8 files, do not group the review — run Step 3 once per task instead (the verifier stays one per group). A large diff dilutes one reviewer's attention; the cap keeps the speed win on the many small groups and pays per-task cost only on the few large ones.
 5. If any task in a group fails → stop the entire group. Report all failures. Do not proceed until user resolves.
 6. Commit all group outputs in a single commit after the group completes.
+
+> **Why one review per group:** measured on a downstream project (Nov 2026): 47 Codex reviewer spawns across 4 `/orchestrate` runs, one per task even inside a parallel group whose tasks were single asmdef edits or a 5-line record; one module's reviews alone took 1h09m. The group commits as one unit, so it is reviewed as one unit.
 
 **If complexity score < 0.4:** Ignore `parallel_group` — run all tasks sequentially.
 
@@ -247,12 +260,9 @@ Before executing tasks, check for `parallel_group` annotations in tasks.md:
 
 #### Sequential Task Execution (for each task, in order)
 
-**Announce the task:**
+**Announce the task** — one line (see Rules → keep what you print short):
 ```
-### [Task ID] [Task Title]
-Type: [type] | Agent: [agent type] | Complexity: [S/M/L/XL] | Group: [parallel_group or "sequential"]
-Inputs: [list]
-Outputs: [list]
+### [Task ID] [Task Title] — [agent type], group [parallel_group or "seq"]
 ```
 
 Append to `docs/EVENTS.jsonl`:
@@ -320,9 +330,7 @@ Exit.
 
 #### Step 2 — Coder (or Unity Setup)
 
-**FIRST — SPARC_GATE (blocking, before any coder spawn).**
-
-Show the SPARC_GATE block from `.claude/docs/director-gates.md` → Hook-Enforced Gates: the Specification (what this task builds) and the Architecture (which files, interfaces, data flow). Wait for `go`, then create the state file exactly as that entry specifies (absolute path — a relative `touch` creates a file the hook never reads). **Do not delete it when the coder returns — delete it at Completion, with `gate-cleared`.**
+**SPARC_GATE — already approved at SCOPE_GATE (Step 0b.5).** Do not show a per-task SPARC block. If `.claude/state/sparc-approved` has expired, use the one-line renewal from Step 0b.5. **Do not delete it when the coder returns — delete it at Completion, with `gate-cleared`.**
 
 > Deleting it here deadlocks the first fix pass, and does so deterministically: every later step that spawns a `coder` / `unity-coder` again — the validator fix pass, the reviewer fix pass, the Ralph loop — hits `guard-sparc-approved.sh` exit **2** while the file is absent, and none of them re-opens the gate, so the pipeline blocks itself on an approval the human already gave. This bites hardest here, because `/orchestrate` runs many tasks per approval. The approval does not need the deletion to be bounded: `guard-sparc-approved.sh` calls `unity_gate_cleared_valid "sparc-approved"`, so the same 45-minute `UNITY_GATE_TTL` as `gate-cleared` applies, plus `session-restore.sh`'s SessionStart clear. Same shape as the compaction-revokes-`gate-cleared` bug: the file had a bound already, and a second, eager teardown was the defect.
 
@@ -460,6 +468,8 @@ Exit.
 ---
 
 #### Step 3 — Reviewer
+
+For a task inside a `parallel_group`, this step runs once for the whole group, after every task's Step 2 — see Task Execution item 4. A sequential task is reviewed alone.
 
 Reviewer priority — try in order, fall back if unavailable:
 1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
@@ -811,6 +821,7 @@ Devam? (yes / no / stop)
 - **One pipeline per task.** Never batch multiple tasks into one subagent call.
 - **Subagents get no session history.** Write every prompt as if they know nothing about this conversation.
 - **Reviewer tries Codex first.** Fall back to unity-reviewer if Codex is unavailable.
+- **Keep what you print to the user short.** Per task, two lines plus an optional third: the announce line (`### [id] [title] — [agent], group [n]`), then one result line (`✓ [id] committed [hash] — [n] files, review: [verdict]` or `⛔ [id] BLOCKED — [reason]`), then — only when the task **created** files, tests and fakes included — one line `new: [file names, no paths]`. Edited files stay out of chat. The `new:` line is the one detail kept on purpose: in the same downstream logs the only design objection the user raised mid-run (a hand-written `FakeBoardState` where NSubstitute would do) came from reading the Director's progress text, not from any gate. Other files, inputs/outputs, review criteria and agent reports go to `docs/EVENTS.jsonl` and the commit, not to the chat. Print full detail only where the user must decide: a gate, a BLOCKED task, an EXHAUSTION_GATE, a Checkpoint. Measured on a downstream project (Nov 2026): the Director wrote ~678k characters of chat text against ~13k characters of C# — every line of it is generation time and reading time.
 
 ---
 

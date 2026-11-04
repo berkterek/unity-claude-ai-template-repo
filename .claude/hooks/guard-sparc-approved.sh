@@ -55,7 +55,8 @@ echo "  Show SPARC_GATE to user, wait for 'go', then run:" >&2
 # Resolved path, not relative — this hook checks $SPARC_STATE, so a relative
 # instruction points the human at a file the hook never reads.
 echo "    mkdir -p \"$UNITY_HOOK_STATE_DIR\" && touch \"$SPARC_STATE\"" >&2
-echo "  (touch re-stamps an expired approval too — but only after showing the gate again.)" >&2
+echo "  (touch re-stamps an expired approval too — but only after a fresh 'go'." >&2
+echo "   /orchestrate: use its one-line renewal prompt, not the full SPARC block.)" >&2
 echo "  Delete \"$SPARC_STATE\" after the coder agent completes." >&2
 echo "  ─────────────────────────────────────────────────────────────────────" >&2
 

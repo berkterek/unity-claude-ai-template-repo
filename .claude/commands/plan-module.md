@@ -127,7 +127,7 @@ for inst in installers:
 "
 ```
 
-Store this output as `GRAPH_CONTEXT` and embed it in the Step 3 `Plan` subagent prompt. If `GRAPH_CONTEXT` is empty, the planning stage behaves exactly as before — no regression.
+Store this output as `GRAPH_CONTEXT` and embed it in the Step 3 planning subagent prompt. If `GRAPH_CONTEXT` is empty, the planning stage behaves exactly as before — no regression.
 
 ### Step 1 — Read
 
@@ -215,7 +215,9 @@ Do not proceed to the next step until the gate is approved (the user types `go`)
 
 ### Step 3 — Planning Subagent
 
-Spawn the `Plan` subagent (`subagent_type: "Plan"`, `model: opus`) — the same agent as `/create-plan` Step 2. **Do not use `lean-planner`:** by definition that agent produces no acceptance criteria, no `parallel_group` annotations and no code skeletons, and its output is a single 3-5 row table; this command needs three separate documents (spec/design/tasks), the Given/When/Then ACs the Step 4 reviewer looks for, and the `Callers:`/`Wiring:` lines Step 5's `validate-plan-facts.sh` requires.
+Spawn the planning subagent with `subagent_type: "general-purpose"`, `model: opus`. **Not `Plan`:** the built-in `Plan` agent has no Write tool, so it can only return the three documents as message text, and you then generate the same text a second time to save it. **Do not use `lean-planner`** either: by definition that agent produces no acceptance criteria, no `parallel_group` annotations and no code skeletons, and its output is a single 3-5 row table; this command needs three separate documents (spec/design/tasks), the Given/When/Then ACs the Step 4 reviewer looks for, and the `Callers:`/`Wiring:` lines Step 5's `validate-plan-facts.sh` requires.
+
+> **Why the subagent writes the files itself:** measured on a downstream project (Nov 2026, module 04): the `Plan` agent returned ~298k characters of drafts across 3 hand-backs (~5 minutes of generation each), then the Director re-generated ~98k characters to Write them; module 05 was generated three times (hand-back, scratchpad, `docs/`). Generating text is the slowest thing an agent does, and none of those copies added information.
 
 Give the subagent a **context packet** built from what Step 1 already read. Paste the text itself, quoted under its original heading — never a file pointer:
 - **ROADMAP:** this module's row (name, dependencies, milestone, priority), the open milestone's entry with its inline stub scope, and the suggested build order
@@ -258,6 +260,18 @@ Before you return, check the drafts against the defects plan reviewers reject mo
   it in.
 - Tasks in the same `parallel_group` share no output file and no work directory.
 - A placeholder value in a task body is labelled `placeholder — set at <task id>`.
+- Every file a task creates is its own checkbox line whose FIRST backticked token is the
+  file's full repo-relative path — tests and helpers included. Never list extra files in
+  prose ("Also add, in the same folder: `A.cs`, `B.cs`"): the write-time gate only sees a
+  checkbox line's first path, so every such file is blocked mid-run.
+
+Write the drafts to disk yourself — this is your output, not your reply:
+  docs/modules/<n>-<name>/spec.md
+  docs/modules/<n>-<name>/design.md
+  docs/modules/<n>-<name>/tasks.md
+Write each file once. On a fix pass, change it with Edit — never rewrite a whole file.
+Your reply is a summary of at most 30 lines: the three paths, the task count per phase,
+the "Extra reads" list, and any open question. Never paste document text into the reply.
 ```
 
 **Why a packet and not pointers:** measured on a downstream project (Oct 2026, 11 Plan runs): the prompt was ~2k tokens with no document text, and the Plan agent re-read ROADMAP/GDD/TDD itself through ~227 `cat` commands (~1.1M characters) — the same reads Step 1 had just done. Each run took 17-50 minutes. The "Extra reads" list makes any remaining re-read visible instead of silent.
@@ -271,11 +285,20 @@ Add this block to the prompt:
 
 Instruction: if the graph inventory above is not empty, use it first — read existing interfaces/classes/installers/dependencies from the graph, and open a source file only for a specific line or detail. If the graph is empty (or says "No usable graph"), fall back to the codebase scan results as before.
 
-Take the three document drafts as the subagent's output.
+The subagent's output is the three files on disk. Confirm all three exist; do not Read them into your own context, and never re-Write them.
+
+Then run both validators now, before the reviewer — the files are already on disk, and a violation found here costs one fix pass instead of a reviewer pass:
+
+```bash
+.claude/scripts/validate-plan-paths.sh docs/modules/<n>-<name>/
+.claude/scripts/validate-plan-facts.sh docs/modules/<n>-<name>/
+```
+
+On exit 2, send the violation block back to the same subagent (SendMessage) as BLOCKING, then re-run both. Do not count this toward the reviewer's 3 passes.
 
 ### Step 4 — REVIEWER
 
-Spawn the `reviewer` subagent (`model: sonnet`). Ask it to check:
+Spawn the `reviewer` subagent (`model: sonnet`). Give it the three paths under `docs/modules/<n>-<name>/` — it reads them from disk; never paste their text into its prompt. Ask it to check:
 - Is every task in `tasks.md` `/orchestrate`-compatible? (checkbox + file path + acceptance)
 - Are the `parallel_group` annotations correct?
 - Are `spec.md`'s acceptance criteria testable? (Given/When/Then format)
@@ -301,7 +324,7 @@ verdict line: `CHANGES NEEDED` if the BLOCKING list is non-empty, otherwise `APP
 (MINOR items do not block).
 ```
 
-On `CHANGES NEEDED`, show **QUALITY_GATE** — definition and exact format in `.claude/docs/director-gates.md` → QUALITY_GATE. Do not restate the options here; that file owns them. If the user picks `fix`, hand **both** lists back to the Step 3 `Plan` subagent — MINOR items are fixed in the same pass, they never earn a pass of their own.
+On `CHANGES NEEDED`, show **QUALITY_GATE** — definition and exact format in `.claude/docs/director-gates.md` → QUALITY_GATE. Do not restate the options here; that file owns them. If the user picks `fix`, hand **both** lists back to the Step 3 planning subagent with SendMessage — it edits the files in place; MINOR items are fixed in the same pass, they never earn a pass of their own. If the user picks `stop`, delete `docs/modules/<n>-<name>/` (only if `git status --short docs/modules/<n>-<name>/` shows it untracked) so a later `/plan-module` does not stop on "already planned".
 
 **A re-review is a delta review, not a fresh one.** Pass 2 and 3 get the previous BLOCKING list and the revised drafts, and answer only: is each previous BLOCKING item resolved, and did the fix introduce a new BLOCKING defect? A fresh full review on every pass finds new MINOR items every time and never converges. At most **3 reviewer passes** total. Never reach Step 5 on an unresolved `CHANGES NEEDED`, and never fix the plan yourself instead of showing the gate: that decision is the user's.
 
@@ -311,12 +334,12 @@ On `APPROVED` with a non-empty MINOR list, show the MINOR list to the user in on
 
 ### Step 5 — SAVE
 
-Save the three files under `docs/modules/<n>-<name>/`:
+The three files are already under `docs/modules/<n>-<name>/` (written by the Step 3 subagent):
 - `spec.md`
 - `design.md`
 - `tasks.md`
 
-**Then run, BLOCKING — the plan must exist on disk before either script can see it:**
+**Re-run both validators, BLOCKING — the reviewer's fix passes changed the files after Step 3's run:**
 
 ```bash
 .claude/scripts/validate-plan-paths.sh docs/modules/<n>-<name>/
