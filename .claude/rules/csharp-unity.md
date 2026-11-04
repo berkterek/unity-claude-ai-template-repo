@@ -282,6 +282,16 @@ The `Game.Concretes.<Domain>` namespace can collide with `UnityEngine` type name
 
 **Pre-plan check:** Before creating a new domain folder, the Researcher must verify that the domain name does not match a `UnityEngine` type — **by checking the name against `UnityEngine` itself, not by scanning the table above.** With Unity MCP connected, `unity_reflect` resolves `UnityEngine.<DomainName>` directly; without it, search the engine reference under `docs/engine-reference/unity/`. If a match exists, add an alias task to the plan **and** add a row to the table so the next plan gets the shortcut. Consulting only the table is how `GridLayout` reached a module in the first place.
 
+### Type-Name Collisions (a different case)
+
+The table above is about a **domain namespace** named like a `UnityEngine` type. A **class** named like one collides too, but only in files outside its own namespace: inside `Game.Concretes.Audio` the enclosing namespace wins, while a file that has both `using UnityEngine;` and `using Game.Concretes.Audio;` gets `CS0104` on the bare name.
+
+| Our type | Colliding UnityEngine type | Fix in the consuming file |
+|----------|---------------------------|---------------------------|
+| `AudioConfiguration` (this template's own example name) | `UnityEngine.AudioConfiguration` (struct returned by `AudioSettings.GetConfiguration()`) | `using AudioConfiguration = Game.Concretes.Audio.AudioConfiguration;` |
+
+`ConfigCatalog` is the usual victim: it needs `using UnityEngine;` for `ScriptableObject` and references every config type. The pre-plan check above covers **new type names** as well as domain names — check each new class name against `UnityEngine` the same way, and add the alias task to the plan when it matches.
+
 ---
 
 ## Field Declarations

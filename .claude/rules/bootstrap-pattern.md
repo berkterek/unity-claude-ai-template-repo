@@ -391,6 +391,8 @@ namespace Game.Concretes.Infrastructure
 // _GameFolders/Scripts/Games/Concretes/Infrastructure/ConfigCatalog.cs
 using System.Collections.Generic;
 using UnityEngine;
+using Game.Concretes.Players;
+using AudioConfiguration = Game.Concretes.Audio.AudioConfiguration; // UnityEngine.AudioConfiguration exists — csharp-unity.md → Type-Name Collisions
 
 namespace Game.Concretes.Infrastructure
 {
