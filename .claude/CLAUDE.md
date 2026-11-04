@@ -140,7 +140,7 @@ Named prompts that pause the pipeline and wait for human approval before continu
 | `EVIDENCE_GATE` | `/fix-deep` | Automated reproduction produced no debug logs | Supply the evidence yourself: `retry` / `manual: <text>` / `stop` |
 | `HYPOTHESIS_GATE` | `/fix-deep` | Evidence refuted the hypothesis (bound: 2 revision cycles) | Spend another investigation cycle or stop: `retry` / `stop` |
 | `COMMIT_GATE` | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/scene-setup`, `/create-prefab-scene` | After all verification, immediately before committer | Final sign-off on staged files — type `go` or `stop` |
-| `SPARC_GATE` | `/implement`, `/orchestrate`, `/fix` (≥ 0.4) | Before coder spawn, after SCOPE_GATE | Approve Specification + Architecture (how it will be built) |
+| `SPARC_GATE` | `/implement`, `/orchestrate`, `/fix` (≥ 0.4) | Before coder spawn, after SCOPE_GATE (in `/orchestrate`: folded into SCOPE_GATE — one `go` per run) | Approve Specification + Architecture (how it will be built) |
 
 Gate markers (`gate-cleared`, `sparc-approved`, `codex-reviewed`) are bounded by a 45-minute TTL and cleared at
 SessionStart — except `source=compact`, which keeps them. `UNITY_GATE_TTL` is not an input. → `docs/incidents/gate-markers.md`
