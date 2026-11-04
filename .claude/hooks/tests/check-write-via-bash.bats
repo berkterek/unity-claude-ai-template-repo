@@ -184,3 +184,27 @@ EOF"
     run bash -c "jq -n '{tool_input:{command:\"cp -r /tmp/dir Assets/Scripts/\"}}' | bash $HOOK"
     [ "$status" -eq 0 ]
 }
+
+# --- size: a timed-out PreToolUse hook lets the command through unchecked --------
+
+_big_heredoc() {
+    printf "python3 - <<'PY'\n"
+    for i in $(seq 1 5000); do echo "print($i)"; done
+    echo PY
+}
+
+@test "a 5000-line heredoc is checked inside the 3s hook limit" {
+    # Regression: the segment loops spawned greps per line (~3ms/line), so a large
+    # heredoc outran the 3s timeout and passed unchecked. alarm 3 kills a slow run (142).
+    local payload="${UNITY_HOOK_STATE_DIR}/payload.json"
+    jq -n --arg c "$(_big_heredoc)" '{tool_input:{command:$c}}' > "$payload"
+    run perl -e 'alarm 3; exec @ARGV' bash $HOOK < "$payload"
+    [ "$status" -eq 0 ]
+}
+
+@test "a sed -i on a .cs after a 5000-line heredoc is still blocked" {
+    local payload="${UNITY_HOOK_STATE_DIR}/payload.json"
+    jq -n --arg c "$(_big_heredoc; echo "sed -i '' 's/a/b/' Assets/Foo.cs")" '{tool_input:{command:$c}}' > "$payload"
+    run perl -e 'alarm 3; exec @ARGV' bash $HOOK < "$payload"
+    [ "$status" -eq 2 ]
+}

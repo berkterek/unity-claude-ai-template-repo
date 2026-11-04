@@ -53,3 +53,20 @@ teardown() {
     run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
     [ "$status" -eq 0 ]
 }
+
+@test "warns on an input read inside FixedUpdate" {
+    local f="$TMPDIR_TEST/PlayerController.cs"
+    printf '%s\n' "private void FixedUpdate()" "{" "    var move = _controls.Player.Move.ReadValue<Vector2>();" "}" > "$f"
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"inside FixedUpdate"* ]]
+}
+
+@test "a 3000-line file with no FixedUpdate finishes inside the 5s hook limit" {
+    # Regression: the FixedUpdate scan spawned greps per line (~1.5ms/line) even when the
+    # file had no FixedUpdate. alarm 5 kills a slow run (exit 142).
+    local f="$TMPDIR_TEST/BoardService.cs"
+    for i in $(seq 1 3000); do echo "    public int M$i(int x) { return x + $i; }"; done > "$f"
+    run perl -e 'alarm 5; exec @ARGV' bash -c "echo '{\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}

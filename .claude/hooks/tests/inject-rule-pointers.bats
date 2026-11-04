@@ -167,3 +167,14 @@ _prompt() { jq -n --arg p "$1" '{prompt: $p}'; }
     UNITY_HOOK_PROFILE=minimal run bash $HOOK <<< "$(_prompt 'save the score')"
     [ -z "$output" ]
 }
+
+@test "a 50k-character prompt (a subagent hand-back) finishes well inside the 5s hook limit" {
+    # Regression: `${PROMPT//[[:space:]]/}` was super-linear (4.4s at 4k chars), so every
+    # large prompt hit the 5s timeout and the hook never ran. alarm 5 kills a slow run (exit 142).
+    local big
+    big=$(python3 -c "print('modified the save scene and prefab handler\n' * 1200)")
+    _prompt "$big" > "$UNITY_HOOK_STATE_DIR/big.json"
+    run perl -e 'alarm 5; exec @ARGV' bash $HOOK < "$UNITY_HOOK_STATE_DIR/big.json"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"rules/save-load.md"* ]]
+}

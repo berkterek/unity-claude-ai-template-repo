@@ -133,7 +133,9 @@ fi
 # Extract FixedUpdate body (rough heuristic: lines between FixedUpdate and next method)
 IN_FIXED_UPDATE=false
 INPUT_IN_FIXED=""
-while IFS= read -r line; do
+# The loop spawns greps per line (~1.5ms/line, measured Nov 2026), and it can only
+# find something when the file has a FixedUpdate — so skip it in one grep otherwise.
+grep -qE "void[[:space:]]+FixedUpdate[[:space:]]*\(" <<< "$STRIPPED" && while IFS= read -r line; do
     if grep -qE "void[[:space:]]+FixedUpdate[[:space:]]*\(" <<< "$line"; then
         IN_FIXED_UPDATE=true
         continue

@@ -36,7 +36,9 @@ fi
 # Pasted blocks are someone else's text (logs, other sessions' output) — a package
 # named inside one says nothing about what the user is asking for now.
 PROMPT=$(printf '%s' "$PROMPT" | perl -0pe 's{<pasted_content\b[^>]*>.*?</pasted_content\b[^>]*>}{}gs')
-[ -z "${PROMPT//[[:space:]]/}" ] && exit 0
+# Regex, not `${PROMPT//[[:space:]]/}` — that substitution is super-linear in bash
+# (4.4s at 4k chars) and timed out every large prompt; see inject-rule-pointers.sh.
+[[ "$PROMPT" =~ [^[:space:]] ]] || exit 0
 
 # ---------------------------------------------------------------------------
 # Keyword → skill name mapping

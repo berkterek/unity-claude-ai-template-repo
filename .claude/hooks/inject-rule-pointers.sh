@@ -43,7 +43,11 @@ PROMPT=$(printf '%s' "$INPUT" | jq -r '.prompt // empty' 2>/dev/null \
 # Pasted blocks are someone else's text (logs, other sessions' output) — their
 # keywords say nothing about what the user is asking for now.
 PROMPT=$(printf '%s' "$PROMPT" | perl -0pe 's{<pasted_content\b[^>]*>.*?</pasted_content\b[^>]*>}{}gs')
-[ -z "${PROMPT//[[:space:]]/}" ] && exit 0
+# A regex test, never `${PROMPT//[[:space:]]/}`: bash's pattern substitution is
+# super-linear — 4.4s at 4k characters — and subagent hand-backs arrive here as
+# prompts of 100k+. Every one timed out at the 5s hook limit, so the hook was
+# both a 5s stall per message and silently never ran (Nov 2026, 106/106 runs).
+[[ "$PROMPT" =~ [^[:space:]] ]] || exit 0
 
 FEATURES_FILE="${UNITY_PROJECT_FEATURES_FILE:-${SCRIPT_DIR}/../project-features.json}"
 RULES_DIR="${SCRIPT_DIR}/../rules"

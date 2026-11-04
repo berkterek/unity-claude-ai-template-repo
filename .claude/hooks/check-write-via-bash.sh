@@ -70,7 +70,12 @@ fi
 # another, and was blocked even though sed only ever touched a .md file. Split on
 # ; && || | first, then require both in one piece.
 if [ -z "$VIOLATION" ]; then
-    _segments=$(echo "$CMD" | tr ';|&' '\n')
+    # Pre-filter with ONE grep over all segments, then loop only over candidates.
+    # The loop used to spawn its greps for every segment, so a 5000-line heredoc
+    # cost ~3ms per line and outran the 3s hook timeout — and a timed-out
+    # PreToolUse hook lets the command through unchecked (measured Nov 2026).
+    # The in-loop test below is unchanged, so the result is identical.
+    _segments=$(echo "$CMD" | tr ';|&' '\n' | grep -E "\b(sed|perl)\b.*[[:space:]]-i([[:space:]]|')" || true)
     while IFS= read -r _seg; do
         grep -qE "\b(sed|perl)\b.*[[:space:]]-i([[:space:]]|')" <<< "$_seg" || continue
         grep -qE "\.($EXT_RE)([[:space:]]|['\"]|$)" <<< "$_seg" || continue
@@ -95,7 +100,8 @@ fi
 # ; | & first and judge each segment on its own, then resolve a directory
 # destination to the file it will actually produce.
 if [ -z "$VIOLATION" ]; then
-    _segments=$(echo "$CMD" | tr ';|&' '\n')
+    # Same one-grep pre-filter as block 3; the in-loop test is unchanged.
+    _segments=$(echo "$CMD" | tr ';|&' '\n' | grep -E "\b(cp|mv|install)\b" || true)
     while IFS= read -r _seg; do
         grep -qE "\b(cp|mv|install)\b" <<< "$_seg" || continue
         grep -qE "\.($EXT_RE)([[:space:]]|['\"]|\$)" <<< "$_seg" || continue

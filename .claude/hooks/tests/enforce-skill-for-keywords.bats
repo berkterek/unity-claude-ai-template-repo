@@ -70,3 +70,12 @@ teardown() { rm -rf "$UNITY_HOOK_STATE_DIR"; }
     output=$(bash "$HOOK" 2>/dev/null <<< '{"prompt":"use unitask for the loader"}')
     [ -z "$output" ]   # stdout only — the skip note goes to stderr by design
 }
+
+@test "a 50k-character prompt finishes well inside the 5s hook limit" {
+    # Regression: see the same test in inject-rule-pointers.bats.
+    local big
+    big=$(python3 -c "print('modified the handler and the tests\n' * 1500)")
+    jq -n --arg p "$big" '{prompt: $p}' > "$BATS_TEST_TMPDIR/big.json"
+    run perl -e 'alarm 5; exec @ARGV' bash "$HOOK" < "$BATS_TEST_TMPDIR/big.json"
+    [ "$status" -eq 0 ]
+}
