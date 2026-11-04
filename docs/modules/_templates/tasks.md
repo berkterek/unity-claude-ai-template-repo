@@ -7,6 +7,11 @@
 > `FormerlySerializedAs:` when the task renames a `[SerializeField]`.
 > Validated at plan time by `.claude/scripts/validate-plan-facts.sh` — by `/plan-module` at SAVE, and by `/orchestrate` before SCOPE_GATE.
 >
+> **One created file = one checkbox line, full path first.** Never "Also add, in the same
+> folder: `A.cs`, `B.cs`" — the write-time gate sees only a checkbox line's first backticked
+> path, so each file listed that way is blocked mid-run. A backticked `.cs` in a task body
+> must be a file on disk or another task's path; the validator rejects anything else.
+>
 > **These fields are cross-verified by a machine, not just read by a human —**
 > only specific shapes earn `cross-verified` in the validator's receipt, and
 > every new `.cs` also needs an `.asmdef` owning its location — either already

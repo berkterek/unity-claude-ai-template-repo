@@ -149,6 +149,13 @@ ALL_TASK_PATHS=$(_declared_subjects '\.cs$' | sort -u)
 # hatch around the owning-asmdef check below.
 ALL_ASMDEF_PATHS=$(_declared_subjects '\.asmdef$' | sort -u)
 
+# Basenames for the undeclared-file check below: what the plan declares as a task
+# subject, and what already exists on disk. A body mention resolves against either.
+ALL_TASK_BASENAMES=$(printf '%s\n' "$ALL_TASK_PATHS" | sed 's#.*/##' | sort -u)
+DISK_CS_BASENAMES=$(find "$REPO_ROOT" -type f -name '*.cs' \
+    -not -path '*/Library/*' -not -path '*/Temp/*' -not -path '*/.git/*' -not -path '*/.claude/*' \
+    2>/dev/null | sed 's#.*/##' | sort -u)
+
 VIOLATIONS=0; CHECKED=0; NEW=0; EDIT=0; EXEMPT=0; DUP_CHECKED=0
 CALLERS_OK=0; CALLERS_PRESENCE=0; WIRING_SVC_OK=0; WIRING_PRESENCE=0
 SEEN_PATHS=""
@@ -168,6 +175,34 @@ while IFS= read -r p; do
     BODY=$(unity_find_task_line "$p")
     BASE=$(basename "$p" .cs)
     P_ABS=$(_abs_repo_path "$p")
+
+    # --- undeclared file mentioned in a task body ---
+    # gateguard covers a path only when it is the FIRST backticked token of a
+    # checkbox line. "Also add, in the same folder: `A.cs`, `B.cs`" reads as a
+    # declaration to a human and to the planner, but every such file is blocked
+    # at write time inside a subagent, where the gate never clears. Measured on a
+    # downstream project (Nov 2026): ~32 of 42 subagent fact-gate blocks were files
+    # listed this way. A backticked .cs in a body must therefore name a file on
+    # disk or another task's subject. Runs before the /Tests/ exemption: a test
+    # file listed this way is blocked at write time exactly the same.
+    # Callers:/Wiring: lines are skipped — they have their own rules below.
+    UNDECLARED=""
+    while IFS= read -r m; do
+        [ -z "$m" ] && continue
+        [ "$m" = "$p" ] && continue
+        MB=${m##*/}
+        # Here-strings, not `printf | grep -q`: under pipefail an early grep exit
+        # SIGPIPEs printf and turns a match into a miss on a long list.
+        grep -qxF -- "$MB" <<< "$ALL_TASK_BASENAMES" && continue
+        grep -qxF -- "$MB" <<< "$DISK_CS_BASENAMES" && continue
+        [ -f "$(_abs_repo_path "$m")" ] && continue
+        UNDECLARED="$m"; break
+    done < <(printf '%s\n' "$BODY" | grep -vE '^[[:space:]]*-[[:space:]]*(Callers|Wiring):' \
+                | grep -oE '`[^` ]+\.cs`' | tr -d '`' | sort -u)
+    if [ -n "$UNDECLARED" ]; then
+        _violation "$p" "the body names ${UNDECLARED}, which is neither on disk nor any task's path. If this task creates it, give it its own checkbox line with the full path first — the write-time gate cannot see it otherwise. If it is only a reference, write it without backticks."
+        continue
+    fi
 
     case "$p" in
         */Tests/*) EXEMPT=$((EXEMPT + 1)); continue ;;

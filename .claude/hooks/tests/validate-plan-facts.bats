@@ -766,3 +766,32 @@ EOF
     assert_output_contains "files scanned  : 1"
     assert_output_contains "[Domain]Module.cs"
 }
+
+@test "a file listed only in a task body ('Also add: X.cs') is a violation — gateguard cannot see it" {
+    mkdir -p "$TMPDIR_TEST/Concretes/Levels"
+    touch "$TMPDIR_TEST/Concretes/Levels/Levels.asmdef"
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF2
+- [ ] T001 \`$TMPDIR_TEST/Concretes/Levels/LevelDefinition.cs\` — records. Also add, in the same folder: \`CellDefinition.cs\`, \`GridPoint.cs\`.
+  - Callers: T002
+  - Wiring: n/a
+EOF2
+    UNITY_FACTS_REPO_ROOT="$TMPDIR_TEST" run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 2 ]
+    assert_output_contains "the body names CellDefinition.cs"
+}
+
+@test "a body mention of a file already on disk, or declared by another task, is not a violation" {
+    mkdir -p "$TMPDIR_TEST/Concretes/Levels"
+    touch "$TMPDIR_TEST/Concretes/Levels/Levels.asmdef" "$TMPDIR_TEST/Concretes/Levels/Board.cs"
+    cat > "$UNITY_PLAN_ROOT/modules/02-players/tasks.md" <<EOF2
+- [ ] T001 \`$TMPDIR_TEST/Concretes/Levels/LevelDefinition.cs\` — port from \`Board.cs\`; \`CellDefinition.cs\` comes next.
+  - Callers: T002
+  - Wiring: n/a
+- [ ] T002 \`$TMPDIR_TEST/Concretes/Levels/CellDefinition.cs\` — record
+  - Callers: T001
+  - Wiring: n/a
+EOF2
+    UNITY_FACTS_REPO_ROOT="$TMPDIR_TEST" run bash "$SCRIPT" "$UNITY_PLAN_ROOT/modules/02-players/tasks.md"
+    [ "$status" -eq 0 ]
+    refute_output_contains "the body names"
+}

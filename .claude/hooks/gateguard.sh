@@ -65,6 +65,17 @@ case "$FILE_PATH" in
     *) exit 0 ;;
 esac
 
+# The Claude Code session scratchpad (/tmp/claude-<uid>/<project>/<session>/
+# scratchpad/) is not a project file. A probe or harness .cs there never
+# compiles into the game, and inside a subagent no plan can cover it, so gating
+# it only produced a block that could not clear (5 of 42 subagent fact-gate
+# blocks on a downstream project, Nov 2026). Deliberately narrower than "any
+# temp dir": the hook's own bats fixtures live under mktemp paths and must
+# stay gated.
+case "$FILE_PATH" in
+    /tmp/claude-*/scratchpad/*|/private/tmp/claude-*/scratchpad/*) exit 0 ;;
+esac
+
 BASENAME=$(basename "$FILE_PATH" .cs)
 DIR=$(dirname "$FILE_PATH")
 

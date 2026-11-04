@@ -24,6 +24,13 @@ teardown() {
     [ "$status" -eq 2 ]
 }
 
+@test "a .cs in the Claude Code session scratchpad is not gated, even inside a subagent" {
+    echo 2 > "${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    local f="/private/tmp/claude-501/-Users-x-proj/0000-session/scratchpad/probe/Probe.cs"
+    UNITY_HOOK_PROFILE=strict run bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$f\"}}' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
 @test "fact-gate NEVER clears on retry inside a subagent" {
     # Deny-then-allow verifies nothing: a caller that merely retries walks through.
     # Acceptable for the Director, whose retry follows printing the facts where the
