@@ -385,6 +385,39 @@ def _chain_as(pos):
         return "AsImplementedInterfaces"
     return ""
 
+def line_of(pos):
+    return text.count("\n", 0, pos) + 1
+
+def _chain_list(pos):
+    """Every trailing chained call name after the registration at `pos`, in order
+    (`As<IFoo>` keeps its type arg). Skips the balanced argument list first so lambda
+    bodies are not read as chain links; stops at the statement's end."""
+    def skip_parens(i):
+        n = len(text)
+        while i < n and text[i] in " \t\r\n":
+            i += 1
+        if i >= n or text[i] != "(":
+            return i
+        depth = 0
+        while i < n:
+            if text[i] == "(":
+                depth += 1
+            elif text[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    return i + 1
+            i += 1
+        return i
+    names = []
+    i = skip_parens(pos)
+    while True:
+        mm = re.compile(r'\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)(?:<([^<>()]*)>)?\s*\(').match(text, i)
+        if not mm:
+            break
+        names.append(mm.group(1) + ("<" + mm.group(2).strip() + ">" if mm.group(2) else ""))
+        i = skip_parens(mm.end() - 1)
+    return names
+
 # Form 1b: builder.RegisterInstance<IFoo>(new Foo(...))
 for m in re.finditer(
     r'builder\.RegisterInstance<([A-Za-z0-9_]+)>\s*\(\s*new\s+([A-Za-z0-9_]+)',
@@ -398,7 +431,8 @@ for m in re.finditer(
     # but never implemented here.
     results.append({
         "type": m.group(2), "as": _chain_as(m.end()) or m.group(1),
-        "lifetime": "Singleton", "scope": ""
+        "lifetime": "Singleton", "scope": "",
+        "method": "RegisterInstance", "chain": _chain_list(m.end()), "line": line_of(m.start())
     })
 
 # Form 1c: builder.RegisterInstance<IFoo>(_fooField)
@@ -411,16 +445,17 @@ for m in re.finditer(
     consumed_starts.add(m.start())
     iface, ident = m.group(1), m.group(2)
     concrete = FIELD_TYPES.get(ident, "")
+    _x = {"method": "RegisterInstance", "chain": _chain_list(m.end()), "line": line_of(m.start())}
     chained = _chain_as(m.end())     # explicit chain outranks the generic arg — see Form 1b
     if concrete:
-        results.append({"type": concrete, "as": chained or iface, "lifetime": "Singleton", "scope": ""})
+        results.append({"type": concrete, "as": chained or iface, "lifetime": "Singleton", "scope": "", **_x})
     else:
         # Mirrors Task 1 step 7 (tree-sitter side): the ONLY interface_only site
         # in this extractor. Do NOT reuse Form 2's name-guessing heuristic here —
         # the generic argument is strictly better information than a de-underscored
         # identifier guess.
         results.append({"type": iface, "as": "", "lifetime": "Singleton",
-                        "scope": "", "interface_only": True, "confidence": "INFERRED"})
+                        "scope": "", "interface_only": True, "confidence": "INFERRED", **_x})
 
 # Form 1: generic  builder.Register<Type>(Lifetime.X)
 # `as` is normalised to a STRING throughout (was a list-or-string). schema.json:177
@@ -435,7 +470,7 @@ for m in re.finditer(
 # in `as` is unresolved; no such call site exists in either repo to arbitrate it. Current
 # behaviour (explicit chain wins) is kept, matching Task 1's tree-sitter side.
 for m in re.finditer(
-    r'builder\.(Register(?:Instance|Component(?:InHierarchy)?)?)'
+    r'builder\.(Register(?:Instance|Factory|EntryPoint|Component(?:InHierarchy)?)?)'
     r'<([A-Za-z0-9_]+)>'
     r'(?:[^;(]*\(\s*Lifetime\.(\w+)\s*\))?',
     text
@@ -455,6 +490,14 @@ for m in re.finditer(
     # `\(\s*Lifetime\.` right there and a lambda argument does not match it, so the group
     # fails and the args are still ahead of us. Bound the scan at the statement terminator
     # for the same reason _chain_as does — an unbounded window reads the next statement.
+    _method = m.group(1)
+    _line = line_of(m.start())
+    if _method == "RegisterFactory":
+        results.append({"type": "", "as": "", "lifetime": "", "scope": "",
+                        "unresolved": True, "confidence": "AMBIGUOUS",
+                        "factory_of": m.group(2), "method": _method,
+                        "chain": _chain_list(m.end()), "line": _line})
+        continue
     _tail = text[m.end():m.end() + 600]
     _semi = _tail.find(";")
     if _semi != -1:
@@ -483,6 +526,7 @@ for m in re.finditer(
                 "unresolved": True,
                 "confidence": "AMBIGUOUS"
             }
+        reg.update({"method": _method, "chain": _chain_list(m.end()), "line": _line})
         results.append(reg)
         continue
 
@@ -499,6 +543,7 @@ for m in re.finditer(
     # and a parity break against the tree-sitter side, which correctly emits "". Reproduced
     # during v4 implementation; found by Task 8's probe construction.
     reg["as"] = _chain_as(m.end())   # same helper as Form 1b/1c — one implementation of the rule
+    reg.update({"method": _method, "chain": _chain_list(m.end()), "line": _line})
     results.append(reg)
 
 # Form 2: non-generic  builder.RegisterInstance(someVar)
@@ -518,6 +563,7 @@ for m in re.finditer(
         type_name = arg.lstrip('_')
         type_name = type_name[0].upper() + type_name[1:] if type_name else arg
         reg = {"type": type_name, "as": "", "lifetime": "Singleton", "scope": "", "inferred": True}
+    reg.update({"method": "RegisterInstance", "chain": _chain_list(m.end()), "line": line_of(m.start())})
     results.append(reg)
 
 # Deduplicate by (type, as) pair, not type alone — two interfaces backed by the same

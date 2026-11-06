@@ -127,22 +127,189 @@ _NESTED_TYPE_KINDS = {
 }
 
 
-def _own_method_nodes(node, results):
-    """method_declaration nodes belonging to THIS type. Descends through
+def _own_member_nodes(node, kinds, results):
+    """Nodes of the given kinds belonging to THIS type. Descends through
     wrappers (e.g. `#if UNITY_EDITOR` / `#region` → preproc_* nodes) so guarded
-    methods are still captured, but does NOT descend into nested type
-    declarations (their methods belong to their own class entry) nor into a
-    method's own body. A plain `_find_children` would drop preproc-wrapped
-    methods; a plain recursive `_walk` would double-count nested-type methods."""
+    members are still captured, but does NOT descend into nested type
+    declarations (their members belong to their own class entry) nor into a
+    member's own body. A plain `_find_children` would drop preproc-wrapped
+    members; a plain recursive `_walk` would double-count nested-type members."""
     for child in node.children:
         t = child.type
         if t in _NESTED_TYPE_KINDS:
             continue
-        if t == "method_declaration":
+        if t in kinds:
             results.append(child)
             continue
-        _own_method_nodes(child, results)
+        _own_member_nodes(child, kinds, results)
     return results
+
+
+_MEMBER_KINDS_METHOD = {"method_declaration"}
+_MEMBER_KINDS_PROP = {"property_declaration"}
+_MEMBER_KINDS_FIELD = {"field_declaration", "event_field_declaration"}
+
+
+def _own_method_nodes(node, results):
+    return _own_member_nodes(node, _MEMBER_KINDS_METHOD, results)
+
+
+def _signature(decl, src):
+    stop = decl.child_by_field_name("body")
+    if stop is None:
+        stop = next((c for c in decl.children if c.type in ("arrow_expression_clause", ";")), None)
+    start = next((c for c in decl.children if c.type != "attribute_list"), decl)
+    end_byte = stop.start_byte if stop is not None else decl.end_byte
+    text = " ".join(src[start.start_byte:end_byte].decode("utf-8", errors="replace").split())
+    text = re.sub(r"\(\s+", "(", text)
+    return re.sub(r"\s+\)", ")", text)
+
+
+DOC_CAP = 300
+
+
+def _doc_for(decl, src):
+    """Attached `///` block of a declaration as {summary, remarks} (non-empty parts only), else None."""
+    lines = []
+    row = decl.start_point[0]
+    prev = decl.prev_sibling
+    while prev is not None and prev.type == "comment" and prev.end_point[0] + 1 == row:
+        text = src[prev.start_byte:prev.end_byte].decode("utf-8", errors="replace").strip()
+        if not text.startswith("///"):
+            break
+        lines.append(text[3:])
+        row = prev.start_point[0]
+        prev = prev.prev_sibling
+    if not lines:
+        return None
+    lines.reverse()
+    return _parse_doc("\n".join(lines))
+
+
+def _clean_doc_text(text):
+    text = " ".join(text.split())
+    return text[:DOC_CAP] + "\u2026" if len(text) > DOC_CAP else text
+
+
+def _name_ref(m):
+    return m.group(1).split(":", 1)[-1] if m.group(1)[1:2] == ":" else m.group(1)
+
+
+def _regex_doc_part(xml_text, tag):
+    m = re.search(r"<%s\b[^>]*>(.*?)</%s>" % (tag, tag), xml_text, re.S)
+    if not m:
+        return ""
+    t = re.sub(r"<see\s+cref=\"([^\"]*)\"\s*/?>(</see>)?", lambda x: _name_ref(x), m.group(1))
+    t = re.sub(r"<(?:paramref|typeparamref)\s+name=\"([^\"]*)\"\s*/?>", r"\1", t)
+    return _clean_doc_text(re.sub(r"<[^>]+>", "", t))
+
+
+def _flatten_doc_element(el):
+    parts = []
+
+    def rec(e):
+        if e.tag == "see" and e.get("cref"):
+            c = e.get("cref")
+            parts.append(c[2:] if c[1:2] == ":" else c)
+        elif e.tag in ("paramref", "typeparamref") and e.get("name"):
+            parts.append(e.get("name"))
+        else:
+            parts.append(e.text or "")
+            for child in e:
+                rec(child)
+        parts.append(e.tail or "")
+
+    parts.append(el.text or "")
+    for child in el:
+        rec(child)
+    return _clean_doc_text("".join(parts))
+
+
+def _parse_doc(xml_text):
+    import xml.etree.ElementTree as ET
+    out = {}
+    try:
+        root = ET.fromstring("<doc>" + xml_text + "</doc>")
+        for tag in ("summary", "remarks"):
+            el = root.find(tag)
+            val = _flatten_doc_element(el) if el is not None else ""
+            if val:
+                out[tag] = val
+    except ET.ParseError:
+        for tag in ("summary", "remarks"):
+            val = _regex_doc_part(xml_text, tag)
+            if val:
+                out[tag] = val
+    return out or None
+
+
+def _attach_doc(rec, decl, src):
+    doc = _doc_for(decl, src)
+    if doc:
+        rec["doc"] = doc
+    return rec
+
+
+def _extract_properties(body, src):
+    props = []
+    for p_node in _own_member_nodes(body, _MEMBER_KINDS_PROP, []):
+        name_node = p_node.child_by_field_name("name")
+        if not name_node:
+            continue
+        mod_texts = [_node_text(m, src) for m in _find_children(p_node, "modifier")]
+        type_node = p_node.child_by_field_name("type")
+        accessors = []
+        acc_list = next((c for c in p_node.children if c.type == "accessor_list"), None)
+        if acc_list:
+            for acc in _find_children(acc_list, "accessor_declaration"):
+                kw = next((_node_text(c, src) for c in acc.children
+                           if _node_text(c, src) in ("get", "set", "init")), None)
+                if kw:
+                    accessors.append(kw)
+        is_expr = any(c.type == "arrow_expression_clause" for c in p_node.children)
+        if is_expr:
+            accessors.append("get")
+        props.append(_attach_doc({
+            "name": _node_text(name_node, src),
+            "type": _node_text(type_node, src) if type_node else "",
+            "line": p_node.start_point[0] + 1,
+            "end_line": p_node.end_point[0] + 1,
+            "accessibility": _extract_accessibility(_find_children(p_node, "modifier"), src),
+            "is_static": "static" in mod_texts,
+            "accessors": accessors,
+            "is_expression_bodied": is_expr,
+        }, p_node, src))
+    return props
+
+
+def _extract_fields(body, src):
+    fields = []
+    for f_node in _own_member_nodes(body, _MEMBER_KINDS_FIELD, []):
+        vd = next((c for c in f_node.named_children if c.type == "variable_declaration"), None)
+        if not vd:
+            continue
+        mod_texts = [_node_text(m, src) for m in _find_children(f_node, "modifier")]
+        type_node = vd.child_by_field_name("type") or next(
+            (c for c in vd.named_children if c.type in _TYPE_NODES), None)
+        type_text = _node_text(type_node, src) if type_node else ""
+        accessibility = _extract_accessibility(_find_children(f_node, "modifier"), src)
+        for decl in _find_children(vd, "variable_declarator"):
+            nm = decl.child_by_field_name("name") or next(
+                (c for c in decl.named_children if c.type == "identifier"), None)
+            if not nm:
+                continue
+            fields.append(_attach_doc({
+                "name": _node_text(nm, src),
+                "type": type_text,
+                "line": f_node.start_point[0] + 1,
+                "end_line": f_node.end_point[0] + 1,
+                "accessibility": accessibility,
+                "is_static": "static" in mod_texts,
+                "is_const": "const" in mod_texts,
+                "is_readonly": "readonly" in mod_texts,
+                "is_event": f_node.type == "event_field_declaration",
+            }, f_node, src))
+    return fields
 
 
 def _extract_methods(class_body, src):
@@ -159,14 +326,16 @@ def _extract_methods(class_body, src):
         is_static = "static" in mod_texts
         ret_node = m_node.child_by_field_name("type")
         ret_type = _node_text(ret_node, src) if ret_node else ""
-        methods.append({
+        methods.append(_attach_doc({
             "name": name,
             "line": m_node.start_point[0] + 1,
+            "end_line": m_node.end_point[0] + 1,
+            "signature": _signature(m_node, src),
             "accessibility": accessibility,
             "is_async": is_async,
             "is_static": is_static,
             "return_type": ret_type,
-        })
+        }, m_node, src))
     return methods
 
 
@@ -515,9 +684,28 @@ def _as_chain(inv, src, hops=8):
     return ""
 
 
+def _chain_calls(inv, src, hops=8):
+    """Every trailing chained call name after the registration, in order; `As<IFoo>` keeps
+    its type argument. Same upward walk as _as_chain, but collects instead of stopping."""
+    names = []
+    node = inv
+    for _ in range(hops):
+        ma = node.parent
+        if ma is None or ma.type != "member_access_expression":
+            break
+        outer = ma.parent
+        if outer is None or outer.type != "invocation_expression":
+            break
+        m, ta = _member_name_and_typearg(ma, src)
+        names.append(f"{m}<{ta}>" if ta else m)
+        node = outer
+    return names
+
+
 def _detect_member(member_body, src, symbols, registrations, pub_sub):
     PUBSUB = {"Publish", "Subscribe", "Unsubscribe"}
-    REG = {"Register", "RegisterInstance", "RegisterComponent", "RegisterEntryPoint", "RegisterComponentInHierarchy"}
+    REG = {"Register", "RegisterInstance", "RegisterComponent", "RegisterEntryPoint", "RegisterComponentInHierarchy",
+           "RegisterFactory"}
     for inv in _walk(member_body, "invocation_expression"):
         func = inv.child_by_field_name("function")
         if not func:
@@ -550,6 +738,12 @@ def _detect_member(member_body, src, symbols, registrations, pub_sub):
                 else:
                     reg = {"type": "", "as": chained, "lifetime": "",
                            "unresolved": True, "confidence": "AMBIGUOUS"}
+            elif method == "RegisterFactory":
+                # Factory registration: the generic slot is the produced service, the lambda
+                # builds it; no concrete type is claimed -> unresolved by design.
+                reg = {"type": "", "as": "", "lifetime": "",
+                       "unresolved": True, "confidence": "AMBIGUOUS",
+                       "factory_of": type_arg}
             elif (factory_concrete := _factory_delegate_concrete(inv, src)) is not None:
                 # Factory-delegate overload: Register<TService>(resolver => new Impl(..), lt).
                 # Here the generic slot is the SERVICE type, not the concrete one — the concrete
@@ -582,6 +776,9 @@ def _detect_member(member_body, src, symbols, registrations, pub_sub):
             else:
                 reg = {"type": "", "as": chained, "lifetime": "",
                        "unresolved": True, "confidence": "AMBIGUOUS"}
+            reg["method"] = method
+            reg["chain"] = _chain_calls(inv, src)
+            reg["line"] = inv.start_point[0] + 1
             registrations.append(reg)   # never skip
 
 
@@ -765,12 +962,13 @@ def extract_file(parser, path, src=None):
         elif is_installer:
             installers.append(entry)
 
-        classes.append({
+        classes.append(_attach_doc({
             "name": name,
             "namespace": namespace,
             "file": path,
             "source_file": path,
             "line": line,
+            "end_line": cls_node.end_point[0] + 1,
             "base_types": base_types,
             "is_mono_behaviour": is_mono,
             "implements": implements,
@@ -786,8 +984,10 @@ def extract_file(parser, path, src=None):
             "events_subscribed": events_subscribed,
             "has_static_instance": False,
             "methods": methods,
+            "properties": _extract_properties(body, src) if body else [],
+            "fields": _extract_fields(body, src) if body else [],
             "confidence": "EXTRACTED",
-        })
+        }, cls_node, src))
 
     for struct_node in _walk(root, "struct_declaration"):
         name_node = struct_node.child_by_field_name("name")
@@ -824,12 +1024,13 @@ def extract_file(parser, path, src=None):
             continue
         name = _node_text(name_node, src)
         iface_body = iface_node.child_by_field_name("body")
-        interfaces.append({
+        interfaces.append(_attach_doc({
             "name": name,
             "namespace": namespace,
             "file": path,
             "source_file": path,
             "line": iface_node.start_point[0] + 1,
+            "end_line": iface_node.end_point[0] + 1,
             "implementers": [],
             # Interface members are bodyless method_declaration nodes — the same
             # shape _extract_methods already handles. Populating this lets
@@ -837,8 +1038,9 @@ def extract_file(parser, path, src=None):
             # calls (e.g. `_sound.Play` -> ISoundService.Play); an empty list
             # made the guard reject every interface-typed field call.
             "methods": _extract_methods(iface_body, src) if iface_body else [],
+            "properties": _extract_properties(iface_body, src) if iface_body else [],
             "confidence": "EXTRACTED",
-        })
+        }, iface_node, src))
 
     return {
         "classes": classes,
