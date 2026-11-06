@@ -1,0 +1,469 @@
+{
+  "mode": "tree-sitter",
+  "rows_total": 34,
+  "in_scope": 27,
+  "out_of_scope": {
+    "asmdef": 1,
+    "unity": 1,
+    "asset": 1,
+    "uxml": 1,
+    "uss": 1,
+    "md": 2
+  },
+  "location_pct": 0.0,
+  "behaviour_pct": 0.0,
+  "location_start_only_pct": 63.0,
+  "behaviour_resolved_pct": 37.0,
+  "fact_sources": {
+    "doc": 0,
+    "callers": 18,
+    "registration": 0
+  },
+  "per_row": [
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/CardController.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": []
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/CardController.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": true,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/CardController.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/DamageableCardController.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": true,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/PassiveCardController.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": true,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Abstracts/Services/ICardService.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": []
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Managers/CardManager.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Abstracts/Power/ISoldierDpsService.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Power/SoldierDpsLabelView.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": true,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Power/PowerModule.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": []
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/SceneModules.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": true,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/GameScope.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": []
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/GameScope.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Uis/InGameCoinView.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": true,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/LevelRewards/LevelRewardChapterEntry.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": []
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/LevelRewards/LevelRewardConfiguration.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": []
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/LevelRewards/ChapterRewardPreviewService.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": true,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Tests/BounceLegionEditModeTest/ChapterRewardPreviewServiceTests.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/LevelRewards/LevelRewardModule.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/ConfigCatalog.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": true,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/AppModules.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": true,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Tests/BounceLegionEditModeTest/BattleTabViewModelTests.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Abstracts/Lobby/IBattleTabViewModel.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": true,
+      "facts": [
+        "callers"
+      ]
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/BattleTabViewModel.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": []
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/LobbyModule.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": []
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Tests/BounceLegionPlayModeTest/BattleTabViewTests.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": []
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/BattleTabView.cs",
+      "located": false,
+      "behaviour": false,
+      "resolved_behaviour": false,
+      "facts": [
+        "callers"
+      ]
+    }
+  ],
+  "failing_symbols": [
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/CardController.cs",
+      "symbol": "Damage",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/CardController.cs",
+      "symbol": "HitsPerShot",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/CardController.cs",
+      "symbol": "OnStatsChanged",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/CardController.cs",
+      "symbol": "GetTriggerZones",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/CardController.cs",
+      "symbol": "OnEnable",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/CardController.cs",
+      "symbol": "OnDisable",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/CardController.cs",
+      "symbol": "Init",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/DamageableCardController.cs",
+      "symbol": "DamageableCardController",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Controllers/PassiveCardController.cs",
+      "symbol": "PassiveCardController",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Abstracts/Services/ICardService.cs",
+      "symbol": "ICardService.CardsOnGame",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Managers/CardManager.cs",
+      "symbol": "CardsOnGame",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Managers/CardManager.cs",
+      "symbol": "AddCardToList",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Managers/CardManager.cs",
+      "symbol": "RemoveCardFromList",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Abstracts/Power/ISoldierDpsService.cs",
+      "symbol": "Revision",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Abstracts/Power/ISoldierDpsService.cs",
+      "symbol": "TryGetExpectedDps",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Power/SoldierDpsLabelView.cs",
+      "symbol": "Refresh",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Power/PowerModule.cs",
+      "symbol": "PowerModule.Install",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/SceneModules.cs",
+      "symbol": "InstallGame",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/GameScope.cs",
+      "symbol": "RegisterComponentInHierarchy<CardManager>",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/GameScope.cs",
+      "symbol": "RegisterComponentInHierarchy<XpLevelView>",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/GameScope.cs",
+      "symbol": "SceneModules.InstallGame",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/GameHub/Uis/InGameCoinView.cs",
+      "symbol": "InGameCoinView",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/LevelRewards/LevelRewardChapterEntry.cs",
+      "symbol": "LevelRewardChapterEntry",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/LevelRewards/LevelRewardConfiguration.cs",
+      "symbol": "_chapters",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/LevelRewards/LevelRewardConfiguration.cs",
+      "symbol": "Chapters",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/LevelRewards/ChapterRewardPreviewService.cs",
+      "symbol": "GetForChapter",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Tests/BounceLegionEditModeTest/ChapterRewardPreviewServiceTests.cs",
+      "symbol": "BuildConfig",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Tests/BounceLegionEditModeTest/ChapterRewardPreviewServiceTests.cs",
+      "symbol": "TearDown",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/LevelRewards/LevelRewardModule.cs",
+      "symbol": "Install",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/LevelRewards/LevelRewardModule.cs",
+      "symbol": "InstallGameScene",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/ConfigCatalog.cs",
+      "symbol": "Validate",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/AppModules.cs",
+      "symbol": "AppModules.Install",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Tests/BounceLegionEditModeTest/BattleTabViewModelTests.cs",
+      "symbol": "SetUp",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Tests/BounceLegionEditModeTest/BattleTabViewModelTests.cs",
+      "symbol": "Create",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Abstracts/Lobby/IBattleTabViewModel.cs",
+      "symbol": "IBattleTabViewModel",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/BattleTabViewModel.cs",
+      "symbol": "ChapterText",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/BattleTabViewModel.cs",
+      "symbol": "StageText",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/BattleTabViewModel.cs",
+      "symbol": "BossReward",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/LobbyModule.cs",
+      "symbol": "InstallMenu",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/LobbyModule.cs",
+      "symbol": "RegisterFactory<IBattleTabViewModel>",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Tests/BounceLegionPlayModeTest/BattleTabViewTests.cs",
+      "symbol": "LOBBY_UXML_PATH",
+      "reason": "unresolved"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/BattleTabView.cs",
+      "symbol": "OnEnable",
+      "reason": "no range"
+    },
+    {
+      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/BattleTabView.cs",
+      "symbol": "BindReward",
+      "reason": "no range"
+    }
+  ],
+  "graph_bytes": 6987023,
+  "template_sha": "4aed387",
+  "target_sha": "12bb3911"
+}

@@ -1,0 +1,123 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-11-06T00:00:00Z",
+  "generator": "fixture-coverage-mini",
+  "codebase": {
+    "classes": [
+      {
+        "name": "MiniService", "namespace": "Game.Concretes.Mini",
+        "file": "Assets/Mini/MiniService.cs", "source_file": "Assets/Mini/MiniService.cs",
+        "line": 5, "end_line": 40, "base_types": ["IMiniService"], "is_mono_behaviour": false,
+        "implements": ["IMiniService"], "dependencies": [], "events_published": [], "events_subscribed": [],
+        "has_static_instance": false,
+        "doc": {"summary": "Owns the tick counter.", "remarks": ""},
+        "methods": [], "properties": [], "fields": [],
+        "confidence": "EXTRACTED"
+      },
+      {
+        "name": "MiniTicker", "namespace": "Game.Concretes.Mini",
+        "file": "Assets/Mini/MiniTicker.cs", "source_file": "Assets/Mini/MiniTicker.cs",
+        "line": 3, "end_line": 30, "base_types": [], "is_mono_behaviour": false,
+        "implements": [], "dependencies": [], "events_published": [], "events_subscribed": [],
+        "has_static_instance": false,
+        "methods": [
+          {"name": "Tick", "signature": "public void Tick(float deltaTime)", "line": 10, "end_line": 18,
+           "accessibility": "public", "is_async": false, "is_static": false, "return_type": "void"}
+        ],
+        "properties": [], "fields": [],
+        "confidence": "EXTRACTED"
+      },
+      {
+        "name": "MiniModel", "namespace": "Game.Concretes.Mini",
+        "file": "Assets/Mini/MiniModel.cs", "source_file": "Assets/Mini/MiniModel.cs",
+        "line": 3, "end_line": 12, "base_types": [], "is_mono_behaviour": false,
+        "implements": [], "dependencies": [], "events_published": [], "events_subscribed": [],
+        "has_static_instance": false,
+        "methods": [],
+        "properties": [
+          {"name": "Score", "type": "int", "line": 8, "end_line": 8, "accessibility": "public",
+           "is_static": false, "accessors": ["get", "set"], "is_expression_bodied": false}
+        ],
+        "fields": [],
+        "confidence": "EXTRACTED"
+      },
+      {
+        "name": "MiniController", "namespace": "Game.Concretes.Mini",
+        "file": "Assets/Mini/MiniController.cs", "source_file": "Assets/Mini/MiniController.cs",
+        "line": 4, "end_line": 20, "base_types": ["MonoBehaviour"], "is_mono_behaviour": true,
+        "implements": [], "dependencies": [], "events_published": [], "events_subscribed": [],
+        "has_static_instance": false,
+        "methods": [
+          {"name": "Update", "signature": "private void Update()", "line": 12, "end_line": 14,
+           "accessibility": "private", "is_async": false, "is_static": false, "return_type": "void"}
+        ],
+        "properties": [],
+        "fields": [
+          {"name": "_ticks", "type": "int", "line": 7, "accessibility": "private",
+           "is_static": false, "is_const": false, "is_readonly": false, "is_event": false}
+        ],
+        "confidence": "EXTRACTED"
+      },
+      {
+        "name": "MiniModule", "namespace": "Game.Concretes.Mini",
+        "file": "Assets/Mini/MiniModule.cs", "source_file": "Assets/Mini/MiniModule.cs",
+        "line": 4, "end_line": 20, "base_types": [], "is_mono_behaviour": false,
+        "implements": [], "dependencies": [], "events_published": [], "events_subscribed": [],
+        "has_static_instance": false,
+        "methods": [
+          {"name": "Install", "signature": "public static void Install(IContainerBuilder builder)", "line": 8,
+           "end_line": 15, "accessibility": "public", "is_async": false, "is_static": true, "return_type": "void"}
+        ],
+        "properties": [], "fields": [],
+        "confidence": "EXTRACTED"
+      },
+      {
+        "name": "MiniBoot", "namespace": "Game.Concretes.Mini",
+        "file": "Assets/Mini/MiniBoot.cs", "source_file": "Assets/Mini/MiniBoot.cs",
+        "line": 3, "end_line": 9, "base_types": [], "is_mono_behaviour": false,
+        "implements": [], "dependencies": [], "events_published": [], "events_subscribed": [],
+        "has_static_instance": false,
+        "methods": [], "properties": [], "fields": [],
+        "confidence": "EXTRACTED"
+      }
+    ],
+    "interfaces": [
+      {
+        "name": "IMiniService", "namespace": "Game.Abstracts.Mini",
+        "file": "Assets/Mini/IMiniService.cs", "source_file": "Assets/Mini/IMiniService.cs",
+        "line": 3, "end_line": 6, "implementers": ["MiniService"], "properties": [],
+        "confidence": "EXTRACTED"
+      }
+    ],
+    "events": [],
+    "calls": [
+      {
+        "caller": "MiniController.Update", "callee": "MiniTicker.Tick",
+        "file": "Assets/Mini/MiniController.cs", "line": 13, "confidence": "EXTRACTED",
+        "caller_file": "Assets/Mini/MiniController.cs", "callee_file": "Assets/Mini/MiniTicker.cs",
+        "callee_class": "MiniTicker", "method_match": true, "callee_kind": "internal"
+      }
+    ],
+    "vcontainer": {
+      "installers": [
+        {
+          "name": "MiniModule",
+          "file": "Assets/Mini/MiniModule.cs", "source_file": "Assets/Mini/MiniModule.cs",
+          "registrations": [
+            {
+              "type": "MiniBoot", "as": "AsImplementedInterfaces", "as_resolved": [], "as_resolution": "full",
+              "method": "RegisterEntryPoint", "chain": ["AsImplementedInterfaces"], "line": 12,
+              "confidence": "EXTRACTED"
+            }
+          ]
+        }
+      ],
+      "scopes": []
+    },
+    "assemblies": [],
+    "scenes": [],
+    "prefabs": []
+  },
+  "validation": {"errors": [], "warnings": []},
+  "stats": {"scanned_files": 0, "cache_hits": 0, "build_ms": 0}
+}
