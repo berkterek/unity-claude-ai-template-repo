@@ -68,7 +68,7 @@ This plan makes the graph complete enough for a module code-map, with nile `docs
 | 1 — Builder | T6 Schema 1.8.0, EXTRACTION_VERSION 7, incremental survival | Done `3bda974` | F (after T5) |
 | 2 — Validate | T7 ENTRYPOINT_DOUBLE_INTERFACES rule | Done `0def91c` | G1 (after T6) |
 | 3 — Query | T8 `what` / `where` + MCP + /knowledge-graph doc | Done `0def91c` | G2 (after T6; parallel with T7 — disjoint files) |
-| 4 — Re-measure | T9 Re-measure + gates | Done — **BEHAVIOUR gate FAIL** (55.6 < 60); other 3 gates PASS | H (after T7, T8) |
+| 4 — Re-measure | T9 Re-measure + gates | Done — BEHAVIOUR FAIL (55.6) → **PASS 63.0** after the qualified-call extractor fix; other 3 gates PASS | H (after T7, T8) |
 | 5 — Nudge | T10 Graph nudge hook **[gated on T9 PASS]** | **Skipped — gate failed** | I (after T9) |
 | 6 — Verify | T11 Real /plan-module cost/quality run | Todo | J (after T10 or T9 if T10 skipped) |
 
@@ -191,7 +191,7 @@ def main(argv) -> int
 | in-scope rows | 27 | 27 | — |
 | LOCATION % | 0.0 | 100.0 | = 100 — PASS |
 | location_start_only % | 63.0 | 100.0 | — |
-| BEHAVIOUR % | 0.0 (resolved-only diagnostic: 37.0; sources doc 0 / callers 18 / registration 0) | 55.6 (sources doc 4 / callers 18 / registration 4) | ≥ 60 — **FAIL** |
+| BEHAVIOUR % | 0.0 (resolved-only diagnostic: 37.0; sources doc 0 / callers 18 / registration 0) | 55.6 (sources doc 4 / callers 18 / registration 4); after extractor fix 63.0 (callers 20) | ≥ 60 — FAIL → **PASS** after fix |
 | graph_bytes | 6987023 (±~700 B run to run) | 8142772 (×1.17) | ≤ baseline × 1.35 — PASS |
 | `what` wall time (s) | n/a | 0.05 (`what CardManager`, 3 runs) | < 1.5 — PASS |
 
@@ -202,6 +202,8 @@ Baseline recorded 2026-11-06, template `4aed387`, nile `12bb3911`. 15 symbols un
 - **Engine/test-runner callbacks** (5): `OnEnable` ×2, `OnDisable`, `SetUp`, `TearDown`. No code caller exists by design; only a doc could supply a fact, and nile has none there.
 - **Namespace-qualified static calls lose their type** (2, a pre-existing extractor defect): `SceneModules` calls `Game.Concretes.Lobby.LobbyModule.InstallMenu(builder)`, which is stored as callee `Game.InstallMenu` (external), so `LobbyModule.InstallMenu` and `PowerModule.Install` show no callers. Fixing this alone would put BEHAVIOUR at 63.0 (17/27), above the gate.
 Per the kill criterion, T10, P1 and P2 are not built on this result. T11 needs a nile sync and a user-run `/plan-module`, so it is outside this run.
+
+**T9 re-measure after the extractor fix (2026-11-06, nile `12bb3911`, `/fix`):** dotted receivers `A.B.Type.M()` now record callee `Type.M`, labelled `INFERRED` because the right-most segment is a syntactic guess (`StaticClass.Instance.M()` becomes `Instance.M`; it links falsely only if a project type is literally named like the property). LOCATION 100.0, **BEHAVIOUR 63.0 — PASS** (sources doc 4 / callers 20 / registration 4), size ×1.17 (8140716 B). Exactly two rows flipped, `PowerModule` and `LobbyModule`; no other row changed. The pass is 1 row of 27 above the gate on one module, which is thin evidence on its own. Whether T10/P1/P2 are now built is the user's decision; T11 remains the real test.
 
 **Test Type:** NoTest (the runner is exercised by its own output plus the read-only proof in step 5)
 

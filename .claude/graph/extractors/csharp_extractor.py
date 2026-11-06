@@ -349,6 +349,28 @@ def _call_method_name(name_node, src):
     return _node_text(name_node, src)
 
 
+def _qualified_type_name(recv, src, symbols):
+    """Right-most segment of a pure dotted identifier chain (`Ns.Sub.Type`) used as a type.
+
+    None unless every node is an identifier/member access, the head is not a known
+    local/field/param, and the last segment is PascalCase.
+    """
+    n = recv
+    last = None
+    while n.type == "member_access_expression":
+        nm = n.child_by_field_name("name")
+        if nm is None or nm.type != "identifier":
+            return None
+        if last is None:
+            last = _node_text(nm, src)
+        n = n.child_by_field_name("expression")
+        if n is None:
+            return None
+    if n.type != "identifier" or _node_text(n, src) in symbols:
+        return None
+    return last if last and last[0].isupper() else None
+
+
 def _resolve_receiver_type(recv, src, symbols, self_class, base_types):
     """Resolve a call receiver expression to its declared type name.
 
@@ -381,7 +403,7 @@ def _resolve_receiver_type(recv, src, symbols, self_class, base_types):
         nm = recv.child_by_field_name("name")
         if inner is not None and inner.type == "this" and nm is not None:
             return symbols.get(_node_text(nm, src))
-        return None
+        return _qualified_type_name(recv, src, symbols)
     if t in ("invocation_expression", "conditional_access_expression"):
         # Fluent/lambda chain (`.AddTo(...)`, `?.Foo()`) — recurse into the inner
         # call's own receiver head. Inner return type is unknown (deferred, see
@@ -500,6 +522,13 @@ def _extract_calls(cls_node, src, self_class, base_types, path):
                 if (recv_node is not None and recv_node.type == "identifier"
                         and _node_text(recv_node, src) in heuristic_syms):
                     confidence = "INFERRED"
+                # Dotted `A.B.Type.M()` type is the right-most segment (syntactic guess:
+                # may be a property/enum member) — INFERRED, except `this.<field>`.
+                elif (recv_type and recv_node is not None
+                        and recv_node.type == "member_access_expression"):
+                    inner = recv_node.child_by_field_name("expression")
+                    if inner is not None and inner.type != "this":
+                        confidence = "INFERRED"
 
                 if recv_type and method:
                     callee = f"{recv_type}.{method}"

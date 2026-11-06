@@ -11,12 +11,12 @@
     "md": 2
   },
   "location_pct": 100.0,
-  "behaviour_pct": 55.6,
+  "behaviour_pct": 63.0,
   "location_start_only_pct": 100.0,
-  "behaviour_resolved_pct": 55.6,
+  "behaviour_resolved_pct": 63.0,
   "fact_sources": {
     "doc": 4,
-    "callers": 18,
+    "callers": 20,
     "registration": 4
   },
   "per_row": [
@@ -101,9 +101,11 @@
     {
       "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Power/PowerModule.cs",
       "located": true,
-      "behaviour": false,
-      "resolved_behaviour": false,
-      "facts": []
+      "behaviour": true,
+      "resolved_behaviour": true,
+      "facts": [
+        "callers"
+      ]
     },
     {
       "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Infrastructure/SceneModules.cs",
@@ -235,9 +237,10 @@
     {
       "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/LobbyModule.cs",
       "located": true,
-      "behaviour": false,
-      "resolved_behaviour": false,
+      "behaviour": true,
+      "resolved_behaviour": true,
       "facts": [
+        "callers",
         "registration"
       ]
     },
@@ -295,11 +298,6 @@
       "reason": "no behaviour fact"
     },
     {
-      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Power/PowerModule.cs",
-      "symbol": "PowerModule.Install",
-      "reason": "no behaviour fact"
-    },
-    {
       "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/LevelRewards/LevelRewardConfiguration.cs",
       "symbol": "Chapters",
       "reason": "no behaviour fact"
@@ -330,11 +328,6 @@
       "reason": "no behaviour fact"
     },
     {
-      "file": "BounceLegion/Assets/_GameFolders/Scripts/Games/Concretes/Lobby/LobbyModule.cs",
-      "symbol": "InstallMenu",
-      "reason": "no behaviour fact"
-    },
-    {
       "file": "BounceLegion/Assets/_GameFolders/Scripts/Tests/BounceLegionPlayModeTest/BattleTabViewTests.cs",
       "symbol": "LOBBY_UXML_PATH",
       "reason": "no behaviour fact"
@@ -345,7 +338,7 @@
       "reason": "no behaviour fact"
     }
   ],
-  "graph_bytes": 8142772,
-  "template_sha": "0def91c",
+  "graph_bytes": 8140716,
+  "template_sha": "69b6a45",
   "target_sha": "12bb3911"
 }
