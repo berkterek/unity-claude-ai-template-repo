@@ -201,6 +201,44 @@ def cmd_god_nodes(args, ctx):
                 print(f"  {r['node']:<50}  {r['in']:>5}  {r['out']:>5}  {r['total']:>7}  {god}")
 
 
+def cmd_where(args, ctx):
+    g = ctx[0]
+    result = graph_bfs_core.where_core(args.symbol, g)
+
+    if not result["ok"]:
+        print(result["message"], file=sys.stderr)
+        sys.exit(0)
+
+    if args.json:
+        print(json.dumps({k: v for k, v in result.items() if k != "ok"}, indent=2))
+        return
+
+    hits = result["hits"]
+    if result["ambiguous"]:
+        print(f"ambiguous: {len(hits)} candidates for {args.symbol}")
+    for h in hits:
+        label = f"{h['owner']}.{h['name']}" if h["kind"] in ("method", "property", "field") else h["name"]
+        if h["read"]:
+            print(f"{h['file']}:{h['line']}-{h['end_line']}  {h['kind']} {label}")
+            print(f"  Read offset={h['read']['offset']} limit={h['read']['limit']}")
+        else:
+            print(f"{h['file']}:{h['line']}  {h['kind']} {label}  range unavailable (no end_line in this graph — regex extractor or a graph built before extraction_version 7; rebuild with --full)")
+
+
+def cmd_what(args, ctx):
+    g, fwd, rev, edges = ctx
+    result = graph_bfs_core.what_core(args.symbol, g, fwd, rev, edges, budget_tokens=args.budget)
+
+    if not result["ok"]:
+        print(result["message"], file=sys.stderr)
+        sys.exit(0)
+
+    if args.json:
+        print(json.dumps({k: v for k, v in result.items() if k != "ok"}, indent=2))
+    else:
+        print(result["text"])
+
+
 def cmd_finalize_calls(args):
     """Sort, dedupe, and promote EXTRACTED over INFERRED edges; rewrite graph.json atomically."""
     path = args.graph
@@ -317,6 +355,17 @@ def build_parser():
     p_god.add_argument("--top", type=int, default=None, help="How many to show (default 10).")
     p_god.add_argument("--json", action="store_true", help="Output JSON.")
 
+    # what
+    p_what = sub.add_parser("what", help="One-call briefing for a symbol (header, doc, registrations, callers, members).")
+    p_what.add_argument("symbol", help="Type, Type.Member, bare Member or Register*<T>.")
+    p_what.add_argument("--budget", type=int, default=2000, help="Token budget (default 2000; ~2.5 chars/token).")
+    p_what.add_argument("--json", action="store_true", help="Output JSON.")
+
+    # where
+    p_where = sub.add_parser("where", help="File and line range of a symbol, with ranged-Read arguments.")
+    p_where.add_argument("symbol", help="Type, Type.Member, bare Member or Register*<T>.")
+    p_where.add_argument("--json", action="store_true", help="Output JSON.")
+
     return parser
 
 
@@ -340,6 +389,8 @@ def main():
         "callers":    cmd_callers,
         "path":       cmd_path,
         "god-nodes":  cmd_god_nodes,
+        "what":       cmd_what,
+        "where":      cmd_where,
     }
     dispatch[args.command](args, ctx)
 

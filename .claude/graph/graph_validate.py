@@ -166,6 +166,37 @@ def run_consistency(g):
             file=sys.stderr,
         )
 
+    # RegisterEntryPoint<T>().AsImplementedInterfaces() throws VContainer's
+    # "Conflict implementation type" at scope build. Records without `method`
+    # (graphs older than 1.8.0) cannot be judged — counted, never flagged.
+    without_method = 0
+    holders = [("installer", h) for h in vcontainer.get("installers", [])]
+    holders += [("scope", h) for h in vcontainer.get("scopes", [])]
+    for holder_key, holder in holders:
+        holder_name = holder.get("name", "?")
+        for reg in holder.get("registrations", []):
+            method = reg.get("method")
+            if not method:
+                without_method += 1
+                continue
+            if method != "RegisterEntryPoint" or "AsImplementedInterfaces" not in (reg.get("chain") or []):
+                continue
+            reg_type = reg.get("class", "") or reg.get("type", "")
+            line = reg.get("line", 0)
+            issues.append({
+                "type": "ENTRYPOINT_DOUBLE_INTERFACES",
+                holder_key: holder_name,
+                "registered": reg_type,
+                "line": line,
+                "detail": (
+                    f"{holder_name} line {line}: RegisterEntryPoint<{reg_type}>().AsImplementedInterfaces() "
+                    f"\u2014 RegisterEntryPoint already registers implemented interfaces; VContainer throws "
+                    f"'Conflict implementation type' at scope build. Drop .AsImplementedInterfaces()."
+                ),
+            })
+    g.setdefault("validation", {}).setdefault("consistency_stats", {})[
+        "registrations_without_method"] = without_method
+
     return issues
 
 
@@ -290,8 +321,18 @@ def main():
         print(f"graph_validate: {len(issues)} consistency issue(s)", file=sys.stderr)
         for iss in issues[:5]:
             print(f"  [{iss['type']}] {iss['detail']}", file=sys.stderr)
+        # The 5-issue cap must never hide a runtime-fatal rule.
+        for iss in issues[5:]:
+            if iss["type"] == "ENTRYPOINT_DOUBLE_INTERFACES":
+                print(f"  [{iss['type']}] {iss['detail']}", file=sys.stderr)
     else:
         print("graph_validate: consistency OK", file=sys.stderr)
+    # Without `method` the ENTRYPOINT rule cannot run — say so, or an old graph reads as clean.
+    no_method = g["validation"].get("consistency_stats", {}).get("registrations_without_method", 0)
+    if no_method:
+        print(f"graph_validate: {no_method} registration(s) carry no `method` (graph predates "
+              f"extraction_version 7) — ENTRYPOINT_DOUBLE_INTERFACES not checked; rebuild with --full",
+              file=sys.stderr)
 
     # ── Mode 2: Accuracy (--accuracy flag only)
     if args.accuracy:

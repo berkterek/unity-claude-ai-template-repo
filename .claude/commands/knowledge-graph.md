@@ -1,7 +1,7 @@
 # /knowledge-graph — Query the Unity Knowledge Graph
 
 Query the Unity Knowledge Graph without rebuilding it.
-All queries read `.claude/graph/graph.json` directly via `jq`.
+`what` / `where` and the traversal subcommands go through `graph-traversal.py`; only the legacy `jq` recipes below read `.claude/graph/graph.json` directly.
 
 ## Usage
 
@@ -22,6 +22,24 @@ All queries read `.claude/graph/graph.json` directly via `jq`.
 ```
 
 Append `--json` to any subcommand for raw JSON output.
+
+---
+
+## Look up a symbol (first choice)
+
+To learn about a class, interface, member or registration, ask the graph before opening any source file. Never read `graph.json` itself.
+
+```
+python3 .claude/graph/graph-traversal.py what <X>      # header + line range, doc, registrations, implementers, callers, members
+python3 .claude/graph/graph-traversal.py where <X>     # file:line-end_line + "Read offset=N limit=M"
+```
+
+`<X>` is `Type`, `Type.Member`, a bare member name (lists every match when ambiguous) or `Register*<T>` (e.g. `RegisterEntryPoint<A>`).
+
+- `what` output is capped by `--budget N` tokens (default 2000, about 2.5 chars per token). The header is always kept; an overflowing section ends with `… +N more (raise --budget)`.
+- Then read only the span: `Read` the file from the `where` line with the printed `offset` and `limit` instead of the whole file.
+- `range unavailable (no end_line …)` means the graph has no `end_line` for that symbol (regex extractor, or a graph built before extraction_version 7; rebuild with `--full`); read a small window from `line`.
+- The MCP tools `what` and `where` return the same data when the graph MCP server is connected.
 
 ---
 

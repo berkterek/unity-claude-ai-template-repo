@@ -211,6 +211,32 @@ async def list_tools() -> list[types.Tool]:
                 "required": [],
             },
         ),
+        types.Tool(
+            name="what",
+            description=(
+                "One-call briefing for a symbol: header with line range, doc, registrations, "
+                "implementers, callers, members. Trimmed to `budget` tokens (default 2000)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "symbol": {"type": "string", "description": "Type, Type.Member, bare Member or Register*<T>."},
+                    "budget": {"type": "integer", "description": "Token budget (optional; default 2000)."},
+                },
+                "required": ["symbol"],
+            },
+        ),
+        types.Tool(
+            name="where",
+            description="File, line range and ranged-Read arguments (offset/limit) for a symbol.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "symbol": {"type": "string", "description": "Type, Type.Member, bare Member or Register*<T>."},
+                },
+                "required": ["symbol"],
+            },
+        ),
     ]
 
 
@@ -239,6 +265,15 @@ async def call_tool(name: str, arguments: dict):
     if name == "god_nodes":
         top = arguments.get("top", None)  # None → core uses default 10
         result = graph_bfs_core.god_nodes_core(_g, _forward, _reverse, _edges, top)
+        return [types.TextContent(type="text", text=json.dumps(result))]
+
+    if name == "what":
+        budget = arguments.get("budget", None) or 2000
+        result = graph_bfs_core.what_core(arguments.get("symbol", ""), _g, _forward, _reverse, _edges, budget)
+        return [types.TextContent(type="text", text=json.dumps(result))]
+
+    if name == "where":
+        result = graph_bfs_core.where_core(arguments.get("symbol", ""), _g)
         return [types.TextContent(type="text", text=json.dumps(result))]
 
     raise ValueError(f"Unknown tool: {name}")
