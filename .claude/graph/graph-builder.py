@@ -93,7 +93,10 @@ def log(msg, quiet=False):
 # meaning moves. Versions 3, 4 and 5 are all exceptions — each also added fields — so
 # schema_version moved with them (1.5.0, 1.6.0, 1.7.0). Bumping both is not the default, and
 # 6 is the first version to follow the rule: no field was added, so schema_version stays 1.7.0.
-EXTRACTION_VERSION = 6
+# 7 adds member ranges (end_line), signatures, properties[], fields[] and doc on classes/interfaces/
+# methods, plus method/chain/line/factory_of on registrations (RegisterFactory included). New fields,
+# so schema_version moves too (1.8.0), following the 3/4/5 precedent.
+EXTRACTION_VERSION = 7
 
 
 def _stored_extraction_version(output_path):
@@ -1129,7 +1132,7 @@ def assemble_graph(
 ):
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     return {
-        "schema_version": "1.7.0",
+        "schema_version": "1.8.0",
         "generated_at": now,
         "generator": f"graph-builder.py@{git_sha}",
         "extraction_version": EXTRACTION_VERSION,
@@ -1319,6 +1322,8 @@ def main():
                 quiet,
             )
             args.mode = "full"
+            # A promoted run must re-extract everything; --changed-files would narrow the scan.
+            args.changed_files = ""
 
     # Initialize files if missing
     if not os.path.isfile(cache_file):

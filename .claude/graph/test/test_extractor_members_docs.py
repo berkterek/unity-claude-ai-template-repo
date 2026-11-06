@@ -283,6 +283,169 @@ def run_docs():
         check("CLI (Docs.cs) output parses as JSON", False, e)
 
 
+# ── Task 6: builder ──────────────────────────────────────────────────────────
+# Sandbox: temp git repo + a COPY of the graph tooling, so cache/.last-build/graph.json land in the
+# temp dir (the builder resolves them against its own SCRIPT_DIR), never the real repo's.
+import shutil
+import tempfile
+
+_GRAPH_DIR = os.path.abspath(os.path.join(_HERE, ".."))
+_FIXTURE_DIR = os.path.join(_HERE, "fixtures", "members_docs")
+_FIXTURE_REL = os.path.join("Assets", "_GameFolders", "Scripts", "Games", "Concretes", "Fixture")
+_SCHEMA_PATH = os.path.join(_GRAPH_DIR, "schema.json")
+_EXPECTED_SCHEMA_VERSION = "1.8.0"
+_EXPECTED_EXTRACTION_VERSION = 7
+
+
+def _make_sandbox():
+    root = tempfile.mkdtemp(prefix="graph-t6-")
+    subprocess.run(["git", "init", "-q", root], check=True)
+    gdir = os.path.join(root, ".claude", "graph")
+    os.makedirs(gdir)
+    for f in os.listdir(_GRAPH_DIR):
+        if f.endswith(".py"):
+            shutil.copy(os.path.join(_GRAPH_DIR, f), gdir)
+    shutil.copytree(os.path.join(_GRAPH_DIR, "extractors"), os.path.join(gdir, "extractors"),
+                    ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copy(_SCHEMA_PATH, gdir)
+    fx = os.path.join(root, _FIXTURE_REL)
+    os.makedirs(fx)
+    for f in ("Members.cs", "Docs.cs", "Registrations.cs"):
+        shutil.copy(os.path.join(_FIXTURE_DIR, f), fx)
+    return root, gdir, fx
+
+
+def _build(root, gdir, out, *extra):
+    return subprocess.run(
+        [sys.executable, os.path.join(gdir, "graph-builder.py"), "--skip-mcp", "--output", out] + list(extra),
+        capture_output=True, text=True, cwd=root)
+
+
+def _all_records(g, key):
+    return g.get("codebase", {}).get(key, []) or []
+
+
+def _find_class(g, name):
+    return next((c for c in _all_records(g, "classes") if c.get("name") == name), None)
+
+
+def _find_reg_holder(g, name):
+    vc = g.get("codebase", {}).get("vcontainer", {})
+    for h in (vc.get("installers", []) or []) + (vc.get("scopes", []) or []):
+        if h.get("name") == name:
+            return h
+    return None
+
+
+def run_builder():
+    # 4. schema.json declarations (no sandbox needed)
+    try:
+        schema = json.load(open(_SCHEMA_PATH))
+    except ValueError as e:
+        check("schema.json parses", False, e)
+        schema = None
+    if schema is not None:
+        check("schema.json parses", True)
+        d = schema.get("definitions", {})
+
+        def props(n):
+            return (d.get(n) or {}).get("properties", {})
+
+        def req(n):
+            return (d.get(n) or {}).get("required", []) or []
+
+        for ent, keys in (("methodEntry", ["end_line", "doc"]),
+                          ("classEntry", ["end_line", "doc", "properties", "fields"]),
+                          ("interfaceEntry", ["end_line", "doc", "properties"]),
+                          ("registrationEntry", ["method", "chain", "line", "factory_of"])):
+            for k in keys:
+                check("schema %s.%s declared" % (ent, k), k in props(ent))
+                check("schema %s.%s not required" % (ent, k), k not in req(ent))
+        enum = props("registrationEntry").get("method", {}).get("enum", [])
+        check("schema registrationEntry.method enum has RegisterFactory + RegisterEntryPoint",
+              "RegisterFactory" in enum and "RegisterEntryPoint" in enum, enum)
+        for n in ("propertyEntry", "fieldEntry", "docEntry"):
+            check("schema definitions.%s exists" % n, n in d)
+        for k in ("summary", "remarks"):
+            check("schema docEntry.%s maxLength == 301" % k,
+                  props("docEntry").get(k, {}).get("maxLength") == 301)
+
+    # 1-3, 5. builder sandbox
+    root, gdir, fx = _make_sandbox()
+    try:
+        out = os.path.join(root, "graph.json")
+        r = _build(root, gdir, out, "--full", "--quiet")
+        check("--full build exits 0", r.returncode == 0, r.stderr[-300:])
+        try:
+            g = json.load(open(out))
+        except (OSError, ValueError) as e:
+            check("--full build wrote parseable graph.json", False, e)
+            return
+        check("graph schema_version == %s" % _EXPECTED_SCHEMA_VERSION,
+              g.get("schema_version") == _EXPECTED_SCHEMA_VERSION, g.get("schema_version"))
+        check("graph extraction_version == %d" % _EXPECTED_EXTRACTION_VERSION,
+              g.get("extraction_version") == _EXPECTED_EXTRACTION_VERSION, g.get("extraction_version"))
+
+        def survival(g, label):
+            m = _find_class(g, "Members")
+            check(label + ": Members class exists", m is not None)
+            if m is not None:
+                check(label + ": Members.end_line == 63", m.get("end_line") == 63, m.get("end_line"))
+                check(label + ": Members.properties non-empty", bool(m.get("properties")))
+                sm = _by_name(m.get("methods", []) or [], "Sum")
+                check(label + ": Members.Sum.signature",
+                      (sm or {}).get("signature") == "public int Sum(int x, int y)", (sm or {}).get("signature"))
+            h = _find_reg_holder(g, "RegistrationsModule")
+            check(label + ": RegistrationsModule installer exists", h is not None)
+            regs = (h or {}).get("registrations", []) or []
+            eps = [x for x in regs if x.get("method") == "RegisterEntryPoint"]
+            check(label + ": RegisterEntryPoint registration kept method", len(eps) >= 1, regs)
+            check(label + ": registrations carry chain + line",
+                  any("AsImplementedInterfaces" in (x.get("chain") or []) and isinstance(x.get("line"), int)
+                      for x in eps), eps)
+
+        survival(g, "after --full")
+        check("full: Docs class has doc", bool((_find_class(g, "Documented") or _find_class(g, "Docs") or
+                                                 next((c for c in _all_records(g, "classes")
+                                                       if c.get("doc")), {})).get("doc")))
+
+        # 5. validate against schema.json if a validator is available
+        try:
+            import jsonschema
+            try:
+                jsonschema.validate(g, schema)
+                check("full-build graph validates against schema.json", True)
+            except jsonschema.ValidationError as e:
+                check("full-build graph validates against schema.json", False, str(e.message)[:300])
+        except ImportError:
+            print("SKIP: jsonschema unavailable, schema validation not run")
+
+        # 1. incremental: only Docs.cs touched
+        docs_path = os.path.join(fx, "Docs.cs")
+        r = _build(root, gdir, out, "--incremental", "--quiet", "--changed-files", docs_path)
+        check("--incremental build exits 0", r.returncode == 0, r.stderr[-300:])
+        g2 = json.load(open(out))
+        survival(g2, "after --incremental(Docs.cs)")
+        check("incremental: touched Docs file still has a documented record",
+              any(c.get("doc") for c in _all_records(g2, "classes")))
+        check("incremental: no promotion to full when version matches",
+              "promoting" not in r.stderr, r.stderr[-300:])
+        check("incremental: schema_version kept", g2.get("schema_version") == _EXPECTED_SCHEMA_VERSION)
+
+        # 3. stale extraction_version -> promotion
+        g2["extraction_version"] = 6
+        json.dump(g2, open(out, "w"))
+        r = _build(root, gdir, out, "--incremental", "--changed-files", docs_path)
+        check("stale v6 --incremental run exits 0", r.returncode == 0, r.stderr[-300:])
+        check('stale v6: stderr contains "promoting"', "promoting" in r.stderr, r.stderr[-400:])
+        g3 = json.load(open(out))
+        check("stale v6: graph restamped to %d" % _EXPECTED_EXTRACTION_VERSION,
+              g3.get("extraction_version") == _EXPECTED_EXTRACTION_VERSION, g3.get("extraction_version"))
+        survival(g3, "after promotion")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def main():
     try:
         _parser()
@@ -291,6 +454,7 @@ def main():
         return 0
     run()
     run_docs()
+    run_builder()
     if _failures:
         print("\n%d FAILED:" % len(_failures))
         for f in _failures:

@@ -226,6 +226,26 @@
         },
         "confidence": {
           "$ref": "#/definitions/confidence"
+        },
+        "end_line": {
+          "type": "integer"
+        },
+        "doc": {
+          "$ref": "#/definitions/docEntry"
+        },
+        "properties": {
+          "type": "array",
+          "description": "Properties declared on this class (v1.8.0+).",
+          "items": {
+            "$ref": "#/definitions/propertyEntry"
+          }
+        },
+        "fields": {
+          "type": "array",
+          "description": "Fields declared on this class, including consts and events (v1.8.0+).",
+          "items": {
+            "$ref": "#/definitions/fieldEntry"
+          }
         }
       }
     },
@@ -260,6 +280,18 @@
         },
         "confidence": {
           "$ref": "#/definitions/confidence"
+        },
+        "end_line": {
+          "type": "integer"
+        },
+        "doc": {
+          "$ref": "#/definitions/docEntry"
+        },
+        "properties": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/propertyEntry"
+          }
         }
       }
     },
@@ -657,6 +689,12 @@
         },
         "return_type": {
           "type": "string"
+        },
+        "end_line": {
+          "type": "integer"
+        },
+        "doc": {
+          "$ref": "#/definitions/docEntry"
         }
       }
     },
@@ -905,6 +943,135 @@
         },
         "confidence": {
           "$ref": "#/definitions/confidence"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "Register",
+            "RegisterInstance",
+            "RegisterEntryPoint",
+            "RegisterComponent",
+            "RegisterComponentInHierarchy",
+            "RegisterFactory"
+          ],
+          "description": "The builder.Register* call this record came from (v1.8.0+)."
+        },
+        "chain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Trailing fluent calls in order, e.g. ['As<IFoo>','AsImplementedInterfaces']."
+        },
+        "line": {
+          "type": "integer"
+        },
+        "factory_of": {
+          "type": "string",
+          "description": "Service type of a RegisterFactory / Register<T>(resolver => ...) registration."
+        }
+      }
+    },
+    "docEntry": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "maxLength": 301
+        },
+        "remarks": {
+          "type": "string",
+          "maxLength": 301
+        }
+      }
+    },
+    "propertyEntry": {
+      "type": "object",
+      "required": [
+        "name",
+        "line"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "end_line": {
+          "type": "integer"
+        },
+        "accessibility": {
+          "type": "string",
+          "enum": [
+            "public",
+            "internal",
+            "private",
+            "protected"
+          ]
+        },
+        "is_static": {
+          "type": "boolean"
+        },
+        "doc": {
+          "$ref": "#/definitions/docEntry"
+        },
+        "accessors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "is_expression_bodied": {
+          "type": "boolean"
+        }
+      }
+    },
+    "fieldEntry": {
+      "type": "object",
+      "required": [
+        "name",
+        "line"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer"
+        },
+        "end_line": {
+          "type": "integer"
+        },
+        "accessibility": {
+          "type": "string",
+          "enum": [
+            "public",
+            "internal",
+            "private",
+            "protected"
+          ]
+        },
+        "is_static": {
+          "type": "boolean"
+        },
+        "doc": {
+          "$ref": "#/definitions/docEntry"
+        },
+        "is_const": {
+          "type": "boolean"
+        },
+        "is_readonly": {
+          "type": "boolean"
+        },
+        "is_event": {
+          "type": "boolean"
         }
       }
     }

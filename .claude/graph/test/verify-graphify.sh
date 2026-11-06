@@ -693,7 +693,7 @@ run_v2_module_tests() {
   # update it together with the bump (Task 10 bumped 1.3.0 -> 1.4.0 for `extraction_version`;
   # scope-parent resolution bumped 1.4.0 -> 1.5.0 for parent_source /
   # parent_unresolved_reason and a nullable `parent`).
-  local expected_sv="1.7.0"
+  local expected_sv="1.8.0"
   local sv; sv=$(jq -r '.schema_version // "missing"' "$WORK_GRAPH" 2>/dev/null || echo "missing")
   [[ "$sv" == "$expected_sv" ]] && pass "schema_version = $expected_sv" \
                            || fail "schema_version is $sv (expected $expected_sv — if this bump was deliberate, update the literal here)"
@@ -1346,6 +1346,18 @@ run_extraction_version_tests() {
   rm -rf "$work"
 }
 
+run_python_tests() {
+  section "Python test scripts"
+  local t
+  for t in test_graph_coverage.py test_extractor_members_docs.py test_registration_method.py; do
+    if python3 "$SCRIPT_DIR/$t" >/dev/null 2>&1; then
+      pass "$t passes"
+    else
+      fail "$t failed (run: python3 $SCRIPT_DIR/$t)"
+    fi
+  done
+}
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Main pipeline
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1364,4 +1376,5 @@ run_registration_semantics_tests
 run_validator_interface_tests
 run_reconciliation_tests
 run_extraction_version_tests
+run_python_tests
 emit_report
