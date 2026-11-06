@@ -60,16 +60,16 @@ This plan makes the graph complete enough for a module code-map, with nile `docs
 
 | Phase | Task | Status | parallel_group |
 |---|---|---|---|
-| 0 — Baseline | T1 Coverage script + fixture + unit test | Todo | A |
-| 0 — Baseline | T2 Nile runner + BASELINE recorded | Todo | B (after T1) |
-| 1 — Extractor | T3 Ranges, signature, properties, fields (tree-sitter) | Todo | C (after T2) |
-| 1 — Extractor | T4 XML doc extraction | Todo | D (after T3, same file) |
-| 1 — Extractor | T5 Registration method/chain/line + RegisterFactory (both modes) | Todo | E (after T4, same file) |
-| 1 — Builder | T6 Schema 1.8.0, EXTRACTION_VERSION 7, incremental survival | Todo | F (after T5) |
-| 2 — Validate | T7 ENTRYPOINT_DOUBLE_INTERFACES rule | Todo | G1 (after T6) |
-| 3 — Query | T8 `what` / `where` + MCP + /knowledge-graph doc | Todo | G2 (after T6; parallel with T7 — disjoint files) |
-| 4 — Re-measure | T9 Re-measure + gates | Todo | H (after T7, T8) |
-| 5 — Nudge | T10 Graph nudge hook **[gated on T9 PASS]** | Todo | I (after T9) |
+| 0 — Baseline | T1 Coverage script + fixture + unit test | Done `0102107` | A |
+| 0 — Baseline | T2 Nile runner + BASELINE recorded | Done `0102107` | B (after T1) |
+| 1 — Extractor | T3 Ranges, signature, properties, fields (tree-sitter) | Done `810cc4a` | C (after T2) |
+| 1 — Extractor | T4 XML doc extraction | Done `810cc4a` | D (after T3, same file) |
+| 1 — Extractor | T5 Registration method/chain/line + RegisterFactory (both modes) | Done `810cc4a` | E (after T4, same file) |
+| 1 — Builder | T6 Schema 1.8.0, EXTRACTION_VERSION 7, incremental survival | Done `3bda974` | F (after T5) |
+| 2 — Validate | T7 ENTRYPOINT_DOUBLE_INTERFACES rule | Done `0def91c` | G1 (after T6) |
+| 3 — Query | T8 `what` / `where` + MCP + /knowledge-graph doc | Done `0def91c` | G2 (after T6; parallel with T7 — disjoint files) |
+| 4 — Re-measure | T9 Re-measure + gates | Done — **BEHAVIOUR gate FAIL** (55.6 < 60); other 3 gates PASS | H (after T7, T8) |
+| 5 — Nudge | T10 Graph nudge hook **[gated on T9 PASS]** | **Skipped — gate failed** | I (after T9) |
 | 6 — Verify | T11 Real /plan-module cost/quality run | Todo | J (after T10 or T9 if T10 skipped) |
 
 ## File Map
@@ -187,15 +187,21 @@ def main(argv) -> int
 
 | Metric | Baseline (T2) | After (T9) | Gate |
 |---|---|---|---|
-| mode | tree-sitter | | tree-sitter |
+| mode | tree-sitter | tree-sitter | tree-sitter — PASS |
 | in-scope rows | 27 | 27 | — |
-| LOCATION % | 0.0 | | = 100 |
-| location_start_only % | 63.0 | | — |
-| BEHAVIOUR % | 0.0 (resolved-only diagnostic: 37.0; sources doc 0 / callers 18 / registration 0) | | ≥ 60 |
-| graph_bytes | 6987023 (±~700 B run to run) | | ≤ baseline × 1.35 |
-| `what` wall time (s) | n/a | | < 1.5 |
+| LOCATION % | 0.0 | 100.0 | = 100 — PASS |
+| location_start_only % | 63.0 | 100.0 | — |
+| BEHAVIOUR % | 0.0 (resolved-only diagnostic: 37.0; sources doc 0 / callers 18 / registration 0) | 55.6 (sources doc 4 / callers 18 / registration 4) | ≥ 60 — **FAIL** |
+| graph_bytes | 6987023 (±~700 B run to run) | 8142772 (×1.17) | ≤ baseline × 1.35 — PASS |
+| `what` wall time (s) | n/a | 0.05 (`what CardManager`, 3 runs) | < 1.5 — PASS |
 
 Baseline recorded 2026-11-06, template `4aed387`, nile `12bb3911`. 15 symbols unresolved (properties, fields, `Register*<T>` rows — no record kind exists yet), 28 resolved without a range. BEHAVIOUR stays 0 by construction while nothing is ranged, so `behaviour_resolved_pct` and `fact_sources` are reported as diagnostics; the gate stays on `behaviour_pct`.
+
+**T9 result (2026-11-06, nile `12bb3911`):** LOCATION 100.0, BEHAVIOUR 55.6, size ×1.17, `what` 0.05 s. BEHAVIOUR misses 60 by 2 rows of 27; the gate is not changed. 17 symbols have no behaviour fact:
+- **Property/field/event reads are not call edges** (9): `Damage`, `HitsPerShot`, `OnStatsChanged`, `ICardService.CardsOnGame`, `CardManager.CardsOnGame`, `Chapters`, `ChapterText`, `StageText`, `BossReward`, `LOBBY_UXML_PATH`. `calls[]` records invocations only; nothing records reads or `+=` subscriptions.
+- **Engine/test-runner callbacks** (5): `OnEnable` ×2, `OnDisable`, `SetUp`, `TearDown`. No code caller exists by design; only a doc could supply a fact, and nile has none there.
+- **Namespace-qualified static calls lose their type** (2, a pre-existing extractor defect): `SceneModules` calls `Game.Concretes.Lobby.LobbyModule.InstallMenu(builder)`, which is stored as callee `Game.InstallMenu` (external), so `LobbyModule.InstallMenu` and `PowerModule.Install` show no callers. Fixing this alone would put BEHAVIOUR at 63.0 (17/27), above the gate.
+Per the kill criterion, T10, P1 and P2 are not built on this result. T11 needs a nile sync and a user-run `/plan-module`, so it is outside this run.
 
 **Test Type:** NoTest (the runner is exercised by its own output plus the read-only proof in step 5)
 
