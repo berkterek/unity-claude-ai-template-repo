@@ -1351,7 +1351,7 @@ run_python_tests() {
   local t
   for t in test_graph_coverage.py test_extractor_members_docs.py test_registration_method.py \
            test_validate_entrypoint_rule.py test_what_where.py \
-           test_extractor_qualified_calls.py; do
+           test_extractor_qualified_calls.py test_resolve_implementers_same_name.py test_extractor_interface_access_nameof.py test_call_edge_undeclared_members.py; do
     if python3 "$SCRIPT_DIR/$t" >/dev/null 2>&1; then
       pass "$t passes"
     else

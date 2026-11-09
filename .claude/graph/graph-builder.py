@@ -96,7 +96,7 @@ def log(msg, quiet=False):
 # 7 adds member ranges (end_line), signatures, properties[], fields[] and doc on classes/interfaces/
 # methods, plus method/chain/line/factory_of on registrations (RegisterFactory included). New fields,
 # so schema_version moves too (1.8.0), following the 3/4/5 precedent.
-EXTRACTION_VERSION = 7
+EXTRACTION_VERSION = 8
 
 
 def _stored_extraction_version(output_path):
@@ -581,17 +581,23 @@ def event_pivot(classes, event_defs=None):
 
 
 def resolve_implementers(interfaces, classes):
-    iface_map = {i["name"]: i for i in interfaces if i.get("name")}
+    # Keyed to a LIST: two interfaces may share a simple name (different namespaces). A class names
+    # the interface by simple name only, so each same-named candidate gets the implementer —
+    # a name-keyed dict dropped all but the last record.
+    iface_map = {}
+    for i in interfaces:
+        if i.get("name"):
+            iface_map.setdefault(i["name"], []).append(i)
     for cls in classes:
         cname = cls.get("name")
         if not cname:
             continue
         for impl in cls.get("implements", []) or []:
-            if impl in iface_map:
-                imps = iface_map[impl].setdefault("implementers", [])
+            for iface in iface_map.get(impl, ()):
+                imps = iface.setdefault("implementers", [])
                 if cname not in imps:
                     imps.append(cname)
-    return list(iface_map.values())
+    return interfaces
 
 
 _AS_WILDCARD = "AsImplementedInterfaces"
@@ -702,8 +708,10 @@ def resolve_call_targets(calls, classes, interfaces):
       (True=present, False=populated-but-absent, None=methods[] empty/unknown).
       Computed fresh every build; NEVER touches confidence (which persists and
       would desync full vs. incremental, and already carries RC3's INFERRED).
-      methods[] is name-only and omits inherited/interface methods, so
-      method_match=False is a soft signal, never a reason to drop the edge.
+      A method found on the type's project base classes/interfaces counts as a match; one
+      declared nowhere in that chain (engine-inherited, `object`, extension method) turns the
+      edge external with no project link. For the Lever 1 field path method_match=False still
+      means "leave unresolved".
     - Lever 0: every edge gets `callee_kind` in {internal, external, unresolved}:
       internal = linked to a project type; external = a resolved-but-non-project
       type (Unity/BCL/3rd-party, e.g. Transform/List/IContainerBuilder) which is
@@ -728,6 +736,11 @@ def resolve_call_targets(calls, classes, interfaces):
         methods = {m.get("name") for m in (c.get("methods") or []) if m.get("name")}
         by_name.setdefault(n, []).append((c.get("file"), methods, _is_test_file(c.get("file"))))
 
+    recs_by_name = {}
+    for c in list(classes) + list(interfaces):
+        if c.get("name"):
+            recs_by_name.setdefault(c["name"], []).append(c)
+
     # Class index for Lever 1 base-chain field walk. Prefer the non-test
     # declaration when a simple name collides (test fakes live under /Tests/).
     class_by_name = {}
@@ -738,6 +751,25 @@ def resolve_call_targets(calls, classes, interfaces):
         prev = class_by_name.get(n)
         if prev is None or (_is_test_file(prev.get("file")) and not _is_test_file(c.get("file"))):
             class_by_name[n] = c
+
+    def _declares(type_name, method):
+        """True when `method` is declared on `type_name`, one of its project base classes, or a
+        project interface it implements/extends. Every same-named record counts (partials, same-name
+        interfaces). Cycle/depth guarded."""
+        seen, todo = set(), [type_name]
+        for _ in range(64):
+            if not todo:
+                break
+            name = todo.pop()
+            if name in seen:
+                continue
+            seen.add(name)
+            for rec in recs_by_name.get(name, ()):
+                if method in {m.get("name") for m in (rec.get("methods") or [])}:
+                    return True
+                todo.extend(rec.get("base_types") or [])
+                todo.extend(rec.get("implements") or [])
+        return False
 
     def _pick(head):
         """REV4 tie-break: the single non-test candidate, else None (no guess)."""
@@ -792,7 +824,16 @@ def resolve_call_targets(calls, classes, interfaces):
                 e["callee_file"] = file
                 e["callee_kind"] = "internal"
                 if method and methods:                     # REV5: method_match, NOT confidence
-                    e["method_match"] = method in methods
+                    if method in methods or _declares(head, method):
+                        e["method_match"] = True
+                    else:
+                        # Not declared on the type nor its project bases/interfaces: inherited from
+                        # an engine/BCL base (Instantiate), an `object` member (GetType) or an
+                        # extension method (Received, GetCancellationTokenOnDestroy). No project
+                        # node to link -- same correct null as any other external member.
+                        e["callee_class"] = None
+                        e["callee_file"] = None
+                        e["callee_kind"] = "external"
             # else: ambiguous project name -> stays unresolved (never guessed)
             continue
 

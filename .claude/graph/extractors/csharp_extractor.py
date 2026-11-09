@@ -113,12 +113,14 @@ def _extract_namespace(root, src):
     return ""
 
 
-def _extract_accessibility(modifier_nodes, src):
+def _extract_accessibility(modifier_nodes, src, default="private"):
+    """Explicit modifier wins; otherwise `default` — "private" for class/struct members, "public"
+    for interface members (implicitly public in C#)."""
     for m in modifier_nodes:
         t = _node_text(m, src)
         if t in ("public", "internal", "protected", "private"):
             return t
-    return "private"
+    return default
 
 
 _NESTED_TYPE_KINDS = {
@@ -250,7 +252,7 @@ def _attach_doc(rec, decl, src):
     return rec
 
 
-def _extract_properties(body, src):
+def _extract_properties(body, src, default_access="private"):
     props = []
     for p_node in _own_member_nodes(body, _MEMBER_KINDS_PROP, []):
         name_node = p_node.child_by_field_name("name")
@@ -274,7 +276,7 @@ def _extract_properties(body, src):
             "type": _node_text(type_node, src) if type_node else "",
             "line": p_node.start_point[0] + 1,
             "end_line": p_node.end_point[0] + 1,
-            "accessibility": _extract_accessibility(_find_children(p_node, "modifier"), src),
+            "accessibility": _extract_accessibility(_find_children(p_node, "modifier"), src, default_access),
             "is_static": "static" in mod_texts,
             "accessors": accessors,
             "is_expression_bodied": is_expr,
@@ -312,7 +314,7 @@ def _extract_fields(body, src):
     return fields
 
 
-def _extract_methods(class_body, src):
+def _extract_methods(class_body, src, default_access="private"):
     methods = []
     for m_node in _own_method_nodes(class_body, []):
         name_node = m_node.child_by_field_name("name")
@@ -320,7 +322,7 @@ def _extract_methods(class_body, src):
             continue
         name = _node_text(name_node, src)
         modifiers = _find_children(m_node, "modifier")
-        accessibility = _extract_accessibility(modifiers, src)
+        accessibility = _extract_accessibility(modifiers, src, default_access)
         mod_texts = [_node_text(m, src) for m in modifiers]
         is_async = "async" in mod_texts
         is_static = "static" in mod_texts
@@ -497,6 +499,8 @@ def _extract_calls(cls_node, src, self_class, base_types, path):
                 if func.type == "identifier":
                     # Bare `Foo()` — intra-class call on self.
                     method = _node_text(func, src)
+                    if method == "nameof":
+                        continue                   # compile-time operator, not a call
                     recv_type = self_class
                 elif func.type == "member_access_expression":
                     method = _call_method_name(func.child_by_field_name("name"), src)
@@ -1066,8 +1070,8 @@ def extract_file(parser, path, src=None):
             # resolve_call_targets' method_match guard confirm interface-typed
             # calls (e.g. `_sound.Play` -> ISoundService.Play); an empty list
             # made the guard reject every interface-typed field call.
-            "methods": _extract_methods(iface_body, src) if iface_body else [],
-            "properties": _extract_properties(iface_body, src) if iface_body else [],
+            "methods": _extract_methods(iface_body, src, "public") if iface_body else [],
+            "properties": _extract_properties(iface_body, src, "public") if iface_body else [],
             "confidence": "EXTRACTED",
         }, iface_node, src))
 

@@ -294,7 +294,7 @@ _FIXTURE_DIR = os.path.join(_HERE, "fixtures", "members_docs")
 _FIXTURE_REL = os.path.join("Assets", "_GameFolders", "Scripts", "Games", "Concretes", "Fixture")
 _SCHEMA_PATH = os.path.join(_GRAPH_DIR, "schema.json")
 _EXPECTED_SCHEMA_VERSION = "1.8.0"
-_EXPECTED_EXTRACTION_VERSION = 7
+_EXPECTED_EXTRACTION_VERSION = 8
 
 
 def _make_sandbox():
