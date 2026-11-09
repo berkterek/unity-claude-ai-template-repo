@@ -41,5 +41,7 @@ $(unity_state_read workflow_phase 2>/dev/null || echo "unknown")
 Run /catch-up or read this file at the start of the next turn to restore context.
 EOF
 
+rm -f "$UNITY_HOOK_STATE_DIR"/graph-nudge-*.count 2>/dev/null || true   # graph-nudge budget resets on compact
+
 echo "Pre-compact snapshot written to $OUT" >&2
 exit 0
