@@ -217,6 +217,47 @@ _index_fixture() {
     [ "$(echo "$out" | jq -s 'length')" -eq 1 ]
 }
 
+# ── Skill index filtered by installed packages ──────────────────────────────
+_package_fixture() {
+    _index_fixture
+    local unity="$UNITY_HOOK_STATE_DIR/unity"
+    mkdir -p "$unity/Packages" "$unity/Assets/Plugins/Demigiant"
+    printf '{"dependencies":{"com.unity.probuilder":"6.0.0"}}\n' > "$unity/Packages/manifest.json"
+    export UNITY_PACKAGE_MANIFEST="$unity/Packages/manifest.json"
+    printf '%s\n' \
+        '- `.claude/skills/third-party/netcode/SKILL.md` — NETCODE-LINE' \
+        '- `.claude/skills/third-party/probuilder/api.md` — PROBUILDER-LINE' \
+        '- `.claude/skills/third-party/dotween/SKILL.md` — DOTWEEN-LINE' \
+        '- `.claude/skills/third-party/odin-inspector/SKILL.md` — ODIN-LINE' \
+        '- `.claude/skills/third-party/vcontainer.md` — VCONTAINER-LINE' \
+        > "$UNITY_SKILL_INDEX_FILE"
+}
+
+@test "session-restore drops skills whose package is not installed, keeps installed and unmapped ones" {
+    _package_fixture
+    ctx=$(bash $HOOK 2>/dev/null <<< '{"source":"startup"}' | jq -r '.hookSpecificOutput.additionalContext')
+    [[ "$ctx" == *PROBUILDER-LINE* ]]
+    [[ "$ctx" == *DOTWEEN-LINE* ]]
+    [[ "$ctx" == *VCONTAINER-LINE* ]]
+    [[ "$ctx" != *NETCODE-LINE* ]]
+    [[ "$ctx" != *ODIN-LINE* ]]
+}
+
+@test "session-restore writes the filtered skill list to the state dir for subagents" {
+    _package_fixture
+    bash $HOOK >/dev/null 2>&1 <<< '{"source":"startup"}'
+    grep -q PROBUILDER-LINE "$UNITY_HOOK_STATE_DIR/auto-loaded-skills.md"
+    ! grep -q NETCODE-LINE "$UNITY_HOOK_STATE_DIR/auto-loaded-skills.md"
+}
+
+@test "session-restore keeps every skill line when the manifest is missing" {
+    _package_fixture
+    export UNITY_PACKAGE_MANIFEST="$UNITY_HOOK_STATE_DIR/missing/manifest.json"
+    ctx=$(bash $HOOK 2>/dev/null <<< '{"source":"startup"}' | jq -r '.hookSpecificOutput.additionalContext')
+    [[ "$ctx" == *NETCODE-LINE* ]]
+    [[ "$ctx" == *ODIN-LINE* ]]
+}
+
 @test "session-restore prints nothing on stdout when no index file exists" {
     export UNITY_RULE_INDEX_FILE="$UNITY_HOOK_STATE_DIR/missing.md"
     export UNITY_SKILL_INDEX_FILE="$UNITY_HOOK_STATE_DIR/missing2.md"

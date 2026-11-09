@@ -12,8 +12,10 @@ source "${SCRIPT_DIR}/_lib.sh"
 # .claude/state/codex-reviewed).
 #
 # Flow:
-#   1. Pipeline spawns codex:codex-rescue agent
-#   2. track-codex-review.sh (PostToolUse) creates .claude/state/codex-reviewed
+#   1. Pipeline runs .claude/scripts/codex-review.sh (reviews; no subagent)
+#      or spawns the codex:codex-rescue agent (write-capable rescue work)
+#   2. codex-review.sh itself, or track-codex-review.sh (PostToolUse on the
+#      agent), creates .claude/state/codex-reviewed
 #   3. Pipeline spawns unity-reviewer → this hook allows it (Codex ran)
 #
 #   If Codex is NOT installed → unity-reviewer allowed immediately.
@@ -89,8 +91,8 @@ echo "" >&2
 echo "  Reviewer priority: Codex → unity-reviewer (fallback)" >&2
 echo "" >&2
 echo "  To fix:" >&2
-echo "    1. Spawn the 'codex:codex-rescue' agent first" >&2
-echo "    2. track-codex-review.sh will mark Codex as done" >&2
+echo "    1. Run .claude/scripts/codex-review.sh <prompt-file> first" >&2
+echo "    2. It marks Codex as done when Codex returns a review" >&2
 echo "    3. Then unity-reviewer can run as a secondary pass" >&2
 echo "" >&2
 echo "  If Codex is unreachable (no API key, network error), manually" >&2

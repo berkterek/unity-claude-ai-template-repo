@@ -151,12 +151,66 @@ fi
 # Spec: docs/superpowers/specs/2026-10-08-instruction-loading-design.md
 RULE_INDEX_FILE="${UNITY_RULE_INDEX_FILE:-${SCRIPT_DIR}/../docs/rule-index.md}"
 SKILL_INDEX_FILE="${UNITY_SKILL_INDEX_FILE:-${SCRIPT_DIR}/../docs/auto-loaded-skills.md}"
+
+# A skill for a package this Unity project does not have is left out of the
+# injected index, so a session never reads the DOTween skill in a PrimeTween
+# project. The index file itself is untouched. Fail-open: no manifest (this
+# template repo itself) or a skill with no package marker → the line is kept,
+# because a hidden skill that was needed costs more than one extra line.
+_unity_folder="$(jq -r '.unity_project_folder // "."' "${SCRIPT_DIR}/../project-features.json" 2>/dev/null || true)"
+PACKAGE_MANIFEST="${UNITY_PACKAGE_MANIFEST:-${SCRIPT_DIR}/../../${_unity_folder:-.}/Packages/manifest.json}"
+unset _unity_folder
+
+# pkg:<id> = UPM id in manifest.json; dir:<path> = Asset Store import under the Unity project.
+_skill_package_markers() {
+    case "$1" in
+        *skills/third-party/netcode/*)        echo "pkg:com.unity.netcode.gameobjects" ;;
+        *skills/third-party/probuilder/*)     echo "pkg:com.unity.probuilder" ;;
+        *skills/third-party/textmeshpro/*)    echo "pkg:com.unity.textmeshpro pkg:com.unity.ugui" ;;
+        *skills/third-party/dotween/*)        echo "dir:Assets/Plugins/Demigiant" ;;
+        *skills/third-party/odin-inspector/*) echo "dir:Assets/Plugins/Sirenix" ;;
+        *skills/plugins/primetween.md*)       echo "pkg:com.kyrylokuzyk.primetween dir:Assets/Plugins/PrimeTween" ;;
+        *skills/systems/urp-volume/*)         echo "pkg:com.unity.render-pipelines.universal" ;;
+    esac
+}
+
+_skill_installed() {
+    local marker project_root
+    project_root="$(dirname "$(dirname "$PACKAGE_MANIFEST")")"
+    for marker in $1; do
+        case "$marker" in
+            pkg:*) grep -q "\"${marker#pkg:}\"" "$PACKAGE_MANIFEST" && return 0 ;;
+            dir:*) [ -d "${project_root}/${marker#dir:}" ] && return 0 ;;
+        esac
+    done
+    return 1
+}
+
+_filter_skill_index() {
+    local line markers
+    if [ ! -f "$PACKAGE_MANIFEST" ]; then
+        cat
+        return
+    fi
+    while IFS= read -r line || [ -n "$line" ]; do
+        markers="$(_skill_package_markers "$line")"
+        if [ -z "$markers" ] || _skill_installed "$markers"; then
+            printf '%s\n' "$line"
+        fi
+    done
+}
+
 _index_text=""
 [ -f "$RULE_INDEX_FILE" ] && _index_text="$(cat "$RULE_INDEX_FILE")"
 if [ -f "$SKILL_INDEX_FILE" ]; then
+    _skill_text="$(_filter_skill_index < "$SKILL_INDEX_FILE")"
+    # Subagents never receive this SessionStart context; they Read the list at
+    # Step 0. The filtered copy is what their prompts point at.
+    printf '%s\n' "$_skill_text" > "${UNITY_HOOK_STATE_DIR}/auto-loaded-skills.md"
     _index_text="${_index_text:+${_index_text}
 
-}$(cat "$SKILL_INDEX_FILE")"
+}${_skill_text}"
+    unset _skill_text
 fi
 if [ -n "$_index_text" ]; then
     jq -n --arg idx "$_index_text" \

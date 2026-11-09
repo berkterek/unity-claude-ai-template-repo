@@ -4,6 +4,7 @@
 |------|-------|
 | `check-architecture-doc.sh` | A `.cs` file written into a `Concretes/<Domain>/` that has no `ARCHITECTURE.md` — no domain is exempt, `Infrastructure/` included. Same script also has a **blocking** branch for malformed docs, see `hooks-blocking.md` |
 | `check-mono-justification.sh` | **PostToolUse.** Two checks on `_GameFolders/Scripts/Games/` MonoBehaviours: (1) Card 0 — no own `[SerializeField]` and no Unity lifecycle callback → the class probably should be pure C# (if it needs a frame tick, expose `Tick(float)` and let the domain's Mono shell forward it — **not** `ITickable`, which this project does not use); (2) shell over 150 lines → extract logic to a Handler. This is the hook `solid-oop.md` promises as "warns at 150 lines". Both checks can fire on one file. Disable: `DISABLE_HOOK_CHECK_MONO_JUSTIFICATION=1` |
+| `suggest-compact.sh` | **PostToolUse, main session only.** Main-session context (from the transcript's latest `usage`) passed 250k tokens → one reminder to `stop` → `/clear` → re-run at the next breakpoint; again every +60k. Tunable: `UNITY_COMPACT_CONTEXT_THRESHOLD`, `UNITY_COMPACT_CONTEXT_INTERVAL`. Disable: `DISABLE_HOOK_SUGGEST_COMPACT=1` |
 | `check-no-linq-hotpath.sh` | LINQ in Update/FixedUpdate/LateUpdate |
 | `check-no-hotpath-expensive-calls.sh` | `GetComponent`, `Camera.main`, `FindObjectOfType`, bare `transform.`, `tag ==`, `SendMessage` inside Update/FixedUpdate/LateUpdate/Tick/FixedTick/LateTick — suppressed if `_transform` field is cached |
 | `check-getcomponent-in-awake.sh` | `GetComponent`/`GetComponentInChildren` in `Awake` — prefer `[SerializeField]` Inspector assignment for all components including `Transform`; only acceptable when component is added dynamically at runtime |
@@ -14,7 +15,7 @@
 | `check-unitask-cancellation.sh` | `async UniTask` methods without `CancellationToken` parameter |
 | `check-null-propagation.sh` | `?.` or `is null` on Unity objects (bypasses destroyed-object detection) |
 | `track-read.sh` (PostToolUse Read) | Records every `Read` tool call into `gateguard-reads.txt` so `gateguard.sh`'s Stage 1 (`unity_was_read()`) check passes on the next Edit/Write. Without this hook, `gateguard-reads.txt` is never populated and every edit is blocked even after the file is read. |
-| `track-codex-review.sh` (PostToolUse) | Creates `${UNITY_HOOK_STATE_DIR}/codex-reviewed` — the absolute path `guard-reviewer-order.sh` reads, never a relative `.claude/state`, since a hook's cwd is the tool call's cwd — when `codex:codex-rescue` agent completes — enables `unity-reviewer` as fallback in reviewer-order enforcement |
+| `track-codex-review.sh` (PostToolUse) | Creates `${UNITY_HOOK_STATE_DIR}/codex-reviewed` — the absolute path `guard-reviewer-order.sh` reads, never a relative `.claude/state`, since a hook's cwd is the tool call's cwd — when `codex:codex-rescue` agent completes (reviews now run through `.claude/scripts/codex-review.sh`, which writes the same receipt itself) — enables `unity-reviewer` as fallback in reviewer-order enforcement |
 | `instinct-capture.sh` (PostToolUse) | Captures tool-use observations for later distillation into instincts |
 | `cost-tracker.sh` (PostToolUse) | Logs every tool call with timestamp for cost auditing |
 | `instinct-distill.sh` (Stop) | Distills captured observations into confidence-scored instincts |
