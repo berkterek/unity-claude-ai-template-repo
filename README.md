@@ -131,7 +131,9 @@ This generates project-specific boilerplate: assembly definition files, base fra
 
 The global `~/.claude/CLAUDE.md` file applies to every Claude Code session across all projects. Use it for personal interaction preferences that are not project-specific.
 
-The anti-sycophancy block is already included in `.claude/CLAUDE.md` — it ships with the template and applies to every project that installs it. If you want the same behavior globally (across all your projects), copy the block to `~/.claude/CLAUDE.md` as well:
+The template does **not** ship the anti-sycophancy block in `.claude/CLAUDE.md` — it was removed (2026-11-06) because it
+duplicated the global file and was paid again by every subagent. Put it in your `~/.claude/CLAUDE.md` once; it then
+applies to every project, this one included:
 
 ```markdown
 ## Interaction Style
@@ -165,8 +167,9 @@ files went from 185.2k to ~60k tokens.
 
 | When | What |
 |------|------|
-| Launch | `.claude/CLAUDE.md` (an index), its one `@`-import `docs/orchestrate-rules.md`, and the four always-loaded rules: `architecture`, `solid-oop`, `csharp-unity`, `bootstrap-pattern` |
-| Every SessionStart (incl. after `/compact`) | `session-restore.sh` injects `docs/rule-index.md` (which path-scoped rule to Read before which decision) and `docs/auto-loaded-skills.md` (reference skill list) as text |
+| Launch | `.claude/CLAUDE.md` (an index, no `@`-imports) and the four always-loaded rules: `architecture`, `solid-oop`, `csharp-unity`, `bootstrap-pattern` |
+| Every SessionStart (incl. after `/compact`) | `session-restore.sh` injects `docs/rule-index.md` (which path-scoped rule to Read before which decision) and the reference skill list as text. The skill list is `docs/auto-loaded-skills.md` **filtered to installed packages** (see below), also written to `.claude/state/auto-loaded-skills.md` for subagents |
+| Every subagent spawn | The same launch memory as the main session — except agents with `omitClaudeMd: true` in their frontmatter (`committer`, `unity-git-master`, `unity-scout`, `debate-*`), which never touch code. Subagents get no SessionStart text, so their Step 0 Reads `.claude/state/auto-loaded-skills.md` (fallback: `docs/auto-loaded-skills.md`) |
 | A matching file is Read/Edited | A path-scoped rule (`paths:` frontmatter) — not on a new-file Write, not via MCP, and dropped again by `/compact` |
 | A prompt keyword matches | `inject-rule-pointers.sh` names the rule to Read; `enforce-skill-for-keywords.sh` (strict) names the package skill. Neither injects a body, and text inside pasted blocks is ignored |
 | On demand | Every other `.claude/docs/*.md` — listed under "Reference" in CLAUDE.md |
@@ -175,11 +178,25 @@ files went from 185.2k to ~60k tokens.
 `@.claude/docs/x.md` form silently loaded nothing. `rule-budget.bats` fails if launch loading passes 145k characters
 or an import does not resolve.
 
+**Why launch memory is the cost lever (measured 2026-11-06).** Launch memory travels in a subagent's first message
+together with its task prompt, so two spawns with different tasks never share it through the prompt cache — every
+`coder`/`tester`/`unity-verifier` spawn writes the whole memory again (nile: 355 `coder` spawns, zero cache hits on
+it, even 207 that started under 5 minutes after the previous one). Running the work in the main session instead does
+not avoid this — a fresh or `/clear`ed session pays the same memory, and a long session re-sends all accumulated
+context every turn. So every token cut from CLAUDE.md or the four core rules is saved once per spawn and once per
+session. Measured: launch memory is ~26k tokens per spawn (an agent with `omitClaudeMd: true` started at 6.5k vs
+32.7k for the same probe without it). Detail: `docs/incidents/token-cost-agent-startup.md`.
+
+**Skill list filter.** A skill line in `auto-loaded-skills.md` is dropped when its package is not installed: UPM ids
+are checked in `<unity_project_folder>/Packages/manifest.json`, Asset Store imports by folder (DOTween →
+`Assets/Plugins/Demigiant`, Odin → `Assets/Plugins/Sirenix`). The mapping lives in `_skill_package_markers()` in
+`session-restore.sh`. Fail-open: no manifest, or a skill with no mapping, keeps the line.
+
 ### `.claude/graph/` — Knowledge graph
 
 | File | Purpose |
 |------|---------|
-| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.7.0 |
+| `schema.json` | JSON-Schema (draft-07) for `graph.json` — v1.8.0 |
 | `graph.json` (generated) | Living index of the codebase — do not edit by hand. Stores `{"$partition": "..."}` refs for scenes/prefabs |
 | `scenes.json` (generated) | Partition file — full `scenes[]` array, written atomically alongside `graph.json` |
 | `prefabs.json` (generated) | Partition file — full `prefabs[]` array, written atomically alongside `graph.json` |
@@ -190,7 +207,7 @@ or an import does not resolve.
 | `graph-builder.py` | Top-level orchestrator + SHA256 cache + call edge merge (Python stdlib, no jq) |
 | `graph-traversal.py` | BFS traversal — impact, callers, path, god-nodes, --finalize-calls. Imports `graph_bfs_core` for shared logic |
 | `graph_bfs_core.py` | Shared pure BFS module — no file I/O, no CLI. Imported by both `graph-traversal.py` and `graph-mcp-server.py` |
-| `graph-mcp-server.py` | stdio MCP server — loads graph partitions into RAM, exposes callers/impact/path/god-nodes as `mcp__graph_mcp__*` tools. Used when `hybrid_graph: true` |
+| `graph-mcp-server.py` | stdio MCP server — loads graph partitions into RAM, exposes callers/impact/path/god-nodes/what/where as `mcp__graph_mcp__*` tools. Used when `hybrid_graph: true` |
 | `graph-validator.sh` | Architecture invariant checks (R1–R6) |
 | `graph_cluster.py` | Community detection — groups related classes into modules. Uses Louvain (`networkx`) when available; falls back to stdlib greedy. Install `pip install networkx` for better results on sparse codebases. |
 | `graph_analyze.py` | Surprising connections + enhanced god-nodes (cross-boundary edge analysis) |
@@ -274,6 +291,31 @@ reading this graph instead of scanning files from scratch, and falling back to a
 when the graph is stale (> 24h), empty, or disabled.
 
 **v1.3.0 partition architecture** (unchanged since)**:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
+
+**v1.8.0 / extraction v7 — member ranges, docs and symbol lookups (`what` / `where`):**
+
+- Tree-sitter mode gives classes, interfaces, methods, **properties and fields** a `line`/`end_line`
+  range; methods carry `signature`; XML `<summary>`/`<remarks>` become a capped `doc` object.
+  Registrations (both modes) carry `method`, `chain` and `line`; `RegisterFactory` is recognised.
+- `graph-traversal.py what <Symbol>` prints a token-budgeted fact sheet (range, signature, doc,
+  registrations, callers, members); `where <Symbol>` prints `file:start-end` plus ranged `Read`
+  arguments. Both are also MCP tools. Details: `.claude/commands/knowledge-graph.md`.
+- New validator rule `ENTRYPOINT_DOUBLE_INTERFACES`: `RegisterEntryPoint<T>().AsImplementedInterfaces()`,
+  which VContainer rejects at scope build.
+- Namespace-qualified static calls (`Game.Concretes.Lobby.LobbyModule.InstallMenu()`) now record
+  callee `LobbyModule.InstallMenu` instead of `Game.InstallMenu`. The right-most PascalCase segment
+  is a syntactic guess (`StaticClass.Instance.M()` becomes `Instance.M`), so these edges are `INFERRED`.
+- Also fixed: a promoted `--incremental` run kept `--changed-files` and dropped every other file.
+- `graph_coverage.py` + `graph-coverage-run.sh` measure how much of a module's `code-map.md` the graph
+  can locate and explain, against another repo, read-only.
+- **Measured value — read before building on this.** On nile module 13 the graph locates 100% of
+  code-map symbols and explains 63%, and `what` answers in 0.05 s. **No command consumes it yet,**
+  and agents almost never query the graph on their own (2 of 763 transcripts). Classifying the
+  discovery calls of 8 real `/plan-module` planners: the graph could answer ~11% (where / callers /
+  members); ~14% more are prefab/scene/GUID lookups that the MCP prefab extraction would answer
+  (it was skipped in that project); the rest are `.md` docs, uxml/uss, `.asset` and rule files the
+  graph does not cover. Pushing graph facts into planner prompts was therefore **not** built.
+- `schema_version` **1.8.0**, `EXTRACTION_VERSION` **7**.
 
 **extraction v6 — the factory-delegate overload no longer records an interface as the concrete type:**
 
@@ -438,9 +480,10 @@ when the graph is stale (> 24h), empty, or disabled.
 |------|--------|
 | Classes / interfaces | Name, namespace, file, base types, `implements[]`, `is_mono_behaviour`, `has_static_instance` |
 | Methods | Per-class: name, signature, line, accessibility, `is_async`, `is_static`, return type |
+| Members, ranges, docs (tree-sitter) | `line`/`end_line` on classes, interfaces, methods, properties and fields; XML `<summary>`/`<remarks>` as a capped `doc` |
 | Call edges | `calls[]` — `ClassName.MethodName → callee`, file, line, confidence; resolution fields `callee_class` / `callee_file` / `method_match` / `callee_kind` (`internal` \| `external` \| `unresolved`) set by the builder's global pass |
 | Events | Publishers + subscribers via `_eventBus.Publish<T>()` / `.Publish(new T())` and `Subscribe<T>()` |
-| VContainer registrations | `Register<T>`, `RegisterInstance`, `RegisterComponent` — including `.As<IFoo>()`, `.AsImplementedInterfaces()`, and real `Lifetime` (Singleton/Transient/Scoped) |
+| VContainer registrations | `Register<T>`, `RegisterInstance`, `RegisterComponent`, `RegisterFactory`, `RegisterEntryPoint` — including `.As<IFoo>()`, `.AsImplementedInterfaces()`, and real `Lifetime` (Singleton/Transient/Scoped); `method`, `chain` and `line` per registration |
 | VContainer scopes | `LifetimeScope` subclasses; parent resolved from `[ParentScope(typeof(X))]` in C# code **or** from `LifetimeScope.parentReference` Inspector field via MCP (MCP wins on conflict) |
 | Prefabs (MCP) | Component list, variant status, full child GO hierarchy. Optional: scalar Inspector field values (`int`, `float`, `string`, `bool`, `enum`) via `execute_code` + `SerializedObject` — shown by `/knowledge-graph prefab <Name>` |
 | Assemblies | Name, file, references, platforms, `allowUnsafeCode` |
@@ -533,10 +576,10 @@ claude mcp add --scope project graph-mcp python3 "$(pwd)/.claude/graph/graph-mcp
 
 ```bash
 bash .claude/graph/test/verify-graphify.sh
-# Expected: 57 PASS, 1 KNOWN_FAIL, 0 FAIL (template mode — C#-dependent tests skip until source files exist)
+# Expected: 63 PASS, 1 KNOWN_FAIL, 0 FAIL (template mode — C#-dependent tests skip until source files exist)
 ```
 
-Tests cover: scan-root parity with the builder, builder flags (`--full`, `--incremental`, `--skip-mcp`, `--output`, `--quiet`), all six validator rules (R1–R6), pivot integrity, MCP prefab merge, `/knowledge-graph` subcommands, call-edge resolution, PostToolUse and post-commit triggers, v1.2.0 modules (cluster/analyze/validate/csharp_extractor), incremental purge, `graph-viz.py`, registration semantics, the validator's `interface_only` guard, disk/graph reconciliation, and `extraction_version` staleness promotion. Sandbox backup/restore ensures the live `graph.json` is never corrupted by a test run.
+Tests cover: scan-root parity with the builder, builder flags (`--full`, `--incremental`, `--skip-mcp`, `--output`, `--quiet`), all six validator rules (R1–R6) plus `ENTRYPOINT_DOUBLE_INTERFACES`, member ranges / docs / registration method and chain, `what` / `where`, code-map coverage, namespace-qualified call resolution, pivot integrity, MCP prefab merge, `/knowledge-graph` subcommands, call-edge resolution, PostToolUse and post-commit triggers, v1.2.0 modules (cluster/analyze/validate/csharp_extractor), incremental purge, `graph-viz.py`, registration semantics, the validator's `interface_only` guard, disk/graph reconciliation, and `extraction_version` staleness promotion. Sandbox backup/restore ensures the live `graph.json` is never corrupted by a test run.
 
 **A `KNOWN_FAIL` in template mode is expected, not a regression.** The count above is what an empty template produces: checks that need real C# under the builder's scan roots (disk/graph reconciliation, the T10b incremental-purge group) cannot run until a project has source files, so they report `KNOWN_FAIL` or `SKIP` rather than silently passing. Re-run the harness once the project has code — the same checks then run for real, and `PASS` there is the number that means something.
 
@@ -949,6 +992,7 @@ need the Unity Editor and MCP. Nothing here compiles anything.
 | `guard-gate-cleared` (PreToolUse) | Edit/Write on any C# file that has not been read in the current session |
 | `gateguard` (PreToolUse) | Stage 1 = the unread-file check above; Guard 2 = the fact gate. Guard 2 is released when the open plan covers the file; the Claude Code session scratchpad (`/tmp/claude-*/scratchpad/*`) is exempt outright — a probe `.cs` there never compiles into the game and no plan can cover it. The fact demands themselves live at plan time now: `.claude/scripts/validate-plan-facts.sh` runs BLOCKING in `/create-plan`, `/plan-module` and `/orchestrate` (see Plan-Time Validation for where in each — the plan must be on disk first), sharing `hooks/lib-gateguard-facts.sh` with this hook — one library, two callers, no cache and no receipt file. This is what makes the `strict` profile usable inside `/orchestrate`; before it, `guard-pipeline-direct-work` blocked the Director while this blocked the subagent, so with a gate open nobody could write a `.cs` at all. For `_GameFolders/Scripts/**.cs` the block message deliberately does **not** offer the deny-then-allow retry: that branch is Director-only, and `guard-pipeline-direct-work` stops the Director first, so it is unreachable there (this hook is strict-level, so it is the `strict` profile — and `/orchestrate` — that this describes; under `standard` gateguard does not run at all) — it names the two doors that do exist (declare the path in a `tasks.md` task, or spawn the pipeline agent) instead. Outside that path pattern the retry is real and is still offered |
 | `guard-pipeline-direct-work` (PreToolUse Edit\|MultiEdit\|Write\|Bash) | Blocks direct `Edit`/`Write` to `_GameFolders/Scripts/**/*.cs` and direct `git commit` while a Director Gate is open (`gate-cleared` exists) but no subagent is currently running (`subagent-depth` == 0, read via `unity_subagent_depth()`) — closes the "gate was shown but pipeline agent was never spawned" loophole. The depth counter can still leak (an agent interrupted, erroring, or still running when the session ends never gets its matching decrement — see `agent-start-log`), so a count untouched for 15 min is read as 0 (fails toward enforcing). **2026-08-29 (partial fix):** the increment/decrement itself was a read-modify-write race — parallel `Agent` spawns could all read the same stale value and lose updates (4 parallel spawns measured landing at depth `1` instead of `4`). Fixed with an `mkdir`-based lock (`unity_subagent_depth_lock`/`_unlock` in `hooks/_lib.sh`) around both writers. **This did not fix real coder/tester subagents getting blocked during `/orchestrate`** — their Start/Stop log entries were sequential, not overlapping, so no race was involved. **2026-08-29 (root cause #1):** `_lib.sh`'s `_resolve_state_dir()` resolved the state directory via `git rev-parse --show-toplevel`, which depends on the caller's cwd. A subagent's own tool-execution context isn't guaranteed to run from the repo root; when it doesn't, `git rev-parse` there resolves elsewhere (or fails) and the function silently falls back to `/tmp/unity-claude-hooks` — an always-fresh, always-zero directory the main session never touches. Fixed by preferring `$CLAUDE_PROJECT_DIR` and falling back to `git rev-parse` only when it's unset. **2026-08-29 (root cause #2, found after #1 was already fixed):** `PostToolUse:Agent` (which decrements depth) fires on the Agent tool's *async dispatch acknowledgement* in this harness, not on the subagent's actual completion — measured `duration_approx_s` of 1-3s against a real `usage.duration_ms` of 45-54s for the same calls. The decrement was happening ~50 seconds before the subagent actually finished, including through the moment it called `Write`. Fixed by deferring the decrement: `agent-stop-log.sh` now calls `unity_subagent_schedule_decrement()` with a `not_before` epoch anchored on the matched Start timestamp plus `UNITY_SUBAGENT_STOP_GRACE_SECONDS` (default 180s), and `unity_subagent_depth()` applies any matured pending decrement lazily on read (`unity_subagent_apply_pending_decrements()`) — there's no background timer in a stateless hook system. A heuristic, not an exact signal (no reliable "subagent truly finished" event exists here — native Stop is unreliable, `TaskCompleted` tracks todo items, not `Agent` dispatches), but it fails in the safe direction for this hook: a late decrement only over-permits a bounded window after real completion, never under-permits mid-run. Escape valve: `.claude/state/pipeline-override` for explicit user-approved bypasses |
+| `guard-main-unity-tests` (PreToolUse `mcp__UnityMCP__run_tests\|mcp__UnityMCP__get_test_job`) | Blocks the main session from running or polling tests while a Director Gate is open — `unity-verifier` does it in its own small context. Subagents (payload `agent_id`, or a fresh non-zero depth) pass; no gate → untouched. Escape valve: `pipeline-override`. |
 | `guard-reviewer-order` (PreToolUse) | `unity-reviewer` spawn when the Codex CLI is installed and `codex:codex-rescue` has not reviewed this pass — or its receipt is older than `UNITY_GATE_TTL` (45 min), or predates the current `gate-cleared` |
 | `check-no-runtime-instantiate` | `new GameObject()` — blocked everywhere in runtime code; use `Instantiate(prefab)` or `Addressables.InstantiateAsync()` |
 | `check-enum-byte-base` | `enum` without `: byte` base inside `IComponentData` or `IEvent` structs — use `: ushort` if 255+ values needed. Feature-gated on `ecs`; the gate file path is resolved via `$CLAUDE_PROJECT_DIR` first (2026-08-29 fix — a bare `git rev-parse` there mis-resolved inside a subagent's cwd and silently no-op'd this check even when ECS was genuinely enabled) |
@@ -975,7 +1019,7 @@ need the Unity Editor and MCP. Nothing here compiles anything.
 | `check-mono-justification` (PostToolUse) | Two checks on `_GameFolders/Scripts/Games/` MonoBehaviours: (1) Card 0 — no own `[SerializeField]` **and** no Unity lifecycle callback, so the class probably should not be a MonoBehaviour; (2) shell over 150 lines — extract logic to a Handler. This is the hook `solid-oop.md` refers to as "warns at 150 lines" |
 | `check-architecture-doc` (PostToolUse) | A `.cs` file written into a `Concretes/<Domain>/` that has no `ARCHITECTURE.md`. No domain is exempt, `Infrastructure/` included. `/new-module` writes the doc at Step 4.5, so this warning normally never fires in that flow. Same script also **blocks** a malformed doc, see above |
 | `track-read` (PostToolUse Read) | Records every `Read` tool call into `gateguard-reads.txt` — required for `gateguard.sh` Stage 1 (`unity_was_read()`) to pass. Without this, every edit is blocked even after reading the file. |
-| `track-codex-review` (PostToolUse) | Creates `.claude/state/codex-reviewed` when `codex:codex-rescue` completes |
+| `track-codex-review` (PostToolUse) | Creates `.claude/state/codex-reviewed` when `codex:codex-rescue` completes; reviews run through `.claude/scripts/codex-review.sh`, which writes the receipt itself |
 | `track-skill-invocations` (PostToolUse Skill) | Records every `Skill` tool invocation to `skills-invoked.txt` — required by `enforce-skill-for-keywords.sh` to know which skills are already loaded this session. Also injects `additionalContext` after every invocation to force Claude to read and follow the skill content before proceeding. |
 | `auto-load-skills` (PostToolUse) | Adds a `` - `path` — description `` line to `.claude/docs/auto-loaded-skills.md` whenever a skill is written to `third-party/`, `plugins/`, `learned/`, or `platform/`. A plain list, not an `@`-import — `session-restore.sh` injects it at SessionStart |
 | `enforce-skill-for-keywords` (UserPromptSubmit, strict) | Detects third-party package keywords in the prompt. A skill at `.claude/skills/<name>/SKILL.md` gets a Skill-tool demand (skipped once invoked this session); a nested reference skill (`third-party/…`, `plugins/…`) gets a Read pointer, because the Skill tool cannot invoke it. Ignores text inside pasted blocks |
@@ -1447,7 +1491,7 @@ Send: "read .claude/state/checkpoint.md"
 
 Skills live under `.claude/skills/` and are loaded automatically by commands. They are read-only reference files that inform Claude's decisions — they do not execute code. The `/learn` command writes project-specific patterns to `skills/learned/` and automatically adds entries to `skills-index.md`. The `/discover --write` command writes third-party package skills to `skills/third-party/<pkg>/` and also updates `skills-index.md`.
 
-**Auto-listing:** Skills in `third-party/`, `plugins/`, `learned/`, and `platform/` are listed with their descriptions in `.claude/docs/auto-loaded-skills.md`, which `session-restore.sh` injects at every SessionStart. The skill bodies are not loaded — Claude Reads one when its description matches the work. The `auto-load-skills.sh` PostToolUse hook keeps the list current on every skill write.
+**Auto-listing:** Skills in `third-party/`, `plugins/`, `learned/`, and `platform/` are listed with their descriptions in `.claude/docs/auto-loaded-skills.md`, which `session-restore.sh` injects at every SessionStart — minus skills whose package is not installed (see Configuration File Map → Skill list filter). The skill bodies are not loaded — Claude Reads one when its description matches the work. The `auto-load-skills.sh` PostToolUse hook keeps the list current on every skill write.
 
 ### Core (`skills/core/`)
 
@@ -1518,7 +1562,7 @@ Skills live under `.claude/skills/` and are loaded automatically by commands. Th
 
 Static pre-built skills. `skills/third-party/` holds folder-based skills (with subdirectories); `skills/plugins/` holds flat `.md` skills plus any skills generated by `/discover`.
 
-All skills under `skills/third-party/`, `skills/plugins/`, `skills/learned/`, and `skills/platform/` are **listed in every session** (path + description) via `auto-loaded-skills.md`, injected at SessionStart. Only the list loads, not the skill bodies — Claude Reads a skill when its description matches. The `auto-load-skills.sh` PostToolUse hook keeps the list in sync whenever `/discover` or `/learn` writes a new skill file. No manual CLAUDE.md edits needed.
+All skills under `skills/third-party/`, `skills/plugins/`, `skills/learned/`, and `skills/platform/` are **listed in every session** (path + description) via `auto-loaded-skills.md`, injected at SessionStart (filtered to installed packages). Only the list loads, not the skill bodies — Claude Reads a skill when its description matches. The `auto-load-skills.sh` PostToolUse hook keeps the list in sync whenever `/discover` or `/learn` writes a new skill file. No manual CLAUDE.md edits needed.
 
 **`skills/third-party/`**
 

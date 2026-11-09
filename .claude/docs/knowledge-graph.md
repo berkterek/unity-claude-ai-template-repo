@@ -10,6 +10,16 @@ for `/catch-up`, `/orchestrate` pre-scan, and `/context-prime`.
 - `/build-knowledge-graph [--full|--incremental] [--skip-mcp] [--validate] [--validate-with-codex] [--viz]`
 - `/knowledge-graph <summary|implementers|publishers|subscribers|registrations|scope-tree|prefab|violations|diff|callers|impact|path|god-nodes>`
 
+**Graph-aware commands (Step 0 graph preload when `graph` is enabled):** planning (`/create-plan`, `/update-plan`,
+`/plan-module`, `/new-module`), implementation (`/implement`, `/orchestrate`), fix/debug (`/fix`, `/fix-deep`,
+`/fix-codex`, `/debug-session`), investigation (`/search`, `/catch-up`, `/context-prime`, `/architect`), migration
+(`/migrate`), audit/review (`/qa`, `/validate`, `/review-code`, `/performance-audit`, `/check-portability`). Each
+queries the graph first and falls back to a file scan only when the graph is stale (> 24h), empty, or disabled.
+
+**`hybrid_graph`:** enabled → the call-graph queries (`callers`, `impact`, `path`, `god-nodes`) route through the
+`graph-mcp-server.py` MCP tools (backed by `graph_bfs_core.py`), with a stderr warning and a lazy pip probe on
+fallback. Disabled → every query uses `graph-traversal.py` / `jq`, no stderr output, no pip probe.
+
 **Triggers (kept in sync automatically):**
 - Every Write/Edit → PostToolUse `graph-auto-update.sh` (incremental, background, non-blocking, one rebuild at a time)
 - Every `git commit` → `.git/hooks/post-commit` (incremental rebuild, background — preserves MCP cache)
