@@ -98,4 +98,11 @@ Stale-assembly probe: "not applicable — fresh batch process". That is REASONIN
 (no previously loaded DLL to keep), not a measurement. Task 10(c) is what tests it.
 
 ## Measured (fill from docs/PLAN_unity_cli_verify.md Task 10)
-NOT YET MEASURED — every UNVERIFIED line above stands until this section holds dated results.
+Partial — every UNVERIFIED line not answered here still stands.
+- 2026-11-06, CLI 1.0.0-beta.13, Unity 6000.3.16f1, nile_bounce_legion (warm Library, no Editor open):
+  `unity test --mode EditMode` → exit 0 in **228 s**, 518 `<testcase`, `failures="0"`; stdout and stderr
+  were **empty** (the verdict is the exit code + results.xml only); results.xml was 146k chars — grep it,
+  never Read it whole. Same project's MCP `unity-verifier` spawns (2026-11-01..06, n=20): median 140 s wall.
+- Detector (d) `editors running --format json` DOES list GUI Editors without com.unity.pipeline
+  (`hasPipeline: false`, `reachable: false`); the field is `projectPath`, absolute, the folder holding `Assets/`.
+- Still unmeasured: batch run while an Editor holds the project (10a), compile-error surfacing on exit 6 (10c).
