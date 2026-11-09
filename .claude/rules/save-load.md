@@ -1,6 +1,12 @@
 ---
 paths:
-  - "**/*.cs"
+  - "**/*Save*.cs"
+  - "**/*Dal.cs"
+  - "**/*Model.cs"
+  - "**/*Settings*.cs"
+  - "**/*Progress*.cs"
+  - "**/*Persist*.cs"
+  - "**/SaveLoad*/**"
 ---
 # Save/Load Rules (NON-NEGOTIABLE)
 

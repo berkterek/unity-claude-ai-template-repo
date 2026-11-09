@@ -1,6 +1,7 @@
 ---
 paths:
-  - "**/*.cs"
+  - "**/*Input*.cs"
+  - "**/Inputs/**"
   - "**/*.inputactions"
 ---
 # Input System Rules (NON-NEGOTIABLE)

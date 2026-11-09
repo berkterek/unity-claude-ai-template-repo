@@ -158,7 +158,7 @@ public class StoreService : IInitializable, IDisposable
     public void Initialize()
     {
         _cts = new CancellationTokenSource();
-        SetupAsync(_cts.Token).Forget();
+        SetupAsync(_cts.Token).Forget(ex => { if (ex is not OperationCanceledException) Debug.LogException(ex); });
     }
 
     public void Dispose()
@@ -168,6 +168,16 @@ public class StoreService : IInitializable, IDisposable
     }
 }
 ```
+
+**CancellationTokenSource ownership rules:**
+
+| Rule | Detail |
+|------|--------|
+| Creator owns it | The class that calls `new CancellationTokenSource()` is responsible for `.Cancel()` and `.Dispose()` |
+| Cancel before Dispose | Always call `_cts.Cancel()` before `_cts.Dispose()` — cancels in-flight tasks first |
+| Dispose in `Dispose()` | For `IDisposable` classes: `Dispose()`. For MonoBehaviour: `OnDestroy()` |
+| Never pass the CTS | Pass only `_cts.Token` to callees — never the `CancellationTokenSource` itself |
+| Null-guard before use | `_cts?.Cancel(); _cts?.Dispose();` — CTS may be null if `Initialize()` was never called |
 
 ## DontDestroyOnLoad
 
