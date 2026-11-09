@@ -283,7 +283,7 @@ path-scoped and loads as described in [What loads when](#what-loads-when). Each 
 
 ## Knowledge Graph
 
-`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.7.0). When enabled (default in
+`.claude/graph/` ships a Graphify-inspired Unity-specific knowledge graph (v1.8.0). When enabled (default in
 `/setup-project`), the graph indexes every class, interface, event, installer, scope, asmdef, scene,
 prefab, **method**, and **call edge**. Graph-aware commands across planning, implementation,
 fix/debug, investigation, migration, and audit/review pipelines run a Step 0 graph preload —
@@ -292,7 +292,62 @@ when the graph is stale (> 24h), empty, or disabled.
 
 **v1.3.0 partition architecture** (unchanged since)**:** `scenes[]` and `prefabs[]` live in sibling files `scenes.json` and `prefabs.json`. `graph.json` stores `{"$partition": "..."}` references — keeping the main artifact slim regardless of scene/prefab count. All three files are generated and committed together.
 
-**v1.8.0 / extraction v7 — member ranges, docs and symbol lookups (`what` / `where`):**
+**Accuracy check on a real project (nile `12bb3911` + a full MCP rebuild, 2026-11-09) — read before trusting the graph:**
+
+- Checked against a raw-source scan written independently of the extractor: 540 class/interface declarations
+  vs 539 graph records, VContainer registrations match (the extra source hits are `RegisterCallback` and
+  `RegisterBuildCallback`, not service registrations), the two published-but-never-subscribed events are
+  genuinely dangling, scope parents match the Inspector values, 40 of 40 sampled call edges name a callee
+  present in the caller's file. Module 13 code-map: LOCATION 100%, BEHAVIOUR 63%. All of it is **one project**,
+  and the reference is regex, not Unity — it shows the graph reads the source faithfully, not that it matches the
+  compiled assemblies. Not verified: method counts and signatures, prefab components against YAML/GUID, any scene
+  other than the one loaded, and that a sampled call edge really comes from that method.
+- **Bug found and fixed:** `resolve_implementers` keyed interfaces by simple name, so two interfaces sharing a
+  name (`Framework.SaveLoadSystems.ISaveLoadService` and a game-side one) silently lost one record and left a
+  standing `GRAPH_DISK_MISMATCH` that `--full` could not clear. Both records are kept now, and each same-named
+  candidate lists the implementer — a class names its interface by simple name only, so which of the two it
+  implements is not resolved. Test: `test_resolve_implementers_same_name.py`.
+- **Second check — Unity reflection on the compiled assemblies (same snapshot):** methods 435 of 436 and
+  signatures 2468 of 2469 match, 97.7% of sampled call edges fall inside the named method's line range, prefabs
+  59 of 63, the three scenes checked match. It also found two defects, **fixed in extraction v8**: interface
+  members with no modifier were stored as `private` (C# makes them public — 164 of 166 interface methods wrong),
+  and calls to members the project type does not declare — `Instantiate` (engine base), `GetType` /
+  `ReferenceEquals` (`object`), `Received` (NSubstitute) and UniTask extension methods — were recorded as
+  `internal` edges with `method_match: false`; `nameof(...)` was recorded as a call. These now resolve to a
+  member on the type, its project base classes or interfaces, else `callee_kind: external` with no project link.
+  Tests: `test_extractor_interface_access_nameof.py`, `test_call_edge_undeclared_members.py`.
+- **Known limit — partial classes:** a `partial` class yields one record per declaration (GridManager: lines
+  15–120 and 123–313), not one merged record. Merging would break the line range `where` returns, so it stays split.
+- BEHAVIOUR stops short of 100% for structural reasons: Unity-invoked methods (`OnEnable`) have no caller in
+  code, and property or field reads are not edges.
+- **Graphify was measured as a replacement and rejected.** On the same snapshot `graphify extract --code-only`
+  built in 7 s but gave no `end_line`, no signature or doc and no VContainer registrations (LOCATION start-line
+  only 77.8%, BEHAVIOUR 22.2% by the same rows; the adapter was written here, so read the direction, not the
+  figures). Its LLM document pass (`--backend claude-cli`) added 55 nodes from 18 markdown files — concepts with
+  no line reference, duplicates of existing code nodes — and extracted nothing from the 12 uxml/uss files.
+
+**graph-nudge hook (T10) and the T11 measurement — read before enabling the graph for planning:**
+
+- `.claude/hooks/graph-nudge.sh` (PreToolUse `Read|Grep|Bash|mcp__graph_mcp__.*`) never blocks. When an agent reads or
+  `cat`/`sed -n`/`grep`s a `.cs` under `Assets/(_Framework|_GameFolders/Scripts)` it adds one line pointing at
+  `graph-traversal.py what/where`. Budget 5 nudges per agent per session; silent for 30 min after that agent's own
+  graph query. State is keyed per `agent_id`, so a main-session query does not silence a subagent. Every decision
+  (`nudge`, `stamp`, `quiet-recent-query`, `quiet-budget-spent`) is appended to `.claude/state/graph-nudge.log` —
+  PreToolUse output is not in the transcript, so that log is the only proof it fired.
+- Toggle: `.claude/project-features.json` `"graph": false` makes it silent; also `DISABLE_HOOK_GRAPH_NUDGE=1`,
+  `DISABLE_UNITY_HOOKS=1`, `UNITY_HOOK_PROFILE=minimal`. A hook added to `settings.json` loads only after a full
+  Claude Code restart, not `/clear`.
+- `.claude/scripts/graph-usage-report.py <project-dir> [since] [nudge-log]` counts, per session and agent, `cat .cs` /
+  `sed -n` / `grep` / `Read .cs` / graph calls. Pair it with `pipeline-breakdown.py <project-dir> [since]` for cost.
+- **Measured on nile `/plan-module` (opus planner, n=4): graph use rose 0 → 1 → 3 → 6 real queries, shell reading did
+  not fall (52 / 57 / 29 / 40 `cat`+`sed -n`+`grep`), and the run cost did not fall (avg 3.0M vs a 3.5M baseline of 23
+  runs; module 34 was the dearest at ~4.5M, driven mostly by re-reading the old plan and a five-screen scope, not by
+  the graph).** `where` output also told the planner to read `offset=11 limit=197` of a 207-line file. Verdict so
+  far: no measured saving; the 40k-character graph context pre-loaded into one planner added load without fewer
+  reads. Kill criterion (`docs/PLAN_graph_complete_map.md`): no drop in grep / full-read share → the feature is
+  recorded as not useful and removed. One more comparable run (a fresh plan, not a re-plan) decides it.
+
+**v1.8.0 / extraction v7 (v8 adds the two fixes above) — member ranges, docs and symbol lookups (`what` / `where`):**
 
 - Tree-sitter mode gives classes, interfaces, methods, **properties and fields** a `line`/`end_line`
   range; methods carry `signature`; XML `<summary>`/`<remarks>` become a capped `doc` object.
@@ -315,7 +370,7 @@ when the graph is stale (> 24h), empty, or disabled.
   members); ~14% more are prefab/scene/GUID lookups that the MCP prefab extraction would answer
   (it was skipped in that project); the rest are `.md` docs, uxml/uss, `.asset` and rule files the
   graph does not cover. Pushing graph facts into planner prompts was therefore **not** built.
-- `schema_version` **1.8.0**, `EXTRACTION_VERSION` **7**.
+- `schema_version` **1.8.0**, `EXTRACTION_VERSION` **7** (v8 adds the interface-access, `nameof` and call-edge fixes above).
 
 **extraction v6 — the factory-delegate overload no longer records an interface as the concrete type:**
 
@@ -997,6 +1052,7 @@ need the Unity Editor and MCP. Nothing here compiles anything.
 | `check-no-runtime-instantiate` | `new GameObject()` — blocked everywhere in runtime code; use `Instantiate(prefab)` or `Addressables.InstantiateAsync()` |
 | `check-enum-byte-base` | `enum` without `: byte` base inside `IComponentData` or `IEvent` structs — use `: ushort` if 255+ values needed. Feature-gated on `ecs`; the gate file path is resolved via `$CLAUDE_PROJECT_DIR` first (2026-08-29 fix — a bare `git rev-parse` there mis-resolved inside a subagent's cwd and silently no-op'd this check even when ECS was genuinely enabled) |
 | `check-duplicate-symbol` | New file's top-level symbol already exists elsewhere in the graph. Feature-gated on `graph` + a present `graph.json`; both gate-file paths use the same `$CLAUDE_PROJECT_DIR`-first fix as `check-enum-byte-base` (2026-08-29) |
+| `graph-nudge` (PreToolUse Read\|Grep\|Bash\|mcp graph) | Soft hint only, never blocks: whole-file C# reads under the indexed roots → try `graph-traversal.py what/where`. 5 per agent, quiet 30 min after the agent's own graph query. Gated on `graph: true`; log `.claude/state/graph-nudge.log` |
 | `block-graph-direct-read` (PreToolUse Read) | Direct `Read` of `graph.json`, `scenes.json`, or `prefabs.json` when `hybrid_graph: true` — use `/knowledge-graph` subcommands or `mcp__graph_mcp__*` tools instead. **2026-08-29:** `PROJECT_ROOT` resolution now prefers `$CLAUDE_PROJECT_DIR` — a bare `git rev-parse` came back empty inside a subagent's cwd and exited this guard entirely, silently allowing the direct Read it exists to block |
 | `check-domain-folder-structure` (PreToolUse Edit\|Write) | **Fail-closed, all file types** (an `.asmdef` is how an illegal folder is born). Any first segment under `Scripts/` outside `Games\|Tests\|Editors`; any first segment under `Scripts/Games/` outside `Abstracts\|Concretes\|Ecs`; a file at the root of `Scripts/`; layer names (`Service(s)/`, `Provider(s)/`, `Controller(s)/`, `View(s)/`, `Manager(s)/`, `Interface(s)/`, `Config(s)/`) and catch-alls (`Core/`, `General(s)/`) as the **first** folder under `Games/Abstracts\|Concretes/`; a `.cs` file with no domain folder at all. Never inspects below the domain — `Players/Services/` is legal. Rule logic lives in `hooks/lib-path-rules.sh`, shared with the plan-time `scripts/validate-plan-paths.sh`; exceptions are declared in `.claude/path-allowlist.txt`. `Tests/`, `Editor/` are out of scope. **2026-08-29:** `lib-path-rules.sh`'s allowlist-file lookup now prefers `$CLAUDE_PROJECT_DIR` over a bare `git rev-parse` — the latter fell back to `.` inside a subagent's cwd, silently un-matching a real, reviewed `path-allowlist.txt` entry |
 | `check-no-throwaway-editor-script` (PreToolUse Edit\|Write) | One-shot Editor C# scripts: a `.cs` path under `Editor/(Temp\|Tmp\|Scratch\|OneShot\|Throwaway)/`, or content marked disposable (`delete this file once…`, `throwaway`, `temporary wiring helper`, `EditorTemp`). Do the work through MCP (`manage_gameobject`, `manage_components`, `manage_asset`) instead. Genuine bulk `AssetImporter` work belongs in a **permanent** tool under `Assets/Editor/`. Escape valve: one-line reason in `.claude/state/editor-script-override` |
