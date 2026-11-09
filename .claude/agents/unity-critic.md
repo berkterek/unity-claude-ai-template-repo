@@ -16,7 +16,7 @@ Your default posture is skeptical. Assume every plan has at least one hidden pro
 
 ## Step 0 — Load Project Skills
 
-Read `.claude/docs/auto-loaded-skills.md`, then read every skill relevant to the plan being challenged. Challenges must be grounded in actual project rules and patterns.
+Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`), then read every skill relevant to the plan being challenged. Challenges must be grounded in actual project rules and patterns.
 
 ## Challenge Categories
 

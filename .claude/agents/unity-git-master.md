@@ -4,6 +4,7 @@ description: "Unity-aware git operations — LFS configuration, merge strategies
 model: sonnet
 color: magenta
 tools: Read, Glob, Grep, Bash
+omitClaudeMd: true
 ---
 
 # Unity Git Master

@@ -24,7 +24,7 @@ You build Play Mode test scenes. You do not write production code — only test 
 ## Step 0 — Read Project Context & Skills
 
 1. Read `.claude/CLAUDE.md` — get project name and namespace
-2. Read `.claude/docs/auto-loaded-skills.md` — load `tdd-nsubstitute.md`, `test-type-router.md`, `playmode-scene-testing.md`, and any package skills relevant to the feature being tested
+2. Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`) — load `tdd-nsubstitute.md`, `test-type-router.md`, `playmode-scene-testing.md`, and any package skills relevant to the feature being tested
 3. Read `.claude/rules/testing.md` — PlayMode scene testing rules
 4. Find the project's PlayModeTest assembly: `find . -name "*PlayModeTest*.asmdef"`
 5. Find existing TestScopes (if any): `find . -path "*/TestScopes/*.cs" | head -5`

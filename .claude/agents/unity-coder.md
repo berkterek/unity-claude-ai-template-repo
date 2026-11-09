@@ -17,7 +17,7 @@ You are a senior Unity C# developer implementing features for a game project. Al
 
 **Before writing a single line of code**, load the project's skill library:
 
-1. Read `.claude/docs/auto-loaded-skills.md` — this lists every skill file available in this project (paths prefixed with `@`)
+1. Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`) — this lists every skill file available in this project (paths prefixed with `@`)
 2. From that list, read every skill whose topic overlaps with this task. When in doubt, read it — the cost of skipping a relevant skill is always higher than the cost of reading it.
    - Working with DI / installers / scopes? → read `vcontainer.md`, `bootstrap-pattern.md`
    - Writing tests? → read `tdd-nsubstitute.md`, `test-type-router.md`

@@ -15,7 +15,7 @@ You build UI Toolkit UI: Editor tools (custom inspectors, EditorWindow subclasse
 
 ## Step 0 — Load Project Skills
 
-Read `.claude/docs/auto-loaded-skills.md`, then read `unity-uitoolkit.md` and any other relevant skills (unity-editor-tools, learned patterns). **For runtime work also read `.claude/rules/ui-toolkit-runtime.md` in full and `.claude/skills/systems/ui-toolkit/SKILL.md`** — the rule's GOTCHAs are field-measured failures, not style advice.
+Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`), then read `unity-uitoolkit.md` and any other relevant skills (unity-editor-tools, learned patterns). **For runtime work also read `.claude/rules/ui-toolkit-runtime.md` in full and `.claude/skills/systems/ui-toolkit/SKILL.md`** — the rule's GOTCHAs are field-measured failures, not style advice.
 
 **Before creating a NEW `I*Service`, `I*Handler`, or `*Module` file**, query the knowledge graph for that exact symbol name — `/knowledge-graph implementers <Name>`, or `jq '[(.codebase.classes // [])[], (.codebase.interfaces // [])[]] | map(select(.name == "IFooService"))' .claude/graph/graph.json`. If a match exists, **extend the existing type at its reported `.file`** instead of creating a duplicate. If extending is genuinely wrong (a different domain that legitimately shares the name), say why before proceeding — `check-duplicate-symbol.sh` will block the write otherwise.
 

@@ -1,21 +1,22 @@
 ---
 name: committer
 description: "Smart git commit manager. After a phase passes review, groups uncommitted changes into logical atomic commits with conventional commit messages. Includes Unity .meta files."
-model: sonnet
+model: haiku
 color: gray
 tools: Read, Glob, Bash
+omitClaudeMd: true
 ---
 
 # Committer Agent — Smart Phase Commit Manager
 
-> **This file is used two different ways, and the `model: sonnet` frontmatter applies to only one of them.**
+> **This file is used two different ways, and the `model: haiku` frontmatter applies to only one of them.**
 >
 > | Caller | How | Model that runs |
 > |---|---|---|
 > | `/implement`, `/fix`, `/fix-deep`, `/migrate`, `/orchestrate`, `/scene-setup`, `/create-prefab-scene`, `/smart-commit`, `/smart-commit-selected` | Inline — *"Execute commits directly. Read `.claude/agents/committer.md` for full conventions"* | **The session model**, whatever it is |
-> | `/create-plan`, `/update-plan`, `audio-clip-agent` | Spawned as a real subagent | **`sonnet`**, per the frontmatter |
+> | `/create-plan`, `/update-plan`, `audio-clip-agent` | Spawned as a real subagent | **`haiku`**, per the frontmatter |
 >
-> So do not read the frontmatter as "commits run on Sonnet" — on the nine inline paths they run on whatever the session was launched with. Read `.claude/docs/agents-index.md`'s tier table with the same caveat.
+> So do not read the frontmatter as "commits run on Haiku" — on the nine inline paths they run on whatever the session was launched with. Read `.claude/docs/agents-index.md`'s tier table with the same caveat.
 >
 > The split is deliberate. The pipelines that just finished writing the code commit inline because a spawned subagent sees the diff but not the conversation, and a commit body worth reading explains *why* — which lives in the conversation. `/create-plan` and `/update-plan` spawn instead: their commit follows a reviewer verdict on a plan whose context is already written down, so there is nothing in the conversation the diff and the plan file do not carry.
 

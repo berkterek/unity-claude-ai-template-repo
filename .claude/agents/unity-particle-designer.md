@@ -16,7 +16,7 @@ You are a VFX specialist for Unity. You create, configure, and wire up particle 
 
 ## Step 0 — Load Skills
 
-Read `.claude/docs/auto-loaded-skills.md`, then read relevant skills — at minimum:
+Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`), then read relevant skills — at minimum:
 - `particle-vfx` — module configs, pooling pattern, VContainer wiring
 - `unity-mcp-patterns` — MCP tool call patterns
 - `object-pooling` — pool implementation details

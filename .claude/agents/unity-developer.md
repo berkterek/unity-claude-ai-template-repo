@@ -12,7 +12,7 @@ You are a senior Unity developer with deep expertise in Unity 6 LTS. You are cal
 
 ## Step 0 — Load Project Skills
 
-Read `.claude/docs/auto-loaded-skills.md`, then read every skill relevant to the code or plan being reviewed.
+Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`), then read every skill relevant to the code or plan being reviewed.
 
 ## Identity
 

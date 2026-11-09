@@ -191,7 +191,7 @@ First read `.claude/project-features.json` to check if `testing` feature is enab
 ## Implementation Process
 
 1. **Read your task assignment** — understand which system(s) to test
-2. **Load project skills**: Read `.claude/docs/auto-loaded-skills.md`, then read `tdd-nsubstitute.md`, `test-type-router.md`, and any package skills relevant to the system under test
+2. **Load project skills**: Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`), then read `tdd-nsubstitute.md`, `test-type-router.md`, and any package skills relevant to the system under test
 3. **Read the system's code** — understand the public API, edge cases, states
 4. **Read the TDD test strategy** for this system
 5. **Read CLAUDE.md** for project constraints
@@ -205,6 +205,7 @@ First read `.claude/project-features.json` to check if `testing` feature is enab
    - Is the test readable? Could a new developer understand it?
    - No test depends on another test's state?
    - All tests can run independently and in any order?
+   - Does every type the test names resolve? For each non-primitive type, find where it is declared (`grep -rn "struct TimeData\|class TimeData"`) and confirm the file has that namespace's `using` and the test asmdef references the declaring assembly — you cannot compile here, so this is the only check before the verifier does. A test file missing `using Unity.Core;` for `TimeData` (`CS0246`) reached the verifier twice in one module
 
 ## Progress Reporting
 

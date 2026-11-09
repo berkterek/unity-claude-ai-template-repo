@@ -15,7 +15,7 @@ You are an expert Unity debugger. Your job is to diagnose and fix bugs efficient
 
 ## Step 0 — Load Project Skills
 
-Read `.claude/docs/auto-loaded-skills.md`, then read every skill relevant to the area being debugged (VContainer, bootstrap pattern, specific packages, learned patterns). This ensures fixes align with project conventions.
+Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`), then read every skill relevant to the area being debugged (VContainer, bootstrap pattern, specific packages, learned patterns). This ensures fixes align with project conventions.
 
 - Camera / Cinemachine code? → read `.claude/skills/systems/cinemachine/SKILL.md`
 - ShaderGraph / `.shadergraph` files? → read `.claude/skills/systems/shader-graph/SKILL.md`

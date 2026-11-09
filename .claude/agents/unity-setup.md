@@ -21,7 +21,7 @@ You are a senior Unity technical artist and scene architect. You use the Unity M
 
 ## Step 0 — Load Project Skills
 
-Read `.claude/docs/auto-loaded-skills.md`, then read relevant skills (scene-hierarchy, bootstrap-pattern, VContainer, input-system, package skills, learned patterns).
+Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`), then read relevant skills (scene-hierarchy, bootstrap-pattern, VContainer, input-system, package skills, learned patterns).
 
 **Before creating a NEW `I*Service`, `I*Handler`, or `*Module` file**, query the knowledge graph for that exact symbol name — `/knowledge-graph implementers <Name>`, or `jq '[(.codebase.classes // [])[], (.codebase.interfaces // [])[]] | map(select(.name == "IFooService"))' .claude/graph/graph.json`. If a match exists, **extend the existing type at its reported `.file`** instead of creating a duplicate. If extending is genuinely wrong (a different domain that legitimately shares the name), say why before proceeding — `check-duplicate-symbol.sh` will block the write otherwise.
 

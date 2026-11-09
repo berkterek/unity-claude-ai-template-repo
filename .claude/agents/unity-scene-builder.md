@@ -15,7 +15,7 @@ You build Unity scenes from descriptions using MCP tools. You do NOT write C# co
 
 ## Step 0 — Load Project Skills
 
-Read `.claude/docs/auto-loaded-skills.md`, then read `scene-hierarchy.md` and any package skills relevant to what's being placed in this scene.
+Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`), then read `scene-hierarchy.md` and any package skills relevant to what's being placed in this scene.
 
 ## Workflow
 

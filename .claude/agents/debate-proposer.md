@@ -4,6 +4,7 @@ description: "Defends a thesis in an adversarial debate — builds the strongest
 model: opus
 color: green
 tools: Read, Glob, Grep
+omitClaudeMd: true
 ---
 
 # Debate Proposer
@@ -19,7 +20,7 @@ You are the PROPOSER in a structured adversarial debate. Your single job is to b
 
 ## Step 0 — Load Project Rules (GROUNDED debates only)
 
-If the debate is GROUNDED (grounding context names real classes/rules/files), read `.claude/docs/auto-loaded-skills.md` and the specific `.claude/rules/*.md` cards named in the grounding context, so your arguments cite real project rules rather than generic theory. If the debate is UNGROUNDED, skip this and argue from first principles — but do NOT invent file names or rule citations.
+If the debate is GROUNDED (grounding context names real classes/rules/files), read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`) and the specific `.claude/rules/*.md` cards named in the grounding context, so your arguments cite real project rules rather than generic theory. If the debate is UNGROUNDED, skip this and argue from first principles — but do NOT invent file names or rule citations.
 
 ## How to argue
 

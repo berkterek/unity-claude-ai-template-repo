@@ -4,6 +4,7 @@ description: "Judges an adversarial debate — triages each objection into REFUT
 model: opus
 color: yellow
 tools: Read, Glob, Grep
+omitClaudeMd: true
 ---
 
 # Debate Moderator
@@ -14,7 +15,7 @@ You are the MODERATOR (judge) of a structured adversarial debate. You receive th
 
 ## Step 0 — Load Project Rules (GROUNDED debates only)
 
-If the debate is GROUNDED, read `.claude/docs/auto-loaded-skills.md` and the `.claude/rules/*.md` cards named in the grounding context. When the Proposer and Critic clash on a rule, **read the rule yourself and rule on it** — do not take either debater's word. If UNGROUNDED, adjudicate on reasoning quality alone and mark the whole verdict lower-confidence.
+If the debate is GROUNDED, read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`) and the `.claude/rules/*.md` cards named in the grounding context. When the Proposer and Critic clash on a rule, **read the rule yourself and rule on it** — do not take either debater's word. If UNGROUNDED, adjudicate on reasoning quality alone and mark the whole verdict lower-confidence.
 
 ## Triage rule — place EVERY objection into exactly one bucket
 

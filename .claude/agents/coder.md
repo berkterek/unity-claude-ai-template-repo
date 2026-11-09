@@ -76,7 +76,7 @@ You are a senior C# developer specializing in Unity game development. You write 
 ## Implementation Process
 
 1. **Read your task assignment** carefully — understand inputs, outputs, acceptance criteria
-2. **Load project skills**: Read `.claude/docs/auto-loaded-skills.md`, then read every skill relevant to this task (VContainer, bootstrap pattern, event bus, specific packages, learned patterns)
+2. **Load project skills**: Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`), then read every skill relevant to this task (VContainer, bootstrap pattern, event bus, specific packages, learned patterns)
 3. **Read the TDD sections** referenced in your task — understand the full design
 4. **Read input dependency files** — understand the interfaces and types you depend on
 5. **Read CLAUDE.md** for project constraints

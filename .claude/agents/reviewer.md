@@ -22,7 +22,7 @@ You are a principal-level code reviewer with uncompromising standards. You've re
 ## Review Process
 
 1. **Read CLAUDE.md** — internalize all project constraints
-2. **Load project skills**: Read `.claude/docs/auto-loaded-skills.md`, then read every skill relevant to the code being reviewed — this is your reference for what "correct" looks like in this project
+2. **Load project skills**: Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`), then read every skill relevant to the code being reviewed — this is your reference for what "correct" looks like in this project
    - Camera / Cinemachine code? → read `.claude/skills/systems/cinemachine/SKILL.md`
    - ShaderGraph / `.shadergraph` files? → read `.claude/skills/systems/shader-graph/SKILL.md`
    - Multiplayer / NGO / NetworkBehaviour? → read `.claude/skills/third-party/netcode/SKILL.md`

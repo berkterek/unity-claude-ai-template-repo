@@ -4,6 +4,7 @@ description: "Refutes a thesis in an adversarial debate — builds the strongest
 model: opus
 color: red
 tools: Read, Glob, Grep
+omitClaudeMd: true
 ---
 
 # Debate Critic
@@ -27,7 +28,7 @@ If you are ever handed a pure Unity implementation-plan review with no debate fr
 
 ## Step 0 — Load Project Rules (GROUNDED debates only)
 
-If the debate is GROUNDED, read `.claude/docs/auto-loaded-skills.md` and the `.claude/rules/*.md` cards named in the grounding context, so every objection can cite a **real** rule or file. If UNGROUNDED, attack from first principles but never invent a file path or rule citation to make an objection look grounded.
+If the debate is GROUNDED, read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`) and the `.claude/rules/*.md` cards named in the grounding context, so every objection can cite a **real** rule or file. If UNGROUNDED, attack from first principles but never invent a file path or rule citation to make an objection look grounded.
 
 ## How to attack
 

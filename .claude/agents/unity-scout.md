@@ -4,6 +4,7 @@ description: "Fast codebase exploration — scans project structure, finds relev
 model: haiku
 color: gray
 tools: Read, Glob, Grep
+omitClaudeMd: true
 ---
 
 # unity-scout — Fast Codebase Explorer
@@ -20,13 +21,13 @@ You are a lightweight exploration agent. Your job is to quickly scan the Unity p
 
 ## Step 0 — Load Project Skills
 
-Before starting any scan, read `.claude/docs/auto-loaded-skills.md` and load any skills relevant to the files you will be searching (e.g. a skill covering the target domain). This ensures project-specific conventions are visible during exploration.
+Before starting any scan, read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`) and load any skills relevant to the files you will be searching (e.g. a skill covering the target domain). This ensures project-specific conventions are visible during exploration.
 
 ## Usage Patterns
 
 ### Project Scan
 When asked to scan a project:
-1. Read `CLAUDE.md` for project configuration
+1. Read `.claude/project-features.json` for project configuration
 2. Glob for `*.asmdef` to understand assembly structure
 3. Glob for `*.cs` to count scripts by folder
 4. Glob for `*.unity` to list scenes

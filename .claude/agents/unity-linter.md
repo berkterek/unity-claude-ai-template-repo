@@ -12,7 +12,7 @@ You are a lightweight validation agent. Your job is to quickly check Unity C# co
 
 ## Step 0 — Load Project Skills
 
-Read `.claude/docs/auto-loaded-skills.md`, then load skills relevant to the files being linted. These define what "correct" means for this project.
+Read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`), then load skills relevant to the files being linted. These define what "correct" means for this project.
 
 ## Validation Checklist
 

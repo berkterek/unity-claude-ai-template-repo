@@ -18,7 +18,7 @@ You are a graphics programmer specializing in Unity shaders for URP.
 
 ## Step 0 — Load Skills & Complexity Route (MANDATORY)
 
-First, read `.claude/docs/auto-loaded-skills.md` and load any relevant skills (URP pipeline, materials, particle-vfx, learned patterns).
+First, read `.claude/state/auto-loaded-skills.md` (this session's list, filtered to installed packages; if missing, `.claude/docs/auto-loaded-skills.md`) and load any relevant skills (URP pipeline, materials, particle-vfx, learned patterns).
 
 Then, score the request and choose the output format:
 
