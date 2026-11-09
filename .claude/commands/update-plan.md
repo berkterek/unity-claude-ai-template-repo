@@ -121,9 +121,16 @@ Read each of those files now. Note:
 - Subscribe/Unsubscribe pairs already in place
 - Namespace collision risk: does the domain name match a UnityEngine type? (Camera, Random, Object, Input, Physics…)
 
+## Code Map (when `code-map.md` sits next to the plan file)
+It lists where the plan's symbols live (file, symbol, line hint, read-at commit). Locate every symbol through it
+with a ranged Read — do not grep or `sed -n` the tree for something a row already names. Search only for what
+the map does not cover, and list each such search under "Extra reads" in your output. Report every row a task
+now needs changed or added under "Code Map Updates" (same table format).
+
 ## Drift Check (MANDATORY when the plan predates other work)
-Baseline commit: the commit the plan says it was written or rebased against (revision note, "HEAD <sha>",
-"@<sha>") wins; only when the plan names none, use `git log --format=%h -1 -- <plan file>`. State which you used.
+Baseline commit: `code-map.md`'s `Read at:` line wins when it exists; then the commit the plan says it was written
+or rebased against (revision note, "HEAD <sha>", "@<sha>"); only when neither exists, use
+`git log --format=%h -1 -- <plan file>`. State which you used.
 Files to check: the plan's File Map if it has one, otherwise every existing (non-new) path in the tasks'
 "Files to modify" / header lines. New files have no history and are skipped.
 For each such file run `git log --oneline <baseline>..HEAD -- <file>`; a file with no commits since is not re-checked.
@@ -161,6 +168,12 @@ If graph is stale → note "unverified — rebuild graph with Unity Editor open"
 - Constraints or gotchas discovered in the code
 - VContainer scene preconditions: for every `RegisterComponentInHierarchy<T>()` the update will add, state: "GO must be active at registration time"
 
+### Code Map Updates (only if code-map.md exists)
+- Rows to change or add, in the map's table format
+
+### Extra reads
+- Each search or file read the code map did not point you to
+
 Report findings only. Do NOT write plan tasks or code.
 ```
 
@@ -170,7 +183,10 @@ If analyzer reports no gaps → inform the user: "Plan is already up to date. No
 
 ## Step 2 — Planner
 
-Spawn a **Plan** subagent (model: opus) with this prompt:
+Spawn a **general-purpose** subagent (`model: opus`) with this prompt. **Not `Plan`:** it has no Write tool, so
+it returned the whole plan as text and a second agent re-generated the same text to save it — measured on a
+downstream project (Nov 2026): every re-base ran as a `Plan` "edits" agent followed by one "apply edits" agent
+per file. The review loop below does **not** message this agent again — fixes go to a fresh, smaller agent.
 
 ```
 You are a senior technical writer for a Unity project.
@@ -233,12 +249,19 @@ After writing all new tasks, analyze dependencies across ALL tasks (existing + n
    - **Test Type:** field — apply the decision matrix below to the primary file for each new task (EditMode | PlayMode-ECS | PlayMode-Scene | NoTest)
    - Code snippets showing method signatures and key logic (not full implementations)
    - Clear acceptance criteria
-5. Keep existing tasks and content untouched — only append
+5. Keep existing tasks and content untouched — only append — **unless** the change request or a DRIFT finding is about
+   an existing task: then edit that task in place, and nothing else that was not asked for
 6. Cite code by symbol (`Board.cs → Board()`), not by line number; a line number is optional and must carry `@<commit>`. Existing line-number citations are rewritten to symbols only where the Analyzer reported DRIFT on that file
+7. If `code-map.md` exists next to the plan: apply the Analyzer's "Code Map Updates" and set its `Read at:` line to
+   `git rev-parse --short HEAD`. Locate code through the map; do not re-search what a row names.
 
 ## Output
-Return the FULL updated plan file content.
-Do NOT truncate existing content.
+Do not edit the plan files in place. For every plan file you change — `code-map.md` included — copy it to
+`<name>.next.md` in the same folder (`tasks.md` → `tasks.next.md`, `code-map.md` → `code-map.next.md`) and edit
+the copy with Edit — never regenerate a whole file. On a fix pass
+you receive reviewer feedback by message: edit the same `.next.md` files again.
+Your reply is at most 20 lines: the `.next.md` paths and a one-line summary of each change. Never paste plan text
+into the reply.
 ```
 
 ---
@@ -246,7 +269,7 @@ Do NOT truncate existing content.
 ## Step 3 — Reviewer
 
 Reviewer priority — try in order, fall back if unavailable:
-1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+1. Codex, run from this session — no subagent: write the reviewer prompt below to a file in the session scratchpad and run `.claude/scripts/codex-review.sh <that file>` with Bash (`timeout: 600000`). Exit 0 → its stdout is the verdict. Exit 1 or 3 → step 2. Never spawn `codex:codex-rescue` for a review: it loads every rule (~70k tokens) only to forward this same call.
 2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 Reviewer prompt:
@@ -263,8 +286,10 @@ Review the following plan update for a Unity project.
 ## Change Request
 [INSERT HERE: the change description from the /update-plan argument]
 
-## Updated Plan Content
-[INSERT HERE: the full updated plan content from the Planner agent]
+## Updated Plan Files
+[INSERT HERE: the `.next.md` paths from the Planner's reply]
+Read each from disk; `diff -u <original> <name>.next.md` shows what changed. `code-map.md` (if present) locates
+every cited symbol — use it with a ranged Read instead of searching the tree.
 
 ## Review Criteria
 1. Scope — do new tasks stay within the intended boundaries?
@@ -317,6 +342,8 @@ invalid.
 > implementer following the stale instruction would have reverted a ground-sensor fix made
 > that same day.
 
+With zero GAP, end with exactly: `Verdict: APPROVED`
+
 Then, for a plan that has any GAP:
 
 CHANGES NEEDED:
@@ -331,10 +358,24 @@ If Codex is unavailable → fall back to a **general-purpose** subagent (`model:
 
 If reviewer reports **CHANGES NEEDED**:
 
-- **REVISION_TYPE: INCREMENTAL** → automatically re-run the pipeline (no user prompt):
-  1. Re-spawn the **Analyzer** with original change request + reviewer feedback appended.
-  2. Re-spawn the **Planner** (opus) with original inputs + analyzer output + reviewer feedback.
-  3. Re-spawn the **Reviewer** on the new planner output.
+- **REVISION_TYPE: INCREMENTAL** → automatically fix (no user prompt):
+  1. Spawn a **fresh** `general-purpose` subagent (`model: sonnet`) with the `.next.md` paths, the Analyzer's
+     output and the full CHANGES NEEDED list; it fixes every item with Edit, never a whole-file Write, and
+     opens a source file only for a fact the Analyzer's output lacks. **Never** SendMessage the Planner: by
+     hand-back it holds 300–430k of discovery output, and every fix turn re-reads it (`/plan-module` Step 4,
+     measured). Do not re-spawn the Analyzer either, unless a finding says a fact is missing or wrong in the
+     Analyzer's own output.
+  2. Re-run the **Reviewer** (same priority order) as a delta review — a fresh full review finds new minor items
+     every pass and never converges (`/plan-module` Step 4, measured). Prompt:
+     ```
+     You are acting as a PLAN REVIEWER, not a fixer. Do not modify any file.
+     This is a DELTA review of a revised plan. Read these files from disk: [the `.next.md` paths]
+     Previous CHANGES NEEDED list: [paste it]
+     Check only:
+     1. Each previous item — one line: <item> | RESOLVED or OPEN | <evidence, file:line>
+     2. A GAP the fix itself introduced — file:line. Do not re-run the full criteria.
+     End with `Verdict: APPROVED` (all RESOLVED, no new GAP) or CHANGES NEEDED + REVISION_TYPE as in the full review.
+     ```
 
 - **REVISION_TYPE: BREAKING** → stop immediately and show **BREAKING_REVISION_GATE**.
 
@@ -343,7 +384,7 @@ If reviewer reports **CHANGES NEEDED**:
   This command's branches:
   - `re-research` → re-spawn the **Analyzer** with expanded scope, then re-plan and re-review
   - `accept` → proceed with the breaking revision (user accepts risk)
-  - `stop` → abort, do not save
+  - `stop` → abort, do not save; delete the `.next.md` files
 
 Repeat INCREMENTAL passes up to **2 more times** (3 total reviewer passes).
 
@@ -351,13 +392,14 @@ After 3 failed INCREMENTAL passes → show **EXHAUSTION_GATE** (`.claude/docs/di
 `$WHAT_WAS_RETRIED` = the plan reviewer loop, `$N` = 3, `$PASS_TYPE` = reviewer, and all
 accumulated feedback listed. Fill `Skipping ships:` from that feedback — `skip` saves a plan
 carrying known defects, and every task downstream of a wrong path inherits it. `skip` saves
-the last planner output as-is; `stop` saves nothing.
+the last planner output as-is; `stop` saves nothing and deletes the `.next.md` files.
 
 ---
 
 ## Step 4 — Save
 
-After APPROVED → write the updated content to `[INSERT HERE: the plan file path from the /update-plan argument]`.
+After APPROVED → move each `<name>.next.md` over its original (`mv tasks.next.md tasks.md`). Do not Read or
+re-Write the content — the files are already final. Confirm no `.next.md` is left in the folder.
 
 ---
 
@@ -414,7 +456,7 @@ You are a senior C# Unity developer implementing a plan.
 
 Each parallel task subagent uses this same prompt with its specific task ID and title scoped in.
 
-After implementer finishes → spawn the **Reviewer** using priority order (codex:codex-rescue → claude) with:
+After implementer finishes → spawn the **Reviewer** using priority order (`codex-review.sh` → claude) with:
 
 ```
 You are acting as a CODE REVIEWER, not a fixer. Do not modify any file. Your only

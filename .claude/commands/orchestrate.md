@@ -150,9 +150,12 @@ Run, on the module's plan directory:
 ```bash
 .claude/scripts/validate-plan-paths.sh <plan-dir-or-files>
 .claude/scripts/validate-plan-facts.sh <plan-dir-or-files>
+.claude/scripts/validate-plan-executors.sh <plan-dir-or-files>
 ```
 
-Then paste the tool's full output into the SCOPE_GATE block. Rules for reading it:
+Then paste the tool's full output into the SCOPE_GATE block. `validate-plan-executors.sh` exit 2 on an
+already-approved plan is **not** a stop: it lists the `[MAIN-SESSION]` / checkpoint tasks you will route per
+Main-session budget below (agent by path; checkpoint → Phase Gate). Name that routing in the SCOPE_GATE block. Rules for reading it:
 
 - **exit 2** → the plan contradicts `rules/architecture.md`. Do NOT proceed silently and do NOT "fix" it by inventing a folder. Present the conflict at SCOPE_GATE with the three options: (a) change the plan, (b) declare a real exception in `.claude/path-allowlist.txt` + `rules/architecture.md`, (c) stop. **The human picks.**
 - **`NO PATHS FOUND`** → this is **not** a pass. Verify by hand that the plan really declares no script paths.
@@ -232,6 +235,32 @@ Resuming from: [ilk pending task veya "beginning"]
 
 ## Execution Loop
 
+### Main-session budget (NON-NEGOTIABLE)
+
+You are the Director: you spawn, read one-line verdicts, and show gates. Each of your turns re-reads your whole
+context, so a turn here costs what a whole coder spawn costs. Per task, your turns are: announce → spawn
+(tester/coder) → codex-review → spawn verifier → commit → `task-done.sh`. Nothing else.
+
+- **No verification here.** Never call `run_tests` / `get_test_job` yourself while the gate is open — Step 3.5 and
+  the Phase Gate spawn `unity-verifier` (`guard-main-unity-tests.sh` blocks it). No "baseline" runs, no
+  compile-check-after-every-coder: the verifier owns compile + tests.
+- **No code reading here.** No `grep` / `sed -n` / `cat` / `Read` on source files to check an agent's work or to
+  find a symbol. `code-map.md` rows go into prompts as text; the agents open the files. Need a fact the map lacks →
+  spawn `unity-scout` (haiku) and paste its answer.
+- **Scene / prefab / SO / asset work** goes to `unity-setup`, never your own MCP calls. A legacy plan task tagged
+  `[MAIN-SESSION]` is run by the agent its path calls for (`.asmdef` is the only exception — only the Director may
+  write one, `check-config-protection.sh`); a legacy "checkpoint: compile + tests, record counts" task is closed by
+  the Phase Gate's Ralph result, not run separately.
+- **Bookkeeping is one call:** `.claude/scripts/task-done.sh <tasks.md> <id[,id…]> <hash|none> <Codex|Claude>` ticks
+  the checkbox and appends `VERIFICATION_PASSED` + `TASK_COMPLETED`. Never Edit tasks.md checkboxes or append
+  EVENTS lines by hand.
+
+> **Why:** measured on a downstream project (Nov 2026, 17 runs): main session = 66% of `/orchestrate` cost, 214
+> turns per run at ~440k context. Per run: 84 Unity MCP calls (13 of them `get_test_job` polling), 33
+> `grep`/`sed`/`cat`, 15 EVENTS appends, 15 tasks.md checkbox Edits, 9 state-marker writes — while
+> `unity-verifier` was spawned once in the project's whole history and coders averaged 4 turns. The coders were
+> cheap; the Director doing their verifier's job was not.
+
 Repeat for each pending task in tasks.md (skip tasks with `- [x]` checkbox):
 
 ### Task Execution
@@ -265,12 +294,24 @@ Before executing tasks, check for `parallel_group` annotations in tasks.md:
 ### [Task ID] [Task Title] — [agent type], group [parallel_group or "seq"]
 ```
 
-Append to `docs/EVENTS.jsonl`:
-```jsonl
-{"event":"TASK_STARTED","id":"[task id]","title":"[task title]","agent":"[agent type]","timestamp":"[ISO8601]"}
-```
+No EVENTS line here — `task-done.sh` records the task when it closes.
 
 Each task runs four steps in sequence (TDD: tests first, then implementation). A failure at any step stops the pipeline.
+
+**Code map rows.** If `code-map.md` sits next to tasks.md, take this task's rows once — the `Read at:` line, the
+header and separator rows, and every row whose `Task(s)` cell names this task ID:
+```bash
+grep -E '^(Read at:|\| *(Task|-|([^|]*[ ,])?<task id>[ ,|]))' <plan dir>/code-map.md
+```
+(no `\b`: BSD grep on macOS ignores it and returns the header alone). Then list which of those rows' files changed
+since the map was read — `git diff --name-only <Read at sha> HEAD -- <the rows' files>` — and append
+`Changed since map: <files>` (or `none`): for those files the line hint is stale, the symbol still holds. Keep the
+result as `$CODE_MAP_ROWS` for the Step 1, 2 and 3 prompts below. No map, or no row for this task → write
+`No code map rows for this task.` A parallel group's reviewer gets the rows of every task in the group.
+
+> **Why:** measured on a downstream project (Nov 2026, modules 10-12): the source files a task depends on were
+> found again by every agent that touched it — tester, coder, reviewer — through `grep` and `sed -n` (~800 `grep`
+> calls in two days), although the planner had already located them. The rows hand the location on.
 
 ---
 
@@ -305,6 +346,11 @@ Description: [full task description from tasks.md]
 
 ## Acceptance Criteria (tests must cover these)
 [list every criterion from tasks.md]
+
+## Code Map (where the code this task depends on lives)
+$CODE_MAP_ROWS
+Open these with a ranged Read (the line range is a hint; the symbol is the reference). Search the tree only for
+something these rows do not name.
 
 ## Your job
 1. Write failing unit tests BEFORE any implementation exists.
@@ -360,6 +406,11 @@ Description: [full task description from tasks.md]
 
 ## Input Files (read these first)
 [list every input file path]
+
+## Code Map (where the code this task depends on lives)
+$CODE_MAP_ROWS
+Open these with a ranged Read (the line range is a hint; the symbol is the reference). Search the tree only for
+something these rows do not name, and list each such search under "Extra reads" in your report.
 
 ## Output Files (produce exactly these)
 [list every output file path]
@@ -472,7 +523,7 @@ Exit.
 For a task inside a `parallel_group`, this step runs once for the whole group, after every task's Step 2 — see Task Execution item 4. A sequential task is reviewed alone.
 
 Reviewer priority — try in order, fall back if unavailable:
-1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+1. Codex, run from this session — no subagent: write the reviewer prompt below to a file in the session scratchpad and run `.claude/scripts/codex-review.sh <that file>` with Bash (`timeout: 600000`). Exit 0 → its stdout is the verdict. Exit 1 or 3 → step 2. Never spawn `codex:codex-rescue` for a review: it loads every rule (~70k tokens) only to forward this same call.
 2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 **Reviewer prompt:**
@@ -495,6 +546,12 @@ must never be reported as a scope violation: `.claude/**`, `docs/**`, `*.json`,
 
 ## Files Changed
 [coder output — list of files with summaries]
+
+## Code Map (existing code the change depends on — for checking contracts)
+$CODE_MAP_ROWS
+Use these locations with a ranged Read before searching the tree. The map lists what the change depends on,
+**not who calls it**: the caller count in criterion 12 still needs a search of the whole tree — never answer it
+from the map.
 
 ## Acceptance Criteria (must all pass)
 [list every criterion from tasks.md]
@@ -556,6 +613,9 @@ On **CHANGES NEEDED** → automatically enter the review loop (no user prompt ne
    ## Review Feedback (fix ALL of these)
    $REVIEWER_FEEDBACK
 
+   ## Code Map (where the code this task depends on lives)
+   $CODE_MAP_ROWS
+
    ## Rules
    - Fix only what the reviewer flagged — do not refactor anything else
    - Read .claude/CLAUDE.md before making changes
@@ -565,7 +625,7 @@ On **CHANGES NEEDED** → automatically enter the review loop (no user prompt ne
    Report: DONE or BLOCKED with reason.
    ```
 
-2. Re-run the reviewer using the same priority order (codex:codex-rescue → unity-reviewer) with the updated files.
+2. Re-run the reviewer using the same priority order (`codex-review.sh` → unity-reviewer) with the updated files.
 
 3. If APPROVED → proceed to Step 3.5 (Verifier).
 
@@ -578,7 +638,8 @@ On **CHANGES NEEDED** → automatically enter the review loop (no user prompt ne
 
 #### Step 3.5 — Bounded Verification
 
-Spawn a **unity-verifier** subagent:
+Spawn a **unity-verifier** subagent (`model: sonnet`). **Never run these checks yourself** — not "just a quick
+compile", not "the tests are small" (see Main-session budget). Your only input from this step is its verdict line:
 
 ```
 You are a Unity verification agent. Run a final bounded check on completed work.
@@ -610,28 +671,41 @@ Title: [task title]
    - After each fix, call `refresh_assets` again and re-read logs
    - If errors persist after 2 fix attempts → Report: ISSUES FOUND (cannot fix) with full error list
    - Do NOT proceed to test run if compile errors remain
+5. **A clean console is not proof the DLL is current — probe it before running tests.** On a failed
+   compile Unity keeps the last good assembly loaded (measured: `358/358` green with four call sites
+   broken). Ask both directions:
+   - `unity_reflect(action: "search", query: "[Director fills: a type this task DELETED, or none]", scope: "all")`
+   - `unity_reflect(action: "search", query: "[Director fills: a type this task ADDED, or none]", scope: "all")`
+   Probe only the types named here — never a type an earlier task added: it resolved at that task's
+   verify and says nothing about this build.
+   A deleted type still resolving, or an added type not resolving → Report: STALE ASSEMBLY and stop —
+   do not fix, there may be no code defect. If nothing was added or deleted, say the probe was not
+   applicable. Your report must name the probe result: `probe: current` / `probe: n/a` / `STALE ASSEMBLY`.
 
 ### Step B — Test Run (only if Step A passes with zero errors)
-5. Call MCP `run_tests` and report results.
-6. If tests fail → attempt fixes, re-run (max 2 attempts).
+6. Call MCP `run_tests` and report results.
+7. If tests fail → attempt fixes, re-run (max 2 attempts).
 
 ### Step C — Unity-Specific Issues (only if Steps A and B pass)
-7. **Play Mode entry (BLOCKING).** Use MCP `manage_editor` to enter Play Mode. Wait up to 10 s for `editor_state.isPlaying == true`. If Play Mode never engages → report ISSUES FOUND with reason "PlayMode failed to start".
-8. **Console error pattern scan (BLOCKING).** While in Play Mode for at least 2 frames, then exit Play Mode and call `read_console`. Search the full console output for ANY of:
+8. **Play Mode entry (BLOCKING).** Use MCP `manage_editor` to enter Play Mode. Wait up to 10 s for `editor_state.isPlaying == true`. If Play Mode never engages → report ISSUES FOUND with reason "PlayMode failed to start".
+9. **Console error pattern scan (BLOCKING).** While in Play Mode for at least 2 frames, then exit Play Mode and call `read_console`. Search the full console output for ANY of:
    - `VContainerException` — DI binding missing
    - `NullReferenceException` originating from `_GameFolders/` or `_Framework/`
    - `MissingReferenceException`
    - `MissingComponentException`
    - Any log line at level `Error` containing `Installer`, `Resolve`, or `Bind`
-9. If ANY of the patterns above appear:
+10. If ANY of the patterns above appear:
    - Attempt to fix (max 2 attempts), re-enter Play Mode, re-scan.
    - If still present → Report: ISSUES FOUND with the full matching log lines.
    - Do NOT report VERIFIED while any pattern persists.
-10. Quick scan for the remaining Unity-specific issues (missing SerializeField, event leaks, leftover Debug.Log spam). These are WARNING-level — list them but do not block.
+11. Quick scan for the remaining Unity-specific issues (missing SerializeField, event leaks, leftover Debug.Log spam). These are WARNING-level — list them but do not block.
 
 If you find and fix issues, list them. If cannot fix, report blockers.
-Report: VERIFIED or ISSUES FOUND with details.
+Report: VERIFIED (with the probe line from step 5), STALE ASSEMBLY, or ISSUES FOUND with details.
 ```
+
+**STALE ASSEMBLY** → stop exactly as for compile errors below, but say the Editor is serving an old DLL — do not
+spawn a fixer for it.
 
 **CRITICAL:** If the verifier reports compile or assembly errors and cannot fix them → the pipeline **MUST STOP**. Do NOT spawn the committer. Print:
 ```
@@ -646,13 +720,8 @@ Append to `docs/EVENTS.jsonl`:
 ```
 Exit.
 
-If **VERIFIED** → append to `docs/EVENTS.jsonl`:
-```jsonl
-{"event":"VERIFICATION_PASSED","id":"[task id]","title":"[task title]","timestamp":"[ISO8601]"}
-```
-Then proceed to Step 4 Committer.
-
-If **ISSUES FOUND** and fixed → append VERIFICATION_PASSED event and proceed to Step 4 Committer.
+If **VERIFIED**, or **ISSUES FOUND** and fixed → proceed to Step 4 Committer (`task-done.sh` writes the
+`VERIFICATION_PASSED` line after the commit).
 
 If **cannot fix** → stop. Print blockers and surface to developer before committing.
 
@@ -664,7 +733,8 @@ If **cannot fix** → stop. Print blockers and surface to developer before commi
 
 - Task completed: `[task id]` — `[task title]`
 - Files changed: `[coder/unity-setup output — list of files]`
-- Run: `git status`, `git diff` to confirm what changed
+- Run: `git status --short <the task's files>` to confirm what changed — never a full `git diff` here: the
+  reviewer already read the diff, and its output would stay in your context for the rest of the run
 - Stage only files related to this task
 - Commit message format: `"feat: [task id] [task title]"`
 - Do NOT push — user pushes manually
@@ -674,15 +744,16 @@ If **cannot fix** → stop. Print blockers and surface to developer before commi
 
 #### After Each Task
 
-Mark the checkbox in tasks.md:
+One Bash call — ticks the checkbox and appends `VERIFICATION_PASSED` + `TASK_COMPLETED` (a parallel group passes
+all its ids at once):
+```bash
+.claude/scripts/task-done.sh <tasks.md path> <task id[,task id…]> <commit hash|none> <Codex|Claude> <clean|fixed> ["what the verifier fixed"]
 ```
-- [ ] T001 [task title]  →  - [x] T001 [task title]
-```
-
-Append to `docs/EVENTS.jsonl`:
-```jsonl
-{"event":"TASK_COMPLETED","id":"[task id]","title":"[task title]","commit":"[hash]","reviewer":"[Codex|Claude]","timestamp":"[ISO8601]"}
-```
+`clean` = the verifier said VERIFIED and changed nothing; `fixed` = ISSUES FOUND and fixed — put what it fixed in the
+quoted note, copied from its report (a few words, e.g. `asmdef ref missing (CS0234)`). The script writes one
+`VERIFIER_RESULT` line per call: that line is the only record of what the per-task verifier catches, so never omit
+it when a verifier ran. Exit 1 = an id has no checkbox line or the result is not `clean`/`fixed` — fix the argument,
+do not Edit tasks.md by hand.
 
 ---
 
@@ -696,7 +767,17 @@ On reaching each Checkpoint:
 
 #### Step 1 — Ralph (compile + test green)
 
-Spawn a **unity-verifier** subagent with this prompt:
+**Skip check — first.** Skip Ralph when both hold, and print `✓ Ralph skipped — tree unchanged since [task id]
+VERIFIED (probe: current).`:
+- the checkpoint's last task (or last group) got `VERIFIED` from Step 3.5 with `probe: current`, and
+- no code-writing agent (coder, unity-coder, unity-setup, fixer) ran after that verdict.
+
+Step 3.5 compiled the whole project, probed the assembly and ran the full suite on this exact tree, so Ralph
+would repeat it byte for byte (measured downstream: `unity-verifier` 51 `run_tests` across 42 spawns). Anything
+else — a later fix, a skipped or `ISSUES FOUND` verifier, `probe: n/a` or no `probe:` line — runs Ralph in full:
+an edit-only last task has nothing to probe, and Ralph's probe covers every type the whole phase added or deleted.
+
+Otherwise spawn a **unity-verifier** subagent with this prompt:
 
 ```
 Run a full compile and test check for the end of a phase.
@@ -722,6 +803,13 @@ Run a full compile and test check for the end of a phase.
    a fix pass spent here edits correct code. If nothing was added or deleted, say the probe
    was not applicable.
 7. If the assembly is current → call MCP `run_tests` and report results.
+8. **Play check — only when the checkpoint text asks for one.** Read `docs/play-check.md` first: it is the
+   recipe (how to reach the play state from the Bootstrap scene, which objects/entities to inspect, ready-made
+   `execute_code` snippets). Follow it; do not rediscover the entry path with `grep` / `FindObjectsByType` probes.
+   No recipe → spend at most 15 tool calls finding the path, then stop and report
+   `PLAY CHECK PARTIAL — <what was not verified>`. Never repeat a `sleep` + state probe more than 3 times. Before
+   you finish, write or extend `docs/play-check.md` with what you learned (entry steps, snippets that worked,
+   dead ends), so the next checkpoint starts from it.
 
 Report: GREEN (compile clean, assembly current, tests pass), GREEN (ASSEMBLY UNPROBED) — compile
 clean and tests pass, but nothing was added or deleted, so assembly freshness is NOT established —
@@ -733,21 +821,31 @@ run: the whole point of the probe is that a clean console and a green suite are 
 If failures found → spawn **unity-fixer** to fix, re-verify (max 2 passes — compile/test-fix bound, see `.claude/docs/director-gates.md` → Retry and Pass Limits; this also matches the "Attempt fixes (max 2)" instruction inside the verifier prompt above, which the old outer bound of 3 contradicted). If still failing after 2 passes → **stop and report to user. Do not proceed to Step 2 until green.**
 
 Print: `✓ Ralph passed — compile and tests green.` or `⛔ Ralph failed after 2 passes — [issues]. Fix before proceeding.`
+A `PLAY CHECK PARTIAL` line from the verifier is not a failure: copy it verbatim into the Step 4 developer prompt
+after the Ralph field, so the developer sees what was left unchecked.
+
+> **Why item 8:** measured on nile module 31 (Nov 2026): the two longest `unity-verifier` spawns (110 and 66 tool
+> calls, 10 and 5 min) were checkpoint Play checks — 63 and 32 `execute_code` probes plus `sleep` loops, each one
+> rediscovering how to reach the battle scene from Bootstrap. Together they were 35% of the verifier's turns.
 
 #### Step 2 — Silent Failure Hunt
 
-Spawn a **unity-linter** subagent with this prompt:
+Run `bash .claude/scripts/silent-failure-extract.sh [output .cs files of this checkpoint's tasks]`.
+**Empty output → print `✓ Silent failure hunt — CLEAN.` and do not spawn the linter.** Otherwise
+spawn a **unity-linter** subagent with the excerpt pasted in — it judges the excerpt and opens a
+file only when the excerpt cannot decide a finding:
 
 ```
-Audit all files changed in this checkpoint for silent failure patterns:
+Audit these excerpts for silent failure patterns:
 - catch blocks that swallow exceptions without logging
-- async void outside Unity lifecycle methods
-- IEventBus subscriptions without matching Unsubscribe
-- UniTask.Forget() without an error handler
 - empty catch blocks
+- async void outside Unity lifecycle methods
+- IEventBus subscriptions without matching Unsubscribe (the excerpt lists both when counts differ)
+- UniTask.Forget() without an error handler
 
-Files to audit: [list of output files from this checkpoint's tasks]
+[script output]
 
+Read a file only when its excerpt cannot decide a finding (e.g. the Unsubscribe lives in a base class).
 Report each finding as: [file:line] — [pattern] — [fix]
 If none found: CLEAN
 ```
@@ -792,12 +890,15 @@ If **PASS** → proceed to developer prompt.
 Print:
 ```
 ## Checkpoint: [checkpoint metni]
-Ralph: green | Silent failures: [CLEAN / N findings] | Validate: PASS
+Ralph: [green (probe: current / ASSEMBLY UNPROBED) / skipped — tree unchanged since [task id] VERIFIED (probe: current)] | Silent failures: [CLEAN / N findings] | Validate: PASS
 
 Remaining tasks to continue with: [list]
 
+Önerilen: `stop` → /clear → /orchestrate [tasks.md path] — checked tasks are skipped; a fresh session does not re-read this section's history every turn.
 Devam? (yes / no / stop)
 ```
+
+The recommendation line is printed at every checkpoint, not only when the context looks large. A fresh session pays its startup context once (~120k tokens written to cache, about the price of 10 turns that each re-read 150k of accumulated history); the next section runs dozens of turns, and on nile (Nov 2026) 53% of main-session cost was exactly this re-read history.
 
 **Wait for the developer's response.**
 - `yes` → append to `docs/EVENTS.jsonl`:

@@ -214,7 +214,7 @@ Capture as `$ROOT_CAUSE`, `$EVIDENCE`, `$PROPOSED_ANSWER`, `$CONFIDENCE`.
 **Iteration counter starts at 1. Max 5 iterations.**
 
 Reviewer priority — try in order, fall back if unavailable:
-1. `subagent_type: "codex:codex-rescue"`
+1. Codex, run from this session — no subagent: write the reviewer prompt below to a file in the session scratchpad and run `.claude/scripts/codex-review.sh <that file>` with Bash (`timeout: 600000`). Exit 0 → its stdout is the verdict. Exit 1 or 3 → step 2. Never spawn `codex:codex-rescue` for a review: it loads every rule (~70k tokens) only to forward this same call.
 2. `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 Spawn the reviewer with this prompt:

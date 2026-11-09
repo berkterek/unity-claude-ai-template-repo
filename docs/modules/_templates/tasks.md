@@ -7,6 +7,12 @@
 > `FormerlySerializedAs:` when the task renames a `[SerializeField]`.
 > Validated at plan time by `.claude/scripts/validate-plan-facts.sh` — by `/plan-module` at SAVE, and by `/orchestrate` before SCOPE_GATE.
 >
+> **Every task is run by an agent, not by the main session.** Code → coder / unity-coder; scene, prefab,
+> ScriptableObject or asset work → `Agent: unity-setup`. `[MAIN-SESSION]` is legal **only** on an `.asmdef`
+> task (only the Director may write one). No checkpoint, baseline or "run the full suite, record counts" task:
+> `/orchestrate` compiles and runs the tests at every `**Checkpoint:**` line — put an extra Play Mode check in
+> that line's text. Validated by `.claude/scripts/validate-plan-executors.sh`.
+>
 > **One created file = one checkbox line, full path first.** Never "Also add, in the same
 > folder: `A.cs`, `B.cs`" — the write-time gate sees only a checkbox line's first backticked
 > path, so each file listed that way is blocked mid-run. A backticked `.cs` in a task body

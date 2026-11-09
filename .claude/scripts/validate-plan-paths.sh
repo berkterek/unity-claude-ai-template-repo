@@ -35,7 +35,9 @@ fi
 FILES=()
 for arg in "$@"; do
     if [ -d "$arg" ]; then
-        while IFS= read -r f; do FILES+=("$f"); done < <(find "$arg" -type f -name "*.md" | sort)
+        # code-map.md lists files that already exist (where the plan READ), not paths it
+        # declares — a legacy file outside the folder rules would block a correct plan.
+        while IFS= read -r f; do FILES+=("$f"); done < <(find "$arg" -type f -name "*.md" ! -name "code-map.md" | sort)
     elif [ -f "$arg" ]; then
         FILES+=("$arg")
     else

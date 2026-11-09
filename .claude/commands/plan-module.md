@@ -258,6 +258,10 @@ Before you return, check the drafts against the defects plan reviewers reject mo
   layout, a symbol outlives it far longer. Every symbol you cite was opened and found in this
   run. Name each value's real source; never attribute a value to a document you did not see
   it in.
+- Every task is run by an agent. Scene / prefab / SO / asset work is `Agent: unity-setup`.
+  `[MAIN-SESSION]` only on an `.asmdef` task. No checkpoint, baseline or "run the full suite,
+  record counts" task — /orchestrate runs compile + tests at every **Checkpoint:** line; an
+  extra Play Mode check goes into that line's text (validate-plan-executors.sh rejects both).
 - Tasks in the same `parallel_group` share no output file and no work directory.
 - A placeholder value in a task body is labelled `placeholder — set at <task id>`.
 - Every file a task creates is its own checkbox line whose FIRST backticked token is the
@@ -269,10 +273,27 @@ Write the drafts to disk yourself — this is your output, not your reply:
   docs/modules/<n>-<name>/spec.md
   docs/modules/<n>-<name>/design.md
   docs/modules/<n>-<name>/tasks.md
+  docs/modules/<n>-<name>/code-map.md
 Write each file once. On a fix pass, change it with Edit — never rewrite a whole file.
-Your reply is a summary of at most 30 lines: the three paths, the task count per phase,
+
+code-map.md is what you found in the code, written down so the reviewer, /update-plan and
+every /orchestrate agent read it instead of searching for it again. First line:
+`Read at: <git rev-parse --short HEAD>`. Then one table row per existing source location
+any task touches or depends on:
+  | Task(s) | File (repo-relative) | Symbol | Lines (hint) | Why it matters |
+  | T003,T007 | `.../Boards/BoardSimulation.cs` | `BoardSimulation.Step` | 120-168 | reads GridState; T003 adds a mechanic hook here |
+The Task(s) cell holds task IDs separated by commas — /orchestrate selects rows by it.
+Only locations you actually opened in this run. Files a task creates are not rows — tasks.md
+already names them. Symbol is the reference; the line range is a hint for a ranged Read.
+
+Your reply is a summary of at most 30 lines: the four paths, the task count per phase,
 the "Extra reads" list, and any open question. Never paste document text into the reply.
 ```
+
+> **Why code-map.md:** measured on a downstream project (Nov 2026, modules 10-12): the same source
+> files were opened by 15-22 different subagents per module — planner, plan reviewer, re-base
+> planner, tester, coder, code reviewer — each finding them again with `grep`/`sed -n` (~800 `grep`
+> calls in two days). The planner already holds the answer; the map hands it on.
 
 **Why a packet and not pointers:** measured on a downstream project (Oct 2026, 11 Plan runs): the prompt was ~2k tokens with no document text, and the Plan agent re-read ROADMAP/GDD/TDD itself through ~227 `cat` commands (~1.1M characters) — the same reads Step 1 had just done. Each run took 17-50 minutes. The "Extra reads" list makes any remaining re-read visible instead of silent.
 
@@ -285,20 +306,25 @@ Add this block to the prompt:
 
 Instruction: if the graph inventory above is not empty, use it first — read existing interfaces/classes/installers/dependencies from the graph, and open a source file only for a specific line or detail. If the graph is empty (or says "No usable graph"), fall back to the codebase scan results as before.
 
-The subagent's output is the three files on disk. Confirm all three exist; do not Read them into your own context, and never re-Write them.
+The subagent's output is the four files on disk. Confirm all four exist; do not Read them into your own context, and never re-Write them.
 
 Then run both validators now, before the reviewer — the files are already on disk, and a violation found here costs one fix pass instead of a reviewer pass:
 
 ```bash
 .claude/scripts/validate-plan-paths.sh docs/modules/<n>-<name>/
 .claude/scripts/validate-plan-facts.sh docs/modules/<n>-<name>/
+.claude/scripts/validate-plan-executors.sh docs/modules/<n>-<name>/
 ```
 
 On exit 2, send the violation block back to the same subagent (SendMessage) as BLOCKING, then re-run both. Do not count this toward the reviewer's 3 passes.
 
 ### Step 4 — REVIEWER
 
-Spawn the `reviewer` subagent (`model: sonnet`). Give it the three paths under `docs/modules/<n>-<name>/` — it reads them from disk; never paste their text into its prompt. Ask it to check:
+Reviewer priority — try in order, fall back if unavailable:
+1. Codex, run from this session — no subagent: write the reviewer prompt (the four paths, the checks below and the severity contract) to a file in the session scratchpad and run `.claude/scripts/codex-review.sh <that file>` with Bash (`timeout: 600000`). Exit 0 → its stdout is the verdict. Exit 1 or 3 → step 2. Codex does not auto-load this repo's rules: the prompt tells it to read `.claude/rules/architecture.md`, `solid-oop.md`, `csharp-unity.md`, `bootstrap-pattern.md` and `.claude/docs/rule-index.md` first, plus every rule the index names for the plan's areas, and to cite the rule file for each rule finding.
+2. Spawn the `reviewer` subagent (`model: sonnet`).
+
+Give the reviewer the four paths under `docs/modules/<n>-<name>/` — it reads them from disk; never paste their text into its prompt. Tell either reviewer: `code-map.md` says where to look, never what is true — it was written by the planner it is checking. Open the source files the plan modifies and verify the plan's claims (registrations, lifecycle, signatures, rule compliance) against the code itself. Ask it to check:
 - Is every task in `tasks.md` `/orchestrate`-compatible? (checkbox + file path + acceptance)
 - Are the `parallel_group` annotations correct?
 - Are `spec.md`'s acceptance criteria testable? (Given/When/Then format)
@@ -324,7 +350,9 @@ verdict line: `CHANGES NEEDED` if the BLOCKING list is non-empty, otherwise `APP
 (MINOR items do not block).
 ```
 
-On `CHANGES NEEDED`, show **QUALITY_GATE** — definition and exact format in `.claude/docs/director-gates.md` → QUALITY_GATE. Do not restate the options here; that file owns them. If the user picks `fix`, hand **both** lists back to the Step 3 planning subagent with SendMessage — it edits the files in place; MINOR items are fixed in the same pass, they never earn a pass of their own. If the user picks `stop`, delete `docs/modules/<n>-<name>/` (only if `git status --short docs/modules/<n>-<name>/` shows it untracked) so a later `/plan-module` does not stop on "already planned".
+On `CHANGES NEEDED`, show **QUALITY_GATE** — definition and exact format in `.claude/docs/director-gates.md` → QUALITY_GATE. Do not restate the options here; that file owns them. If the user picks `fix`, spawn a **fresh** `general-purpose` subagent (`model: sonnet`) — **never** SendMessage the Step 3 planner. Its prompt: the four paths under `docs/modules/<n>-<name>/`, both lists verbatim, and this instruction: "Read the four files and the BLOCKING / MINOR lists. Fix every item with Edit — never Write a whole file. `code-map.md` says where every cited symbol lives; open a source file only when an item needs a fact the map lacks, and list each such file under an 'Extra reads' heading. Reply with at most 20 lines: per item, resolved / not resolved and why." MINOR items are fixed in the same pass, they never earn a pass of their own.
+
+> **Why a fresh agent and not the planner:** measured on a downstream project (Nov 2026, 20 `/plan-module` runs): the planner reached its first hand-back at 300–430k tokens of context (Bash discovery output that never leaves the window). Handing the fix list back to it made 9 of 20 runs spend 13–53 more turns and 14–86 Edits **on top of that context** — in module 34 the fix pass alone was ~half of a 6.6M run. The planner's context is not needed for the fix: everything it found is on disk in the four files and `code-map.md`. If the user picks `stop`, delete `docs/modules/<n>-<name>/` (only if `git status --short docs/modules/<n>-<name>/` shows it untracked) so a later `/plan-module` does not stop on "already planned".
 
 **A re-review is a delta review, not a fresh one.** Pass 2 and 3 get the previous BLOCKING list and the revised drafts, and answer only: is each previous BLOCKING item resolved, and did the fix introduce a new BLOCKING defect? A fresh full review on every pass finds new MINOR items every time and never converges. At most **3 reviewer passes** total. Never reach Step 5 on an unresolved `CHANGES NEEDED`, and never fix the plan yourself instead of showing the gate: that decision is the user's.
 
@@ -334,17 +362,23 @@ On `APPROVED` with a non-empty MINOR list, show the MINOR list to the user in on
 
 ### Step 5 — SAVE
 
-The three files are already under `docs/modules/<n>-<name>/` (written by the Step 3 subagent):
+The four files are already under `docs/modules/<n>-<name>/` (written by the Step 3 subagent):
 - `spec.md`
 - `design.md`
 - `tasks.md`
+- `code-map.md`
 
-**Re-run both validators, BLOCKING — the reviewer's fix passes changed the files after Step 3's run:**
+**Re-run the validators, BLOCKING — the reviewer's fix passes changed the files after Step 3's run:**
 
 ```bash
 .claude/scripts/validate-plan-paths.sh docs/modules/<n>-<name>/
 .claude/scripts/validate-plan-facts.sh docs/modules/<n>-<name>/
+.claude/scripts/validate-plan-executors.sh docs/modules/<n>-<name>/
 ```
+
+- `validate-plan-executors.sh` exit 2 → a task is tagged `[MAIN-SESSION]` without being an `.asmdef`, or a
+  checkpoint/baseline is written as a task. Fix it in the plan (agent by path; checkpoint text into the
+  `**Checkpoint:**` line) — never approve it: each such task is paid at the Director's full context in /orchestrate.
 
 - `validate-plan-paths.sh` exit 2 → the plan declares a folder that contradicts `rules/architecture.md`. Do not print the success block and do not update `docs/ROADMAP.md`. Show the conflict with three options (change the plan / write the exception into `.claude/path-allowlist.txt` **and** `rules/architecture.md` / stop). The user decides — never invent a folder of your own. `NO PATHS FOUND` is **not** a pass; confirm by hand.
 - `validate-plan-facts.sh` exit 2 → at least one task creating a new `.cs` is missing `Callers:`/`Wiring:`, or a declared caller/module resolves neither on disk nor in this plan. Do not print the success block. Show the violation, then fix the plan or stop — the user decides. `NO TASKS FOUND` is **not** a pass — in the script's own words, "this is NOT a pass"; confirm by hand. `NO TASKS EXAMINED` is not a pass either — it means every task line found was `/Tests/`-exempt.
@@ -359,6 +393,7 @@ Show the user:
 docs/modules/<n>-<name>/spec.md
 docs/modules/<n>-<name>/design.md
 docs/modules/<n>-<name>/tasks.md
+docs/modules/<n>-<name>/code-map.md
 
 Next step: `/orchestrate docs/modules/<n>-<name>/tasks.md`
 ```

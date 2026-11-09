@@ -171,6 +171,42 @@ so a reviewer here can approve code that has not compiled. Recorded, not fixed i
 plan validation exited 127 and the Milestone line had no source. The Director batched T002/T003's steps
 instead of printing each, so their evidence is a summary.
 
+### 2026-11-05 — code-map hand-off: `/update-plan` and `/orchestrate`
+
+Measures the re-discovery changes: `code-map.md` rows reaching every agent's prompt, `/update-plan` editing
+`.next.md` drafts through one planner kept alive with SendMessage, and the Ralph skip after a probed verify.
+
+`/update-plan` (change request edits an existing task; reviewer pass 1 INCREMENTAL, pass 2 APPROVED):
+
+| Field | Result |
+|---|---|
+| Planner | `general-purpose` (opus) — not `Plan` |
+| Fix pass | one SENDMESSAGE to the same planner, then a delta reviewer; Analyzer and Planner **not** re-spawned |
+| Reviewer prompt | paths only, no pasted plan text |
+| Originals before approval | unchanged — only `?? *.next.md` |
+| Save | `mv` of each `.next.md`; none left afterwards |
+
+Fixed from this run: `code-map.md` had no draft path (now `code-map.next.md`), the delta review had no prompt,
+"only append" forbade the edit a re-base exists for, and the plan review contract had no `Verdict: APPROVED` line.
+
+`/orchestrate` (2 tasks, all scripted green). Run 1 is void: the fixture's T001 lacked `Wiring:` and no `.asmdef`
+existed, so `validate-plan-facts.sh` exited 2 and the Director correctly refused to read `go` as a fix/stop
+answer. Run 2, fixture fixed:
+
+| Field | Result |
+|---|---|
+| Code-map rows | in all 5 tester/coder/reviewer prompts, `Read at:` + separator kept, `Changed since map: none` computed with `git diff` |
+| Step 3.5 probe | present in both verifier prompts |
+| Ralph | SKIPPED, `✓ Ralph skipped — tree unchanged since T002 VERIFIED (probe: current).` |
+| P1, P2, P8b, P8, P9 | PASS — SCOPE_GATE before first SPAWN; state after `go`; deleted at On Completion; state dir empty; no `.cs` edited |
+
+Fixed from run 2: the probe's type was a bare placeholder, so an edit-only task could "probe" an earlier task's
+type and report `current`; the Ralph skip accepted `probe: n/a`; the checkpoint summary dropped the probe value;
+the Step 3 fix coder got no code-map rows. **Not re-run after these fixes.**
+
+Harness gaps: the sandbox needs `.claude/scripts/validate-plan-*.sh`, `.claude/hooks/lib-*.sh`, a
+`docs/ROADMAP.md` and an `.asmdef` copied in by hand — `make-sandbox.sh` does not provide them.
+
 ### 2026-09-13 — `/implement`, first run measuring P3b/P8b
 
 `GATE_ORDER: SCOPE_GATE, SPARC_GATE, QUALITY_GATE, QUALITY_GATE, EXHAUSTION_GATE, COMMIT_GATE`

@@ -106,6 +106,28 @@ match-block agent çağrıları: Sonnet 5.5 996, **Opus 5.5 419**, Haiku 4.5 142
 - `omitClaudeMd` ve `cacheTtl` bu sürümde (2.1.304) gerçekten etkili mi? Uygulandıktan sonra transcript'lerde `ephemeral_1h` ve ilk çağrı write boyutu ölçülmeli.
 - CLAUDE.md'deki "path-scoped rules … not on a new-file Write" ifadesi güncel mi?
 
+## Ölçüm 2026-11-06: düzeltmelerden sonra nile, modül 12 vs modül 13
+
+İki modül de 35 task. Modül 12 düzeltmelerden önce, modül 13 sonra koştu (planner fresh-fixer, main'de test yasağı `guard-main-unity-tests.sh`, `task-done.sh`, `validate-plan-executors.sh`, checkpoint'te `/clear`, review'lar main'den `codex-review.sh`). Aynı `U()` ağırlıkları, `message.id` ile tekilleştirme.
+
+| | Modül 12 | Modül 13 |
+|---|---|---|
+| `/plan-module` | 5.5M | 2.2M |
+| `/orchestrate` toplam | 16.7M | 20.3M (+%22) |
+| — main | 10.2M, 322 tur, peak 453k | 8.4M, 292 tur / 7 oturum, peak ≤317k |
+| — subagent | 6.6M, 36 spawn | 11.9M, 70 spawn |
+| Modül toplamı | 22.2M | 22.5M |
+| Sonuç | 35/35, testler yeşil | 35/35, EditMode 518/518, PlayMode 183/183 |
+
+- **Net kazanç yok.** Main küçüldü ama doğrulama ve task'lar daha çok kısa ömürlü agent'a dağıldı. Her spawn ~60k cache'siz başlangıç ödüyor (toplam 4.0M, %19). `unity-verifier` 19 spawn, 4.3M.
+- **`/clear` net olumlu.** Her oturum ilk spawn'dan önce 7–9 tur / ~0.25M ile yeniden yöneliyor (`tasks.md`, `ROADMAP.md`, `EVENTS.jsonl`, `mcp-preflight.md`). Bu dahil main yine 1.8M düştü.
+- **`/plan-module` düşüşü kısmen şans.** Modül 13 planının review'ı 0 BLOCKING çıktı, fresh-fixer yolu hiç çalışmadı. Tek ölçüm.
+- **Verifier'ı checkpoint'e çekme — yapılmadı, yapılmamalı.** Task/grup verifier'larının 13'ünden 2'si gerçek hata yakaladı ve düzeltti (asmdef referansı eksik `CS0234`; VContainer çift kayıt PlayMode hatası), biri TDD RED'i doğruladı. Checkpoint-only bu hataları birkaç task geç bulur ve RED doğrulamasını kaldırır.
+- **Task'ları birleştirme — kalite verisi yok, yapılmadı.** Modül 13'te yalnızca 2 paralel grup var, "grup başına tek coder" burada etkisiz.
+- **Graph planner maliyetini düşürmez (ölçüldü).** 8 planner'ın 479 keşif çağrısı: ~%11 graph'ın cevaplayabileceği (nerede / kim çağırıyor / member), ~%14 prefab/sahne/GUID (MCP prefab extraction gerekir, nile'da `--skip-mcp`), geri kalanı `.md`, uxml/uss, `.asset`, rule dosyaları.
+
+Karar: tahmine dayalı başka değişiklik yok. Sonraki modüller aynı script'lerle ölçülür (`.claude/scripts/pipeline-breakdown.py`, `orchestrate-main-report.py`); bir kalem sürekli şişerse tek ve hedefli değişiklik konuşulur.
+
 ## Kaynaklar
 
 Resmi: [Subagents](https://code.claude.com/docs/en/sub-agents) · [Memory / rules](https://code.claude.com/docs/en/memory) · [Manage costs](https://code.claude.com/docs/en/costs)

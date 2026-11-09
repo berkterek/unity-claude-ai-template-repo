@@ -52,7 +52,7 @@ Before spawning any agents, score the migration complexity on a 0.0–1.0 scale:
 |-------|-------|---------|-----------------|
 | 0.0–0.3 | **Simple** | Single file, mechanical substitution (e.g. one coroutine) | migrator/unity-migrator → reviewer → committer |
 | 0.4–0.6 | **Medium** | Multiple files, interface changes, or VContainer rewiring | test guard → migrator/unity-migrator → reviewer → committer |
-| 0.7–1.0 | **Complex** | Cross-module migration, ECS involvement, or Addressables | test guard → migrator/unity-migrator → codex:codex-rescue reviewer → unity-developer → committer |
+| 0.7–1.0 | **Complex** | Cross-module migration, ECS involvement, or Addressables | test guard → migrator/unity-migrator → Codex reviewer (`codex-review.sh`) → unity-developer → committer |
 
 **Migrator agent routing — decide before spawning:**
 
@@ -248,7 +248,7 @@ If BLOCKED → stop and show the user.
 ## Step 3 — Reviewer
 
 Reviewer priority — try in order, fall back if unavailable:
-1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+1. Codex, run from this session — no subagent: write the reviewer prompt below to a file in the session scratchpad and run `.claude/scripts/codex-review.sh <that file>` with Bash (`timeout: 600000`). Exit 0 → its stdout is the verdict. Exit 1 or 3 → step 2. Never spawn `codex:codex-rescue` for a review: it loads every rule (~70k tokens) only to forward this same call.
 2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 Reviewer prompt:
@@ -327,7 +327,7 @@ Repeat until APPROVED or stopped (max 3 passes):
    Report: DONE or BLOCKED with reason.
    ```
 
-2. After migrator fixes → re-run the reviewer using the same priority order (codex:codex-rescue → unity-reviewer) with the updated files.
+2. After migrator fixes → re-run the reviewer using the same priority order (`codex-review.sh` → unity-reviewer) with the updated files.
 
 3. If APPROVED → proceed to Step 3.
 

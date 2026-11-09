@@ -385,7 +385,7 @@ compile error or test failure listed. Fill `Skipping ships:` from the errors the
 ## Step 3 — Reviewer
 
 Reviewer priority — try in order, fall back if unavailable:
-1. Spawn Agent with `subagent_type: "codex:codex-rescue"`
+1. Codex, run from this session — no subagent: write the reviewer prompt below to a file in the session scratchpad and run `.claude/scripts/codex-review.sh <that file>` with Bash (`timeout: 600000`). Exit 0 → its stdout is the verdict. Exit 1 or 3 → step 2. Never spawn `codex:codex-rescue` for a review: it loads every rule (~70k tokens) only to forward this same call.
 2. Spawn Agent with `subagent_type: "unity-reviewer"` (fallback if Codex unavailable)
 
 ```
@@ -464,7 +464,7 @@ Repeat until APPROVED or stopped (max 3 passes):
    Report: DONE or BLOCKED with reason.
    ```
 
-2. After unity-coder fixes → re-run the reviewer using the same priority order (codex:codex-rescue → unity-reviewer) with the updated files.
+2. After unity-coder fixes → re-run the reviewer using the same priority order (`codex-review.sh` → unity-reviewer) with the updated files.
 
 3. If APPROVED → proceed to Step 3.5.
 
@@ -477,7 +477,17 @@ Repeat until APPROVED or stopped (max 3 passes):
 
 ## Step 3.5 — Unity Verifier (Final Bounded Check)
 
-Spawn a **unity-verifier** subagent once with this prompt (max 3 internal iterations):
+**Skip check — first.** If no code-writing agent (coder, unity-coder, fixer) ran since Step 2.5 last returned
+`VALIDATED` — the reviewer approved on its first pass — the tree is the one Step 2.5 already compiled and tested:
+- no `.prefab` in Files Changed → skip this step, print `Step 3.5 skipped — tree unchanged since Step 2.5 VALIDATED.`
+  and continue to Step 3.6;
+- a `.prefab` in Files Changed → spawn the verifier below with instruction 4 only (prefab structure); drop 1-3 and 5.
+
+> **Why:** measured on a downstream project, `unity-verifier` ran `run_tests` 51 times across 42 spawns, and here it
+> re-ran Step 2.5's compile + test on byte-identical code. A fix pass changes the tree, so any fix since Step 2.5
+> runs this step in full — the skip never covers code nobody tested.
+
+Otherwise spawn a **unity-verifier** subagent once with this prompt (max 3 internal iterations):
 
 ```
 You are a Unity post-implementation verifier. Perform a final bounded check on the delivered implementation.
