@@ -1,54 +1,29 @@
 # SOLID & OOP Rules (NON-NEGOTIABLE)
 
+> Short form — every rule is here. Full WRONG/RIGHT code, the worked N-enemies example (Controller / Handler /
+> Event / Manager side by side), the WaveDirector EntryPoint example and the hook-enforcement note:
+> `rules/solid-oop-reference.md`. It loads when you touch a Manager, Controller or Handler; **Read it yourself
+> before choosing the tier or MonoBehaviour role of a new class.**
+
 ## Cards
 
 ### Card 0: MonoBehaviour Decision Gate (first question — always)
 
 **WHEN:** Before writing any new class, ask: "Does this need to be a MonoBehaviour?"
 
-A class may be MonoBehaviour **only if at least one applies:**
+A class may be MonoBehaviour **only if at least one applies:** (a) it caches scene/prefab references via its own
+`[SerializeField]`; (b) it receives Unity callbacks (collision, trigger, UGUI events); (c) it is a cross-module Unity
+API boundary (Provider); (d) it is Canvas UI (View). Otherwise it is pure C#.
 
-| Justification | Example |
-|---|---|
-| (a) Caches scene/prefab references via Inspector (`[SerializeField]`) | Controller shell |
-| (b) Receives Unity callbacks (collision, trigger, UGUI events) | Controller, View |
-| (c) Cross-module Unity API boundary | Provider |
-| (d) Canvas UI | View |
+**WRONG:** `public sealed class WaveDirectorService : MonoBehaviour { private void Update() { /* game logic */ } }`
 
-**"I need Update" is NOT a valid reason** — but the escape is a Mono shell forwarding the callback, not a container-driven tick. Prefab-local → `Handler.Tick`, Controller forwards. Global → the domain's own shell (Controller or Manager) forwards to the service the same way. **`ITickable` / `IFixedTickable` are not used in this project** — see EntryPoint below for why.
+**RIGHT:** a pure C# service exposing `Tick(float deltaTime)`, registered with a plain
+`builder.Register<WaveDirectorService>(Lifetime.Singleton).AsImplementedInterfaces()`, and the domain's Mono shell
+forwarding `private void Update() => _waveDirector.Tick(Time.deltaTime);`.
 
-**WRONG:**
-```csharp
-// MonoBehaviour with no [SerializeField] fields and no Unity callbacks
-public sealed class WaveDirectorService : MonoBehaviour
-{
-    private void Update() { /* game logic */ }
-}
-```
-
-**RIGHT:**
-```csharp
-// Pure C# service — takes deltaTime as a parameter, owns no Unity callback
-public sealed class WaveDirectorService : IWaveDirectorService
-{
-    public void Tick(float deltaTime) { /* wave progression logic */ }
-}
-
-// The domain's Mono shell drives it — same forwarding pattern as a Controller and its Handler
-public sealed class WaveManager : MonoBehaviour
-{
-    private IWaveDirectorService _waveDirector;
-
-    [Inject]
-    public void Construct(IWaveDirectorService waveDirector) => _waveDirector = waveDirector;
-
-    private void Update() => _waveDirector.Tick(Time.deltaTime);
-}
-// In installer — a plain registration; no RegisterEntryPoint needed for the tick
-builder.Register<WaveDirectorService>(Lifetime.Singleton).AsImplementedInterfaces();
-```
-
-**GOTCHA:** If a class passes none of the four conditions, it must be pure C#. Every MonoBehaviour that fails this gate is a rule violation.
+**GOTCHA:** "I need Update" is NOT a reason to be a MonoBehaviour, and NOT a reason for `ITickable` /
+`IFixedTickable` — neither is used in this project. Prefab-local logic → `Handler.Tick`, forwarded by its Controller;
+global logic → the domain's own shell (Controller or Manager) forwards to the service.
 
 ---
 
@@ -56,154 +31,20 @@ builder.Register<WaveDirectorService>(Lifetime.Singleton).AsImplementedInterface
 
 **WHEN:** Writing a MonoBehaviour that passed Card 0.
 
-MonoBehaviour may only take one of four roles: **View**, **Provider**, **Controller**, or **Manager**.
+| Role | Suffix | Is | Never |
+|---|---|---|---|
+| View | `*View` | **Canvas/UI only** — updates UI, reads input events, triggers animations | business logic, state; gameplay objects never use `*View` |
+| Provider | `*Provider` | wraps one Unity API group on behalf of a Service | coordination, event publishing, game logic |
+| Controller | `*Controller` | single instance's shell: caches refs, creates Handlers, forwards lifecycle | branching, calculation, publishing `IEventBus` |
+| Manager | `*Manager` | registry coordinating N instances of **one** domain | a second domain (no `GameManager`), business logic |
 
-| Role | Suffix | Where | Does | Does NOT |
-|---|---|---|---|---|
-| **View** | `*View` | **Canvas/UI scripts ONLY** (HUDView, PopupView, SliderView) | Updates UI, reads input events, triggers animations | Business logic, calculation, state management |
-| **Provider** | `*Provider` | Unity API abstraction (AudioProvider, PhysicsProvider) | Wraps a single Unity API group (AudioSource, Rigidbody, Transform) | Service coordination, event publishing, game logic |
-| **Controller** | `*Controller` | Gameplay, character, physics coordination | Caches refs, sets up Handlers, forwards lifecycle (Update → handler.Tick). ZERO branching/calculation | Holds game logic, publishes IEventBus directly |
-| **Manager** | `*Manager` | Centralized coordinator for ONE domain's collection of objects (EnemyManager, AudioManager) — used instead of pairwise IEventBus attach/detach or direct references between N same-domain instances | Register/Unregister callers via an injected interface, coordinate/query across the registered set | Coordinate more than one domain (no `GameManager`), hold unrelated cross-cutting responsibilities |
-
-**Suffix decision test:** Is the script under a Canvas?
-- Yes → `*View`
-- No, and it's a single instance's coordination shell → `*Controller`
-- No, and it wraps Unity API on behalf of a Service → `*Provider`
-- No, and it's a single per-domain registry coordinating N sibling instances → `*Manager`
-
-**`*Manager` constraints (NON-NEGOTIABLE):**
-- **One domain per Manager.** `EnemyManager`, `AudioManager` are fine — a catch-all `GameManager`
-  spanning unrelated domains is forbidden (same anti-pattern as `GameContext`/Service Locator,
-  see architecture.md → "NO GameContext / Service Locator").
-- **Register/Unregister over IEventBus.** Same-domain instances (e.g. 10 enemies) call
-  `Register(this)`/`Unregister(this)` on the Manager via a constructor/`[Inject]`-received
-  interface (`IEnemyManager`) instead of each instance individually subscribing/unsubscribing to
-  `IEventBus` events. `IEventBus` remains reserved for genuinely cross-module communication
-  (event-patterns.md decision tree) — a Manager is an intra-domain registry, not a replacement
-  for it.
-- **MonoBehaviour only if Card 0 applies**, exactly like every other role — a Manager needs its
-  own `[SerializeField]` field or a Unity lifecycle callback to be a MonoBehaviour; otherwise it
-  must be a pure C# Service (e.g. `EnemyDirectorService`) instead. Preferring pure C#
-  is still the default — `*Manager` as a MonoBehaviour is the exception, not the norm.
-- **SRP still applies.** If a Manager grows business logic/calculation beyond
-  registration+coordination, extract that into a Handler or Service — the Manager stays a thin
-  registry.
-
-**Worked example — N enemies in a scene (Controller / Handler / Event / Manager, side by side):**
-
-```csharp
-// 1. EnemyController — Mono. Card 0: [SerializeField] refs + lifecycle callbacks. Role: Controller (forward only).
-public sealed class EnemyController : MonoBehaviour
-{
-    [SerializeField] private Rigidbody _rigidbody;
-    [SerializeField] private Animator  _animator;
-
-    private IHealthHandler _healthHandler;
-    private IEnemyManager  _enemyManager;
-
-    [Inject]
-    public void Construct(Func<Animator, IEventBus, IHealthHandler> factory, IEnemyManager enemyManager)
-    {
-        _healthHandler = factory(_animator, _eventBus);
-        _enemyManager  = enemyManager;
-    }
-
-    private void OnEnable()  => _enemyManager.Register(this);   // Manager registry, not IEventBus
-    private void OnDisable() => _enemyManager.Unregister(this);
-
-    private void Update() => _healthHandler.Tick(Time.deltaTime); // forward only, zero branching
-}
-
-// 2. HealthHandler — pure C#. *Handler suffix: Unity refs via constructor, never MonoBehaviour.
-public sealed class HealthHandler : IHealthHandler
-{
-    private readonly IEventBus _eventBus;
-    private readonly int _enemyId;
-
-    public void TakeDamage(int amount)
-    {
-        _hp -= amount;
-        if (_hp <= 0)
-            _eventBus.Publish(new EnemyDiedEvent(_enemyId)); // crosses to UI/Score/Audio → IEventBus
-    }
-}
-
-// 3. EnemyManager — Mono only because it has a lifecycle-driven registry; one domain, Register/Unregister only.
-public interface IEnemyManager
-{
-    void Register(IEnemyController enemy);
-    void Unregister(IEnemyController enemy);
-    int ActiveCount { get; }
-}
-
-public sealed class EnemyManager : MonoBehaviour, IEnemyManager
-{
-    private readonly List<IEnemyController> _enemies = new();
-
-    public void Register(IEnemyController enemy)   => _enemies.Add(enemy);
-    public void Unregister(IEnemyController enemy)  => _enemies.Remove(enemy);
-    public int ActiveCount => _enemies.Count;
-
-    // Only when ALL enemies are gone does this cross into another module — via IEventBus, not a direct call.
-    private void OnEnemyCountChanged()
-    {
-        if (_enemies.Count == 0) _eventBus.Publish(new WaveClearedEvent());
-    }
-}
-```
-
-| Structure | Mono or pure C#? | Why |
-|---|---|---|
-| `EnemyController` (per instance) | Mono | Card 0: own `[SerializeField]` + lifecycle callbacks; role = Controller |
-| `HealthHandler` / `MoveHandler` (per instance's internal logic) | Pure C# | `*Handler` — Unity ref via constructor, MonoBehaviour blocked by the hook |
-| "Died" / "Damaged" event | `IEventBus` if another module listens (UI/Score/Audio); C# `event` if it stays inside the same prefab | event-patterns.md decision tree |
-| Shared registry across N enemies | `*Manager` — Mono only if it has its own lifecycle callback (e.g. `OnEnable`/`OnDisable` on itself); otherwise a pure C# Service | New Card 1 role — one domain, Register/Unregister |
-
-**GOTCHA (worked example):** `EnemyManager`'s own `MonoBehaviour`-ness came from nothing here except being
-placed in the scene — if it has no lifecycle callback and no `[SerializeField]` of its own, prefer a pure
-C# `EnemyDirectorService` instead. A `*Manager` MonoBehaviour is the
-exception, not the default, exactly like every other role in Card 0.
-
-**Suffix prohibition table:**
-
-| Suffix | Allowed as MonoBehaviour? | Notes |
-|---|---|---|
-| `*View` | YES — Canvas/UI ONLY | Gameplay/physics objects must NOT use `*View` |
-| `*Controller` | YES | Gameplay or character coordination shell |
-| `*Provider` | YES | Unity API boundary |
-| `*Manager` | YES — with constraints above | One domain only; prefer pure C# Service unless Card 0 applies |
-| `*Handler` | **NO** | Handler must be pure C# — never MonoBehaviour |
-| `*Service` | **NO** | `check-no-monobehaviour-in-services.sh` blocks it |
-
-**GOTCHA:** `*Handler` is NOT a MonoBehaviour role. A class named `MoveHandler : MonoBehaviour` is a rule violation.
-
-> **Note — enforcement is structural, not name-based.** `check-no-monobehaviour-in-services.sh`
-> decides whether MonoBehaviour/`UnityEngine` usage in domain code (`Games/Abstracts/`,
-> `Games/Concretes/`, `_Framework/`) is legitimate by **code structure**, not filename: a class
-> is judged justified when it satisfies Card 0 — it has an **own** `[SerializeField]` field
-> and/or a Unity lifecycle callback (`Awake`, `OnEnable`, `Update`, `OnTriggerEnter`, etc.) —
-> regardless of whether its name ends in `View`/`Controller`/`Provider`/anything else. The
-> suffix in the table above is a **naming-convention consequence** of the role a class already
-> has (Card 0 + Card 1 together decide the role; the suffix documents it) — it is not itself
-> the mechanism the hook checks.
->
-> This is also why `*Handler` stays exempt **by name** in the hook's filename whitelist rather
-> than by the Card 0 structural test: a Handler (Tier 2) is pure C# and legitimately receives a
-> Unity component reference (`Rigidbody`, `Transform`) **as a constructor parameter** — see
-> Handler Rules below. A constructor parameter is not an **own** `[SerializeField]` field, so a
-> Handler never passes the Card 0 structural test and would otherwise be flagged. The filename
-> exemption exists specifically to cover this structurally-undetectable, intentional exception —
-> it does not mean Handler is a fourth MonoBehaviour role; a Handler is never a MonoBehaviour.
->
-> **`using UnityEngine` in a pure-C# file is not automatically a leak.** The hook does not block
-> on the import itself — it blocks on the actual API surface. A file whose only `UnityEngine`
-> usage is **math value types** (`Mathf`, `Vector2/3/4`, `Quaternion`, `Color`, `Rect`, `Bounds`,
-> `Ray`, `Plane`, `Matrix4x4`) or **`Debug` logging** is allowed (this Tier 3 "math types allowed"
-> rule; Module null-guards call `Debug.LogError`). It is blocked only when the file references
-> real engine/scene/asset/input/time API — `SceneManager`, `Transform`, `GameObject`,
-> `AudioSource`, `Physics`, `Input`, `Time`, `Resources`, etc. — which must move to a Provider
-> (`*Provider`) or a swappable backend (`*Loader`/`*Dal`/`*Client`). Matching runs against
-> comment/string-stripped source, so an API name inside a comment or string literal is ignored.
+**GOTCHA:**
+- `*Handler` and `*Service` are **never** MonoBehaviour (hook-blocked).
+- Manager: same-domain instances call `Register(this)` / `Unregister(this)` (from `OnEnable` / `OnDisable`) on an
+  injected `I*Manager` instead of each subscribing to `IEventBus`; `IEventBus` stays for cross-module messages. A
+  Manager is Mono only if Card 0 applies to it — otherwise it is a pure C# service. Logic beyond registration and
+  coordination moves to a Handler or Service.
+- Per-instance events: `IEventBus` if another module listens, a C# `event` if it stays inside the prefab.
 
 ---
 
@@ -211,27 +52,12 @@ exception, not the default, exactly like every other role in Card 0.
 
 **WHEN:** Designing any class.
 
-**WRONG:**
-```csharp
-// MonoBehaviour computing, displaying, and publishing all at once — SRP violation
-private void Update()
-{
-    _score += Time.deltaTime * _multiplier; // business logic — does not belong here
-    _label.text = _score.ToString();        // show service output, not calculation
-    if (_score > 100) _eventBus.Publish(new ScoreThresholdEvent()); // service's job
-}
-```
+**WRONG:** a Controller's `Update` that computes score, writes the label and publishes a threshold event.
 
-**RIGHT:**
-```csharp
-// Controller shell only forwards — service handles the logic
-private void Update()
-{
-    _scoreService.Tick(Time.deltaTime);
-}
-```
+**RIGHT:** `private void Update() => _scoreService.Tick(Time.deltaTime);` — the service owns the logic.
 
-**GOTCHA:** Every class must be describable in one sentence — and that sentence must not contain AND. "PlayerService calculates movement AND updates score AND publishes events" = 3 classes.
+**GOTCHA:** Every class is describable in one sentence without "AND", and has one reason to change. Three ANDs =
+three classes.
 
 ---
 
@@ -239,26 +65,11 @@ private void Update()
 
 **WHEN:** Adding new behavior to an existing system.
 
-**WRONG:**
-```csharp
-// Every new enemy type changes this switch (OCP violation)
-public void ProcessEnemy(EnemyType type)
-{
-    if (type == EnemyType.Fast) { /* ... */ }
-    else if (type == EnemyType.Tank) { /* ... */ }
-}
-```
+**WRONG:** `if (type == EnemyType.Fast) { … } else if (type == EnemyType.Tank) { … }`
 
-**RIGHT:**
-```csharp
-// New enemy = new class; existing code is unchanged
-public interface IEnemy { void Attack(); }
+**RIGHT:** `public interface IEnemy { void Attack(); }` with `FastEnemy`, `TankEnemy` — new type = new class.
 
-public sealed class FastEnemy : IEnemy { public void Attack() { /* fast attack */ } }
-public sealed class TankEnemy : IEnemy { public void Attack() { /* heavy attack */ } }
-```
-
-**GOTCHA:** An `if/else if` chain on type is almost always an OCP violation. Use polymorphism.
+**GOTCHA:** An `if/else if` (or `switch`) chain on type is almost always an OCP violation. Use polymorphism.
 
 ---
 
@@ -266,387 +77,67 @@ public sealed class TankEnemy : IEnemy { public void Attack() { /* heavy attack 
 
 **WHEN:** Declaring constructor parameters.
 
-**WRONG:**
-```csharp
-// Concrete dependency — DIP violation
-public sealed class PlayerService
-{
-    private readonly AudioService _audio; // concrete
+**WRONG:** `public PlayerService(AudioService audio)` — concrete dependency.
 
-    public PlayerService(AudioService audio) => _audio = audio;
-}
-```
+**RIGHT:** `public PlayerService(IAudioService audio)`.
 
-**RIGHT:**
-```csharp
-// Interface dependency
-public sealed class PlayerService
-{
-    private readonly IAudioService _audio;
-
-    public PlayerService(IAudioService audio) => _audio = audio;
-}
-```
-
-**GOTCHA:** Constructor takes only interfaces. Exception: Handler constructors intentionally receive Unity component refs (Rigidbody, Transform) by design — this is not a DIP violation.
+**GOTCHA:** Constructors take only interfaces. Exception: Handler constructors receive Unity component refs
+(`Rigidbody`, `Transform`) by design. `new *Service()` / `new *Provider()` anywhere is a DIP violation — VContainer
+injects them.
 
 ---
 
 ## 4-Tier Architecture
 
-Every class belongs to exactly one tier. Assign the tier before writing a single line.
+Assign the tier before writing a line.
 
-```
-┌─ Tier 1: Mono Shell (Controller / View) ──────────────────────────────┐
-│  MonoBehaviour. Caches refs ([SerializeField]), sets up Handlers,     │
-│  forwards lifecycle (Update → handler.Tick(dt)). ZERO branching/calc. │
-│  Does NOT take interfaces (nobody mocks the shell). Target ≤ ~80 ln.  │
-├─ Tier 2: Handler (prefab-local logic) ────────────────────────────────┤
-│  Pure C# class (NOT MonoBehaviour). Receives Unity refs (Rigidbody,   │
-│  Transform) via constructor — may touch Unity API intentionally.       │
-│  Lives and dies with the prefab; FORBIDDEN to be referenced from       │
-│  outside the prefab. Always has an interface (IMoveHandler) →          │
-│  NSubstitute seam.                                                     │
-├─ Tier 3: Service + EntryPoint (cross-module logic) ───────────────────┤
-│  Pure C#, NO UnityEngine API (math types allowed). Registered with    │
-│  VContainer. Needs a frame update → expose Tick(float) and let the     │
-│  domain's Mono shell forward it — NOT a reason to be MonoBehaviour,    │
-│  and NOT a reason for ITickable (unused here). Interface-first.        │
-├─ Tier 4: Provider (cross-module Unity API boundary) ───────────────────┤
-│  Remains as-is: wraps Unity API that the Service needs.               │
-│  Do NOT open a Provider for prefab-local Unity access —               │
-│  that is Handler's job.                                                │
-│  Scene loading follows this tier exactly: ISceneService (Tier 3,      │
-│  pure C#, EntryPoint) depends on ISceneLoader (Tier 4 Provider         │
-│  interface). SceneManager-backed and Addressables-backed loading are   │
-│  two interchangeable ISceneLoader implementations — swap without       │
-│  touching SceneService. Suffix: `*SceneLoader` (e.g.                   │
-│  NormalSceneLoader, AddressableSceneLoader).                          │
-└───────────────────────────────────────────────────────────────────────┘
-```
-
-**Tier assignment decision:**
-
-| Question | Tier |
-|---|---|
-| Does it live on a Canvas? | Tier 1 — View |
-| Does it cache scene refs + forward lifecycle only? | Tier 1 — Controller |
-| Does it contain gameplay logic that touches Unity refs, lives inside one prefab? | Tier 2 — Handler |
-| Is it pure C# logic shared across modules? | Tier 3 — Service |
-| Does it need a frame tick but should stay pure C#? | Tier 3 — Service with `Tick(float)`, forwarded by the domain's Mono shell |
-| Does it wrap Unity API on behalf of a Service (cross-module)? | Tier 4 — Provider |
-| Does it perform the actual scene load call (SceneManager / Addressables)? | Tier 4 — `ISceneLoader` implementation (`*SceneLoader`) |
-
----
+| Tier | Is | Rules |
+|---|---|---|
+| 1 Mono Shell (Controller / View) | MonoBehaviour | caches refs, sets up Handlers, forwards lifecycle; zero branching; no interface by default |
+| 2 Handler | pure C#, prefab-local logic | Unity refs via constructor; lives and dies with its prefab; always has an `I*Handler` |
+| 3 Service + EntryPoint | pure C#, cross-module | **no UnityEngine API** — math types (`Mathf`, `Vector*`, `Quaternion`, `Color`, `Rect`, `Bounds`…) and `Debug` logging allowed; frame update = `Tick(float)` forwarded by a Mono shell |
+| 4 Provider | wraps Unity API a Service needs | cross-module only — prefab-local Unity access is a Handler's job; scene loading = `ISceneLoader` (`*SceneLoader`) |
 
 ## Handler Rules
 
-Handlers are **pure C# classes** — never MonoBehaviour. They hold prefab-local gameplay logic and may intentionally access Unity API through refs received in their constructor.
-
-```csharp
-// Game.Abstracts.Players/IMoveHandler.cs
-namespace Game.Abstracts.Players
-{
-    public interface IMoveHandler
-    {
-        void SetInput(Vector2 input);
-        void Tick(float deltaTime);
-    }
-}
-
-// Game.Concretes.Players/MoveHandler.cs — pure C#, NOT MonoBehaviour, sealed
-namespace Game.Concretes.Players
-{
-    public sealed class MoveHandler : IMoveHandler
-    {
-        #region Fields
-
-        private readonly Rigidbody         _rigidbody;
-        private readonly MoveConfiguration _config;
-        private Vector2 _input;
-
-        #endregion
-
-        #region Constructor
-
-        public MoveHandler(Rigidbody rigidbody, MoveConfiguration config)
-        {
-            _rigidbody = rigidbody;
-            _config    = config;
-        }
-
-        #endregion
-
-        #region Public Methods
-
-        public void SetInput(Vector2 input) => _input = input;
-
-        public void Tick(float deltaTime)
-        {
-            var velocity = new Vector3(_input.x, 0f, _input.y) * _config.MoveSpeed;
-            _rigidbody.velocity = velocity;
-        }
-
-        #endregion
-    }
-}
-```
-
-**Handler rules:**
-
-- Handlers **do not see each other** — coordination happens in the Controller shell
-- A Handler may not be referenced from outside its prefab; when a second consumer appears, promote it to a Service
-- Interface always lives in `Game.Abstracts.<Domain>/` — NSubstitute seam for tests
-- Two wiring patterns:
-
-| Handler's needs | Setup | Location |
-|---|---|---|
-| Only prefab components (no container deps) | `new MoveHandler(_rigidbody, ...)` | `Controller.Awake` — dependency-free instantiation in Awake is allowed |
-| + Container dependency (IEventBus, config) | VContainer factory: inject `Func<Rigidbody, IMoveHandler>` | Factory registered in the module's installer |
-
-Factory is **not mandatory** — use plain `new` when there are no container dependencies. Forcing a factory onto every Handler brings back installer ceremony.
-
----
+- Pure C# `sealed` class implementing `I*Handler` (interface in `Game.Abstracts.<Domain>/`) — never MonoBehaviour.
+- Handlers do not see each other; the Controller coordinates them.
+- Never referenced from outside its prefab — a second consumer means promote it to a Service.
+- Created only by its shell: plain `new` in `Awake` when it needs no container dependency; an injected
+  `Func<…, I*Handler>` factory (registered in the module) when it does. Do not force a factory on every Handler.
 
 ## Controller Shell
 
-The Controller shell is a thin MonoBehaviour that caches refs, creates Handlers, and forwards Unity lifecycle — nothing else.
-
-```csharp
-namespace Game.Concretes.Players
-{
-    public sealed class PlayerController : MonoBehaviour
-    {
-        #region Fields
-
-        [SerializeField] private Rigidbody _rigidbody;
-
-        private IMoveHandler _moveHandler;
-        private IJumpHandler _jumpHandler;
-
-        #endregion
-
-        #region Lifecycle
-
-        // Factory injected when container dep is needed
-        [Inject]
-        public void Construct(Func<Rigidbody, IMoveHandler> moveFactory)
-        {
-            _moveHandler = moveFactory(_rigidbody);
-        }
-
-        // Plain new when no container deps — Awake is the right place
-        private void Awake() => _jumpHandler = new JumpHandler(_rigidbody);
-
-        // ONLY forwarding — no logic, no branching, no state
-        private void Update() => _moveHandler.Tick(Time.deltaTime);
-
-        #endregion
-    }
-}
-```
-
-**Shell violation examples (WRONG):**
-
-```csharp
-// WRONG 1 — branching/calculation in Update
-private void Update()
-{
-    if (_isGrounded) _moveHandler.Tick(Time.deltaTime); // branching in shell
-    _score += Time.deltaTime;                           // state field on shell
-}
-
-// WRONG 2 — state fields on shell (score, cooldown, timers)
-private float _attackCooldown; // belongs in Handler or Service
-private int   _score;          // belongs in ScoreModel (Service/Model)
-
-// WRONG 3 — shell publishing IEventBus directly
-private void Update()
-{
-    if (_health <= 0)
-        _eventBus.Publish(new PlayerDiedEvent()); // Handler or Service publishes, not shell
-}
-```
-
-**Shell limits:**
-- No `if`/branching in Update/FixedUpdate/LateUpdate — forward unconditionally
-- No state fields (score, cooldown, health values) — those belong in Handler or Service
-- No IEventBus publish — Handler or Service is the publisher
-- Target: ≤ ~80 lines. Hook warns at 150 lines.
-
----
+- Forwards unconditionally — no `if`/branching in `Update` / `FixedUpdate` / `LateUpdate`.
+- No state fields (score, cooldown, health) — those live in a Handler or Service.
+- Never publishes `IEventBus` — the Handler or Service does.
+- Target ≤ ~80 lines; the hook warns at 150. Handlers and Services have no hard limit — split when "AND" appears.
 
 ## EntryPoint — Lifecycle Yes, Frame Ticks No
 
-VContainer's EntryPoint interfaces are used for **lifecycle** (build, start, teardown) and deliberately **not** for per-frame work. A pure C# service that needs a frame update exposes `Tick(float deltaTime)` — or `FixedTick`/`LateTick` — and the domain's Mono shell forwards Unity's callback into it, exactly as a Controller forwards into its Handler.
+| Interface | Status |
+|---|---|
+| `IInitializable` / `IDisposable` | used — acquire and release |
+| `IStartable` / `IAsyncStartable` | used — one-shot (async) startup, e.g. `SceneService` |
+| `ITickable` / `IFixedTickable` | **not used** — the domain's Mono shell owns `Update` / `FixedUpdate` |
 
-```csharp
-namespace Game.Concretes.Waves
-{
-    // Pure C# service — deltaTime arrives as a parameter, never read from Unity here
-    public sealed class WaveDirectorService : IWaveDirectorService
-    {
-        #region Fields
-
-        private readonly IEventBus         _eventBus;
-        private readonly WaveConfiguration _config;
-        private float _elapsed;
-        private int   _wave;
-
-        #endregion
-
-        #region Constructor
-
-        public WaveDirectorService(IEventBus eventBus, WaveConfiguration config)
-        {
-            _eventBus = eventBus;
-            _config   = config;
-        }
-
-        #endregion
-
-        #region IWaveDirectorService
-
-        public void Tick(float deltaTime)
-        {
-            _elapsed += deltaTime;
-            if (_elapsed < _config.WaveInterval) return;
-
-            _elapsed = 0f;
-            _eventBus.Publish(new WaveStartedEvent(++_wave));
-        }
-
-        #endregion
-    }
-}
-
-// The domain's Mono shell drives it — forwarding only, no logic (Card 1: Manager role)
-public sealed class WaveManager : MonoBehaviour
-{
-    private IWaveDirectorService _waveDirector;
-
-    [Inject]
-    public void Construct(IWaveDirectorService waveDirector) => _waveDirector = waveDirector;
-
-    private void Update() => _waveDirector.Tick(Time.deltaTime);
-}
-
-// In the module installer — plain registration, no EntryPoint needed for a tick
-builder.Register<WaveDirectorService>(Lifetime.Singleton).AsImplementedInterfaces();
-```
-
-**Which EntryPoint interfaces this project uses:**
-
-| Interface | Called by VContainer | Status |
-|---|---|---|
-| `IInitializable` / `IDisposable` | Scope build / scope teardown | **Used** — acquire and release (enable an input map, open a handle) |
-| `IStartable` | Once on scope start | **Used** — one-shot synchronous startup |
-| `IAsyncStartable` | Once on scope start (async) | **Used** — async startup, e.g. `SceneService` (`bootstrap-pattern.md` Card 6) |
-| `ITickable` | Every frame | **Not used** — the domain's Mono shell owns `Update` |
-| `IFixedTickable` | Every fixed frame | **Not used** — the domain's Mono shell owns `FixedUpdate` |
-
-Use `RegisterEntryPoint<T>()` when a service implements one of the three lifecycle interfaces above; use a plain `Register<T>(Lifetime.Singleton)` when it only needs a tick, because the tick no longer comes from the container.
-
-**Why frame ticks are Mono-driven here.** Unity's `Update`/`FixedUpdate`/`LateUpdate` order relative to each other is documented and stable; VContainer's tick position in the PlayerLoop relative to `MonoBehaviour.Update` is not part of any published contract. As soon as a container-driven tick produces state that a MonoBehaviour consumes — which is the normal case, since views and controllers are MonoBehaviours — correctness depends on that unpublished ordering, and it fails as a one-frame-stale or dropped value rather than an exception. `rules/unity-input.md` Card 1 documents a concrete instance of exactly this. Keeping one driver (Unity) removes the question instead of answering it.
-
-**If a genuine owner-less per-frame stream is ever needed**, the intended tool is R3 (`Observable.EveryUpdate()` and friends) — not `ITickable`, and not a hand-rolled `while (true) { await UniTask.Delay(...) }` loop, which is just re-implementing `Update` with worse ergonomics. R3 **is** in the Required Stack, so this is an available tool, not a hypothetical one — but an owner-less frame stream stays the narrow case it always was: if the stream has an owner, that owner's Mono shell forwards `Update`, exactly as above. R3's ordinary use in this project is reactive *state* (`ReactiveProperty`), not frame ticks — see `rules/event-patterns.md` Card 5.
-
----
+`RegisterEntryPoint<T>()` only for a lifecycle interface; a tick-only service is a plain `Register<T>`. Why: VContainer's
+tick position relative to `MonoBehaviour.Update` is not a published contract, so a container tick feeding a
+MonoBehaviour is right only by accident. A genuine owner-less per-frame stream uses R3 (`Observable.EveryUpdate()`),
+never `ITickable` or a `while (true) await UniTask.Delay` loop.
 
 ## Interface Scope
 
-**Who gets an interface:**
-
-| Class | Interface? | Why |
-|---|---|---|
-| Handler | YES — always (`I*Handler`) | NSubstitute seam for tests; the test is a caller |
-| Service | YES — always (`I*Service`) | Cross-module; VContainer interface-first |
-| Provider | YES — always (`I*Provider`) | Testability, swappability |
-| ViewModel (UI Toolkit screen state) | YES — always (`I*ViewModel`) | EditMode-testable screen logic; created by its View like a Handler (`ui-toolkit-runtime.md` Card 11) |
-| Controller shell | NO by default — YES only when a Manager/registry or another prefab must hold it (`IEnemyController`) | Nobody mocks the shell; the interface exists for the consumer, not for a mock. It is the MonoBehaviour's contract, so it may name Unity types (`Transform`) — `check-no-monobehaviour-in-services.sh` exempts `I*Controller` / `I*Manager` interface files by suffix. `I*Service` / `I*Provider` get no such exemption |
-| View | NO | Nobody mocks the shell |
-| UI Toolkit screen/popup View (via `ScreenView`) | `IScreen` / `IPopup<T>` only — through the base class, never a per-screen `I*View` | Not a mock seam: it keeps `ScreenService` free of MonoBehaviour types (`ui-toolkit-runtime.md` Card 13) |
-| ScriptableObject config | NO | Data container, no logic |
-| Event struct | NO | Plain value type |
-| Model/data class | NO | Test uses the model directly |
-
-**One-caller rule revised:** Do not create a separate **module + installer ceremony** for a single caller. But every injectable layer (Handler, Service, Provider) always has an interface — the test is a caller.
-
----
-
-## SRP — Single Responsibility in Depth
-
-**Core rule:** Every class must be describable in one sentence — and that sentence must not contain AND.
-
-```
-✓ "AudioService plays sounds."
-✓ "ScoreModel tracks the score."
-✗ "PlayerService calculates movement AND updates score AND publishes events."
-         → 3 responsibilities = 3 different classes
-```
-
-**Responsibility test — ask before writing:**
-
-| Question | Bad sign |
+| Class | Interface? |
 |---|---|
-| Can I describe this class in one sentence? | If not → SRP violation |
-| Does the sentence contain AND? | If yes → split |
-| Why does this class change? | More than one reason → split |
+| Handler, Service, Provider, ViewModel | **always** — the test is a caller |
+| Controller / Manager | only when a Manager, registry or another prefab holds it (`IEnemyController`); may name Unity types |
+| View | no — UI Toolkit screens implement `IScreen` / `IPopup<T>` through the base class, never a per-screen `I*View` |
+| ScriptableObject config, event struct, model / data class | no |
 
----
+Postpone module + installer ceremony for a single caller; never postpone the interface.
 
-## OCP — Polymorphism Over Conditionals
+## Forbidden Patterns (not covered above)
 
-New behavior added to a system must not require changing existing code. Every `if/else if` chain on type is a potential OCP violation — use polymorphism instead.
-
----
-
-## DIP — Constructor Interface Rule
-
-Constructor takes only interfaces. Services depend on interfaces, never on concrete types.
-
-```csharp
-// BAD — concrete dependency
-public sealed class PlayerService
-{
-    private readonly AudioService _audio; // concrete — DIP violation
-    public PlayerService(AudioService audio) => _audio = audio;
-}
-
-// GOOD — interface dependency
-public sealed class PlayerService
-{
-    private readonly IAudioService _audio;
-    public PlayerService(IAudioService audio) => _audio = audio;
-}
-```
-
----
-
-## Forbidden Patterns
-
-| Forbidden | Why | Correct approach |
-|---|---|---|
-| MonoBehaviour with no `[SerializeField]` and no Unity callbacks | Card 0 violation — no justification to be Mono | Pure C# (Service, Handler, or EntryPoint) |
-| `*Handler : MonoBehaviour` | Handler must be pure C# — hook blocks it | Pure C# sealed class implementing `I*Handler` |
-| Handler referenced from outside its prefab | Breaks prefab-local boundary | Promote Handler to Service |
-| Business logic in `Update()` of a Controller | Shell forwards only | Move logic to Handler.Tick or Service |
-| State fields (score, cooldown) on Controller shell | SRP + shell purity violation | Hold in Handler or Service |
-| Controller shell publishing `IEventBus` directly | Handler or Service is the publisher | Move publish to Handler or Service |
-| `new Service()` or `new Provider()` in any class | DIP violation | VContainer injection |
-| `new Handler()` outside Controller/View | Handler wired only by its shell | Move instantiation to Controller.Awake or factory |
-| Constructor with concrete type parameter | DIP violation | Interface parameter |
-| `if/else if` chain on type | OCP violation | Polymorphism |
-| AND in class responsibility description | SRP violation | Split into two classes |
-| `async void` (non-lifecycle) | Swallows exceptions | Return `UniTask` + `.Forget(ex => ...)` |
-| Injection-dependent initialization in `Awake()`/`Start()` | Breaks VContainer lifecycle order | Use `Initialize()` (VContainer calls it) |
-
----
-
-## Limits Summary
-
-| Layer | Line target | Hook warning |
-|---|---|---|
-| Controller / View (Mono shell) | ≤ ~80 lines | At 150 lines |
-| Handler | No hard limit — split when AND creeps in | Reviewer criterion |
-| Service | No hard limit | Reviewer criterion (AND test) |
+- Injection-dependent initialization in `Awake()` / `Start()` — use `Initialize()` (VContainer calls it).
+- `async void` outside Unity lifecycle methods — return `UniTask` and `.Forget(ex => …)`.

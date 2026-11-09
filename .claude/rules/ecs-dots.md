@@ -372,7 +372,7 @@ public static class EcsBridgeModule
 }
 ```
 
-Wire `EcsBridgeModule.Install(builder)` from `SceneModules.InstallGame(builder)` — same place scene-lifetime services are installed (see `bootstrap-pattern.md` → SceneModules).
+Wire `EcsBridgeModule.Install(builder)` from `SceneModules.InstallGame(builder)` — same place scene-lifetime services are installed (see `bootstrap-pattern-reference.md` → SceneModules).
 
 **Rules:**
 - The receiving system must be a managed `SystemBase` — a Burst `ISystem` struct cannot hold a reference-type field, so this pattern does not apply to it.

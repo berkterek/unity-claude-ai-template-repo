@@ -6,7 +6,7 @@ model-tier: normal
 
 # SOLID & OOP Rules (NON-NEGOTIABLE)
 
-> **`.claude/rules/solid-oop.md` is the authority.** Read it before designing a class — this skill is the short form; the rule file carries the cards, the worked N-enemies example, the Handler/Controller listings and the EntryPoint table. On any conflict, the rule file wins.
+> **`.claude/rules/solid-oop.md` is the authority.** Read it before designing a class — this skill is the short form; the rule file carries the cards and the EntryPoint table; `.claude/rules/solid-oop-reference.md` carries the worked N-enemies example and the full Handler/Controller listings. On any conflict, the rule file wins.
 
 ## Card 0 — the first question, always
 

@@ -1,0 +1,1 @@
+Plan (do not implement, do not write files) an enemy wave system: a new wave starts every 30 seconds, each wave spawns ten enemies that move, take damage and die, and the HUD is told when a wave is cleared. List each class, whether it is a MonoBehaviour or pure C#, its role, whether it gets an interface, and how it receives per-frame updates.

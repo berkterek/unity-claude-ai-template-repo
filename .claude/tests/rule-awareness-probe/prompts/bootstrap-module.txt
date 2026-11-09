@@ -1,0 +1,1 @@
+Plan (do not implement, do not write files) a new Audio module that plays sound effects and has a designer-tunable volume setting. List each file you would create or change, its type, and how the module is wired into the app at startup.

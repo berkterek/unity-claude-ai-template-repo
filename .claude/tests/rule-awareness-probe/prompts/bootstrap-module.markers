@@ -1,0 +1,6 @@
+static class
+AppModules
+ConfigCatalog
+Validate
+LogError
+AsImplementedInterfaces

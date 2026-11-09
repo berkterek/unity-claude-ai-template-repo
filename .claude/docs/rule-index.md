@@ -21,6 +21,10 @@ MCP tools (scene, prefab, component) never trigger auto-load: Read the rule your
 | write hot-path code, materials, shaders, or UI raycast settings | `.claude/rules/performance.md` |
 | write ECS code (only if feature `ecs` is enabled) | `.claude/rules/ecs-dots.md` |
 | load assets at runtime (only if feature `addressables` is enabled) | `.claude/rules/addressables.md` |
+| choose the tier or MonoBehaviour role of a new class (full code for `solid-oop` cards, N-enemies example) | `.claude/rules/solid-oop-reference.md` |
+| design a new module, a scope's wiring, or scene loading (full code for `bootstrap-pattern` cards) | `.claude/rules/bootstrap-pattern-reference.md` |
+| design a swappable backend (`*Dal`/`*Loader`/`*Client`/`*Provider`), a Controller–Handler pair, or a new top-level folder (full code for `architecture` cards) | `.claude/rules/architecture-reference.md` |
+| want an example for a `csharp-unity` rule (naming tree, pool, #region skeleton, interface contract docs) | `.claude/rules/csharp-unity-reference.md` |
 | write or edit any `ARCHITECTURE.md` (new domain, new `_Framework/` assembly) | `.claude/rules/architecture-docs.md` |
 | build a browser-based authoring tool | `.claude/rules/web-tool-architecture.md`, `web-tool-data-contract.md`, `web-tool-design-system.md` |
 

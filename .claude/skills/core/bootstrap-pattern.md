@@ -58,4 +58,4 @@ public static class AppModules
 | `TestScope` calls the production `[Domain]Module.Install()`, then overrides only the fakes | Hand-copied registrations drift from production; reusing the real wiring means a production break breaks the test — that is the point |
 | Scene loading goes `ISceneService` (Tier 3) → `ISceneLoader` (Tier 4), never raw `SceneManager` in a service | Keeps an Addressables-backed loader a drop-in swap; see the rule file's Card 6 for the additive-load activate+unload trap |
 
-Full cards, the new-module flow and the folder layout: `.claude/rules/bootstrap-pattern.md`.
+Cards: `.claude/rules/bootstrap-pattern.md`. Full code, the new-module flow and the folder layout: `.claude/rules/bootstrap-pattern-reference.md`.

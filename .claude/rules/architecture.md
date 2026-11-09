@@ -1,106 +1,41 @@
 # Architecture Rules
 
-> Read the **Cards** section first. The prose below is reference detail.
+> Short form — every rule is here. Full WRONG/RIGHT code (Provider, swappable backends, Controller + Handler
+> Patterns A/B, Func<> factory registration, GameContext, EventBusAccessor), the example trees and the rationale:
+> `rules/architecture-reference.md`. It loads when you touch a Provider/Dal/Loader/Client/Controller/Handler/Module/
+> Scope file, `_Framework/` or an `.asmdef`; **Read it yourself before designing a new backend, a Controller–Handler
+> pair or a new top-level folder.**
 
 ## Cards
 
 ### Card 1: No Singletons
 
-**WHEN:** Writing or refactoring any service that needs to be accessed from multiple call sites.
+**WRONG:** `public static AudioService Instance` set in `Awake()`. **RIGHT:** `IAudioService` + `sealed AudioService`,
+`builder.Register<AudioService>(Lifetime.Singleton).AsImplementedInterfaces();` in its module.
 
-**WRONG:**
-```csharp
-public class AudioService : MonoBehaviour
-{
-    public static AudioService Instance { get; private set; }
-    private void Awake() => Instance = this;
-}
-```
-
-**RIGHT:**
-```csharp
-public interface IAudioService { void PlaySound(string id); }
-public sealed class AudioService : IAudioService { /* ... */ }
-// AudioModule.cs
-builder.Register<AudioService>(Lifetime.Singleton).AsImplementedInterfaces();
-```
-
-**GOTCHA:** `FindObjectOfType<AudioService>()` is a singleton in disguise — equally forbidden. Always resolve through constructor injection.
+**GOTCHA:** `FindObjectOfType<T>()` is a singleton in disguise — equally forbidden. Always constructor injection.
 
 ---
 
 ### Card 2: Provider Pattern for Unity API
 
-**WHEN:** A service needs to call Unity API (Physics, AudioSource, Transform, Screen, etc.).
+**WHEN:** A service needs Unity API (Physics, AudioSource, Transform, Screen…). **WRONG:** `AudioSource.PlayClipAtPoint`
+inside `AudioService`. **RIGHT:** the service calls an injected `IAudioProvider`; `BasicAudioProvider : MonoBehaviour,
+IAudioProvider` holds the `[SerializeField] AudioSource` and makes the Unity call.
 
-**WRONG:**
-```csharp
-public sealed class AudioService : IAudioService
-{
-    public void Play(string id) => AudioSource.PlayClipAtPoint(clip, Vector3.zero); // Unity API in service
-}
-```
-
-**RIGHT:**
-```csharp
-public sealed class AudioService : IAudioService
-{
-    private readonly IAudioProvider _provider;
-    public void Play(string id) => _provider.Play(id);
-}
-public sealed class BasicAudioProvider : MonoBehaviour, IAudioProvider
-{
-    [SerializeField] private AudioSource _source;
-    public void Play(AudioClip clip) => _source.PlayOneShot(clip);
-}
-```
-
-**GOTCHA:** `using UnityEngine` in a service is a leak **only** when it pulls in real engine/scene/asset API — `Transform`, `GameObject`, `AudioSource`, `SceneManager`, `Physics`, `Input`, `Time`, `Resources`, etc. UnityEngine **math value types** (`Mathf`, `Vector2/3/4`, `Quaternion`, `Color`, `Rect`, `Bounds`, `Ray`, `Plane`, `Matrix4x4`) and **`Debug` logging** are allowed in a Tier 3 service (solid-oop.md Tier 3: *"Pure C#, NO UnityEngine API — math types allowed"*; bootstrap-pattern.md Module null-guards call `Debug.LogError`). These need `using UnityEngine;` but are **not** a leak — `check-no-monobehaviour-in-services.sh` allows them and blocks only the real engine/scene API. Move genuine Unity API to a Provider. Do NOT open a Provider for prefab-local Unity access — that is Handler's job (Tier 2).
+**GOTCHA:** `using UnityEngine` in a service is a leak **only** for real engine/scene/asset API — `Transform`,
+`GameObject`, `AudioSource`, `SceneManager`, `Physics`, `Input`, `Time`, `Resources`, etc. **Math value types**
+(`Mathf`, `Vector2/3/4`, `Quaternion`, `Color`, `Rect`, `Bounds`, `Ray`, `Plane`, `Matrix4x4`) and **`Debug` logging**
+are allowed in a Tier 3 service — `check-no-monobehaviour-in-services.sh` allows them. Do NOT open a Provider for
+prefab-local Unity access — that is a Handler's job (Tier 2).
 
 ---
 
-### Card 2.1: Swappable Backend Pattern — Same Shape, Suffix by Domain
+### Card 2.1: Swappable Backend — Same Shape, Suffix by Domain
 
-**WHEN:** A Service's job is inherently "call some external mechanism to do X" (load a scene, persist data, call a remote API) and more than one mechanism plausibly does it (SceneManager vs. Addressables; local JSON vs. cloud save; REST vs. gRPC).
-
-This is Card 2 generalized beyond Unity API — the backend isn't always `UnityEngine`, but the shape is identical: Service (Tier 3, pure C#) depends on an interface; each mechanism is a separate implementation the Service never references by concrete type.
-
-**WRONG:**
-```csharp
-// Backend mechanism hardcoded inside the service — swapping local↔cloud save means rewriting SaveLoadService
-public sealed class SaveLoadService : ISaveLoadService
-{
-    public void Save(PlayerSaveData data) => File.WriteAllText(Application.persistentDataPath + "/save.json", JsonUtility.ToJson(data));
-}
-```
-
-**RIGHT:**
-```csharp
-// Game.Abstracts.SaveLoad/ISaveLoadDal.cs — Tier 4 contract, one per backend mechanism
-public interface ISaveLoadDal
-{
-    void Write(string key, string json);
-    string Read(string key);
-}
-
-// Game.Concretes.SaveLoad/LocalSaveLoadDal.cs — Tier 4, file-system backend
-public sealed class LocalSaveLoadDal : ISaveLoadDal
-{
-    public void Write(string key, string json) => File.WriteAllText(PathFor(key), json);
-    public string Read(string key) => File.Exists(PathFor(key)) ? File.ReadAllText(PathFor(key)) : null;
-    private static string PathFor(string key) => Path.Combine(Application.persistentDataPath, key + ".json");
-}
-
-// Game.Concretes.SaveLoad/SaveLoadService.cs — Tier 3, pure C#, never touches File/JsonUtility directly
-public sealed class SaveLoadService : ISaveLoadService
-{
-    private readonly ISaveLoadDal _dal;
-    public SaveLoadService(ISaveLoadDal dal) => _dal = dal;
-    public void Save(PlayerSaveData data) => _dal.Write("save", JsonUtility.ToJson(data));
-}
-```
-
-**Suffix by domain — pick the name that says what the backend actually does, don't force one suffix everywhere:**
+**WHEN:** A Service's job is "call some external mechanism to do X" (load a scene, persist data, call a remote API)
+and more than one mechanism plausibly does it. Service (Tier 3, pure C#) depends on a backend interface; each
+mechanism is a separate implementation the Service never references by concrete type.
 
 | Domain | Backend interface suffix | Example |
 |---|---|---|
@@ -109,283 +44,88 @@ public sealed class SaveLoadService : ISaveLoadService
 | Unity API wrapping | `*Provider` | `IAudioProvider` → `BasicAudioProvider` |
 | Remote/external service call | `*Client` | `IAnalyticsClient` → `FirebaseAnalyticsClient` |
 
-**GOTCHA:** The Service class name and its public API never change when a new backend is added — that is the test of whether this pattern was applied correctly. If adding `CloudSaveLoadDal` requires touching `SaveLoadService`, the DIP boundary is in the wrong place. Do not invent a new suffix per module out of habit — check this table first; only add a new row when none of the four existing meanings fit.
-
-**Two backends both active at once (different data categories) — split into two Service+Backend pairs, never a keyed factory:**
-
-**WHEN:** Some data always goes to one backend and other data always goes to another (e.g. settings → local, player progress → cloud) — the choice is known statically by what is being saved, not decided at runtime per call.
-
-**WRONG:**
-```csharp
-// Factory keyed by a string/enum — SaveLoadService now branches on backend type internally
-public sealed class SaveLoadService : ISaveLoadService
-{
-    private readonly Func<SaveTarget, ISaveLoadDal> _dalFactory;
-    public void Save(SaveTarget target, string key, string json) => _dalFactory(target).Write(key, json); // OCP violation: adding a 3rd target means a 3rd factory case
-}
-```
-
-**RIGHT:**
-```csharp
-// Two independent domains — each with its own Service + Dal pair, per Card 2.1's normal shape
-Game.Abstracts.SaveLoad/ILocalSaveLoadService.cs  → Game.Abstracts.SaveLoad/ILocalSaveLoadDal.cs  → LocalSaveLoadDal
-Game.Abstracts.SaveLoad/ICloudSaveLoadService.cs  → Game.Abstracts.SaveLoad/ICloudSaveLoadDal.cs  → FirestoreSaveLoadDal
-
-// Callers inject exactly the one they need — the choice already happened at the injection site
-public sealed class SettingsController : MonoBehaviour
-{
-    [Inject] public void Construct(ILocalSaveLoadService localSave) { /* settings are always local */ }
-}
-public sealed class ProgressService : IProgressService
-{
-    public ProgressService(ICloudSaveLoadService cloudSave) { /* progress is always cloud */ } // constructor injection — Tier 3 service
-}
-```
-
-**GOTCHA:** A factory keyed by category (`"local"`/`"cloud"`, or an enum) just moves the `if/switch` from outside the service to inside it — still an OCP violation, still couples the service to every backend it might route to. Two separate interface pairs mean adding a third category (e.g. `ISessionCacheService`) is a new pair, not a new branch anywhere.
-
-**Same data, runtime-routed to one or the other (e.g. online/offline sync) — Composite Dal, not a factory:**
-
-If the same save call must go to Local **and conditionally** Cloud based on runtime state (connectivity), wrap both behind a third `ISaveLoadDal` implementation instead of asking the Service to choose:
-
-```csharp
-public sealed class SyncingSaveLoadDal : ISaveLoadDal
-{
-    private readonly LocalSaveLoadDal _local;
-    private readonly FirestoreSaveLoadDal _cloud;
-    private readonly IConnectivityProvider _connectivity;
-
-    public void Write(string key, string json)
-    {
-        _local.Write(key, json);                         // always write local first — offline-safe
-        if (_connectivity.IsOnline) _cloud.Write(key, json); // best-effort cloud sync
-    }
-}
-```
-
-`SaveLoadService` still depends on a single `ISaveLoadDal` and never learns that syncing happens — the routing logic lives entirely inside the Dal implementation, not in a factory the Service calls into.
+**GOTCHA:**
+- Test of correctness: adding a backend never changes the Service's class name or public API. Check this table
+  before inventing a suffix; add a row only when none of the four meanings fit.
+- **Two backends active at once for different data** (settings → local, progress → cloud): two Service+Backend
+  pairs (`ILocalSaveLoadService`, `ICloudSaveLoadService`), callers inject the one they need — **never** a factory
+  keyed by string/enum, which is the same `switch` moved inside the service (OCP violation).
+- **Same data, routed at runtime** (online/offline sync): a Composite Dal (`SyncingSaveLoadDal : ISaveLoadDal`)
+  holds both backends; the Service still sees one `ISaveLoadDal`.
 
 ---
 
 ### Card 3: Module → Static Install Method → AppModules → AppScope
 
-**WHEN:** Adding a new feature module (Audio, Score, Shop, etc.).
-
-**WRONG:** Registering directly in `AppScope.Configure()`, creating ScriptableObject installer assets, or scattering registrations across multiple places.
-
-**RIGHT:**
-```
-[X]Module.Install() → AppModules.Install() → AppScope calls AppModules
-```
-
-```csharp
-// One new line in AppModules.cs — no Editor asset work
-AudioModule.Install(builder, configs.Audio);
-```
-
-**GOTCHA:** `AppScope.cs` never changes. Add modules by adding one line to `AppModules.Install()`. There are no ScriptableObject installer assets, no `_modules` list, no Editor drag-and-drop for wiring modules.
+`[X]Module.Install()` → one line in `AppModules.Install()` → `AppScope`; `AppScope.cs` never changes, no installer
+assets. Full card: `rules/bootstrap-pattern.md` → Cards 1–2.
 
 ---
 
 ### Card 4: EventBus Crosses Modules; Action Stays Local
 
-**WHEN:** Deciding how two systems should communicate.
-
-**WRONG:**
-```csharp
-// direct reference across modules
-_scoreService.OnScoreChanged += UpdateUI; // tight coupling
-```
-
-**RIGHT:**
-```csharp
-// cross-module → IEventBus
-_eventBus.Subscribe<ScoreChangedEvent>(OnScoreChanged);
-// one-time callback → System.Action parameter
-// internal module notification → C# event keyword
-```
-
-**GOTCHA:** `UnityEvent` is forbidden entirely — not a valid choice in this decision tree.
+Cross-module → `IEventBus` (never `_scoreService.OnScoreChanged += …` across modules); one-time callback →
+`System.Action` parameter; internal module notification → C# `event`. **`UnityEvent` is forbidden entirely.** Full
+decision tree: `rules/event-patterns.md`.
 
 ---
 
 ### Card 5: One-Caller Rule — Postpone MODULE Ceremony, Never Postpone the Interface
 
-**WHEN:** Tempted to create a full module registration ceremony for a single caller.
+**RIGHT:** with one caller, register the handler or helper directly in the parent module's `Install()` — no new
+module file. **A separate module is justified only when:** at least 2 independent production callers exist, OR the
+service has its own lifecycle (async setup, pooling, Dispose), OR a provider must hide Unity API behind a pure C#
+boundary.
 
-**WRONG:**
-```csharp
-// Creating an entire AudioModule with installer just for one sound effect in one class
-// — the module ceremony overhead is unjustified for a single caller
-```
-
-**RIGHT:** Register the handler or helper directly in the parent module's `Install()` without creating a separate module file for it.
-
-**GOTCHA:** This rule postpones **module + installer ceremony** — it does NOT postpone interfaces. Every injectable layer (Handler, Service, Provider) always gets an interface. The test is a caller. Interface with a single production caller is correct and expected: `IMoveHandler` with only `PlayerController` as caller is not over-engineering — the test suite is the second caller.
+**GOTCHA:** Postpones **module + installer ceremony**, never the interface. Every injectable layer (Handler,
+Service, Provider) always gets an interface — the test suite is the second caller. `IMoveHandler` with only
+`PlayerController` as caller is correct, not over-engineering.
 
 ---
 
 ### Card 6: Same Prefab Hierarchy — SerializeField + Handler, Not VContainer
 
-**WHEN:** A script needs a reference to a component on the same GameObject, a child, or any GameObject within the same prefab.
-
-**WRONG:**
-```csharp
-// Injecting a co-located component through VContainer — unnecessary overhead
-public sealed class PlayerController : MonoBehaviour
-{
-    private IPlayerProvider _provider;
-
-    [Inject]
-    public void Construct(IPlayerProvider provider) => _provider = provider;
-}
-// PlayerModule: builder.RegisterComponent(_playerProvider).As<IPlayerProvider>();
-```
-
-**RIGHT — Pattern A: Handler needs no container dependencies (plain new):**
-```csharp
-public sealed class PlayerController : MonoBehaviour
-{
-    #region Fields
-
-    [SerializeField] private Rigidbody        _rigidbody;
-    [SerializeField] private MoveConfiguration _moveConfig;
-
-    private IMoveHandler _moveHandler;
-
-    #endregion
-
-    #region Lifecycle
-
-    private void Awake()
-    {
-        // Plain new — no container dependencies needed
-        _moveHandler = new MoveHandler(_rigidbody, _moveConfig);
-    }
-
-    private void Update()
-    {
-        _moveHandler.Tick(Time.deltaTime);
-    }
-
-    #endregion
-}
-```
-
-**RIGHT — Pattern B: Handler needs a container dependency (Func factory):**
-```csharp
-public sealed class PlayerController : MonoBehaviour
-{
-    #region Fields
-
-    [SerializeField] private Rigidbody _rigidbody;
-
-    private IMoveHandler _moveHandler;
-
-    #endregion
-
-    #region Lifecycle
-
-    [Inject]
-    public void Construct(Func<Rigidbody, IMoveHandler> moveFactory)
-    {
-        _moveHandler = moveFactory(_rigidbody);
-    }
-
-    private void Update() => _moveHandler.Tick(Time.deltaTime);
-
-    #endregion
-}
-```
-
-Use Pattern A when the handler only needs prefab-local references (`[SerializeField]` fields). Use Pattern B when the handler also needs a container-registered dependency (IEventBus, a configuration SO from ConfigCatalog, etc.).
-
-**GOTCHA:** VContainer injection is for **cross-module boundaries**. Everything inside the same prefab (root, children, grandchildren) wires via `[SerializeField]`. Handlers are pure C# — never registered with VContainer directly; the Controller creates them.
-
-**Boundary rule:**
+**WRONG:** injecting a co-located component through VContainer (`[Inject] Construct(IPlayerProvider)` +
+`RegisterComponent(_playerProvider)`). **RIGHT:** `[SerializeField]` references; the Controller creates its Handler —
+**Pattern A** `_moveHandler = new MoveHandler(_rigidbody, _moveConfig);` in `Awake` when the Handler needs only
+prefab-local refs; **Pattern B** `[Inject] Construct(Func<Rigidbody, IMoveHandler> moveFactory)` when it also needs a
+container dependency (IEventBus, a ConfigCatalog config). `Update` forwards `_moveHandler.Tick(Time.deltaTime)`.
 
 | Relationship | Wire with |
 |---|---|
-| Same GameObject | `[SerializeField]` drag-drop |
-| Child or grandchild within the same prefab | `[SerializeField]` drag-drop |
+| Same GameObject, child or grandchild in the same prefab | `[SerializeField]` drag-drop |
 | Handler (prefab-local logic, pure C#) | `new` in Awake OR `Func<>` factory inject |
 | Different prefab / different module | VContainer injection (interface) |
 | Cross-scene / global service | VContainer injection (AppScope) |
+
+**GOTCHA:** VContainer is for **cross-module boundaries**. Handlers are pure C# and never registered with VContainer
+directly — the Controller creates them. Do not force a factory on every Handler.
 
 ---
 
 ### Card 7: GameScope vs Module Boundary
 
-**WHEN:** Deciding where to put a registration in the scene-specific scope.
-
-**WRONG:**
-```csharp
-// GameScope doing service wiring (belongs in a Module)
-builder.Register<PlayerService>(Lifetime.Singleton);
-```
-
-**RIGHT:**
-```csharp
-// GameScope registers scene components only
-builder.RegisterComponent(_playerView);    // scene MonoBehaviour
-// Service wiring → PlayerModule.Install() via AppModules
-```
-
-**GOTCHA:** If the registration doesn't reference a scene object (`RegisterComponent`), it belongs in a module's `Install()` method, not `GameScope`.
+`GameScope` only `RegisterComponent`s scene objects; anything that does not reference a scene object belongs in a
+module's `Install()` — app-lifetime via `AppModules`, scene-lifetime via `SceneModules`. Full card:
+`rules/bootstrap-pattern.md` → Card 4.
 
 ---
 
-## Core Principle: Dependency Direction
+## Dependency Direction
 
-```
-Tier 1 (Mono Shell: Controller/View) → Tier 2 (Handler) → Tier 3 (Service + EntryPoint)
-                                                                    ↓
-                                                               IEventBus
-                                                                    ↓
-                                                          Tier 4 (Provider)
-```
-
-- Services depend on interfaces, never concrete types
-- Mono shells (Controller/View) depend on services via VContainer injection and on Handlers via direct `new` or `Func<>` factory
-- Cross-service communication goes through IEventBus, never direct references
-- Assembly definitions enforce direction at compile time
-
-> Full tier definitions and rules: see `rules/solid-oop.md` → 4-Tier Architecture
-
----
+`Tier 1 (Mono Shell: Controller/View) → Tier 2 (Handler) → Tier 3 (Service + EntryPoint) → IEventBus → Tier 4 (Provider)`
+— assembly definitions enforce it at compile time. Tier definitions: `rules/solid-oop.md` → 4-Tier Architecture.
 
 ## Layer Structure
 
-```
-_Framework/                               ← Never references _GameFolders or other project folders. Pure infrastructure.
-  Events/FrameworkEventBus.asmdef        ← each subfolder has its OWN .asmdef
-  Logging/FrameworkLogging.asmdef
-  SaveLoadSystems/FrameworkSaveLoadSystems.asmdef
-  Editors/FrameworkEditor.asmdef         ← Editor-only, includePlatforms: ["Editor"]
-
-_GameFolders/        ← Depends on _Framework. All game-specific code.
-  Scripts/
-    Games/
-      Abstracts/     ← interfaces and abstract base classes ONLY, organized by domain
-        Players/     ← example domain folders (mirrors Concretes/ structure)
-        Enemies/
-        ...
-      Concretes/     ← ALL concrete classes (pure C# or MonoBehaviour), organized by domain
-        Players/     ← same domain folders as Abstracts/
-        Enemies/
-        ...          ← name subfolders by domain/feature, not by layer
-      Ecs/           ← ECS DOTS systems, components, authorings (only if ECS enabled)
-    Tests/
-      [Project]EditModeTest/   ← Edit Mode tests (.asmdef includePlatforms: ["Editor"])
-      [Project]PlayModeTest/   ← Play Mode tests (.asmdef all platforms)
-    Editors/         ← Editor-only tools, custom inspectors
-```
+`_Framework/` — pure infrastructure, **never references `_GameFolders`** or any other project folder; each subfolder
+has its own `.asmdef`. `_GameFolders/Scripts/` — all game code, may reference `_Framework`:
+`Games/Abstracts/<Domain>/` (interfaces and abstract base classes only), `Games/Concretes/<Domain>/` (all concrete
+classes), `Games/Ecs/` (only if ECS enabled), `Tests/[Project]EditModeTest|PlayModeTest/`, `Editors/`.
 
 ### Scripts/ Folder Rules (NON-NEGOTIABLE)
 
 The **only** valid top-level folders under `Scripts/` are: `Games/`, `Tests/`, `Editors/`.
-
-**Never create these under `Scripts/` directly — they belong inside `Games/`:**
 
 | Forbidden folder | Correct location |
 |-----------------|-----------------|
@@ -396,78 +136,34 @@ The **only** valid top-level folders under `Scripts/` are: `Games/`, `Tests/`, `
 | `Scripts/Concretes/` | Must be inside `Games/` → `Scripts/Games/Concretes/` |
 | `Scripts/Services/` | Services → `Scripts/Games/Concretes/<Domain>/` |
 
-**Games/Abstracts/ and Games/Concretes/ first-segment naming:** the first folder under either must be a **domain** (`Players/`, `Enemies/`, `Inputs/`, `Audio/`, `UI/`, `VFX/`, `Infrastructure/`) — never a layer (`Service(s)/`, `Provider(s)/`, `Controller(s)/`, `View(s)/`, `Manager(s)/`, `Interface(s)/`, `Config(s)/`) and never a catch-all (`Core/`, `General(s)/`). Below the domain folder you are free — `Players/Handlers/` and `Players/Services/` are both fine. Full rule and rationale: **Domain Folder Convention** under Module Structure below; enforced by `check-domain-folder-structure.sh`.
-
-**Rule:** `_Framework` never references `_GameFolders` or any other project folder. `_GameFolders` may reference `_Framework`.
-
 ### Adding a Top-Level Folder (the declared exception)
 
-The three-folder list above is enforced fail-closed by `lib-path-rules.sh` — an unrecognized first segment under `Scripts/`, or under `Scripts/Games/`, is a **block**, not a fall-through. That is deliberate: the earlier version exited 0 on anything it did not recognize, and a plan recorded that silence as "verified compliant" before building an illegal tree.
-
-A rule with no escape hatch does not bend, it gets broken silently. There is exactly one legitimate reason to add a fourth folder, and one way to do it.
-
-**The reason:** in Unity an assembly boundary *is* a folder boundary. Assembly flags (`noEngineReferences`, platform filters, `defineConstraints`) are per-`.asmdef`, never per-file. Code that must live in its own assembly — e.g. an engine-free deterministic simulation that must not be able to reference `UnityEngine` — therefore must live in its own folder. Putting it under `Concretes/<Domain>/` drops it into the game assembly and the flag becomes unenforceable.
-
-**The procedure — both steps, or neither:**
-
-1. Add a line to `.claude/path-allowlist.txt`:
-   ```
-   Scripts/Simulation    # reason: engine-free deterministic sim, own asmdef with noEngineReferences
-   ```
-2. Add the folder to the table in this file, so the prose and the validator agree.
-
-An allowlist entry without step 2 leaves this rule file asserting the opposite of what the validator permits — which is the same drift, one layer down.
-
-**Never valid as a reason:** "the hook did not complain", "the plan said so", "it felt cleaner". Silence is not approval; a plan is not a rule. If a plan and this file disagree, the disagreement is a decision for the human at SCOPE_GATE / ARCHITECTURE_GATE — surfaced by `.claude/scripts/validate-plan-paths.sh`, which runs at plan time precisely because the write-time hook fires too late to prevent an approved-but-wrong tree.
+`lib-path-rules.sh` blocks any other first segment. The one legitimate reason for a fourth folder is code that needs
+its **own `.asmdef`**; it takes a `.claude/path-allowlist.txt` line **and** a row in the table above. **Read
+`rules/architecture-reference.md` → "Adding a Top-Level Folder" before proposing one.**
 
 ### _Framework Assembly Definition Rules (NON-NEGOTIABLE)
 
-- Every subfolder under `_Framework/` has its **own** `.asmdef` file
-- **Never** create a single `.asmdef` at the `_Framework/` root that covers all subfolders
-- **Never** delete an existing subfolder `.asmdef` and replace it with a root-level one
-- Each `_Framework` assembly references only other `_Framework` assemblies — never `_GameFolders` assemblies
-
-| Subfolder | Assembly name pattern |
-|-----------|----------------------|
-| `Events/` | `Framework.Events` (or `[Project].Framework.Events`) |
-| `Logging/` | `Framework.Logging` |
-| `SaveLoadSystems/` | `Framework.SaveLoadSystems` |
-| `Editors/` | `Framework.Editor` — `includePlatforms: ["Editor"]` |
-
----
+- Every subfolder under `_Framework/` has its **own** `.asmdef`; **never** one root `.asmdef` covering all
+  subfolders, **never** delete a subfolder `.asmdef` to replace it with a root one.
+- A `_Framework` assembly references only other `_Framework` assemblies — never `_GameFolders`.
+- Names: `Events/` → `Framework.Events` (or `[Project].Framework.Events`), `Logging/` → `Framework.Logging`,
+  `SaveLoadSystems/` → `Framework.SaveLoadSystems`, `Editors/` → `Framework.Editor` (`includePlatforms: ["Editor"]`).
 
 ## Module Structure (NON-NEGOTIABLE)
 
-Every feature module spans two folders — one for the portable domain layer, one for Unity-specific providers:
+A feature module spans `Abstracts/<Domain>/` (interfaces only: `I[X]Service`, `I[X]Provider`, `I[X]Handler`) and
+`Concretes/<Domain>/` (everything else: sealed service, `*Configuration` SO, `[X]Module` static installer,
+`[X]Events.cs`, Provider, Controller, Handler).
 
-```
-_GameFolders/Scripts/Games/Abstracts/Audio/
-├── IAudioService.cs           ← service contract (interface only)
-└── IAudioProvider.cs          ← provider contract (interface only)
-
-_GameFolders/Scripts/Games/Abstracts/Players/
-├── IPlayerService.cs          ← service contract
-└── IMoveHandler.cs            ← handler contract (NEW — pure C# NSubstitute seam)
-
-_GameFolders/Scripts/Games/Concretes/Audio/
-├── AudioService.cs            ← sealed service (Tier 3)
-├── AudioConfiguration.cs      ← ScriptableObject config
-├── AudioModule.cs             ← static install method (replaces AudioInstaller SO)
-├── AudioEvents.cs             ← IEvent structs for this module (if any)
-└── BasicAudioProvider.cs      ← IAudioProvider impl — Unity API here (Tier 4)
-
-_GameFolders/Scripts/Games/Concretes/Players/
-├── PlayerController.cs        ← Mono shell, Tier 1
-├── MoveHandler.cs             ← pure C# handler, Tier 2
-├── PlayerService.cs           ← sealed service, Tier 3
-├── PlayerConfiguration.cs     ← ScriptableObject config
-├── PlayerModule.cs            ← static install method
-└── PlayerEvents.cs            ← IEvent structs
-```
+**`[Module]Events.cs` lives inside `Concretes/<Domain>/` — never a top-level `Scripts/Games/Events/` or
+`Scripts/Events/` folder.** Interfaces live in `Abstracts/` so other modules depend on contracts.
 
 ### Domain Folder Convention (NON-NEGOTIABLE)
 
-**Hard rule.** The **first** folder under `Games/Abstracts/` or `Games/Concretes/` is a **domain**, never a layer and never a catch-all. `Abstracts/<Domain>/` and `Concretes/<Domain>/` mirror each other with identical domain names. Banned in that first position, case-insensitive, singular and plural — enforced by `check-domain-folder-structure.sh` (exit 2):
+The **first** folder under `Games/Abstracts/` or `Games/Concretes/` is a **domain**, never a layer and never a
+catch-all; `Abstracts/<Domain>/` and `Concretes/<Domain>/` use identical domain names. Banned in that position,
+case-insensitive, singular and plural — `check-domain-folder-structure.sh` (exit 2):
 
 | Banned first segment | Why | Correct location |
 |---|---|---|
@@ -475,203 +171,52 @@ _GameFolders/Scripts/Games/Concretes/Players/
 | `Interface(s)/` | layer name; `Abstracts/` already means "interfaces" | `Abstracts/<Domain>/` |
 | `Core/`, `General(s)/` | catch-all — a name that cannot refuse a file | a real domain, or `_Framework/` / `Concretes/Infrastructure/` |
 
-A `.cs` file sitting directly at `Games/Concretes/Foo.cs` with no domain folder is the same violation.
-
-**Why `Core/` is hook-enforced and not merely discouraged:** in the voxel-blast project `Core/` grew to 85 files and 7692 lines spanning five unrelated concerns (DI, bootstrap, game flow, services, pooling). Prose did not stop it. Once a catch-all exists, everything drains into it.
-
-> **Known, accepted gap:** `Common/`, `Shared/`, `Utils/`, `Helpers/`, `Misc/` are equally poor domain names and are deliberately **not** enforced. Catch-all names substitute for one another, so banning a subset only redirects the problem; the list is kept short to hold false positives near zero. Revisit if one of these shows up in practice.
-
-**Below the domain folder you are free.** The hook never looks past the first segment. `Concretes/Players/Services/`, `Players/Handlers/`, `Players/Inputs/`, `Players/Types/`, or everything flat — all legal.
-
-> **Advisory, never enforced:** keep a domain flat while it is small; open subfolders when the file count starts to hurt readability; if you do subdivide, using the same shape on the `Abstracts/` and `Concretes/` side makes navigation easier. There is deliberately **no file-count threshold and no mirror check** — a hook fires once per single-file write, so a folder gated on "must already contain N files" can never be populated at all. Do not add one.
-
-**Naming.** Plural for countable domains (`Players/`, `Enemies/`, `Inputs/`); singular for mass nouns (`Audio/`, `UI/`, `VFX/`). DI and bootstrap wiring → `Concretes/Infrastructure/`. Domain-agnostic infrastructure → `_Framework/`.
+- A `.cs` directly at `Games/Concretes/Foo.cs` with no domain folder is the same violation.
+- **Below the domain folder you are free** (`Players/Services/`, `Players/Handlers/`, or flat). No file-count
+  threshold and no mirror check — do not add one.
+- Naming: plural for countable domains (`Players/`, `Enemies/`, `Inputs/`), singular for mass nouns (`Audio/`,
+  `UI/`, `VFX/`). DI and bootstrap wiring → `Concretes/Infrastructure/`; domain-agnostic infrastructure → `_Framework/`.
 
 ### ARCHITECTURE.md — one per Concretes domain
 
-Every `Concretes/<Domain>/` — and every `_Framework/` subfolder or allowlisted top-level folder that owns an
-`.asmdef` — carries one `ARCHITECTURE.md`: English, one H1 plus exactly `## Purpose` / `## Boundary` /
-`## How to extend` / `## Gotchas`, at most 40 lines, **no class names** (describe shape, not names). No doc at a
-root, none under `Abstracts/`. **Before writing or editing one, Read `.claude/rules/architecture-docs.md`** — the
-full contract, the scope rules and why. Missing doc → warning, malformed doc → block (`check-architecture-doc.sh`).
-
----
-
-**`[Module]Events.cs` must live inside `Concretes/<Domain>/`. NEVER outside `Concretes/` — do not create a top-level `Scripts/Games/Events/` or `Scripts/Events/` folder.**
-
-**Why:** Interfaces live in `Abstracts/` so other modules depend on contracts, not implementations. Everything else — service, handler, config, module installer, events, and Unity providers — belongs in the same `Concretes/<Domain>/` folder.
+Every `Concretes/<Domain>/` — and every `_Framework/` subfolder or allowlisted folder that owns an `.asmdef` —
+carries one `ARCHITECTURE.md`. **Before writing or editing one, Read `.claude/rules/architecture-docs.md`** (format,
+scope, why). Missing → warning, malformed → block (`check-architecture-doc.sh`).
 
 ### Module Portability Checklist
 
-Before exporting a module:
-
-| Check | Description |
-|-------|-------------|
-| `using` dependencies | Only `_Framework` types + own types |
-| Cross-module dependencies | None — only interfaces consumed |
-| `UnityEngine` import | Not in service class; moved to provider |
-| Static service calls | None — constructor injection only |
-| Config null guard | Present in `Install()` |
-| Events in own file | `[Module]Events.cs` — not embedded in service |
-| Handler interface | `I[X]Handler` in `Abstracts/<Domain>/` |
-
----
+Before exporting a module: `using` only `_Framework` + own types · no cross-module dependencies except interfaces ·
+no `UnityEngine` API in the service (moved to a provider) · no static service calls · config null guard in
+`Install()` · events in `[Module]Events.cs` · every Handler has `I[X]Handler` in `Abstracts/<Domain>/`.
 
 ## VContainer for Dependency Injection
 
 VContainer is the **only** wiring mechanism. No singletons, no static access, no `FindObjectOfType`, no service locator.
 
-### Code-First Static Module Pattern (NON-NEGOTIABLE)
-
-Full pattern and code: `rules/bootstrap-pattern.md` → Cards 1–2 and "[Module]Module — Static Class". Summary: a module is one static class with `Install(IContainerBuilder, Config)`, added as one line in `AppModules.Install()`; no ScriptableObject installer assets; `EventBusModule` is always first — enforced by code position, not convention.
-
-### AppScope — Uses AppModules (NON-NEGOTIABLE)
-
-Full code: `rules/bootstrap-pattern.md` → "AppScope". `AppScope.cs` **never changes** — it validates `ConfigCatalog`, then calls `AppModules.Install()`; to add a module, add one line to `AppModules.Install()`.
-
-### NO GameContext / Service Locator (NON-NEGOTIABLE)
-
-Never create a `GameContext`, `ServiceLocator`, or `Dependencies` class that bundles multiple dependencies into one injectable object. Each class declares only its own dependencies.
-
-```csharp
-// BAD — hides real dependencies, breaks least-privilege
-public class GameContext
-{
-    public PlayerModel Player { get; }
-    public ScoreSystem Score { get; }
-}
-
-// GOOD — each class declares exactly what it needs
-public sealed class ScoreView : MonoBehaviour
-{
-    [Inject]
-    public void Construct(ScoreModel model) { }
-}
-```
-
-### Avoid One-Caller Overfitting — When NOT to Create a Separate Module
-
-Do NOT create a new module file and wiring ceremony just because one production caller exists. Overfitting produces unnecessary boilerplate.
-
-**Create a separate module only when:**
-- At least 2 independent production callers exist, OR
-- The service has its own lifecycle (async setup, pooling, Dispose), OR
-- A provider is needed to hide Unity API behind a pure C# boundary
-
-**The one-caller rule does NOT apply to interfaces.** Every injectable layer (Handler, Service, Provider) always gets an interface — the test suite is the second caller, always. Delaying the interface prevents TDD and NSubstitute seam creation.
-
-```csharp
-// BAD — creating a full ScoreDisplayModule for a helper used by one class
-// (module ceremony is unjustified; register directly in ScoreModule.Install())
-public static class ScoreDisplayModule
-{
-    public static void Install(IContainerBuilder builder) { /* one line */ }
-}
-
-// GOOD — register the helper directly in the parent module
-public static class ScoreModule
-{
-    public static void Install(IContainerBuilder builder, ScoreConfiguration config)
-    {
-        builder.Register<ScoreService>(Lifetime.Singleton).AsImplementedInterfaces();
-        builder.Register<ScoreDisplayHelper>(Lifetime.Singleton).AsImplementedInterfaces(); // one caller — no separate module needed
-    }
-}
-```
-
-**Rule: Postpone module ceremony. Never postpone the interface.**
-
----
-
-### Handler Factory — VContainer Func<> Pattern
-
-When a Handler needs a container dependency (IEventBus, config SO), register a factory so the Controller can receive it:
-
-```csharp
-// In PlayerModule.Install():
-builder.RegisterFactory<Rigidbody, IMoveHandler>(
-    container => rigidbody =>
-        new MoveHandler(rigidbody, container.Resolve<MoveConfiguration>()),
-    Lifetime.Singleton  // singleton = one factory delegate; each call produces a new handler instance
-);
-
-// In PlayerController — receives the factory via [Inject]:
-[Inject]
-public void Construct(Func<Rigidbody, IMoveHandler> moveFactory)
-{
-    _moveHandler = moveFactory(_rigidbody);
-}
-```
-
-If the Handler needs **no** container dependencies, use plain `new` in Awake — no factory needed. Forcing a factory on every Handler reintroduces installer ceremony.
-
----
-
-### EntryPoint — Lifecycle Yes, Frame Ticks No
-
-VContainer's EntryPoint interfaces are used for **lifecycle** (build, start, teardown), never for per-frame work. "I need Update" is not a reason to become a MonoBehaviour — the service exposes `Tick(float deltaTime)`, stays pure C#, and the domain's Mono shell forwards Unity's callback into it. Full worked example (`WaveDirectorService` + `WaveManager`): `rules/solid-oop.md` → "EntryPoint — Lifecycle Yes, Frame Ticks No".
-
-| Interface | Called by VContainer | Status |
-|---|---|---|
-| `IInitializable` / `IDisposable` | Scope build / teardown | **Used** — acquire and release |
-| `IStartable` | Once on scope start | **Used** — one-shot synchronous startup |
-| `IAsyncStartable` | Once on scope start (async) | **Used** — async startup (`SceneService`) |
-| `ITickable` | Every frame | **Not used** — the domain's Mono shell owns `Update` |
-| `IFixedTickable` | Every fixed frame | **Not used** — the domain's Mono shell owns `FixedUpdate` |
-
-Use `RegisterEntryPoint<T>()` when a service implements one of the three lifecycle interfaces; use a plain `Register<T>(Lifetime.Singleton)` when it only needs a tick.
-
-> **Why:** VContainer's tick position relative to `MonoBehaviour.Update` is not part of any published contract, so a container-driven tick feeding a MonoBehaviour is correct only by accident. Full rationale and the R3 escape hatch: `rules/solid-oop.md` → EntryPoint.
-
----
+- **Code-first static modules (NON-NEGOTIABLE)** and interface-first registration: `rules/bootstrap-pattern.md`
+  Cards 1–3. EntryPoint lifecycle interfaces: `rules/solid-oop.md` → EntryPoint.
+- **NO GameContext / ServiceLocator / Dependencies class (NON-NEGOTIABLE)** bundling several dependencies into one
+  injectable object — each class declares only its own dependencies.
+- **Handler factory:** when a Handler needs a container dependency, the module registers
+  `builder.RegisterFactory<Rigidbody, IMoveHandler>(container => rigidbody => new MoveHandler(rigidbody, container.Resolve<MoveConfiguration>()), Lifetime.Singleton)`
+  (one delegate; each call makes a new handler) and the Controller injects the `Func<>`. No container dependency →
+  plain `new` in `Awake`. Handlers themselves are never registered; the Controller creates them.
 
 ### Scene Scope Hierarchy
 
-```
-AppScope (Bootstrap scene — DontDestroyOnLoad, persistent root)
-├── MenuScope  (Menu scene — child of AppScope)
-└── GameScope  (Game scene — child of AppScope)
-```
-
-- Bootstrap scene opens once (Build index 0), never returns
-- `AppScope` registers all global services (Audio, EventBus, SaveLoad…)
-- `MenuScope` / `GameScope` register scene-local dependencies
-- A scope cannot access sibling scope services — only parent scope
+`AppScope` (Bootstrap scene, build index 0, `DontDestroyOnLoad`, persistent root; all global services) → children
+`MenuScope` / `GameScope` (scene-local dependencies). A scope sees its parent's services, never a sibling's.
 
 ### GameScope — Scene Component Registration Only
 
-`GameScope` registers MonoBehaviours that are present in the scene and need to be injected across the module boundary. It does NOT wire services or factories. GOOD/BAD code: Card 7 above; full rules: `rules/bootstrap-pattern.md` → Card 4 and "GameScope — Scene-Based Wiring" (scene-lifetime pure C# services go through `SceneModules`).
-
-| Task | Location | Why |
-|------|----------|-----|
-| Register a scene-local MonoBehaviour | `GameScope` | Tied to scene hierarchy |
-| Wire services and factories | Module `Install()` | Reusable, testable, scene-independent |
-| Conditional setup (difficulty, feature flags) | Module `Install()` | Co-located with the module it configures |
-| Register a provider that depends on a scene object | `GameScope` via `RegisterComponent` | Scene ref required |
-
-**Rule: If the wiring logic does not directly reference a scene object, it belongs in a module's `Install()` method.**
-
-### Interface-First Registration
-
-```csharp
-// GOOD
-builder.Register<AudioService>(Lifetime.Singleton).AsImplementedInterfaces();
-
-// BAD — concrete dependency leaks through the container
-builder.Register<AudioService>(Lifetime.Singleton);
-```
-
-Handler interfaces (`IMoveHandler`) follow the same rule — always interface-first for the NSubstitute seam. Handlers are NOT registered with VContainer directly; they are created by the Controller via `new` or `Func<>` factory.
-
----
+`rules/bootstrap-pattern.md` → Card 4. **If the wiring does not directly reference a scene object, it belongs in a
+module's `Install()`** — services, factories, and conditional setup (difficulty, feature flags) included.
 
 ## IEvent System for Communication
 
-`IEventBus` is the **only** cross-system communication channel. No C# static events, no UnityEvents, no direct cross-module calls.
-
-Event struct shape, naming and the full decision tree: `rules/event-patterns.md` (loads on any `.cs`). Subscribe in `Initialize()`, unsubscribe in `Dispose()` — the class-type table below is the authority.
-
-### Subscribe / Unsubscribe Rules
+`IEventBus` is the **only** cross-system communication channel — no C# static events, no UnityEvents, no direct
+cross-module calls. Event struct shape, naming and the decision tree: `rules/event-patterns.md` (loads on any `.cs`).
+This table is the authority for subscription:
 
 | Class type | Subscribe | Unsubscribe |
 |-----------|-----------|-------------|
@@ -680,77 +225,17 @@ Event struct shape, naming and the full decision tree: `rules/event-patterns.md`
 | MonoBehaviour — can be enabled/disabled | `OnEnable()` | `OnDisable()` |
 | MonoBehaviour — runtime instantiated (Instantiate, not VContainer-registered) | `OnEnable()` | `OnDisable()` |
 
-Never unsubscribe in `OnDestroy()` for VContainer-managed types — conflicts with VContainer lifecycle.
+Never unsubscribe in `OnDestroy()` for VContainer-managed types. Instantiated MonoBehaviours have no
+`Initialize()`/`Dispose()` — use `OnEnable()`/`OnDisable()`, never only `OnDestroy()`.
 
-> **Dynamic instances:** MonoBehaviours created via `Instantiate()` are not registered with VContainer and have no `Initialize()`/`Dispose()` lifecycle. Use `OnEnable()`/`OnDisable()` — `OnDisable` is called before `OnDestroy`, so unsubscribing there is safe. Do NOT rely solely on `OnDestroy()` for IEventBus unsubscription.
+## Input, Config, EventBusAccessor
 
-> See also: `rules/event-patterns.md` → Decision Tree, Pattern 1 (IEventBus), Pattern 4 (UGUI Button)
-
----
-
-## Provider Pattern
-
-Domain services never touch Unity API. Unity calls stay at the Provider boundary (Tier 4) — code: Card 2 above.
-
-Do NOT open a Provider for prefab-local Unity access — that is Handler's job. Provider is the cross-module Unity API boundary.
-
-> See also: `rules/solid-oop.md` → 4-Tier Architecture
-
----
-
-## Input System Architecture
-
-Input is handled via an `InputService` (pure C#, **pull-based — no tick**) paired with per-prefab `InputHandler` classes. Services never touch Unity Input directly. `InputService` is deliberately not an `ITickable`: its properties read the Input System on demand, so there is no per-frame state to advance and no ordering question between the reader and the writer.
-
-> See `rules/unity-input.md` for the pull-based `InputService` pattern, generated C# class usage, action map switching, the `FixedUpdate` latch rule, and enforcement rules.
-
----
-
-## ScriptableObjects for Config
-
-All configuration data as ScriptableObjects. Runtime mutable state stays in service/model classes.
-
-```csharp
-[CreateAssetMenu(menuName = "Game/Audio Configuration")]
-public sealed class AudioConfiguration : ScriptableObject
-{
-    [SerializeField] private float _masterVolume = 1f;
-    [SerializeField] private float _sfxVolume = 1f;
-    public float MasterVolume => _masterVolume;
-    public float SfxVolume => _sfxVolume;
-}
-```
-
----
-
-## No Singletons
-
-See Card 1 above. App-wide → `AppScope` via `AppModules`; per-scene → `MenuScope` / `GameScope`. No `Instance`, no `static` mutable state, no `FindObjectOfType`.
-
----
-
-## EventBusAccessor — ECS ↔ Mono Static Bridge (APPROVED EXCEPTION)
-
-ECS systems (`ISystem`, `SystemBase`) cannot receive VContainer injection. The only approved static accessor is `EventBusAccessor` in `_Framework/Events/`.
-
-```csharp
-// _Framework/Events/EventBusAccessor.cs — pure C#, no UnityEngine
-public static class EventBusAccessor
-{
-    private static IEventBus _instance;
-    public static IEventBus Instance => _instance
-        ?? throw new InvalidOperationException("EventBusAccessor not initialized. Call Initialize() in AppScope.");
-
-    public static void Initialize(IEventBus bus) => _instance = bus;
-}
-```
-
-Initialized by `AppScope` in `RegisterBuildCallback` (code: `rules/bootstrap-pattern.md` → "AppScope"); ECS usage
-(`EventBusAccessor.Instance.Publish(...)` from a `SystemBase`): `rules/ecs-dots.md` → Card 12.
-
-**Rules:**
-- Only `EventBusAccessor` is an approved static accessor — no new ones without explicit design decision
-- `EventBusAccessor` lives in `_Framework/Events/` — pure C#, no UnityEngine import
-- MonoBehaviours and services always receive `IEventBus` via VContainer constructor injection
-- ECS systems use `EventBusAccessor.Instance` directly
-- `check-vcontainer-singleton.sh` hook blocks all other static singleton patterns
+- **Input:** pull-based pure C# `InputService` (no tick, not `ITickable`) + per-prefab `InputHandler`; services never
+  touch Unity Input. Full pattern: `rules/unity-input.md`.
+- **Config:** all configuration is ScriptableObject data (`[SerializeField] private` field + read-only property);
+  runtime mutable state lives in service/model classes.
+- **`EventBusAccessor` (APPROVED EXCEPTION)** — the only approved static accessor: lives in `_Framework/Events/`, pure
+  C#, initialized by `AppScope` in `RegisterBuildCallback`, used **only** by ECS systems
+  (`EventBusAccessor.Instance.Publish(...)`; `rules/ecs-dots.md` → Card 12). MonoBehaviours and services always get
+  `IEventBus` by injection. No new static accessor without an explicit design decision;
+  `check-vcontainer-singleton.sh` blocks all other static singleton patterns.
