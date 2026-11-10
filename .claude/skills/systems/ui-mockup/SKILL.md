@@ -61,6 +61,10 @@ design wants depth, draw it as a **sprite or a 9-slice image** and say so in the
 
 ## Output format
 
+**Start from `template.html`** (this folder) — tokens `:root`, button states, both widths, state sheet, safe-area
+band and the Notes block are already laid out. Spec classes are everything *without* the `mk-` prefix; `mk-*`
+is review scaffolding and is exempt from the lint below.
+
 One self-contained `<Screen>.html` — no external CSS/JS/fonts beyond what the project ships.
 
 ```html
@@ -88,6 +92,11 @@ One self-contained `<Screen>.html` — no external CSS/JS/fonts beyond what the 
 
 ## Review → approval → handoff
 
+0. **Lint before showing it:** `python3 .claude/skills/systems/ui-mockup/lint-mockup.py <Screen>.html` — zero
+   ERRORs, and every WARN fixed or explained in Notes. It checks USS-unsupported CSS, raw colours/durations
+   outside `:root`, undefined `var()` tokens, transition properties, both widths, pressed/disabled/focus states
+   and the Notes block. It does **not** judge looks, contrast or spacing rhythm — that is still the human's
+   review. A clean lint is not an approval.
 1. Publish the mockup as an Artifact; the human opens it at phone width.
 2. Iterate on **their** words. Do not "improve" an element they did not mention.
 3. Approval is an explicit statement. Silence and "looks fine, but…" are not approval.

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ExampleScreen mockup</title>
+<!--
+  Starter for skills/systems/ui-mockup. Copy to docs/ui/mockups/<Screen>.html, replace the example screen,
+  then run:  python3 .claude/skills/systems/ui-mockup/lint-mockup.py docs/ui/mockups/<Screen>.html
+
+  Spec = every class WITHOUT the `mk-` prefix. It must be USS-portable and use tokens only.
+  Review scaffolding = every `mk-` class (stage, labels, scaled viewports, safe-area band). Never ported.
+  Token NAMES below are placeholders: once approved they are the names DesignTokens.uss gets. Values are px
+  at a 1080-wide reference (dp x 3). Change them to the project's reference resolution.
+-->
+<style>
+  /* ===== TOKENS (spec) - DRAFT until approved ===== */
+  :root {
+    --color-bg: #111827;
+    --color-surface-raised: #1F2937;
+    --color-primary: #3B82F6;
+    --color-primary-hover: #60A5FA;
+    --color-primary-pressed: #2563EB;
+    --color-on-primary: #FFFFFF;
+    --color-text: #F9FAFB;
+    --color-text-muted: #9CA3AF;
+    --color-border: #4B5563;
+    --color-border-focus: #FBBF24;
+    --color-disabled-bg: #374151;
+    --color-disabled-text: #6B7280;
+
+    --space-1: 12px;   /* 4dp  */
+    --space-2: 24px;   /* 8dp  */
+    --space-3: 36px;   /* 12dp */
+    --space-4: 48px;   /* 16dp */
+    --space-5: 72px;   /* 24dp */
+    --space-6: 96px;   /* 32dp */
+
+    --radius-md: 24px;
+    --border-width: 3px;
+    --size-touch: 144px;           /* 48dp minimum touch target */
+    --safe-top: 132px;             /* placeholders - real values come from Screen.safeArea at runtime */
+    --safe-bottom: 102px;
+
+    --font-size-title: 84px;
+    --font-size-body: 48px;        /* 16dp - never below this on mobile */
+    --font-size-caption: 36px;
+    --font-weight-regular: 400;
+    --font-weight-bold: 700;
+
+    --motion-fast: 150ms;
+    --motion-base: 250ms;
+    --motion-slow: 400ms;
+  }
+
+  /* ===== SPEC ===== */
+  .screen {
+    display: flex; flex-direction: column;
+    width: 100%; height: 100%;
+    padding-top: var(--safe-top); padding-bottom: var(--safe-bottom);   /* safe area first, no calc() in USS */
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-regular);
+  }
+  .content { display: flex; flex-direction: column; justify-content: flex-end; flex-grow: 1; padding: var(--space-4); }
+  .title   { font-size: var(--font-size-title); font-weight: var(--font-weight-bold); margin-bottom: var(--space-2); }
+  .caption { font-size: var(--font-size-caption); color: var(--color-text-muted); margin-bottom: var(--space-5); }
+
+  /* Data label: shown with the longest realistic string, truncation is a design decision */
+  .counter { display: flex; flex-direction: row; justify-content: space-between; margin-bottom: var(--space-4); }
+  .counter__value { font-weight: var(--font-weight-bold); }
+
+  .btn {
+    display: flex; align-items: center; justify-content: center;
+    min-height: var(--size-touch);
+    margin-bottom: var(--space-2);
+    padding-left: var(--space-4); padding-right: var(--space-4);
+    border-width: var(--border-width); border-color: transparent;   /* border always present: focus causes no layout shift */
+    border-radius: var(--radius-md);
+    background-color: var(--color-primary);
+    color: var(--color-on-primary);
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-bold);
+    transition: scale var(--motion-fast), background-color var(--motion-fast);
+  }
+  .btn:hover,  .btn.is-hover   { background-color: var(--color-primary-hover); }
+  .btn:active, .btn.is-pressed { background-color: var(--color-primary-pressed); scale: 0.94; }
+  .btn:disabled, .btn.is-disabled { background-color: var(--color-disabled-bg); color: var(--color-disabled-text); scale: 1; }
+  .btn:focus,  .btn.is-focus   { border-color: var(--color-border-focus); }
+
+  .btn--secondary { background-color: transparent; border-color: var(--color-border); color: var(--color-text); }
+  .btn--secondary:hover,  .btn--secondary.is-hover   { background-color: var(--color-surface-raised); }
+  .btn--secondary:active, .btn--secondary.is-pressed { background-color: var(--color-surface-raised); scale: 0.94; }
+  .btn--secondary:focus,  .btn--secondary.is-focus   { border-color: var(--color-border-focus); }
+
+  /* ===== REVIEW SCAFFOLDING (never ported) ===== */
+  * { box-sizing: border-box; }   /* UI Toolkit lays out border-box; without this width:100% + padding overflows */
+  body { margin: 0; padding: 24px; background: #0B0F19; color: #E5E7EB; font-family: system-ui, sans-serif; }
+  .mk-h1    { font-size: 18px; }
+  .mk-row   { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; margin-bottom: 32px; }
+  .mk-label { font-size: 13px; margin: 0 0 8px; color: #9CA3AF; }
+  .mk-vp { overflow: hidden; border: 1px solid #374151; }
+  .mk-vp-wide   { width: 324px; height: 576px; }    /* 1080 x 1920 at 0.3 */
+  .mk-vp-narrow { width: 216px; height: 576px; }    /* 720  x 1920 at 0.3 */
+  .mk-frame  { position: relative; transform: scale(0.3); transform-origin: top left; }
+  .mk-wide   { width: 1080px; height: 1920px; }
+  .mk-narrow { width: 720px;  height: 1920px; }
+  .mk-safe-top, .mk-safe-bottom { position: absolute; left: 0; right: 0; background: rgba(239,68,68,.25); pointer-events: none; }
+  .mk-safe-top    { top: 0;    height: var(--safe-top); }
+  .mk-safe-bottom { bottom: 0; height: var(--safe-bottom); }
+  .mk-states { display: flex; flex-direction: column; width: 1080px; padding: 48px; background: #111827; transform: scale(0.3); transform-origin: top left; }
+  .mk-vp-states { width: 324px; height: 480px; overflow: hidden; border: 1px solid #374151; }
+  .mk-notes { max-width: 720px; font-size: 14px; line-height: 1.5; }
+  .mk-notes h2 { font-size: 16px; }
+</style>
+</head>
+<body>
+
+<h1 class="mk-h1">ExampleScreen - DRAFT</h1>
+
+<!-- Both widths, with the safe-area band drawn -->
+<div class="mk-row">
+  <div>
+    <p class="mk-label">Reference width 1080 x 1920</p>
+    <div class="mk-vp mk-vp-wide"><div class="mk-frame mk-wide">
+      <div class="screen"><div class="content">
+        <div class="title">Example Title</div>
+        <div class="caption">Longest realistic caption goes here to prove it wraps instead of clipping</div>
+        <div class="counter"><span>Coins</span><span class="counter__value">1,234,567,890</span></div>
+        <button class="btn">Primary action</button>
+        <button class="btn btn--secondary">Secondary action</button>
+        <button class="btn" disabled>Disabled action</button>
+      </div></div>
+      <div class="mk-safe-top"></div><div class="mk-safe-bottom"></div>
+    </div></div>
+  </div>
+  <div>
+    <p class="mk-label">Narrow width 720 x 1920</p>
+    <div class="mk-vp mk-vp-narrow"><div class="mk-frame mk-narrow">
+      <div class="screen"><div class="content">
+        <div class="title">Example Title</div>
+        <div class="caption">Longest realistic caption goes here to prove it wraps instead of clipping</div>
+        <div class="counter"><span>Coins</span><span class="counter__value">1,234,567,890</span></div>
+        <button class="btn">Primary action</button>
+        <button class="btn btn--secondary">Secondary action</button>
+        <button class="btn" disabled>Disabled action</button>
+      </div></div>
+      <div class="mk-safe-top"></div><div class="mk-safe-bottom"></div>
+    </div></div>
+  </div>
+</div>
+
+<!-- Every interactive state side by side (mirror classes are review scaffolding, see Notes) -->
+<div class="mk-row">
+  <div>
+    <p class="mk-label">Button states: default / hover / pressed / focus / disabled</p>
+    <div class="mk-vp-states"><div class="mk-states">
+      <button class="btn">Default</button>
+      <button class="btn is-hover">Hover</button>
+      <button class="btn is-pressed">Pressed</button>
+      <button class="btn is-focus">Focus</button>
+      <button class="btn is-disabled">Disabled</button>
+      <button class="btn btn--secondary is-pressed">Secondary pressed</button>
+      <button class="btn btn--secondary is-focus">Secondary focus</button>
+    </div></div>
+  </div>
+</div>
+
+<div class="mk-notes" id="notes">
+  <h2>Notes</h2>
+  <ul>
+    <li>Safe area: the red bands are placeholders. Real values come from <code>Screen.safeArea</code> at runtime.</li>
+    <li>Mirror classes <code>.is-hover / .is-pressed / .is-focus</code> and the 0.3 scale wrappers are review scaffolding, not spec.</li>
+    <li>Sprites / 9-slices needed: none. Fonts: bold face required (Card 7 fallback chain).</li>
+    <li>Motion: button press = <code>transition</code> on scale + background-color. Anything needing <code>@keyframes</code> is marked "C# tween" here.</li>
+    <li>Deviations from a pure USS port: none.</li>
+  </ul>
+</div>
+
+</body>
+</html>
