@@ -20,6 +20,7 @@ def subs(sess):
     out=[]
     for m in glob.glob(sess[:-6]+'/subagents/*.meta.json'):
         meta=json.load(open(m)); seen=set(); u=0; su=None; first=None; turns=0
+        if not os.path.exists(m[:-10]+'.jsonl'): continue  # meta without transcript (running/aborted spawn)
         for line in open(m[:-10]+'.jsonl',errors='ignore'):
             try:o=json.loads(line)
             except:continue
