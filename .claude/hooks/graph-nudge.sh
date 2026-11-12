@@ -13,8 +13,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK_PROFILE_LEVEL="standard"
 source "${SCRIPT_DIR}/_lib.sh" 2>/dev/null || exit 0
 trap 'exit 0' ERR
-( sleep 2; kill -TERM $$ 2>/dev/null ) & WD=$!
-trap 'kill $WD 2>/dev/null; exit 0' EXIT
+# No in-script watchdog: settings.json `timeout: 2` caps the hook. A backgrounded `sleep` inherits stdout
+# and holds it open after exit, so the harness waits the full 2 s for EOF on every call.
 
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo ".")}"
 FEATURES="$PROJECT_ROOT/.claude/project-features.json"
