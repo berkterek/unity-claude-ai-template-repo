@@ -34,13 +34,15 @@ _globs() {  # print the quoted globs of a rule's paths: block, one per line
 }
 
 @test "C# layer rules trigger on .cs" {
-    for r in event-patterns unity-async serialization unity-lifecycle logging save-load unity-input performance; do
+    for r in event-patterns unity-async serialization unity-lifecycle logging performance; do
         _globs "$r" | grep -qxF '**/*.cs' || { echo "$r missing **/*.cs"; false; }
     done
 }
 
 @test "domain rules carry their domain glob" {
     _globs testing | grep -qxF '**/Tests/**'
+    _globs save-load | grep -qxF '**/*Save*.cs'
+    _globs unity-input | grep -qxF '**/*Input*.cs'
     _globs ui-toolkit-runtime | grep -qxF '**/*.{uxml,uss,tss}'
     _globs web-tool-architecture | grep -qxF 'tools/**'
     _globs unity-prefabs | grep -qxF '**/*.{prefab,unity}'
