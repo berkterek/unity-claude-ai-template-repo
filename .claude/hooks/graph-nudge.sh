@@ -63,7 +63,8 @@ esac
 
 # Quiet while a recent graph query exists (30 min) or the per-session budget (5) is spent.
 if [ -f "$STAMP" ]; then
-    age=$(( $(date +%s) - $(stat -f %m "$STAMP" 2>/dev/null || stat -c %Y "$STAMP" 2>/dev/null || echo 0) ))
+    # GNU first: on Linux `stat -f` is filesystem status and exits 0, so a BSD-first chain never falls through.
+    age=$(( $(date +%s) - $(stat -c %Y "$STAMP" 2>/dev/null || stat -f %m "$STAMP" 2>/dev/null || echo 0) ))
     if [ "$age" -lt 1800 ]; then log quiet-recent-query "$TARGET"; exit 0; fi
 fi
 n=$(cat "$COUNT" 2>/dev/null || echo 0)
