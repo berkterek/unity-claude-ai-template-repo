@@ -1865,7 +1865,7 @@ Runs the bats-core suite (`.claude/hooks/tests/`) plus `shellcheck` on every cha
 
 ### graph-tests.yml — knowledge-graph harness
 
-Runs `.claude/graph/test/verify-graphify.sh` (jq + Python 3.12) on every change under `.claude/graph/` (and its own YAML; `workflow_dispatch`). The harness hard-requires a committed `graph.json` — it does not build one, and `actions/checkout` only delivers tracked files. `.claude/graph/graph.json` is therefore committed alongside `scenes.json` / `prefabs.json`, **not** gitignored.
+Runs `.claude/graph/test/verify-graphify.sh` (jq + Python 3.12 + pinned tree-sitter bindings — six harness tests assert tree-sitter-only output, so the extractor that is optional for a build is required here) on every change under `.claude/graph/` (and its own YAML; `workflow_dispatch`). The harness hard-requires a committed `graph.json` — it does not build one, and `actions/checkout` only delivers tracked files. `.claude/graph/graph.json` is therefore committed alongside `scenes.json` / `prefabs.json`, **not** gitignored.
 
 ---
 

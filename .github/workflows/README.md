@@ -23,13 +23,16 @@ bash .claude/hooks/tests/run-tests.sh
 
 ## graph-tests.yml
 
-Runs the knowledge-graph integration harness (`.claude/graph/test/verify-graphify.sh`) on every change under `.claude/graph/` (and on changes to its own YAML; also `workflow_dispatch`). Installs `jq` + Python 3.12.
+Runs the knowledge-graph integration harness (`.claude/graph/test/verify-graphify.sh`) on every change under `.claude/graph/` (and on changes to its own YAML; also `workflow_dispatch`). Installs `jq` + Python 3.12 + pinned `tree-sitter` / `tree-sitter-c-sharp`.
+
+> **tree-sitter is required here, optional elsewhere.** The graph build falls back to regex without it, but six Python tests (members/docs, registration method, entrypoint rule, what/where, qualified calls, interface access) assert tree-sitter-only output (`end_line`, member lists) and fail without the bindings.
 
 > **`graph.json` is committed, not gitignored.** `verify-graphify.sh` hard-exits 2 (`graph.json not found`) if the file is absent — it does not build it. `actions/checkout` only delivers tracked files, so `.claude/graph/graph.json` **must** be committed alongside its siblings `scenes.json` / `prefabs.json` (CLAUDE.md: "generated and committed together"). It was previously gitignored, which turned this check red on every runner while passing locally. Consequence: every `/build-knowledge-graph` now produces a `graph.json` diff — same tradeoff the already-committed `scenes.json`/`prefabs.json` carry.
 
 **Run locally:**
 
 ```bash
+pip install tree-sitter tree-sitter-c-sharp  # once
 bash .claude/graph/test/verify-graphify.sh   # needs a present, valid graph.json
 ```
 
