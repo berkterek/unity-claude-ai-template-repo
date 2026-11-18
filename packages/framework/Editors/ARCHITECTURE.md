@@ -2,7 +2,8 @@
 
 ## Purpose
 Holds framework tooling that exists only inside the Unity Editor, including the permanent
-applier that writes serialized properties from a versioned JSON manifest.
+applier that writes serialized properties from a versioned JSON manifest and the debug
+command runner an agent drives through request and result files.
 
 ## Boundary
 Never referenced from a runtime assembly, in either direction — this assembly is restricted
@@ -30,3 +31,5 @@ first file to reference that type stops compiling — measured here, not hypothe
 A reference stored into a temporarily opened prefab copy dies when that copy unloads and
 reads back as empty after the save, which is why references resolve against the asset and
 why every write is re-read from a fresh load before it is reported as applied.
+Both file-driven menus delete their result file before doing anything, and the command runner
+also consumes its request: a stale file read back as this run's answer is the failure to avoid.

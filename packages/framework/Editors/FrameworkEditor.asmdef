@@ -1,7 +1,9 @@
 {
     "name": "FrameworkEditor",
     "rootNamespace": "Framework.Editors",
-    "references": [],
+    "references": [
+        "FrameworkDebugCommands"
+    ],
     "includePlatforms": [
         "Editor"
     ],

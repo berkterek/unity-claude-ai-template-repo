@@ -1,0 +1,20 @@
+{
+    "name": "FrameworkDebugCommandsSRDebugger",
+    "rootNamespace": "Framework.DebugCommands.SRDebugger",
+    "references": [
+        "FrameworkDebugCommands",
+        "StompyRobot.SRDebugger"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "SRDEBUGGER_ENABLED",
+        "UNITY_EDITOR || DEVELOPMENT_BUILD"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

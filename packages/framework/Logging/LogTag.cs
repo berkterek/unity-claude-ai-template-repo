@@ -8,6 +8,7 @@ namespace Framework.Logging
     {
         General,
         EventBus,
-        SaveLoad
+        SaveLoad,
+        DebugCommands
     }
 }
