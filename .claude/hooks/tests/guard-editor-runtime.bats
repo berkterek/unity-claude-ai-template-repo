@@ -10,6 +10,13 @@ teardown() {
     rm -rf "$UNITY_HOOK_STATE_DIR"
 }
 
+@test "still blocks when a fixed-name temp file is left in /tmp (macOS mktemp suffix)" {
+    touch /tmp/unity_hook_XXXXXX.cs
+    run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/Foo.cs\",\"content\":\"using UnityEditor; class Foo {}\"}}' | bash $HOOK"
+    rm -f /tmp/unity_hook_XXXXXX.cs
+    [ "$status" -eq 2 ]
+}
+
 @test "blocks unguarded UnityEditor usage in a runtime file" {
     run bash -c "echo '{\"tool_input\":{\"file_path\":\"Assets/Scripts/Foo.cs\",\"new_string\":\"using UnityEditor; class Foo { void F(){ EditorUtility.SetDirty(this); } }\"}}' | bash $HOOK"
     [ "$status" -eq 2 ]

@@ -70,7 +70,9 @@ esac
 # The `Write` branch stays first and is never gated on the file existing — at PreToolUse a
 # newly created file is by definition not on disk, and an `[ -f "$FILE_PATH" ]` guard placed
 # above this case makes the whole Write branch unreachable dead code (the 2026-09-02 finding).
-EFFECTIVE_FILE=$(mktemp /tmp/unity_hook_XXXXXX.cs)
+# No suffix after the X's: BSD/macOS mktemp does not randomize them then, so every run got the
+# same literal name and a leftover file made the hook fail open (2026-11-18 review).
+EFFECTIVE_FILE=$(mktemp "${TMPDIR:-/tmp}/unity_hook_XXXXXX")
 OLD_STRING_FILE=""
 NEW_STRING_FILE=""
 trap 'rm -f "${EFFECTIVE_FILE:-}" "${OLD_STRING_FILE:-}" "${NEW_STRING_FILE:-}"' EXIT
