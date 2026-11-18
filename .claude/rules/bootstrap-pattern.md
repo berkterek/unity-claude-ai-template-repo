@@ -118,9 +118,20 @@ production wiring breaks. A TestScope **never extends AppScope** — it is an is
 `SceneManager` call lives in `NormalSceneLoader`; `AddressableSceneLoader` swaps in without touching `SceneService`.
 `SceneModule.Install()` binds the loader and calls `RegisterEntryPoint<SceneService>()`.
 
-**GOTCHA:** `LoadSceneMode.Additive` never changes the active scene — activate the new scene and unload the previous
-one explicitly, or Bootstrap stays active (Instantiate defaults and lighting read from it). Capture
-`_appScope.gameObject.scene` **before** `DontDestroyOnLoad`. Full code: reference file → Card 6.
+**GOTCHA:**
+- **Bootstrap (build index 0) is never unloaded** — it is the holder scene, so AppScope needs no `DontDestroyOnLoad`.
+  A swap is: unload the current scene (skip when it is Bootstrap) → load the target additively → `SetActiveScene`.
+  Unload-first means two copies of one scene (Game → Game restart) never run two GameScopes at once.
+- The scene to unload is `SceneManager.GetActiveScene()` read **at the start of each swap** — never a `Scene` cached
+  in a field or constructor (a cached Bootstrap scene is right for the first swap only).
+- **The target scene's init runs before it is active** — Awake, OnEnable, GameScope build and `Initialize` run
+  inside the load, before `SetActiveScene`; Start / `IStartable` may run before or after it — rely on neither. An unparented `Instantiate` there lands in Bootstrap
+  and never dies — one more copy every swap. Spawners parent under a scene-owned root (`scene-hierarchy.md`
+  containers). Bootstrap has no camera: cover the swap with an app-scope loading overlay.
+- `LoadSceneAsync` / `UnloadSceneAsync` return `null` on a bad scene; throw `InvalidOperationException` naming it —
+  never log-and-return, the awaiting caller would take it as success.
+- `NormalSceneLoader` branches and orders Unity calls — it gets a PlayMode test (`testing.md`), it is not a NoTest
+  Provider. Full code: reference file → Card 6.
 
 ---
 
@@ -136,7 +147,8 @@ one explicitly, or Bootstrap stays active (Instantiate defaults and lighting rea
 **GOTCHA:**
 - Changing scene is a command (one receiver, an awaited result) — an interface call, never an event. `IEventBus` is
   for "it happened" notifications published after the scene is up.
-- `ISceneService.LoadAsync` ignores a call while loading; the View binds `IsLoading` to the button.
+- `ISceneService.LoadAsync` ignores a call while loading and returns at once (the caller does not wait for the running
+  load — the interface remarks say so); the View binds `IsLoading` to the button.
 - `SceneModule` is installed from `AppModules`, never `SceneModules`, and finishes the swap on its own app-lifetime
   token — the caller's View is destroyed by the unload.
 - Cross-scene data is an app-lifetime service — never an event, static field or load parameter. An event published

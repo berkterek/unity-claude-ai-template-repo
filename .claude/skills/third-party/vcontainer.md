@@ -19,7 +19,7 @@ VContainer is a fast, zero-allocation dependency injection container for Unity. 
 ## Scope Hierarchy
 
 ```
-AppScope (Bootstrap scene — DontDestroyOnLoad)
+AppScope (Bootstrap scene — never unloaded, holder scene)
 ├── MenuScope  (Menu scene — child of AppScope)
 └── GameScope  (Game scene — child of AppScope)
 ```

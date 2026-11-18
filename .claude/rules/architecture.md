@@ -204,7 +204,7 @@ VContainer is the **only** wiring mechanism. No singletons, no static access, no
 
 ### Scene Scope Hierarchy
 
-`AppScope` (Bootstrap scene, build index 0, `DontDestroyOnLoad`, persistent root; all global services) → children
+`AppScope` (Bootstrap scene, build index 0, never unloaded — the holder scene, no `DontDestroyOnLoad`; all global services) → children
 `MenuScope` / `GameScope` (scene-local dependencies). A scope sees its parent's services, never a sibling's.
 
 ### GameScope — Scene Component Registration Only

@@ -17,7 +17,9 @@ Tests are written by **risk**, not by class count. When a class is tested, the r
 
 **NoTest (the plan task says `Test type: NoTest` and names the category below):**
 - Thin Mono shells — Controller / View / Manager whose bodies only cache refs, assign fields, or forward a call
-- Providers — the Unity API wrapper itself
+- Providers — the Unity API wrapper itself, when it forwards: one Unity call (or group) per method, no branch, no
+  ordering between calls, no state. A backend that branches or sequences Unity calls (`*Loader`, `*Dal`) is tested —
+  PlayMode when the behavior is Unity's (scene swap order, active scene)
 - Static installers — by role, not name (`*Module`, `AppModules`, `SceneModules`) — `LifetimeScope` subclasses, `ScriptableObject` configs
 - Visual and feel work — VFX, animation, shaders, UI layout. Verified by eye in Play mode
 - Any body with no branch, no math and no state — it only forwards
@@ -46,7 +48,9 @@ Is it a NoTest type? (stop here if any match — checked BEFORE any path rule)
 ├── LifetimeScope subclass       → NoTest  (DI wiring — tested via integration)
 ├── ScriptableObject config      → NoTest  (data container — no logic)
 ├── Static installer (any name)  → NoTest  (registration only)
-├── Provider (Unity API wrapper) → NoTest  (the wrapper is the Unity call)
+├── Provider / Loader / Dal that only forwards (no branch, no call ordering, no state)
+│                                → NoTest  (the wrapper is the Unity call)
+│     one that branches or sequences Unity calls → NOT NoTest, continue below
 ├── Controller / View / Manager with no branch, math or state
 │                                → NoTest  (thin shell — verified in Play mode)
 ├── VFX / animation / shader / UI layout

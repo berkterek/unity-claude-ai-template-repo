@@ -188,4 +188,4 @@ BootstrapScene (loads once, contains persistent services)
     → Additively loads GameScene, MenuScene, etc.
 ```
 
-Additive loading never changes the active scene. After the additive load completes, explicitly call `SceneManager.SetActiveScene(...)` on the newly loaded scene and `SceneManager.UnloadSceneAsync(...)` on the now-empty Bootstrap scene — otherwise Bootstrap stays loaded and active forever with nothing in it. Full pattern and code: `rules/bootstrap-pattern.md` → Card 6.
+Bootstrap stays loaded for the whole session as the holder scene — AppScope lives there, so it needs no `DontDestroyOnLoad`. Additive loading never changes the active scene: a swap unloads the current gameplay scene (never Bootstrap), loads the target additively, then calls `SceneManager.SetActiveScene(...)` on it. Full pattern and code: `rules/bootstrap-pattern.md` → Card 6.
