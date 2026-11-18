@@ -17,6 +17,7 @@ MCP tools (scene, prefab, component) never trigger auto-load: Read the rule your
 | rename or add a serialized field | `.claude/rules/serialization.md` |
 | use editor guards, platform defines, lifecycle order, DOTween cleanup | `.claude/rules/unity-lifecycle.md` |
 | log anything | `.claude/rules/logging.md` |
+| write or plan a cheat / debug command, or test the game through MCP | `.claude/rules/debug-commands.md` |
 | read player input | `.claude/rules/unity-input.md` |
 | write hot-path code, materials, shaders, or UI raycast settings | `.claude/rules/performance.md` |
 | write ECS code (only if feature `ecs` is enabled) | `.claude/rules/ecs-dots.md` |

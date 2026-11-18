@@ -68,7 +68,7 @@ blocked) · **Newtonsoft Json** (`LocalSaveLoadDal` needs it) · **R3** (`Reacti
 ## Optional Features & Plugins
 
 Chosen in `/setup-project`, saved to `.claude/project-features.json`: `addressables`, `testing` (NSubstitute), `ecs`,
-`graph`, `hybrid_graph`, `unity_project_folder` (`"."` when `Assets/` is at repo root, else the subfolder — set once,
+`graph`, `hybrid_graph`, `srdebugger` (debug commands also in SRDebugger's panel), `unity_project_folder` (`"."` when `Assets/` is at repo root, else the subfolder — set once,
 never hardcode paths). Status: **Project Features** below. Optional plugins per command (superpowers,
 `code-simplifier`, `claude-md-management`) and the `unity:*` plugin rules: `docs/optional-plugins.md` — the
 `unity` CLI live-Editor code channel (`unity command`/`eval`, `unity run --command`, `unity shell`) is forbidden
@@ -134,6 +134,7 @@ Configured by `/setup-project`. Source of truth: `.claude/project-features.json`
 | `ecs` | **DISABLED** | Skip `rules/ecs-dots.md`, `check-ecs-structural-changes.sh`, `check-enum-byte-base.sh` |
 | `graph` | **ENABLED** | `graph.json` is the primary source of truth; graph-aware commands query it first → `docs/knowledge-graph.md` |
 | `hybrid_graph` | **DISABLED** | Call-graph queries use `graph-traversal.py`/`jq`, not the MCP server → `docs/knowledge-graph.md` |
+| `srdebugger` | **DISABLED** | Skip the SRDebugger bridge; debug commands still run from the Editor → `rules/debug-commands.md` |
 
 > When a feature is DISABLED, Claude must not enforce its rules or suggest its patterns.
 

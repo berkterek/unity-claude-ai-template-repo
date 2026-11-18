@@ -239,3 +239,8 @@ Never unsubscribe in `OnDestroy()` for VContainer-managed types. Instantiated Mo
   (`EventBusAccessor.Instance.Publish(...)`; `rules/ecs-dots.md` → Card 12). MonoBehaviours and services always get
   `IEventBus` by injection. No new static accessor without an explicit design decision;
   `check-vcontainer-singleton.sh` blocks all other static singleton patterns.
+- **`DebugCommandRegistryAccessor` (APPROVED EXCEPTION, 2026-11-18)** — dev-only (compiled under
+  `UNITY_EDITOR || DEVELOPMENT_BUILD`), in the framework's `DebugCommands` assembly, set only by
+  `DebugCommandsModule` in `RegisterBuildCallback`, read only by the framework's Editor command runner, which has
+  no container to inject from. Game code injects `IDebugCommandRegistry`; `check-debug-commands.sh` blocks the
+  accessor anywhere else. `rules/debug-commands.md`.

@@ -528,6 +528,14 @@ could not get compiling and passing in three tries, so name what is still broken
 
 **This step always waits for manual approval from the user. A code review or a successful compile cannot stand in for it.**
 
+**Agent smoke pass first (only when Unity MCP is connected).** Read `docs/PLAYTEST.md`, enter Play, run
+`Tools/Framework/Debug Commands/List`, then use commands (`Run`, per `rules/debug-commands.md`) only to **set up**
+the state the feature needs. Reach the feature's outcome through the real path — the in-game action, not a command —
+and check what `PLAYTEST.md` says is visible (hierarchy / screenshot), plus `read_console` for errors. Report
+observed vs expected in two or three lines, naming any command you used as setup. This does not replace the manual
+step below; it tells the user what to look at. If this feature changed the flow or added an outcome, the
+hand-written `PLAYTEST.md` sections must already say so — if not, that is a fix before the manual step.
+
 Show the user this message:
 
 ```

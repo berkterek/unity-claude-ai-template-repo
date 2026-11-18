@@ -29,6 +29,7 @@ Before asking any questions, run these Bash commands to detect current project s
 [ -d "Assets/_GameFolders/Scripts/Games/Ecs" ] && echo "ECS_DIR=yes" || echo "ECS_DIR=no"
 [ -d "Assets/_GameFolders/Scripts/Tests" ] && echo "TESTS_DIR=yes" || echo "TESTS_DIR=no"
 grep -q "com.unity.addressables" Packages/manifest.json 2>/dev/null && echo "ADDRESSABLES_PKG=yes" || echo "ADDRESSABLES_PKG=no"
+[ -n "$(find Assets -name 'StompyRobot.SRDebugger.asmdef' -print -quit 2>/dev/null)" ] && echo "SRDEBUGGER=yes" || echo "SRDEBUGGER=no"
 
 # 3. If project-features.json exists, read current declared values
 [ -f ".claude/project-features.json" ] && cat .claude/project-features.json || echo "{}"
@@ -45,6 +46,11 @@ grep -q "com.unity.addressables" Packages/manifest.json 2>/dev/null && echo "ADD
 → Ask: "Re-run setup to regenerate files, or sync settings only?"
 → If sync: run Steps 5b + 5c only (update settings.json and CLAUDE.md header), then stop.
 → If regenerate: continue from Step 1.
+→ **Debug-command opt-in (runs on this path too, before the question above):** if
+  `Concretes/Infrastructure/DebugCommandsModule.cs` does not exist, offer "Add the playtest debug-command
+  wiring? (y/n)" — on y, run Step 2b (framework pin ≥ v0.3.0), the Step 3 asmdef reference, the
+  `DebugCommandsModule` + `AppModules` blocks of Step 4 and the `docs/PLAYTEST.md` skeleton only. If
+  `SRDEBUGGER=yes` and `srdebugger` is absent from the JSON, also offer it and write `"srdebugger": true`.
 
 **C — project-features.json EXISTS but CONFLICTS with detected state**
 → Print a conflict table, for example:
@@ -87,7 +93,10 @@ Ask the developer ALL of these questions before doing anything else:
 4. **Does the project use ECS DOTS?** (yes/no) — adds `Games/Ecs/` folder, ECS asmdef, and ECS bridge files
 5. **Does the project use Addressables?** (yes/no) — if no, `Resources.Load` restriction still applies but Addressables-specific rules, skills, and hooks are skipped
 6. **Does the project use Testing / NSubstitute?** (yes/no) — if no, test folders, test asmdefs, test template files, and test-related hooks are all skipped
-7. **Packages installed?**
+7. **Show debug commands in SRDebugger's in-game panel?** (yes/no; default = `SRDEBUGGER` from Step 0) — the
+   commands Claude runs from the Editor work either way; yes adds the SRDebugger bridge and the
+   `SRDEBUGGER_ENABLED` define. Only offer yes when SRDebugger is in `Assets/`.
+8. **Packages installed?**
    - VContainer (required) — installed?
    - UniTask (required) — installed?
    - New Input System (required) — installed?
@@ -150,7 +159,8 @@ cat > .claude/project-features.json << 'EOF'
   "addressables": <true|false>,
   "testing": <true|false>,
   "ecs": <true|false>,
-  "graph": <true|false>
+  "graph": <true|false>,
+  "srdebugger": <true|false>
 }
 EOF
 ```
@@ -325,7 +335,7 @@ Add this dependency to `Packages/manifest.json` — one line, alongside the pack
 already checked:
 
 ```json
-"com.berkterek.framework": "https://github.com/berkterek/unity-claude-ai-template-repo.git?path=/packages/framework#framework/v0.1.0"
+"com.berkterek.framework": "https://github.com/berkterek/unity-claude-ai-template-repo.git?path=/packages/framework#framework/v0.3.0"
 ```
 
 Then:
@@ -338,7 +348,7 @@ Then:
    `FrameworkLogging` and `FrameworkSaveLoadSystems` by name; if the package is absent those
    references resolve to nothing and every game file fails with `CS0246`.
 
-**Pin a tag, never a branch.** `#framework/v0.1.0` is reproducible; a bare branch name means
+**Pin a tag, never a branch.** `#framework/v0.3.0` is reproducible; a bare branch name means
 the framework silently changes under a project whenever this repo moves.
 
 **Updating later** is editing the version in that one line. Do not vendor the package into
@@ -376,6 +386,7 @@ Replace `[ProjectName]` with the actual project name the developer provided.
         "FrameworkEvents",
         "FrameworkLogging",
         "FrameworkSaveLoadSystems",
+        "FrameworkDebugCommands",
         "VContainer",
         "UniTask",
         "Unity.InputSystem"
@@ -392,6 +403,9 @@ Replace `[ProjectName]` with the actual project name the developer provided.
 ```
 
 > If ECS=yes, add `"Unity.Entities"` and `"Unity.Transforms"` to the `references` array.
+> If srdebugger=yes, add `"FrameworkDebugCommandsSRDebugger"` and `"StompyRobot.SRDebugger"`. `FrameworkDebugCommands`
+> is dev-only (its define constraint drops it from release builds); every use of it in game code sits under the same
+> `#if UNITY_EDITOR || DEVELOPMENT_BUILD`, so the reference is harmless there.
 
 #### `_GameFolders/Scripts/Editors/[ProjectName]Editor.asmdef`
 ```json
@@ -646,6 +660,9 @@ namespace Game.Concretes.Infrastructure
         {
             EventBusModule.Install(builder); // FIRST — structural guarantee
             SaveLoadModule.Install(builder); // SECOND — many modules read persisted state in Initialize()
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            DebugCommandsModule.Install(builder); // before any module whose *DebugCommands registers in Initialize()
+#endif
 
             // Add new modules here — one line per module:
             // AudioModule.Install(builder, configs.Audio);
@@ -674,6 +691,89 @@ namespace Game.Concretes.Infrastructure
 ```
 
 > Swapping to a cloud backend later is one line here — register a different `ISaveLoadDal`. No service changes.
+
+#### `_GameFolders/Scripts/Games/Concretes/Infrastructure/DebugCommandsModule.cs`
+```csharp
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+using Framework.DebugCommands;
+using VContainer;
+#if SRDEBUGGER_ENABLED
+using Framework.DebugCommands.SRDebugger;
+using SRDebugger.Services;
+#endif
+
+namespace Game.Concretes.Infrastructure
+{
+    /// <summary>
+    /// Dev-only. Registers the debug command registry every *DebugCommands container registers into, and hands it
+    /// to the Editor runner Claude drives (Tools/Framework/Debug Commands). Never compiled into a release build.
+    /// </summary>
+    public static class DebugCommandsModule
+    {
+        public static void Install(IContainerBuilder builder)
+        {
+            builder.Register<DebugCommandRegistry>(Lifetime.Singleton).AsImplementedInterfaces();
+#if SRDEBUGGER_ENABLED
+            // The one touch point with SRDebugger's static; the bridge itself takes the interface.
+            builder.Register<IDebugService>(_ => SRDebug.Instance, Lifetime.Singleton);
+            builder.Register<SRDebuggerDebugCommandsBridge>(Lifetime.Singleton).AsImplementedInterfaces().AsSelf();
+#endif
+            builder.RegisterBuildCallback(container =>
+            {
+                DebugCommandRegistryAccessor.Set(container.Resolve<IDebugCommandRegistry>());
+#if SRDEBUGGER_ENABLED
+                container.Resolve<SRDebuggerDebugCommandsBridge>(); // force creation; the container disposes it
+#endif
+            });
+        }
+    }
+}
+#endif
+```
+
+> A domain's `<Domain>DebugCommands` container is registered by **that domain's** Module, in the scope whose
+> services it calls (`AppModules` or `SceneModules`), under the same `#if`, and registers itself with
+> `IDebugCommandRegistry` in `Initialize()` / unregisters in `Dispose()`. Full shape: `rules/debug-commands.md`.
+
+#### `docs/PLAYTEST.md` (repo root, not under `Assets/`)
+
+Write this skeleton once; never overwrite an existing file. The hand-written sections are kept current by the
+modules that change the flow (`/implement` and `/plan-module` say so); the table between the markers is generated —
+never edit it by hand.
+
+```markdown
+# Playtest Map
+
+How Claude plays and checks this game without re-reading the code. Hand-written sections are owned by the modules
+that change them; the command table is generated.
+
+## How to start
+Scene to open: `Bootstrap`. Press Play. First thing on screen: <fill in when the first screen exists>.
+
+## Scene flow
+<Bootstrap → Menu → Game, and which action moves between them>
+
+## Outcomes — what is visible
+| Outcome | What appears | How to check (hierarchy path / log line / HUD value) |
+|---|---|---|
+
+## Debug commands
+Run in Play Mode: write `Temp/debug-command.json` as `{"command":"Level.GoToLevel","set":{"TargetLevel":"5"}}`,
+then the menu `Tools/Framework/Debug Commands/Run`; the answer is in `Temp/debug-command-result.json` and one
+`[DebugCommands] OK|FAIL` console line. `Tools/Framework/Debug Commands/List` shows what is registered right now.
+
+<!-- debug-commands:begin -->
+<!-- debug-commands:end -->
+
+Regenerate after a `*DebugCommands.cs` change: `python3 -I .claude/scripts/generate-playtest-commands.py`.
+
+## Rules
+A debug command sets up a test; it is never the evidence for one. Skip to level 5 with a command, then win level 5
+by playing it, or by the real input the feature reacts to — a command that publishes the win and a test that then
+sees the win panel has proved nothing. Commands call real service methods only. Details: `.claude/rules/debug-commands.md`.
+```
+
+After writing it, run `python3 -I .claude/scripts/generate-playtest-commands.py` once so the table has its header.
 > This is `rules/architecture.md` Card 2.1 (Swappable Backend) applied to persistence.
 
 #### `_GameFolders/Scripts/Games/Concretes/Infrastructure/Helpers/SaveKeyHelper.cs`
@@ -1164,6 +1264,14 @@ Add these entries manually — see .claude/docs/setup-checklist.md for the exact
 - check-test-scene-exists.sh (PostToolUse, Write|Edit matcher)
 - guard-reviewer-order.sh (PreToolUse, Agent matcher)
 - track-codex-review.sh (PostToolUse, Agent matcher)
+- check-debug-commands.sh (PreToolUse, Edit|Write matcher) — inherited once the template's settings.json carries it
+- check-playtest-drift.sh (PostToolUse, Edit|Write matcher) — same
+
+### Debug commands
+- The framework pin is `#framework/v0.3.0`: the tag must exist on the template repo
+  (`git tag framework/v0.3.0 && git push origin framework/v0.3.0` — the template owner does this once).
+- If srdebugger=yes: Project Settings → Player → Scripting Define Symbols → add `SRDEBUGGER_ENABLED`
+  (every platform you test on). Without it the panel bridge is not compiled and nothing reports it.
 ```
 
 If MCP was NOT connected during Step 5d, also add these manual steps:

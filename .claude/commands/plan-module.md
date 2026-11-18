@@ -243,6 +243,12 @@ For a task whose output needs no test — a type the Test Type Decision Tree in
 write `Test type: NoTest` on the task. /orchestrate skips the tester step for it; do not
 invent another way to skip it.
 
+When the module adds a reachable state worth jumping to in a playtest (a level, a currency, lives, an
+unlock), add one `<Domain>DebugCommands` task (`Test type: NoTest`, dev-only — .claude/rules/debug-commands.md)
+and, in the task that changes the flow or adds an outcome, an update to the hand-written sections of
+docs/PLAYTEST.md. A service method that command needs is ordinary API on the interface and is tested by
+the usual rule.
+
 Before you return, check the drafts against the defects plan reviewers reject most often:
 - The project compiles after EVERY task, not only at the end. A task that removes or
   renames a field, method or signature also updates every reader of it in the same task —
