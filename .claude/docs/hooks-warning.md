@@ -3,6 +3,7 @@
 | Hook | Warns |
 |------|-------|
 | `check-architecture-doc.sh` | A `.cs` file written into a `Concretes/<Domain>/` that has no `ARCHITECTURE.md` — no domain is exempt, `Infrastructure/` included. Same script also has a **blocking** branch for malformed docs, see `hooks-blocking.md` |
+| `check-playtest-drift.sh` | **PostToolUse.** After a `*DebugCommands.cs` edit: the generated command table in `docs/PLAYTEST.md` is stale (prints the regenerate command), or the doc / its `debug-commands` markers are missing. Rule: `rules/debug-commands.md` |
 | `check-mono-justification.sh` | **PostToolUse.** Two checks on `_GameFolders/Scripts/Games/` MonoBehaviours: (1) Card 0 — no own `[SerializeField]` and no Unity lifecycle callback → the class probably should be pure C# (if it needs a frame tick, expose `Tick(float)` and let the domain's Mono shell forward it — **not** `ITickable`, which this project does not use); (2) shell over 150 lines → extract logic to a Handler. This is the hook `solid-oop.md` promises as "warns at 150 lines". Both checks can fire on one file. Disable: `DISABLE_HOOK_CHECK_MONO_JUSTIFICATION=1` |
 | `suggest-compact.sh` | **PostToolUse, main session only.** Main-session context (from the transcript's latest `usage`) passed 250k tokens → one reminder to `stop` → `/clear` → re-run at the next breakpoint; again every +60k. Tunable: `UNITY_COMPACT_CONTEXT_THRESHOLD`, `UNITY_COMPACT_CONTEXT_INTERVAL`. Disable: `DISABLE_HOOK_SUGGEST_COMPACT=1` |
 | `check-no-linq-hotpath.sh` | LINQ in Update/FixedUpdate/LateUpdate |
