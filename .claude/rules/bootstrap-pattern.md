@@ -112,26 +112,30 @@ production wiring breaks. A TestScope **never extends AppScope** — it is an is
 
 ### Card 6: Scene Loading Goes Through ISceneService → ISceneLoader — Never Raw SceneManager in a Service
 
-**WHEN:** Writing anything that loads/activates/unloads a scene — including the Bootstrap → Game additive load.
+**WHEN:** Writing anything that loads a scene — including the first Bootstrap → Game load.
 
 **RIGHT:** `ISceneService` (Tier 3, pure C#, `IAsyncStartable`) depends on `ISceneLoader` (Tier 4). Every
 `SceneManager` call lives in `NormalSceneLoader`; `AddressableSceneLoader` swaps in without touching `SceneService`.
 `SceneModule.Install()` binds the loader and calls `RegisterEntryPoint<SceneService>()`.
 
 **GOTCHA:**
-- **Bootstrap (build index 0) is never unloaded** — it is the holder scene, so AppScope needs no `DontDestroyOnLoad`.
-  A swap is: unload the current scene (skip when it is Bootstrap) → load the target additively → `SetActiveScene`.
-  Unload-first means two copies of one scene (Game → Game restart) never run two GameScopes at once.
-- The scene to unload is `SceneManager.GetActiveScene()` read **at the start of each swap** — never a `Scene` cached
-  in a field or constructor (a cached Bootstrap scene is right for the first swap only).
-- **The target scene's init runs before it is active** — Awake, OnEnable, GameScope build and `Initialize` run
-  inside the load, before `SetActiveScene`; Start / `IStartable` may run before or after it — rely on neither. An unparented `Instantiate` there lands in Bootstrap
-  and never dies — one more copy every swap. Spawners parent under a scene-owned root (`scene-hierarchy.md`
-  containers). Bootstrap has no camera: cover the swap with an app-scope loading overlay.
-- `LoadSceneAsync` / `UnloadSceneAsync` return `null` on a bad scene; throw `InvalidOperationException` naming it —
+- **AppScope is `DontDestroyOnLoad`; every swap is `LoadSceneMode.Single`.** `AppScope.Awake` calls
+  `DontDestroyOnLoad(transform.root.gameObject)` before `base.Awake()` — AppScope sits under `[Setup]`, and DDOL
+  works only on a root (on a child it warns and does nothing). The first swap unloads Bootstrap; `[Setup]` survives.
+  Single unloads the old scene and activates the new one itself: no unload step, no `SetActiveScene`, no `Scene`
+  to cache, and a stray `Single` load elsewhere cannot kill the app scope.
+- **Everything app-lifetime is a child of the AppScope GameObject** (`UIRoot`, `AudioRoot`, the loading overlay).
+  A sibling root object in Bootstrap dies with Bootstrap on the first swap.
+- **Bootstrap is loaded exactly once, at startup.** Nothing loads build index 0 again — a second load builds a
+  second AppScope next to the surviving one (two containers, two `IEventBus`). PlayMode tests that load it destroy
+  the AppScope in `TearDown`.
+- `LoadSceneAsync` returns `null` on a scene not in the build; throw `InvalidOperationException` naming it —
   never log-and-return, the awaiting caller would take it as success.
-- `NormalSceneLoader` branches and orders Unity calls — it gets a PlayMode test (`testing.md`), it is not a NoTest
-  Provider. Full code: reference file → Card 6.
+- `NormalSceneLoader` gets a PlayMode test (`testing.md`): Bootstrap → Game, then Game → Game — exactly one Game
+  scene, Game active, exactly one AppScope, exactly one GameScope. Full code: reference file → Card 6.
+- **History:** 2026-11-18 → 11-19 this card used a never-unloaded Bootstrap holder scene (no DDOL). Reverted: it
+  made a stray `Single` load fatal and made unparented `Instantiate` leak into Bootstrap. The real word-soda bug
+  of that day was a cached `Scene` field, which `Single` makes impossible.
 
 ---
 

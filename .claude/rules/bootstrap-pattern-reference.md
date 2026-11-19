@@ -148,7 +148,7 @@ protected override void Configure(IContainerBuilder builder)
 
 ### Card 6: Scene Loading Goes Through ISceneService → ISceneLoader — Never Raw SceneManager in a Service
 
-**WHEN:** Writing anything that loads/activates/unloads a scene — including the Bootstrap → Game additive load.
+**WHEN:** Writing anything that loads a scene — including the first Bootstrap → Game load.
 
 **Structure (standard Service + Provider split, same as `IAudioService`/`IAudioProvider`):**
 
@@ -168,8 +168,8 @@ public sealed class BootstrapSceneLoader : IAsyncStartable
 {
     public async UniTask StartAsync(CancellationToken ct)
     {
-        await SceneManager.LoadSceneAsync("Game", LoadSceneMode.Additive).ToUniTask(cancellationToken: ct);
-        // Missing: SetActiveScene — and this class can never become Addressables-backed without a rewrite
+        await SceneManager.LoadSceneAsync("Game").ToUniTask(cancellationToken: ct);
+        // This class can never become Addressables-backed without a rewrite
     }
 }
 ```
@@ -180,11 +180,10 @@ public sealed class BootstrapSceneLoader : IAsyncStartable
 public interface ISceneLoader
 {
     /// <remarks>
-    /// Precondition: sceneId is in the build; Bootstrap (build index 0) is loaded for the whole session.
-    /// Side effect: unloads the active scene unless it is Bootstrap, THEN loads sceneId additively and makes it
-    /// active — two copies of one scene never coexist. The target scene's Awake/OnEnable and its scope's
-    /// Initialize run before it is active; Start/IStartable may run before or after — rely on neither.
-    /// Throws: InvalidOperationException when a scene cannot be loaded, unloaded or activated.
+    /// Precondition: sceneId is in the build and is not Bootstrap; AppScope is DontDestroyOnLoad.
+    /// Side effect: loads sceneId with LoadSceneMode.Single — every loaded scene (the first time, Bootstrap) is
+    /// unloaded and sceneId becomes active. AppScope and its children survive.
+    /// Throws: InvalidOperationException when sceneId is not in the build.
     /// </remarks>
     UniTask SwapAsync(string sceneId, CancellationToken ct);
 }
@@ -192,36 +191,15 @@ public interface ISceneLoader
 // Game.Concretes.Scenes/NormalSceneLoader.cs — Tier 4, every SceneManager call of the game lives here
 public sealed class NormalSceneLoader : ISceneLoader
 {
-    private const int BOOTSTRAP_BUILD_INDEX = 0;
-
     public async UniTask SwapAsync(string sceneId, CancellationToken ct)
     {
-        // Read per swap, never cached: the scene to leave is different on every call.
-        var previous = SceneManager.GetActiveScene();
-        if (previous.buildIndex != BOOTSTRAP_BUILD_INDEX)
-        {
-            var unload = SceneManager.UnloadSceneAsync(previous);
-            if (unload == null)
-            {
-                throw new InvalidOperationException($"[NormalSceneLoader] Cannot unload scene '{previous.name}'.");
-            }
-
-            await unload.ToUniTask(cancellationToken: ct);
-        }
-
-        var load = SceneManager.LoadSceneAsync(sceneId, LoadSceneMode.Additive);
+        var load = SceneManager.LoadSceneAsync(sceneId, LoadSceneMode.Single);
         if (load == null)
         {
             throw new InvalidOperationException($"[NormalSceneLoader] Scene '{sceneId}' is not in the build.");
         }
 
         await load.ToUniTask(cancellationToken: ct);
-
-        // Unload-first keeps the name unique, so GetSceneByName cannot return a stale copy.
-        if (!SceneManager.SetActiveScene(SceneManager.GetSceneByName(sceneId)))
-        {
-            throw new InvalidOperationException($"[NormalSceneLoader] Scene '{sceneId}' could not be activated.");
-        }
     }
 }
 
@@ -236,14 +214,22 @@ public sealed class SceneService : ISceneService, IAsyncStartable
 }
 ```
 
+```csharp
+// Game.Concretes.Infrastructure/AppScope.cs — the only lifecycle override AppScope has
+protected override void Awake()
+{
+    DontDestroyOnLoad(transform.root.gameObject);   // [Setup] root — DDOL ignores a child; before base.Awake(), which builds the container
+    base.Awake();
+}
+```
+
 **GOTCHA:**
-- **Additive never changes the active scene** — without `SetActiveScene`, Bootstrap stays active: new `Instantiate()` calls default to it and Lighting/Skybox/Fog are read from it.
-- **Bootstrap is the holder scene and is never unloaded.** Unity refuses to unload the last loaded scene, so a load-then-unload swap is the only order possible without a holder — and in a Game → Game restart that order runs two GameScopes against the same app-scope `IEventBus` until the unload finishes (double subscriptions, double handling). With a holder, unload-first is legal and the overlap cannot happen. AppScope lives in Bootstrap, so it needs no `DontDestroyOnLoad`.
-- **Never cache the scene to unload.** The earlier version of this card captured `_appScope.gameObject.scene` once "before `DontDestroyOnLoad`"; a downstream plan turned that into a constructor field and every swap after the first tried to unload the already-unloaded Bootstrap (word-soda module 01, 2026-11-18). `GetActiveScene()` at the start of the swap is right for every call, including the first.
-- **The target scene initializes before it is active.** Awake, OnEnable and the GameScope build (→ every `Initialize`) run inside `LoadSceneAsync`; UniTask resumes the swap a frame or more later, so `Start` / `IStartable` may run before `SetActiveScene` or after it — the order is not guaranteed either way. Treat all of them as "Bootstrap may still be active". An unparented `Instantiate` there lands in Bootstrap, which is never unloaded — so the leak **accumulates one copy per swap** (every restart adds another). Spawners parent under a scene-owned root (`scene-hierarchy.md` containers, a `[SerializeField]` reference).
-- **Between unload and activation only Bootstrap is loaded, and it has no camera** — a few frames render nothing. Cover the swap with a loading overlay owned by the app scope; never put a camera in Bootstrap to hide it.
+- **AppScope is `DontDestroyOnLoad`, every swap is `LoadSceneMode.Single`.** Single unloads every loaded scene and activates the target itself — the first swap unloads Bootstrap, AppScope survives in the DontDestroyOnLoad scene. There is no unload step, no `SetActiveScene`, and no `Scene` value anywhere, so the cached-scene bug (word-soda module 01, 2026-11-18: a constructor-cached Bootstrap scene broke every swap after the first) cannot be written.
+- **App-lifetime scene objects are children of the AppScope GameObject.** `DontDestroyOnLoad` moves one root and its children. `UIRoot`, `AudioRoot`, the loading overlay — anything `RegisterComponentInHierarchy` finds for AppScope — sits under it; a sibling root object in Bootstrap is destroyed on the first swap and the registration resolves a dead object.
+- **Bootstrap is loaded once.** Build index 0 loads at startup and never again; `SceneIds` has no Bootstrap entry. A second load builds a second AppScope next to the surviving one — two containers, two `IEventBus`, double handling. Do not add a "destroy myself if one exists" check: that is a singleton in disguise; the fix is never loading Bootstrap twice.
 - **A bad scene throws, it never logs-and-returns.** `LoadSceneAsync` returns `null` for a scene that is not in the build (`ToUniTask` would then throw an unhelpful `ArgumentNullException`); a logged return completes the caller's `await` as if the swap succeeded.
-- **The loader is tested.** It branches (Bootstrap or not) and orders four Unity calls — a PlayMode test per `testing.md` (`Bootstrap → Game`, then `Game → Game`: exactly one Game scene, Game active, Bootstrap loaded). It is not the NoTest "Provider wraps one call" case. Setup: **await** `LoadSceneAsync(0, LoadSceneMode.Single)` (a plain `LoadScene` completes next frame, so the poll below sees the previous test's Game and returns its stale AppScope — measured, word-soda T008d) and wait for AppScope's own first swap — otherwise the active scene is the test runner's scene (build index ≠ 0) and the loader unloads it. Prove "init before active" without a test component in a production scene: `SceneManager.sceneLoaded` fires after Awake/OnEnable and before Start, so assert inside it that `GetActiveScene()` is still Bootstrap.
+- **Spawners still parent under a scene-owned root** (`scene-hierarchy.md` containers, a `[SerializeField]` reference) — an unparented `Instantiate` goes to whatever scene is active at that moment, and a swap must clean up everything the scene made.
+- **The loader is tested** — a PlayMode test per `testing.md`, because the claim it proves is Unity's, not ours: `Bootstrap → Game`, then `Game → Game` — exactly one loaded Game scene, Game active, exactly one AppScope, and inside `SceneManager.sceneLoaded` for the new Game exactly one `GameScope` (Single must not run the old and new scopes side by side). Setup: **await** `LoadSceneAsync(0, LoadSceneMode.Single)` (a plain `LoadScene` completes next frame — measured, word-soda T008d) and wait for AppScope's own first swap to Game. **`TearDown` destroys the AppScope GameObject** — it is DontDestroyOnLoad, so the next test's Bootstrap load would otherwise sit next to it.
 - Putting the raw `SceneManager` calls inside `SceneService` instead of `ISceneLoader` is the same DIP violation as calling `AudioSource` directly from `AudioService` — it blocks ever adding `AddressableSceneLoader` without touching the service.
 
 ---
@@ -270,7 +256,7 @@ public interface ISceneService
 {
     /// <remarks>
     /// Precondition: sceneId is a SceneIds constant and the scene is in the build.
-    /// Side effect: the previously active scene is unloaded before sceneId loads (ISceneLoader.SwapAsync).
+    /// Side effect: every loaded scene is replaced by sceneId (ISceneLoader.SwapAsync, LoadSceneMode.Single).
     /// Idempotent: a call while a load is running is ignored and returns at once — never queued, never
     /// doubled; that caller's await does NOT wait for the running load (bind IsLoading instead).
     /// Throws: OperationCanceledException when ct is already cancelled and the call is not ignored (an ignored
@@ -365,7 +351,7 @@ IInstaller (interface)          ← Framework layer — pure C# installer contra
     ↑
 AppModules (static class)       ← Game layer — replaces AppInstaller SO
     ↑
-AppScope (LifetimeScope)        ← Bootstrap scene — calls AppModules, registers scene infrastructure
+AppScope (LifetimeScope)        ← Bootstrap scene, DontDestroyOnLoad — calls AppModules, registers scene infrastructure
 ```
 
 `ModuleInstaller` (abstract SO base) and `AppInstaller` (SO with `_modules` list) are **removed**.
@@ -553,6 +539,12 @@ namespace Game.Concretes.Infrastructure
 
         #region Lifecycle
 
+        protected override void Awake()
+        {
+            DontDestroyOnLoad(transform.root.gameObject);   // [Setup] root — DDOL ignores a child; before base.Awake(), which builds the container
+            base.Awake();
+        }
+
         protected override void Configure(IContainerBuilder builder)
         {
             if (_configCatalog == null)
@@ -594,7 +586,8 @@ namespace Game.Concretes.Infrastructure
 **Rules:**
 - `AppScope.cs` **never changes** — add modules via `AppModules.cs`
 - `ConfigCatalog.Validate()` runs before any module installation — all missing fields reported at once
-- Scene infrastructure (`UIRoot`, `AudioRoot`) is registered with `RegisterComponentInHierarchy` — these components are physically present in the scene
+- `AppScope` is `DontDestroyOnLoad` (set in `Awake`, before `base.Awake()`) — every scene swap is `LoadSceneMode.Single` (Card 6)
+- Scene infrastructure (`UIRoot`, `AudioRoot`) is registered with `RegisterComponentInHierarchy` — these components are **children of the AppScope GameObject**, so `DontDestroyOnLoad` carries them; a sibling root object in Bootstrap dies on the first swap
 - Null guards use `Debug.LogError` + `return` — `Configure()` is left incomplete but Unity does not crash
 
 ---

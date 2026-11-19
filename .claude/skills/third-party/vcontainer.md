@@ -19,12 +19,13 @@ VContainer is a fast, zero-allocation dependency injection container for Unity. 
 ## Scope Hierarchy
 
 ```
-AppScope (Bootstrap scene — never unloaded, holder scene)
+AppScope (Bootstrap scene — DontDestroyOnLoad)
 ├── MenuScope  (Menu scene — child of AppScope)
 └── GameScope  (Game scene — child of AppScope)
 ```
 
-- Bootstrap scene (Build index 0) loads once and never unloads
+- Bootstrap scene (Build index 0) loads once; AppScope is `DontDestroyOnLoad`, so the first `LoadSceneMode.Single`
+  swap unloads Bootstrap and AppScope survives (`rules/bootstrap-pattern.md` Card 6)
 - `AppScope` registers global services via `AppModules` — never directly
 - Child scopes resolve from parent — `GameScope` can use `IAudioService` registered in `AppScope`
 - Sibling scopes are isolated — `MenuScope` cannot access `GameScope` registrations

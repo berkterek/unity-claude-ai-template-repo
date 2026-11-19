@@ -41,6 +41,10 @@ This is a personal Unity development template for Claude Code. It enforces archi
   `unity command eval`). → `docs/incidents/mcp-and-framework.md`
 - **Scenes:** `Write`/`Edit` cannot touch `.unity` (`block-scene-edit.sh`); MCP (`manage_scene`, `manage_gameobject`,
   `manage_components`, `manage_build`) can — prefer MCP over listing manual Editor steps when connected.
+- **Scene swaps:** AppScope is `DontDestroyOnLoad` (on its `[Setup]` root), every swap is `LoadSceneMode.Single`
+  through `ISceneLoader`, Bootstrap loads once. The 11-18 holder scene (Bootstrap never unloaded) is reverted; the
+  Single-load "one GameScope at a time" claim is proven by word-soda `SceneSwapTests` (5f035c5, 2026-11-19).
+  → `rules/bootstrap-pattern.md` Card 6
 - **Prefab / SO inspector references use the SerializedOps applier** (`Tools/Framework/Apply Serialized Ops`), never
   a throwaway Editor script. **The framework is a package; `packages/framework/` is its only source** — never vendor
   it into `Assets/`; after editing run `tests/setup-compile-probe/run-probe.sh`. → `docs/incidents/mcp-and-framework.md`

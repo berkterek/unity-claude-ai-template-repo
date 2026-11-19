@@ -181,11 +181,14 @@ public class StoreService : IInitializable, IDisposable
 
 ## DontDestroyOnLoad
 
-Use sparingly. Prefer a bootstrapper scene pattern:
+One object only: the AppScope GameObject. Everything app-lifetime is its child.
 
 ```
-BootstrapScene (loads once, contains persistent services)
-    → Additively loads GameScene, MenuScene, etc.
+BootstrapScene (loads once at startup)
+    [Setup]/AppScope  ← DontDestroyOnLoad(transform.root.gameObject) in Awake; UIRoot, AudioRoot, overlay are its children
+→ every swap: LoadSceneAsync(sceneId, LoadSceneMode.Single) — Bootstrap unloads on the first one
 ```
 
-Bootstrap stays loaded for the whole session as the holder scene — AppScope lives there, so it needs no `DontDestroyOnLoad`. Additive loading never changes the active scene: a swap unloads the current gameplay scene (never Bootstrap), loads the target additively, then calls `SceneManager.SetActiveScene(...)` on it. Full pattern and code: `rules/bootstrap-pattern.md` → Card 6.
+No other `DontDestroyOnLoad` — a persistent object that is not under AppScope is a singleton in disguise
+(`check-vcontainer-singleton.sh` blocks `DontDestroyOnLoad(this)`). Full pattern and code:
+`rules/bootstrap-pattern.md` → Card 6.

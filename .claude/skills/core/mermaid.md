@@ -46,7 +46,7 @@ graph TD
 ### VContainer scope hierarchy
 ```mermaid
 graph TD
-    AppScope["AppScope\n(Bootstrap — never unloaded)"]
+    AppScope["AppScope\n(Bootstrap — DontDestroyOnLoad)"]
     MenuScope["MenuScope\n(Menu Scene)"]
     GameScope["GameScope\n(Game Scene)"]
     AppScope --> MenuScope
