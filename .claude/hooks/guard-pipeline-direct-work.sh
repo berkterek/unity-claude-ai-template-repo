@@ -51,10 +51,9 @@ if [ -f "$OVERRIDE_FILE" ]; then
     exit 0
 fi
 
-# unity_subagent_depth() (not a raw `cat`) — it applies any scheduled decrement
-# whose grace window has elapsed first (see agent-stop-log.sh / _lib.sh's
-# unity_subagent_schedule_decrement: Stop fires on async dispatch ack, not on
-# actual subagent completion, so decrements are deferred rather than immediate).
+# unity_subagent_depth() (not a raw `cat`) — it applies any matured fallback
+# decrement first (see _lib.sh: agent-start-log.sh queues one per spawn,
+# subagent-stop-settle.sh consumes it when the subagent really finishes).
 CURRENT_DEPTH=$(unity_subagent_depth)
 
 # Staleness guard. The depth counter leaks (see agent-start-log.sh): any spawn
@@ -74,9 +73,14 @@ CURRENT_DEPTH=$(unity_subagent_depth)
 # a 0 means "Director", which lets a retry PASS, so downgrading on staleness would
 # hand a long-running subagent the exact bypass those hooks exist to prevent. Same
 # counter, opposite resolution, because each must fail toward enforcing ITS rule.
+#
+# Exception (2026-11-19): while a spawn's fallback window is open
+# (unity_subagent_fallback_open) the count is not stale — that spawn has neither
+# reported SubagentStop nor timed out, so it is still running. Without this, a
+# coder working longer than 15 minutes was blocked mid-run.
 STALE_AFTER=900   # 15 min without any spawn/stop event
 
-if [ "$CURRENT_DEPTH" -gt 0 ] 2>/dev/null && [ -f "$DEPTH_FILE" ]; then
+if [ "$CURRENT_DEPTH" -gt 0 ] 2>/dev/null && [ -f "$DEPTH_FILE" ] && ! unity_subagent_fallback_open; then
     # GNU stat: -c %Y. BSD/macOS stat: -f %m. GNU must be tried FIRST — GNU's -f
     # means "filesystem info", so `stat -f %m` there does not fail, it prints "?"
     # with exit 0, and the arithmetic below then dies under `set -e` (CI-only

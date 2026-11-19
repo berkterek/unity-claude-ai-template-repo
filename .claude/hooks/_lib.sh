@@ -199,8 +199,9 @@ UNITY_ENGINE_LEAK_RE='\b(SceneManager|Addressables|GameObject|MonoBehaviour|Tran
 # unity_subagent_depth — how many subagents are currently on the stack.
 #
 # Echoes a sanitized integer: 0 when the file is missing, empty, or non-numeric.
-# The counter is written by agent-start-log.sh (increment) / agent-stop-log.sh
-# (schedules a delayed decrement — see unity_subagent_apply_pending_decrements)
+# The counter is written by agent-start-log.sh (increment + a fallback decrement
+# queued at Start + grace) and subagent-stop-settle.sh (SubagentStop: consumes that
+# fallback and decrements at once — see unity_subagent_settle_one)
 # and it LEAKS (see agent-start-log.sh for the measurement) — treat the value
 # as a hint, never as fact.
 #
@@ -224,37 +225,110 @@ unity_subagent_depth() {
     echo "$depth"
 }
 
-# unity_subagent_stop_grace_seconds — how long a Stop's decrement is deferred
-# past the matching Start, before it's allowed to actually apply. Override with
-# UNITY_SUBAGENT_STOP_GRACE_SECONDS (tests point this at 0 for immediate decrement).
-UNITY_SUBAGENT_STOP_GRACE_SECONDS="${UNITY_SUBAGENT_STOP_GRACE_SECONDS:-180}"
+# UNITY_SUBAGENT_STOP_GRACE_SECONDS — the FALLBACK window: how long after its Start a
+# spawn's decrement applies on its own if no SubagentStop ever arrives for it.
+#
+# History. 2026-08-29: PostToolUse:Agent was found to fire on the Agent tool's async
+# dispatch acknowledgement, not on completion (measured 1-3s vs real 45-54s), so the
+# decrement was deferred to Start + 180s. That turned the bug into a timer: every
+# subagent running longer than 3 minutes read as depth 0 mid-run and
+# guard-pipeline-direct-work.sh blocked its writes (word-soda module 04, 2026-11-19 —
+# coders blocked, pipeline-override written per task to get through).
+#
+# 2026-11-19: the real completion signal is SubagentStop (subagent-stop-settle.sh),
+# which consumes this spawn's fallback entry and decrements at once. The fallback only
+# matters when SubagentStop does not fire, so it is long: 30 minutes of a possibly
+# over-permissive count beats blocking a real coder at minute 4. Tests set 0.
+UNITY_SUBAGENT_STOP_GRACE_SECONDS="${UNITY_SUBAGENT_STOP_GRACE_SECONDS:-1800}"
 
-# unity_subagent_schedule_decrement <not_before_epoch> — called by
-# agent-stop-log.sh instead of decrementing subagent-depth immediately.
+# unity_subagent_schedule_fallback <key> <agent_type> — called by agent-start-log.sh
+# right after it increments. Queues this spawn's decrement at now + grace, tagged with
+# the spawn's key (session_id::description) so a denial can find it and with its
+# agent_type so subagent-stop-settle.sh can prefer the matching spawn.
 #
-# Root cause (found 2026-08-29): in this harness the Agent tool dispatches
-# asynchronously — PostToolUse:Agent fires on dispatch acknowledgement, not on
-# the subagent's actual completion. Measured: duration_approx_s (Start→Stop, the
-# only interval agent-stop-log.sh could see) was 1-3s for three subagents whose
-# own reported usage.duration_ms was 45,000-54,000ms. Decrementing depth at Stop
-# time therefore reads depth back to 0 while the subagent is still genuinely
-# running — including at the exact moment it calls Write — which is what made
-# guard-pipeline-direct-work.sh block real coder/tester subagents.
-#
-# There is no reliable "subagent actually finished" event available to hooks in
-# this harness (native SubagentStart/SubagentStop don't fire consistently either
-# — see agent-start-log.sh; TaskCompleted tracks todo-list items, not Agent
-# dispatches, and does not correlate 1:1 with them). So the decrement is deferred
-# by a heuristic grace window anchored to the Start timestamp — not exact, but
-# closer than trusting the async Stop signal. Recorded, never applied inline,
-# so a caller in the middle of computing a decision doesn't pay a sleep.
-unity_subagent_schedule_decrement() {
-    local not_before="$1"
+# Skipped when a denial for the same key is already queued (the guard ran before
+# this hook): that denial entry is this spawn's decrement, a fallback would be a
+# second one. Order-independence is the property worth keeping — hook order inside a
+# PreToolUse group is not a contract.
+unity_subagent_schedule_fallback() {
+    local key="${1:-unknown}" agent_type="${2:-unknown}"
     local pending="${UNITY_HOOK_STATE_DIR}/subagent-depth-pending.jsonl"
-    case "$not_before" in ''|*[!0-9]*) return 0 ;; esac
+    local not_before=$(( $(date +%s) + UNITY_SUBAGENT_STOP_GRACE_SECONDS ))
+
     unity_subagent_depth_lock
-    jq -nc --argjson not_before "$not_before" '{not_before:$not_before}' >> "$pending"
+    [ -f "$pending" ] || : > "$pending"
+    local denied
+    denied=$(jq -rs --arg k "$key" '[.[] | select(.denied_key == $k)] | length' "$pending" 2>/dev/null || echo 0)
+    case "$denied" in ''|*[!0-9]*) denied=0 ;; esac
+    if [ "$denied" -eq 0 ]; then
+        jq -nc --argjson not_before "$not_before" --arg k "$key" --arg t "$agent_type" \
+            '{not_before:$not_before, key:$k, agent_type:$t}' >> "$pending"
+    fi
     unity_subagent_depth_unlock
+}
+
+# unity_subagent_settle_one <agent_type> — called by subagent-stop-settle.sh when a
+# subagent really finishes. Removes ONE not-yet-due fallback entry and decrements
+# depth immediately. Prefers the oldest entry with the same agent_type, else the
+# oldest of any type — the counter is a count, so which spawn's entry is consumed only
+# matters for when the leftovers mature, not for the value.
+#
+# Due entries are left alone: the next unity_subagent_depth() read applies them, and
+# consuming one here as well would decrement twice. No entry at all (a SendMessage-
+# resumed agent was never counted) → nothing to settle, return 1 so the caller logs it.
+#
+# Known limit: with no agent id in the queue, a subagent that outlives its own
+# fallback window and then stops while another spawn is open consumes THAT spawn's
+# entry — the other agent then reads as finished early. Needs a >30-minute subagent
+# plus a parallel one; the agent_type preference narrows it further. Keying entries
+# on the SubagentStop payload's agent id would close it once the measurement shows
+# the field exists.
+unity_subagent_settle_one() {
+    local agent_type="${1:-unknown}"
+    local depth_file="${UNITY_HOOK_STATE_DIR}/subagent-depth"
+    local pending="${UNITY_HOOK_STATE_DIR}/subagent-depth-pending.jsonl"
+    [ -s "$pending" ] || return 1
+
+    local now idx rest current new
+    now=$(date +%s)
+    unity_subagent_depth_lock
+    idx=$(jq -s --argjson now "$now" --arg t "$agent_type" '
+        [to_entries[] | select(.value.key != null and .value.denied_key == null and .value.not_before > $now)]
+        | (map(select(.value.agent_type == $t)) + .) | first | .key // empty
+    ' "$pending" 2>/dev/null || true)
+    if [ -z "$idx" ]; then
+        unity_subagent_depth_unlock
+        return 1
+    fi
+    rest=$(jq -c -s --argjson i "$idx" 'del(.[$i]) | .[]' "$pending" 2>/dev/null)
+    if [ -n "$rest" ]; then
+        printf '%s\n' "$rest" > "$pending"
+    else
+        : > "$pending"
+    fi
+    current=$(cat "$depth_file" 2>/dev/null || echo 0)
+    case "$current" in ''|*[!0-9]*) current=0 ;; esac
+    new=$(( current - 1 ))
+    [ "$new" -lt 0 ] && new=0
+    echo "$new" > "$depth_file"
+    unity_subagent_depth_unlock
+    return 0
+}
+
+# unity_subagent_fallback_open — true while any spawn's fallback window is still open,
+# i.e. a counted subagent has neither reported SubagentStop nor timed out.
+# guard-pipeline-direct-work.sh uses it to skip its mtime staleness downgrade: the
+# depth file is not touched while an agent merely runs, so a 20-minute coder looked
+# stale and got blocked even though its own fallback entry said it was still running.
+unity_subagent_fallback_open() {
+    local pending="${UNITY_HOOK_STATE_DIR}/subagent-depth-pending.jsonl"
+    [ -s "$pending" ] || return 1
+    local open
+    open=$(jq -s --argjson now "$(date +%s)" \
+        '[.[] | select(.key != null and .denied_key == null and .not_before > $now)] | length' \
+        "$pending" 2>/dev/null || echo 0)
+    case "$open" in ''|*[!0-9]*) open=0 ;; esac
+    [ "$open" -gt 0 ]
 }
 
 # unity_subagent_note_spawn_denied <session_id> <description> — called by a
@@ -292,12 +366,28 @@ unity_subagent_note_spawn_denied() {
 
     unity_subagent_depth_lock
     [ -f "$pending" ] || : > "$pending"
-    local already
+    local already now
+    now=$(date +%s)
     already=$(jq -rs --arg k "$key" '[.[] | select(.denied_key == $k)] | length' "$pending" 2>/dev/null || echo 0)
     case "$already" in ''|*[!0-9]*) already=0 ;; esac
     if [ "$already" -eq 0 ]; then
-        jq -nc --argjson not_before "$(date +%s)" --arg k "$key" \
-            '{not_before:$not_before, denied_key:$k}' >> "$pending"
+        # agent-start-log.sh already ran for this spawn → its fallback entry IS the
+        # decrement to retract: make the newest one with this key due now and mark it
+        # denied. Otherwise queue a denial entry; agent-start-log.sh sees it and skips
+        # its fallback. Either order nets exactly one decrement.
+        local idx
+        idx=$(jq -s --arg k "$key" \
+            '[to_entries[] | select(.value.key == $k and .value.denied_key == null)] | last | .key // empty' \
+            "$pending" 2>/dev/null || true)
+        if [ -n "$idx" ]; then
+            local rewritten
+            rewritten=$(jq -c -s --argjson i "$idx" --argjson now "$now" --arg k "$key" \
+                '.[$i].not_before = $now | .[$i].denied_key = $k | .[]' "$pending" 2>/dev/null)
+            [ -n "$rewritten" ] && printf '%s\n' "$rewritten" > "$pending"
+        else
+            jq -nc --argjson not_before "$now" --arg k "$key" \
+                '{not_before:$not_before, denied_key:$k}' >> "$pending"
+        fi
     fi
     unity_subagent_depth_unlock
 }

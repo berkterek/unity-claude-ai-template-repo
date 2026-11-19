@@ -2,10 +2,11 @@
 # agent-stop-log.sh — PostToolUse/Agent hook
 # Trigger: PostToolUse | Matcher: Agent | Exit: 0 always (audit trail only) | Profile: standard
 #
-# SubagentStop native event is unreliable in Claude Code — it does not fire consistently.
-# Using PostToolUse/Agent instead, which is guaranteed to trigger after every Agent call.
-# Duration is calculated by matching description against the SubagentStart entry written
-# by agent-start-log.sh (PreToolUse/Agent). description is unique per Agent invocation.
+# Audit only — this hook does NOT touch the depth counter any more. PostToolUse/Agent
+# fires on dispatch for background agents, so it cannot say when a subagent finished;
+# the decrement lives in subagent-stop-settle.sh (SubagentStop) with a fallback queued
+# by agent-start-log.sh. Duration is matched against the SubagentStart entry by
+# description; for a background agent it measures dispatch, not the work.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK_PROFILE_LEVEL="standard"
@@ -67,16 +68,9 @@ jq -nc \
 # pipeline's own final step — backed by the 45-minute TTL and the session-restore.sh
 # SessionStart safety net. This hook is a pure audit trail and mutates no gate state.
 
-# Depth counter — the decrement mirroring agent-start-log.sh's increment is NOT
-# applied here. Found 2026-08-29: this Stop fires on the Agent tool's async
-# dispatch acknowledgement, not on the subagent's actual completion (measured
-# duration_approx_s of 1-3s against a real usage.duration_ms of 45-54s for the
-# same calls) — decrementing immediately read depth back to 0 while the
-# subagent was still genuinely running, which is exactly what let
-# guard-pipeline-direct-work.sh block real coder/tester subagents mid-Write.
-# The decrement is scheduled instead, anchored on the matched Start timestamp
-# plus a grace window (see unity_subagent_schedule_decrement in _lib.sh), and
-# applied lazily the next time anything reads unity_subagent_depth().
-unity_subagent_schedule_decrement $(( START_EPOCH + UNITY_SUBAGENT_STOP_GRACE_SECONDS ))
+# Depth counter — nothing here. 2026-08-29 this hook decremented on the spot (read 0
+# while background subagents ran); then it scheduled Start + 180s (read 0 for any
+# subagent longer than 3 minutes — word-soda 04, 2026-11-19). Both used this event as
+# a completion signal, which it is not. See subagent-stop-settle.sh.
 
 exit 0

@@ -39,6 +39,18 @@ teardown() {
     [ "$status" -eq 2 ]
 }
 
+@test "an old depth file is NOT stale while a spawn's fallback window is open" {
+    # A coder running longer than 15 minutes touches no depth state; its open
+    # fallback entry is what says it is still running (word-soda 04, 2026-11-19).
+    local depth="$UNITY_HOOK_STATE_DIR/subagent-depth"
+    echo 1 > "$depth"
+    touch -t 200001010000 "$depth"
+    echo "{\"not_before\":$(( $(date +%s) + 600 )),\"key\":\"S1::T053\",\"agent_type\":\"coder\"}" \
+        > "$UNITY_HOOK_STATE_DIR/subagent-depth-pending.jsonl"
+    run bash -c "echo '$EDIT_PAYLOAD' | bash $HOOK"
+    [ "$status" -eq 0 ]
+}
+
 @test "a FRESH non-zero depth is still trusted — staleness must not block real agents" {
     local depth="$UNITY_HOOK_STATE_DIR/subagent-depth"
     echo 2 > "$depth"

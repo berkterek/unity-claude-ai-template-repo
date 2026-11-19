@@ -105,13 +105,16 @@ jq -nc \
 # check-config-protection.sh to tell whether the CURRENT tool call is happening
 # inside a spawned subagent (depth > 0) or in the main session directly
 # (depth == 0). Incremented here (unless this is a detected retry — see above),
-# decremented once in agent-stop-log.sh per logical call.
+# together with a fallback decrement queued at now + UNITY_SUBAGENT_STOP_GRACE_SECONDS.
+# subagent-stop-settle.sh (SubagentStop — the subagent really finished) consumes that
+# fallback and decrements at once; the fallback only fires if SubagentStop never does.
+# PostToolUse:Agent (agent-stop-log.sh) no longer touches the counter — it fires on
+# dispatch for background agents, which is the bug the fallback design replaced.
 #
 # This comment previously claimed "a stale >0 count self-heals to 0 once agents
-# complete". It does not, in general. The pair only balances when every logical
-# call's increment gets a matching PostToolUse Stop; an agent that errors,
-# is interrupted, or is still running when the session ends leaves the count
-# permanently high, and nothing brings it back down mid-session.
+# complete". It does not, in general: an agent that is still running when the
+# session ends, or a SubagentStop that never arrives, leaves the count high until
+# its fallback matures.
 #
 # A leaked count is not merely noisy — it silently disables
 # guard-pipeline-direct-work.sh, which reads depth > 0 as "a subagent owns this
@@ -127,6 +130,7 @@ if [ "$IS_RETRY" -eq 0 ]; then
     CURRENT_DEPTH=$(cat "$DEPTH_FILE" 2>/dev/null || echo 0)
     echo $(( CURRENT_DEPTH + 1 )) > "$DEPTH_FILE"
     unity_subagent_depth_unlock
+    unity_subagent_schedule_fallback "${SESSION_ID}::${DESCRIPTION}" "$AGENT_TYPE"
 fi
 
 exit 0
