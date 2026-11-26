@@ -91,7 +91,11 @@ Read and apply `.claude/skills/core/mcp-preflight.md` before calling any MCP too
   the first ask, and the test-count baseline was useless because the stale assembly's count
   *was* the baseline. Do not substitute `run_tests(test_names: [...])` for the probe: it
   silently matched 0 tests even with correct fully-qualified names.
-- If `run_tests` is available, run the test suite
+- If `run_tests` is available, run the test suite — the calling prompt decides the scope (e.g. `/orchestrate`
+  Step 3.5 runs full EditMode + the task's own PlayMode classes; its checkpoint Ralph runs both suites in full).
+  **A job with `total: 0` is a failure, not a pass:** Unity reports `resultState: "Passed"` when a filter matched
+  nothing (measured: 3 such jobs on word-soda, Nov 2026). Report it as a failing issue naming the filter; it never
+  satisfies an exit condition.
 
 **State 2 (disconnected) and State 3 (not installed) — no live-Editor verdict is available.**
 Read and apply `.claude/skills/core/unity-cli-verify.md`; run its preflight. The previous non-Unity

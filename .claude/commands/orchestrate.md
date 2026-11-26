@@ -683,8 +683,17 @@ Title: [task title]
    applicable. Your report must name the probe result: `probe: current` / `probe: n/a` / `STALE ASSEMBLY`.
 
 ### Step B — Test Run (only if Step A passes with zero errors)
-6. Call MCP `run_tests` and report results.
-7. If tests fail → attempt fixes, re-run (max 2 attempts).
+6. EditMode — the full suite: `run_tests(mode: "EditMode")`, no filter.
+7. PlayMode — only this task's own test classes: [Director fills: the fully-qualified class names of every
+   `Tests/*PlayModeTest/` file this task's **tester (Step 1) or coder** created or edited — the coder's file list
+   alone never contains the tests — e.g. `Game.PlayModeTest.UiFlowTests`, or none].
+   - none → do not run PlayMode; report `playmode: skipped (no own tests)`.
+   - otherwise → `run_tests(mode: "PlayMode", test_names: [those classes])`; report `playmode: own (<n> tests)`.
+   Never run the full PlayMode suite here — the checkpoint's Ralph does.
+8. **A job with `total: 0` is a failure, not a pass** — Unity reports `resultState: "Passed"` for it. A filter
+   that matched nothing (wrong namespace, a class not compiled) says nothing about the code. Report
+   ISSUES FOUND: `test filter matched 0 tests — <filter>`.
+9. If tests fail → attempt fixes, re-run (max 2 attempts).
 
 ### Step C — Unity-Specific Issues (only if Steps A and B pass)
 8. **Play Mode entry (BLOCKING).** Use MCP `manage_editor` to enter Play Mode. Wait up to 10 s for `editor_state.isPlaying == true`. If Play Mode never engages → report ISSUES FOUND with reason "PlayMode failed to start".
@@ -701,7 +710,7 @@ Title: [task title]
 11. Quick scan for the remaining Unity-specific issues (missing SerializeField, event leaks, leftover Debug.Log spam). These are WARNING-level — list them but do not block.
 
 If you find and fix issues, list them. If cannot fix, report blockers.
-Report: VERIFIED (with the probe line from step 5), STALE ASSEMBLY, or ISSUES FOUND with details.
+Report: VERIFIED (with the probe line from step 5 and the `playmode:` line from step 7), STALE ASSEMBLY, or ISSUES FOUND with details.
 ```
 
 **STALE ASSEMBLY** → stop exactly as for compile errors below, but say the Editor is serving an old DLL — do not
@@ -767,15 +776,16 @@ On reaching each Checkpoint:
 
 #### Step 1 — Ralph (compile + test green)
 
-**Skip check — first.** Skip Ralph when both hold, and print `✓ Ralph skipped — tree unchanged since [task id]
-VERIFIED (probe: current).`:
-- the checkpoint's last task (or last group) got `VERIFIED` from Step 3.5 with `probe: current`, and
-- no code-writing agent (coder, unity-coder, unity-setup, fixer) ran after that verdict.
+**Ralph always runs — there is no skip.** Step 3.5 runs the full EditMode suite but only the task's own PlayMode
+test classes, so Ralph is the first full PlayMode run on this phase's tree. A PlayMode regression one task caused
+in another task's tests (a Scene test such as `UiFlowTests`) surfaces here; fix it in Ralph's fix loop below —
+not by stopping the run.
 
-Step 3.5 compiled the whole project, probed the assembly and ran the full suite on this exact tree, so Ralph
-would repeat it byte for byte (measured downstream: `unity-verifier` 51 `run_tests` across 42 spawns). Anything
-else — a later fix, a skipped or `ISSUES FOUND` verifier, `probe: n/a` or no `probe:` line — runs Ralph in full:
-an edit-only last task has nothing to probe, and Ralph's probe covers every type the whole phase added or deleted.
+> **Why per-task PlayMode is filtered (2026-11-26):** measured on word-soda: the full PlayMode suite took a median
+> 52.7 s (p90 124.5 s, ~127 s at 79 tests), 278 runs = 266 min, against 7.1 s for the full EditMode suite (254
+> tests). The test span was 53% of verifier wall time. The price is that a cross-task PlayMode break is caught at
+> the checkpoint, not at the task that caused it. Three word-soda jobs matched 0 tests and reported `Passed` —
+> hence the `total: 0` rule in both prompts. The removed Ralph skip relied on Step 3.5 having run the full suite.
 
 Otherwise spawn a **unity-verifier** subagent with this prompt:
 
@@ -802,7 +812,9 @@ Run a full compile and test check for the end of a phase.
    and stop. Do not run the tests and do not spawn a fixer: there may be no code defect, and
    a fix pass spent here edits correct code. If nothing was added or deleted, say the probe
    was not applicable.
-7. If the assembly is current → call MCP `run_tests` and report results.
+7. If the assembly is current → run the full suites, no filter: `run_tests(mode: "EditMode")`, then
+   `run_tests(mode: "PlayMode")`. This is the only full PlayMode run of the phase — never skip or filter it.
+   A job with `total: 0` is a failure, not a pass (Unity reports it as `Passed`); report it under ERRORS.
 8. **Play check — only when the checkpoint text asks for one.** Read `docs/play-check.md` first: it is the
    recipe (how to reach the play state from the Bootstrap scene, which objects/entities to inspect, ready-made
    `execute_code` snippets). Follow it; do not rediscover the entry path with `grep` / `FindObjectsByType` probes.
@@ -890,7 +902,7 @@ If **PASS** → proceed to developer prompt.
 Print:
 ```
 ## Checkpoint: [checkpoint metni]
-Ralph: [green (probe: current / ASSEMBLY UNPROBED) / skipped — tree unchanged since [task id] VERIFIED (probe: current)] | Silent failures: [CLEAN / N findings] | Validate: PASS
+Ralph: [green (probe: current / ASSEMBLY UNPROBED), PlayMode [n] tests] | Silent failures: [CLEAN / N findings] | Validate: PASS
 
 Remaining tasks to continue with: [list]
 
