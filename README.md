@@ -863,7 +863,7 @@ The blocking hooks enforce patterns that legacy code likely violates. Before add
 
 | Command | How it runs | What it does |
 |---------|------------|-------------|
-| `/orchestrate docs/modules/<n>/tasks.md` | Manual to start. **Within each task:** tester → coder → verifier → reviewer → committer run **automatically**. **Checkpoint lines** pause for `Proceed?`. | Executes a module's `tasks.md` end-to-end; marks `- [ ]` → `- [x]`, then on completion updates the module's own `> Status:` header **and** the `ROADMAP.md` row — both are mirrors of the checkboxes, and a ROADMAP-only update is silently reverted by the next `/roadmap`. Its SCOPE_GATE prints the module's milestone and the open one, since that gate is the milestone rule's only enforcement point |
+| `/orchestrate docs/modules/<n>/tasks.md` | Manual to start. **Within each task:** tester → coder → verifier → reviewer → committer run **automatically**. The per-task verifier runs the full EditMode suite but only the task's own PlayMode test classes; the full PlayMode suite runs once per checkpoint (Ralph, never skipped). **Checkpoint lines** pause for `Proceed?`. | Executes a module's `tasks.md` end-to-end; marks `- [ ]` → `- [x]`, then on completion updates the module's own `> Status:` header **and** the `ROADMAP.md` row — both are mirrors of the checkboxes, and a ROADMAP-only update is silently reverted by the next `/roadmap`. Its SCOPE_GATE prints the module's milestone and the open one, since that gate is the milestone rule's only enforcement point |
 | `/continue docs/modules/<n>/tasks.md` | Manual — resumes interrupted orchestrate | Resumes an interrupted orchestration run from the EVENTS.jsonl journal |
 
 ### Phase 5 — Quality
@@ -1170,7 +1170,7 @@ All pipeline commands are **manually triggered**. Once started, internal steps r
 | `/update-plan --lean <file> <change>` | analyzer → **lean-planner** (Sonnet) → reviewer → save. No implementer auto-spawn. | Small plan changes — task add/remove, file path fix. |
 | `/smart-commit` | Manual to start → analyze dirty tree → group commits → commit | Group working tree changes into logical semantic commits |
 | `/smart-commit-selected` | Manual to start → analyze → plan groups → multiSelect checklist → commit selected | Commit only user-selected groups from working tree |
-| `/orchestrate docs/modules/<n>/tasks.md` | Manual to start. **Within each task:** tester → coder → verifier (compile + assembly error check + Play Mode entry + VContainerException scan — **blocking**) → reviewer → committer. **Checkpoint lines** pause for `Proceed?` | Execute a module's `tasks.md` end-to-end; marks checkboxes and updates ROADMAP.md on completion |
+| `/orchestrate docs/modules/<n>/tasks.md` | Manual to start. **Within each task:** tester → coder → verifier (compile + assembly error check + full EditMode + the task's own PlayMode classes + Play Mode entry + VContainerException scan — **blocking**) → reviewer → committer. **Checkpoint lines** run the full PlayMode suite (Ralph), then pause for `Proceed?` | Execute a module's `tasks.md` end-to-end; marks checkboxes and updates ROADMAP.md on completion |
 
 > Reviewer priority across all pipelines: Codex → unity-reviewer (falls back if Codex is unavailable). Review loops: CHANGES NEEDED → coder fixes → reviewer re-checks → repeat (max 3 passes).
 >
@@ -1272,7 +1272,7 @@ Specialized AI roles invoked automatically by commands or directly by name.
 | `unity-scout` | Codebase explorer — maps dependencies, surfaces risks, no writes |
 | `unity-test-runner` | Runs Edit/Play Mode tests via MCP and reports failures with context |
 | `unity-test-builder` | Builds Play Mode test scenes — creates TestScope, TestInstaller, PlayMode test stub, wires TestBootstrap in scene via MCP, and adds the test scene to Build Settings automatically; used by `/create-test` |
-| `unity-verifier` | Post-implementation verification — recompile + **stale-assembly probe** + test + prefab/scene integrity. Runs with no reviewer behind it in `/qa`, `/ralph`, `/validate`, `/scene-setup`, so the probe is what stops it closing the loop on an old DLL |
+| `unity-verifier` | Post-implementation verification — recompile + **stale-assembly probe** + test + prefab/scene integrity. Runs with no reviewer behind it in `/qa`, `/ralph`, `/validate`, `/scene-setup`, so the probe is what stops it closing the loop on an old DLL. A test job with `total: 0` (a filter that matched nothing — Unity reports it `Passed`) counts as a failure |
 
 ---
 

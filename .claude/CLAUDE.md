@@ -32,6 +32,9 @@ This is a personal Unity development template for Claude Code. It enforces archi
 - **Token-cost changes are measured, not estimated** (`scripts/pipeline-breakdown.py`, module vs module). Measured
   2026-11-06: per-task `unity-verifier` catches real defects and confirms TDD RED — never move it to checkpoint-only;
   graph facts cover ~11% of planner discovery. → `docs/incidents/token-cost-agent-startup.md`
+- **`/orchestrate` test scope:** per task = full EditMode + only the task's own PlayMode classes; the checkpoint Ralph
+  (never skipped) is the only full PlayMode run. A test job with `total: 0` is a failure, not a pass. Measured on
+  word-soda 2026-11-26: full PlayMode median 52.7 s vs EditMode 7.1 s. → `commands/orchestrate.md` Phase Gate
 - **The graph is under measurement, not proven.** `graph-nudge.sh` (soft hint, `graph` flag) + `graph-usage-report.py`;
   nile `/plan-module` n=4: graph use up, shell reads and cost not down — one more fresh-plan run decides keep vs
   remove. Do not expand graph pushing into prompts meanwhile. → `docs/incidents/token-cost-agent-startup.md`
